@@ -1,0 +1,14 @@
+{
+  "name": "talentos",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "cd server && node index.js",
+    "install:server": "cd server && npm install",
+    "install:client": "cd client && npm install",
+    "install:portal": "cd portal-renderer && npm install"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

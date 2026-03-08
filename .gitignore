@@ -1,7 +1,39 @@
-node_modules
-client/node_modules
-server/node_modules
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+portal-renderer/node_modules/
+
+# Environment & secrets
 .env
+server/.env
+*.env.local
+
+# Build outputs
+dist/
+build/
+client/dist/
+portal-renderer/dist/
+
+# macOS
 .DS_Store
-dist
-build
+**/.DS_Store
+
+# Data (live DB - exclude from repo, seed instead)
+data/talentos.json
+
+# Patch/migration scripts (not needed in repo)
+patch-app.js
+server/patch-*.js
+server/wire-*.sh
+server/add-*.sh
+server/ai-proxy.js
+server/csv.js
+server/AI.jsx
+server/Dashboard.jsx
+server/Records.jsx
+server/Search.jsx
+
+# Logs
+*.log
+npm-debug.log*

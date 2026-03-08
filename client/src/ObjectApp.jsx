@@ -198,7 +198,7 @@ const RecordForm = ({objectDef, record, onSave, onClose, title}) => {
               display:"flex",flexDirection:"column",gap:4
             }}>
               <label style={{fontSize:12,fontWeight:600,color:C.text2,letterSpacing:"0.02em"}}>
-                {field.name}{field.is_required&&<span style={{color:"#ef4444",marginLeft:2}}>*</span>}
+                {field.name}{!!field.is_required&&<span style={{color:"#ef4444",marginLeft:2}}>*</span>}
               </label>
               <FieldEditor field={field} value={data[field.api_key]} onChange={v=>setField(field.api_key,v)}/>
               {errors[field.api_key]&&<span style={{fontSize:11,color:"#ef4444"}}>{errors[field.api_key]}</span>}

@@ -190,4 +190,4 @@ async function seedUsersAndRoles() {
   }
 }
 
-module.exports = { getStore, query, findOne, insert, update, remove, initDB };
+module.exports = { getStore, saveStore, query, findOne, insert, update, remove, initDB };

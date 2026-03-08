@@ -3,6 +3,29 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { query, findOne, insert, update, remove } = require('../db/init');
 
+// Cross-object quick search — used by the global search bar
+router.get('/search', (req, res) => {
+  const { q, environment_id, limit=6 } = req.query;
+  if (!q || !environment_id) return res.json([]);
+  const term = q.toLowerCase();
+  const objects = query('objects', o => o.environment_id === environment_id);
+  const results = [];
+  for (const obj of objects) {
+    const records = query('records', r => r.object_id === obj.id && r.environment_id === environment_id && !r.deleted_at);
+    for (const r of records) {
+      if (JSON.stringify(r.data).toLowerCase().includes(term)) {
+        const d = r.data || {};
+        const display_name = [d.first_name, d.last_name].filter(Boolean).join(' ') || d.job_title || d.pool_name || d.name || 'Untitled';
+        results.push({ ...r, object_name: obj.name, object_slug: obj.slug, object_color: obj.color, display_name });
+        if (results.length >= parseInt(limit) * 3) break;
+      }
+    }
+    if (results.length >= parseInt(limit) * 3) break;
+  }
+  results.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  res.json(results.slice(0, parseInt(limit)));
+});
+
 router.get('/', (req, res) => {
   const { object_id, environment_id, page=1, limit=50, search, sort_dir='desc' } = req.query;
   if (!object_id||!environment_id) return res.status(400).json({error:'object_id and environment_id required'});

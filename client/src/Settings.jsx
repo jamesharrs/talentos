@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 const api = {
   get:   p     => fetch(`/api${p}`).then(r=>r.json()),
@@ -93,6 +93,8 @@ const PATHS = {
   globe:"M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z",
   refresh:"M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15",
   chevD:"M6 9l6 6 6-6",
+  chevR:"M9 18l6-6-6-6",
+  database:"M12 2C8.13 2 5 3.34 5 5v14c0 1.66 3.13 3 7 3s7-1.34 7-3V5c0-1.66-3.13-3-7-3zM5 12c0 1.66 3.13 3 7 3s7-1.34 7-3M5 8c0 1.66 3.13 3 7 3s7-1.34 7-3",
   sliders:"M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
 };
 const Ic = ({n,s=16,c="currentColor"}) => (
@@ -641,8 +643,253 @@ const SessionsSection = () => {
   );
 };
 
+// ── Data Model Section ────────────────────────────────────────────────────────
+const FIELD_TYPES_DM = [
+  {value:"text",label:"Text",icon:"T"},{value:"textarea",label:"Long Text",icon:"¶"},{value:"number",label:"Number",icon:"#"},
+  {value:"email",label:"Email",icon:"@"},{value:"phone",label:"Phone",icon:"☎"},{value:"url",label:"URL",icon:"🔗"},
+  {value:"date",label:"Date",icon:"📅"},{value:"boolean",label:"Boolean",icon:"◉"},{value:"select",label:"Select",icon:"▾"},
+  {value:"multi_select",label:"Multi Select",icon:"☑"},{value:"currency",label:"Currency",icon:"$"},{value:"rating",label:"Rating",icon:"★"},
+];
+const COLORS_DM = ["#6366f1","#f59e0b","#10b981","#ef4444","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f97316","#64748b"];
+
+const DataModelSection = () => {
+  const [envs,       setEnvs]       = useState([]);
+  const [selEnv,     setSelEnv]     = useState(null);
+  const [objects,    setObjects]    = useState([]);
+  const [selObj,     setSelObj]     = useState(null);
+  const [fields,     setFields]     = useState([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [showField,  setShowField]  = useState(false);
+  const [editField,  setEditField]  = useState(null);
+  const [loading,    setLoading]    = useState(false);
+
+  // Load envs
+  useEffect(() => {
+    api.get("/environments").then(d => {
+      const list = Array.isArray(d) ? d : [];
+      setEnvs(list);
+      const def = list.find(e => e.is_default) || list[0];
+      if (def) setSelEnv(def);
+    });
+  }, []);
+
+  // Load objects when env changes
+  useEffect(() => {
+    if (!selEnv) return;
+    api.get(`/objects?environment_id=${selEnv.id}`).then(d => {
+      setObjects(Array.isArray(d) ? d : []);
+      setSelObj(null);
+    });
+  }, [selEnv?.id]);
+
+  // Load fields when object selected
+  useEffect(() => {
+    if (!selObj) return;
+    setLoading(true);
+    api.get(`/fields?object_id=${selObj.id}`).then(d => {
+      setFields(Array.isArray(d) ? d : []);
+      setLoading(false);
+    });
+  }, [selObj?.id]);
+
+  const reloadFields = () => api.get(`/fields?object_id=${selObj.id}`).then(d => setFields(Array.isArray(d)?d:[]));
+  const reloadObjects = () => api.get(`/objects?environment_id=${selEnv.id}`).then(d => setObjects(Array.isArray(d)?d:[]));
+
+  const saveField = async (payload, id) => {
+    if (id) await api.patch(`/fields/${id}`, payload);
+    else    await api.post("/fields", payload);
+    await reloadFields();
+    setShowField(false); setEditField(null);
+  };
+
+  const deleteField = async (f) => {
+    if (!confirm(`Delete field "${f.name}"? This removes data from all records.`)) return;
+    await api.del(`/fields/${f.id}`);
+    reloadFields();
+  };
+
+  const createObject = async (payload) => {
+    await api.post("/objects", { ...payload, environment_id: selEnv.id });
+    await reloadObjects();
+    setShowCreate(false);
+  };
+
+  // ── Field form modal ──────────────────────────────────────────────────────
+  const FieldModal = ({ field, onClose }) => {
+    const isEdit = !!field?.id;
+    const [form, setForm] = useState({
+      name: field?.name||"", api_key: field?.api_key||"", field_type: field?.field_type||"text",
+      is_required: field?.is_required||false, show_in_list: field?.show_in_list!==undefined?!!field.show_in_list:true,
+      options: field?.options ? (Array.isArray(field.options)?field.options.join(", "):field.options) : "",
+      placeholder: field?.placeholder||"", help_text: field?.help_text||"",
+    });
+    const [autoKey, setAutoKey] = useState(!isEdit);
+    const [saving, setSaving] = useState(false);
+    const set = (k,v) => setForm(f=>({...f,[k]:v}));
+    const handleName = v => { set("name",v); if(autoKey) set("api_key", v.toLowerCase().replace(/[^a-z0-9]/g,"_").replace(/__+/g,"_").replace(/^_|_$/g,"")); };
+    const handle = async () => {
+      setSaving(true);
+      await saveField({ ...form, object_id: selObj.id, environment_id: selEnv.id,
+        options: ["select","multi_select"].includes(form.field_type) ? form.options.split(",").map(s=>s.trim()).filter(Boolean) : undefined
+      }, field?.id);
+      setSaving(false);
+    };
+    return (
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+        <div style={{background:"#fff",borderRadius:16,padding:"24px 28px",width:520,maxHeight:"90vh",overflow:"auto",fontFamily:F,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}>
+          <div style={{fontSize:16,fontWeight:800,color:C.text1,marginBottom:16}}>{isEdit?"Edit":"New"} Field</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:16}}>
+            {FIELD_TYPES_DM.map(ft=>(
+              <button key={ft.value} onClick={()=>set("field_type",ft.value)} style={{padding:"7px 4px",borderRadius:8,border:`2px solid ${form.field_type===ft.value?"#3b5bdb":"#e8eaed"}`,background:form.field_type===ft.value?"#3b5bdb":"#fff",color:form.field_type===ft.value?"#fff":"#6b7280",cursor:"pointer",fontSize:10,fontWeight:600,textAlign:"center",fontFamily:F}}>
+                <div>{ft.icon}</div><div>{ft.label}</div>
+              </button>
+            ))}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+            <Inp label="Field Name" value={form.name} onChange={handleName} required/>
+            <Inp label="API Key" value={form.api_key} onChange={v=>{set("api_key",v);setAutoKey(false);}} disabled={isEdit&&field?.is_system}/>
+          </div>
+          {["select","multi_select"].includes(form.field_type) && <div style={{marginBottom:12}}><Inp label="Options (comma-separated)" value={form.options} onChange={v=>set("options",v)} placeholder="Option A, Option B"/></div>}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+            <Inp label="Placeholder" value={form.placeholder} onChange={v=>set("placeholder",v)}/>
+            <Inp label="Help Text" value={form.help_text} onChange={v=>set("help_text",v)}/>
+          </div>
+          <div style={{display:"flex",gap:16,marginBottom:16}}>
+            {[{k:"is_required",l:"Required"},{k:"show_in_list",l:"Show in list"}].map(({k,l})=>(
+              <label key={k} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,fontWeight:600,color:C.text2}}>
+                <input type="checkbox" checked={!!form[k]} onChange={e=>set(k,e.target.checked)}/>{l}
+              </label>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end",borderTop:`1px solid ${C.border}`,paddingTop:16}}>
+            <Btn v="secondary" onClick={onClose}>Cancel</Btn>
+            <Btn onClick={handle} disabled={saving||!form.name}>{saving?"Saving…":isEdit?"Save Changes":"Add Field"}</Btn>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Create object modal ───────────────────────────────────────────────────
+  const CreateObjectModal = ({ onClose }) => {
+    const [form, setForm] = useState({name:"",plural_name:"",slug:"",color:"#6366f1",description:""});
+    const [saving, setSaving] = useState(false);
+    const [autoSlug, setAutoSlug] = useState(true);
+    const [autoPlural, setAutoPlural] = useState(true);
+    const set = (k,v) => setForm(f=>({...f,[k]:v}));
+    const handleName = v => { set("name",v); if(autoSlug) set("slug",v.toLowerCase().replace(/[^a-z0-9]/g,"-").replace(/--+/g,"-").replace(/^-|-$/g,"")); if(autoPlural) set("plural_name",v+"s"); };
+    const handle = async () => { setSaving(true); await createObject(form); setSaving(false); };
+    return (
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+        <div style={{background:"#fff",borderRadius:16,padding:"24px 28px",width:440,fontFamily:F,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}>
+          <div style={{fontSize:16,fontWeight:800,color:C.text1,marginBottom:16}}>New Object</div>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <Inp label="Name" value={form.name} onChange={handleName} required/>
+              <Inp label="Plural Name" value={form.plural_name} onChange={v=>{set("plural_name",v);setAutoPlural(false);}}/>
+            </div>
+            <Inp label="Slug" value={form.slug} onChange={v=>{set("slug",v);setAutoSlug(false);}} help="Used in API and URLs"/>
+            <Inp label="Description" value={form.description} onChange={v=>set("description",v)}/>
+            <div>
+              <label style={{fontSize:12,fontWeight:600,color:C.text2,display:"block",marginBottom:6}}>Color</label>
+              <div style={{display:"flex",gap:6}}>
+                {COLORS_DM.map(c=><button key={c} onClick={()=>set("color",c)} style={{width:26,height:26,borderRadius:"50%",background:c,border:"none",cursor:"pointer",outline:form.color===c?`3px solid ${c}`:"none",outlineOffset:2}}/>)}
+              </div>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end",borderTop:`1px solid ${C.border}`,paddingTop:16,marginTop:16}}>
+            <Btn v="secondary" onClick={onClose}>Cancel</Btn>
+            <Btn onClick={handle} disabled={saving||!form.name} style={{background:form.color}}>{saving?"Creating…":"Create Object"}</Btn>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  if (!selEnv) return <div style={{padding:40,textAlign:"center",color:C.text3}}>Loading…</div>;
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:24}}>
+        <div>
+          <div style={{fontSize:18,fontWeight:800,color:C.text1}}>Data Model</div>
+          <div style={{fontSize:12,color:C.text3}}>Configure objects and fields for each environment</div>
+        </div>
+        <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
+          <select value={selEnv?.id||""} onChange={e=>setSelEnv(envs.find(v=>v.id===e.target.value))}
+            style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:12,fontFamily:F,outline:"none",background:"#fff",color:C.text1}}>
+            {envs.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+          {selObj && <Btn v="ghost" sz="sm" icon="x" onClick={()=>setSelObj(null)}>Back to Objects</Btn>}
+          {!selObj && <Btn sz="sm" icon="plus" onClick={()=>setShowCreate(true)}>New Object</Btn>}
+          {selObj  && <Btn sz="sm" icon="plus" onClick={()=>setShowField(true)}>Add Field</Btn>}
+        </div>
+      </div>
+
+      {/* Objects grid */}
+      {!selObj && (
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:10}}>
+          {objects.map(o=>(
+            <div key={o.id} onClick={()=>setSelObj(o)} style={{background:"#fff",borderRadius:12,border:`1px solid ${C.border}`,padding:"16px 18px",cursor:"pointer",display:"flex",alignItems:"center",gap:12,transition:"all .15s"}}
+              onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,.08)";e.currentTarget.style.borderColor="#d1d5db";}}
+              onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";e.currentTarget.style.borderColor=C.border;}}>
+              <div style={{width:40,height:40,borderRadius:10,background:o.color||"#6366f1",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <span style={{color:"white",fontSize:16,fontWeight:700}}>{o.name.charAt(0)}</span>
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:700,color:C.text1}}>{o.plural_name||o.name}</div>
+                <div style={{fontSize:11,color:C.text3}}>{o.field_count||0} fields · {o.record_count||0} records {o.is_system&&"· system"}</div>
+              </div>
+              <Ic n="chevR" s={14} c={C.text3}/>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Fields list */}
+      {selObj && (
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,padding:"14px 16px",background:"#fff",borderRadius:12,border:`1px solid ${C.border}`}}>
+            <div style={{width:36,height:36,borderRadius:9,background:selObj.color||"#6366f1",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <span style={{color:"white",fontSize:14,fontWeight:700}}>{selObj.name.charAt(0)}</span>
+            </div>
+            <div>
+              <div style={{fontSize:14,fontWeight:800,color:C.text1}}>{selObj.name} Schema</div>
+              <div style={{fontSize:11,color:C.text3}}>{fields.length} fields</div>
+            </div>
+          </div>
+          {loading ? <div style={{padding:40,textAlign:"center",color:C.text3}}>Loading fields…</div> : (
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {fields.map(f=>(
+                <div key={f.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"#fff",borderRadius:10,border:`1px solid ${C.border}`}}>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontSize:13,fontWeight:600,color:C.text1}}>{f.name}</span>
+                      {f.is_system&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:99,background:"#f1f5f9",color:"#64748b",fontWeight:600}}>system</span>}
+                      {!!f.is_required&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:99,background:"#fef2f2",color:"#ef4444",fontWeight:600}}>required</span>}
+                    </div>
+                    <div style={{fontSize:11,color:C.text3,marginTop:2}}><code style={{fontFamily:"monospace"}}>{f.api_key}</code> · {f.field_type}</div>
+                  </div>
+                  <div style={{display:"flex",gap:4}}>
+                    <Btn v="ghost" sz="sm" icon="edit" onClick={()=>setEditField(f)}/>
+                    {!f.is_system&&<Btn v="ghost" sz="sm" icon="trash" onClick={()=>deleteField(f)} style={{color:"#ef4444"}}/>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {showCreate && <CreateObjectModal onClose={()=>setShowCreate(false)}/>}
+      {(showField||editField) && <FieldModal field={editField} onClose={()=>{setShowField(false);setEditField(null);}}/>}
+    </div>
+  );
+};
+
 // ── Main Settings Page ────────────────────────────────────────────────────────
 const SECTIONS = [
+  { id:"datamodel", icon:"database", label:"Data Model" },
   { id:"users",    icon:"users",    label:"Users" },
   { id:"roles",    icon:"shield",   label:"Roles & Permissions" },
   { id:"security", icon:"lock",     label:"Security" },
@@ -651,7 +898,7 @@ const SECTIONS = [
 ];
 
 export default function SettingsPage() {
-  const [activeSection, setActiveSection] = useState("users");
+  const [activeSection, setActiveSection] = useState("datamodel");
 
   return (
     <div style={{display:"flex",gap:0,minHeight:"100%"}}>
@@ -669,6 +916,7 @@ export default function SettingsPage() {
 
       {/* Content */}
       <div style={{flex:1,minWidth:0}}>
+        {activeSection==="datamodel" && <DataModelSection/>}
         {activeSection==="users"    && <UsersSection/>}
         {activeSection==="roles"    && <RolesSection/>}
         {activeSection==="security" && <SecuritySection/>}

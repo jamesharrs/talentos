@@ -1,6 +1,13 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import SettingsPage from "./Settings.jsx";
+import RecordsView from "./Records.jsx";
+import SearchPage from "./Search.jsx";
+import { AICopilot, MatchingEngine } from "./AI.jsx";
+import Dashboard from "./Dashboard.jsx";
 import ObjectApp from "./ObjectApp.jsx";
+import WorkflowsPage from "./Workflows.jsx";
+import PortalsPage from "./Portals.jsx";
+import { ThemeProvider, useTheme, SCHEMES, FONTS, DENSITIES } from "./Theme.jsx";
 
 // ─── API Client ───────────────────────────────────────────────────────────────
 const api = {
@@ -68,6 +75,9 @@ const Icon = ({ name, size = 16, color = "currentColor" }) => {
     award: "M12 15a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM8.21 13.89L7 23l5-3 5 3-1.21-9.12",
     target: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
     compass: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM16.24 7.76l-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z",
+    workflow: "M22 12h-4l-3 9L9 3l-3 9H2",
+    home: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10",
+    mail: "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6",
   };
 
   return (
@@ -628,15 +638,225 @@ const EnvironmentBadge = ({ env, selected, onClick }) => (
   </button>
 );
 
+// ─── Global Search Bar ────────────────────────────────────────────────────────
+const GlobalSearch = ({ selectedEnv, onNavigateToSearch }) => {
+  const [query,   setQuery]   = useState("");
+  const [results, setResults] = useState([]);
+  const [open,    setOpen]    = useState(false);
+  const [loading, setLoading] = useState(false);
+  const ref   = useRef(null);
+  const timer = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const search = async (q) => {
+    if (!q.trim() || !selectedEnv) { setResults([]); return; }
+    setLoading(true);
+    try {
+      const data = await fetch(`/api/records/search?q=${encodeURIComponent(q)}&environment_id=${selectedEnv.id}&limit=6`).then(r => r.json());
+      setResults(Array.isArray(data) ? data : []);
+    } catch { setResults([]); }
+    setLoading(false);
+  };
+
+  const handleChange = (e) => {
+    const q = e.target.value;
+    setQuery(q);
+    setOpen(true);
+    clearTimeout(timer.current);
+    if (!q.trim()) { setResults([]); return; }
+    timer.current = setTimeout(() => search(q), 220);
+  };
+
+  const handleAdvanced = () => {
+    setOpen(false);
+    onNavigateToSearch(query);
+  };
+
+  const OBJECT_COLORS = { people: "#3b5bdb", jobs: "#0ca678", "talent-pools": "#7c3aed" };
+
+  return (
+    <div ref={ref} style={{ position: "sticky", top: 0, zIndex: 200, background: "var(--t-surface)", borderBottom: "1px solid var(--t-border)", padding: "10px 32px", display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ position: "relative", flex: 1, maxWidth: 480 }}>
+        {/* Input */}
+        <input
+          value={query}
+          onChange={handleChange}
+          onFocus={() => query && setOpen(true)}
+          placeholder="Search candidates, jobs, talent pools…"
+          style={{ width: "100%", padding: "8px 12px 8px 36px", borderRadius: 10, border: `1.5px solid ${open ? "var(--t-accent)" : "var(--t-border)"}`, fontSize: 13, fontFamily: "var(--t-font, 'DM Sans', sans-serif)", outline: "none", background: "var(--t-surface2)", color: "var(--t-text1)", boxSizing: "border-box", transition: "border-color .15s" }}
+        />
+        <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: open ? "var(--t-accent)" : "var(--t-text3)", display: "flex", pointerEvents: "none", transition: "color .15s" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/></svg>
+        </span>
+
+        {/* Dropdown */}
+        {open && query && (
+          <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: "var(--t-surface)", borderRadius: 12, border: "1px solid var(--t-border)", boxShadow: "0 8px 32px rgba(0,0,0,.15)", zIndex: 300, overflow: "hidden" }}>
+            {loading && (
+              <div style={{ padding: "12px 16px", fontSize: 12, color: "var(--t-text3)" }}>Searching…</div>
+            )}
+            {!loading && results.length === 0 && (
+              <div style={{ padding: "12px 16px", fontSize: 12, color: "var(--t-text3)" }}>No results for "{query}"</div>
+            )}
+            {!loading && results.map((r) => {
+              const color = r.object_color || OBJECT_COLORS[r.object_slug] || "#6366f1";
+              const d = r.data || {};
+              const name = r.display_name
+                || (d.first_name ? `${d.first_name} ${d.last_name||""}`.trim() : null)
+                || d.job_title
+                || d.pool_name
+                || d.name
+                || "Untitled";
+              const sub = d.current_title || d.department || d.category || d.description?.slice(0,60) || d.email || "";
+              return (
+                <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid var(--t-border2)", transition: "background .1s" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "var(--t-surface2)"}
+                  onMouseLeave={e => e.currentTarget.style.background = "var(--t-surface)"}
+                  onClick={() => setOpen(false)}>
+                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <span style={{ color: "white", fontSize: 11, fontWeight: 700 }}>{(name||"?").charAt(0).toUpperCase()}</span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+                    {sub && <div style={{ fontSize: 11, color: "#9ca3af", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub}</div>}
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: color, background: `${color}15`, padding: "2px 7px", borderRadius: 99, whiteSpace: "nowrap", textTransform: "capitalize" }}>{r.object_name || r.object_slug}</span>
+                </div>
+              );
+            })}
+            {/* Advanced search footer */}
+            <div onClick={handleAdvanced} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", cursor: "pointer", background: "var(--t-surface2)", borderTop: "1px solid var(--t-border)", transition: "background .1s" }}
+              onMouseEnter={e => e.currentTarget.style.background = "var(--t-accent-light)"}
+              onMouseLeave={e => e.currentTarget.style.background = "var(--t-surface2)"}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t-accent)" strokeWidth="2"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3"/></svg>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--t-accent)" }}>Advanced search for "{query}"</span>
+              <svg style={{ marginLeft: "auto" }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t-text3)" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+          </div>
+        )}
+      </div>
+      <span style={{ fontSize: 12, color: "var(--t-text3)" }}>{selectedEnv?.name}</span>
+    </div>
+  );
+};
+
+// ─── Theme Panel ──────────────────────────────────────────────────────────────
+function ThemePanel({ onClose }) {
+  const { prefs, update } = useTheme();
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.25)",zIndex:200,backdropFilter:"blur(2px)" }} />
+      {/* Panel */}
+      <div style={{ position:"fixed",bottom:24,left:228,zIndex:201,width:280,background:"var(--t-surface)",borderRadius:16,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",border:"1px solid var(--t-border)",overflow:"hidden",fontFamily:"var(--t-font)" }}>
+        {/* Header */}
+        <div style={{ padding:"16px 18px 12px",borderBottom:"1px solid var(--t-border)",display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+          <div>
+            <div style={{ fontSize:14,fontWeight:800,color:"var(--t-text1)" }}>Appearance</div>
+            <div style={{ fontSize:11,color:"var(--t-text3)" }}>Personalise your workspace</div>
+          </div>
+          <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",padding:4,borderRadius:6,color:"var(--t-text3)",display:"flex" }}>
+            <Icon name="x" size={16} color="var(--t-text3)" />
+          </button>
+        </div>
+
+        <div style={{ padding:"14px 18px",display:"flex",flexDirection:"column",gap:18 }}>
+
+          {/* Dark mode */}
+          <div>
+            <div style={{ fontSize:11,fontWeight:700,color:"var(--t-text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8 }}>Mode</div>
+            <div style={{ display:"flex",gap:6 }}>
+              {[{id:false,label:"☀️ Light"},{id:true,label:"🌙 Dark"}].map(({id,label}) => (
+                <button key={String(id)} onClick={() => update("dark", id)} style={{
+                  flex:1,padding:"8px 0",borderRadius:8,border:`1.5px solid ${prefs.dark===id?"var(--t-accent)":"var(--t-border)"}`,
+                  background:prefs.dark===id?"var(--t-accent-light)":"var(--t-surface2)",
+                  color:prefs.dark===id?"var(--t-accent)":"var(--t-text2)",
+                  fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"
+                }}>{label}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Colour scheme */}
+          <div>
+            <div style={{ fontSize:11,fontWeight:700,color:"var(--t-text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8 }}>Colour</div>
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6 }}>
+              {Object.entries(SCHEMES).map(([id, s]) => (
+                <button key={id} onClick={() => update("scheme", id)} title={s.label} style={{
+                  display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"8px 4px",
+                  borderRadius:8,border:`1.5px solid ${prefs.scheme===id?"var(--t-accent)":"var(--t-border)"}`,
+                  background:prefs.scheme===id?"var(--t-accent-light)":"var(--t-surface2)",
+                  cursor:"pointer",fontFamily:"inherit"
+                }}>
+                  <div style={{ display:"flex",gap:2 }}>
+                    <span style={{ width:10,height:10,borderRadius:"50%",background:s.accentDark,display:"inline-block" }}/>
+                    <span style={{ width:10,height:10,borderRadius:"50%",background:s.accent,display:"inline-block" }}/>
+                  </div>
+                  <span style={{ fontSize:9,fontWeight:600,color:prefs.scheme===id?"var(--t-accent)":"var(--t-text3)" }}>{s.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Font */}
+          <div>
+            <div style={{ fontSize:11,fontWeight:700,color:"var(--t-text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8 }}>Font</div>
+            <div style={{ display:"flex",flexDirection:"column",gap:4 }}>
+              {Object.entries(FONTS).map(([id, f]) => (
+                <button key={id} onClick={() => update("font", id)} style={{
+                  padding:"8px 12px",borderRadius:8,border:`1.5px solid ${prefs.font===id?"var(--t-accent)":"var(--t-border)"}`,
+                  background:prefs.font===id?"var(--t-accent-light)":"var(--t-surface2)",
+                  color:prefs.font===id?"var(--t-accent)":"var(--t-text2)",
+                  fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:f.value,textAlign:"left",
+                  display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all 0.15s"
+                }}>
+                  <span>{f.label}</span>
+                  <span style={{ fontSize:10,opacity:0.6 }}>Aa</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Density */}
+          <div>
+            <div style={{ fontSize:11,fontWeight:700,color:"var(--t-text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8 }}>Density</div>
+            <div style={{ display:"flex",gap:6 }}>
+              {Object.entries(DENSITIES).map(([id, d]) => (
+                <button key={id} onClick={() => update("density", id)} style={{
+                  flex:1,padding:"8px 0",borderRadius:8,border:`1.5px solid ${prefs.density===id?"var(--t-accent)":"var(--t-border)"}`,
+                  background:prefs.density===id?"var(--t-accent-light)":"var(--t-surface2)",
+                  color:prefs.density===id?"var(--t-accent)":"var(--t-text2)",
+                  fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"
+                }}>{d.label}</button>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
-export default function App() {
+function App() {
+  const { prefs, update } = useTheme();
   const [environments, setEnvironments] = useState([]);
   const [selectedEnv, setSelectedEnv] = useState(null);
   const [selectedObject, setSelectedObject] = useState(null);
   const [allObjects, setAllObjects] = useState([]);
-  const [activeNav, setActiveNav] = useState("app");
+  const [activeNav, setActiveNav] = useState("dashboard");
+  const [navObjects, setNavObjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [apiOnline, setApiOnline] = useState(null);
+  const [showTheme, setShowTheme] = useState(false);
 
   useEffect(() => {
     fetch("/api/health")
@@ -656,17 +876,36 @@ export default function App() {
     }).catch(() => setLoading(false));
   }, [apiOnline]);
 
+  useEffect(() => {
+    if (!selectedEnv?.id) return;
+    api.get(`/objects?environment_id=${selectedEnv.id}`).then(d => setNavObjects(Array.isArray(d) ? d : []));
+  }, [selectedEnv?.id]);
+
+  const OBJECT_ICONS = { people: "user", jobs: "briefcase", "talent-pools": "layers" };
+
   const navSections = [
     {
-      label: "Recruit",
+      label: "Overview",
       items: [
-        { id: "app", icon: "grid", label: "All Objects" },
+        { id: "dashboard", icon: "home", label: "Dashboard" },
+      ]
+    },
+    {
+      label: "Recruit",
+      items: navObjects.map(o => ({ id: `obj_${o.id}`, icon: OBJECT_ICONS[o.slug] || "database", label: o.plural_name, object: o }))
+    },
+    {
+      label: "Tools",
+      items: [
+        { id: "matching",  icon: "zap",      label: "AI Matching" },
+        { id: "workflows", icon: "workflow",  label: "Workflows" },
+        { id: "portals",   icon: "globe",     label: "Portals" },
+        { id: "search",    icon: "search",    label: "Search" },
       ]
     },
     {
       label: "Configure",
       items: [
-        { id: "schema", icon: "database", label: "Data Model" },
         { id: "settings", icon: "settings", label: "Settings" },
       ]
     }
@@ -694,25 +933,27 @@ export default function App() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f7f8fa", fontFamily: "'DM Sans', -apple-system, sans-serif", display: "flex" }}>
+    <div style={{ minHeight: "100vh", background: "var(--t-bg)", fontFamily: "var(--t-font)", display: "flex" }}>
+      {/* Theme Panel */}
+      {showTheme && <ThemePanel onClose={() => setShowTheme(false)} />}
       {/* Sidebar */}
-      <div style={{ width: 220, background: "white", borderRight: "1px solid #f0f0f0", display: "flex", flexDirection: "column", padding: "0 0 16px", position: "fixed", height: "100vh", top: 0, left: 0, zIndex: 100 }}>
+      <div style={{ width: 220, background: "var(--t-nav-bg)", borderRight: "1px solid var(--t-border2)", display: "flex", flexDirection: "column", padding: "0 0 16px", position: "fixed", height: "100vh", top: 0, left: 0, zIndex: 100 }}>
         {/* Logo */}
-        <div style={{ padding: "20px 16px 16px", borderBottom: "1px solid #f0f0f0" }}>
+        <div style={{ padding: "20px 16px 16px", borderBottom: "1px solid var(--t-border2)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #1a1a2e, #3b5bdb)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(var(--t-gradient))`, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ color: "white", fontSize: 14, fontWeight: 900 }}>T</span>
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: "#1a1a2e", lineHeight: 1 }}>TalentOS</div>
-              <div style={{ fontSize: 10, color: "#9ca3af", letterSpacing: "0.05em" }}>PLATFORM</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "var(--t-text1)", lineHeight: 1 }}>TalentOS</div>
+              <div style={{ fontSize: 10, color: "var(--t-text3)", letterSpacing: "0.05em" }}>PLATFORM</div>
             </div>
           </div>
         </div>
 
         {/* Environment */}
         <div style={{ padding: "12px 12px 8px" }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6, paddingLeft: 4 }}>Environment</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--t-text3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6, paddingLeft: 4 }}>Environment</div>
           {environments.map(env => (
             <EnvironmentBadge key={env.id} env={env} selected={selectedEnv?.id === env.id} onClick={() => { setSelectedEnv(env); setSelectedObject(null); }} />
           ))}
@@ -722,59 +963,84 @@ export default function App() {
         <div style={{ padding: "8px 12px", flex: 1 }}>
           {navSections.map(section => (
             <div key={section.label} style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6, paddingLeft: 4 }}>{section.label}</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--t-text3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6, paddingLeft: 4 }}>{section.label}</div>
               {section.items.map(item => (
                 <button key={item.id} onClick={() => switchNav(item.id)} style={{
                   width: "100%", display: "flex", alignItems: "center", gap: 9,
                   padding: "8px 10px", borderRadius: 8, border: "none", cursor: "pointer",
-                  background: activeNav === item.id ? "#f0f4ff" : "transparent",
-                  color: activeNav === item.id ? "#3b5bdb" : "#6b7280",
+                  background: activeNav === item.id ? "var(--t-nav-active)" : "transparent",
+                  color: activeNav === item.id ? "var(--t-nav-active-c)" : "var(--t-nav-text)",
                   fontSize: 13, fontWeight: activeNav === item.id ? 700 : 500,
                   fontFamily: "inherit", textAlign: "left", transition: "all 0.15s", marginBottom: 2
                 }}>
-                  <Icon name={item.icon} size={15} color={activeNav === item.id ? "#3b5bdb" : "#9ca3af"} />
+                  <Icon name={item.icon} size={15} color={activeNav === item.id ? "var(--t-nav-active-c)" : "var(--t-text3)"} />
                   {item.label}
                 </button>
               ))}
             </div>
           ))}
-
-          {/* Object quick-nav when in app mode */}
-          {activeNav === "app" && allObjects.length > 0 && (
-            <div style={{ marginTop: 4 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6, paddingLeft: 4 }}>Objects</div>
-              {allObjects.map(obj => (
-                <button key={obj.id} onClick={() => setSelectedObject(obj)} style={{
-                  width: "100%", display: "flex", alignItems: "center", gap: 9,
-                  padding: "7px 10px", borderRadius: 8, border: "none", cursor: "pointer",
-                  background: selectedObject?.id === obj.id ? `${obj.color || "#3b5bdb"}12` : "transparent",
-                  color: selectedObject?.id === obj.id ? obj.color || "#3b5bdb" : "#6b7280",
-                  fontSize: 13, fontWeight: selectedObject?.id === obj.id ? 700 : 400,
-                  fontFamily: "inherit", textAlign: "left", transition: "all 0.15s", marginBottom: 1
-                }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: obj.color || "#3b5bdb", flexShrink: 0 }} />
-                  {obj.plural_name || obj.name}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Footer */}
-        <div style={{ padding: "0 16px" }}>
-          <div style={{ padding: "10px 12px", background: "#f9f9fb", borderRadius: 10, display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ padding: "0 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+          {/* Theme button */}
+          <button onClick={() => setShowTheme(true)} style={{
+            width: "100%", display: "flex", alignItems: "center", gap: 8,
+            padding: "8px 10px", borderRadius: 8, border: "none", cursor: "pointer",
+            background: "transparent", color: "var(--t-text2)", fontSize: 12, fontWeight: 500,
+            fontFamily: "inherit", textAlign: "left", transition: "all 0.15s"
+          }}>
+            <Icon name="settings" size={14} color="var(--t-text3)" />
+            Appearance
+            <span style={{ marginLeft: "auto", display: "flex", gap: 3 }}>
+              {["accent", "accentDark"].map((k,i) => (
+                <span key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: SCHEMES[prefs.scheme]?.[k] || "#3b5bdb", display: "inline-block" }} />
+              ))}
+            </span>
+          </button>
+          <div style={{ padding: "10px 12px", background: "var(--t-surface2)", borderRadius: 10, display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#10b981", flexShrink: 0 }} />
-            <span style={{ fontSize: 11, color: "#6b7280" }}>API Connected</span>
+            <span style={{ fontSize: 11, color: "var(--t-text2)" }}>API Connected</span>
           </div>
         </div>
       </div>
 
       {/* Main content */}
-      <div style={{ marginLeft: 220, flex: 1, padding: 32, minHeight: "100vh", overflow: "auto" }}>
+      <div style={{ marginLeft: 220, flex: 1, minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--t-bg)" }}>
+        {/* Top bar */}
+        <GlobalSearch selectedEnv={selectedEnv} onNavigateToSearch={(q) => {
+          setActiveNav("search");
+          if (q) {
+            sessionStorage.setItem("talentos_search_query", q);
+            sessionStorage.setItem("talentos_autosearch", "1");
+          }
+        }} />
+        {/* Page content */}
+        <div style={{ flex: 1, padding: "28px 32px", overflow: "auto" }}>
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300, color: "#9ca3af" }}>Loading…</div>
         ) : !selectedEnv ? (
           <div style={{ textAlign: "center", padding: 60, color: "#9ca3af" }}>No environments found.</div>
+        ) : activeNav === "dashboard" ? (
+          <Dashboard environment={selectedEnv} onNavigate={(slug) => {
+            if (slug === "matching") { setActiveNav("matching"); return; }
+            if (slug === "search")   { setActiveNav("search");   return; }
+            const obj = navObjects.find(o => o.slug === slug || o.plural_name.toLowerCase() === slug);
+            if (obj) setActiveNav(`obj_${obj.id}`);
+          }}/>
+        ) : activeNav === "matching" ? (
+          <MatchingEngine environment={selectedEnv} />
+        ) : activeNav.startsWith("obj_") ? (
+          <RecordsView
+            object={navObjects.find(o => `obj_${o.id}` === activeNav)}
+            environment={selectedEnv}
+          />
+        ) : activeNav === "search" ? (
+          <SearchPage environment={selectedEnv} />
+        ) : activeNav === "workflows" ? (
+          <WorkflowsPage environment={selectedEnv} />
+        ) : activeNav === "portals" ? (
+          <PortalsPage environment={selectedEnv} />
         ) : activeNav === "settings" ? (
           <SettingsPage />
         ) : activeNav === "schema" ? (
@@ -783,10 +1049,49 @@ export default function App() {
             : <ObjectsListView environment={selectedEnv} onSelectObject={(obj, objs) => { setSelectedObject(obj); setAllObjects(objs); }} mode="schema" />
         ) : activeNav === "app" ? (
           selectedObject
-            ? <ObjectApp object={selectedObject} environment={selectedEnv} />
+            ? <RecordsView object={selectedObject} environment={selectedEnv} />
             : <ObjectsListView environment={selectedEnv} onSelectObject={(obj, objs) => { setSelectedObject(obj); setAllObjects(objs); }} mode="app" />
         ) : null}
+        </div>
       </div>
+      <AICopilot environment={selectedEnv} onNavigateToRecord={(record) => {
+        const obj = navObjects.find(o => o.slug === record.object_slug || o.id === record.object_id);
+        if (!obj) return;
+        const detail = { recordId: record.id, objectId: obj.id };
+        const navId = `obj_${obj.id}`;
+        // Fire the event — if RecordsView is mounted it handles it immediately,
+        // if not, it will be stored in _pendingOpen and picked up after load()
+        window.dispatchEvent(new CustomEvent("talentos:openRecord", { detail }));
+        setActiveNav(navId);
+      }} />
     </div>
+  );
+}
+
+// ─── Error Boundary ───────────────────────────────────────────────────────────
+import { Component } from "react";
+class ErrorBoundary extends Component {
+  state = { error: null };
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) return (
+      <div style={{padding:40,fontFamily:"monospace",color:"red"}}>
+        <h2>Runtime Error</h2>
+        <pre style={{whiteSpace:"pre-wrap"}}>{this.state.error?.toString()}</pre>
+        <pre style={{whiteSpace:"pre-wrap",fontSize:11,color:"#555"}}>{this.state.error?.stack}</pre>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
+// ─── Root export wrapped in ThemeProvider ─────────────────────────────────────
+export default function AppRoot() {
+  return (
+    <ErrorBoundary>
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

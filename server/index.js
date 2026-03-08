@@ -11,8 +11,10 @@ const allowedOrigins = [
   'http://localhost:5173',
   /\.vercel\.app$/,
 ];
-if (process.env.CLIENT_URL)         allowedOrigins.push(process.env.CLIENT_URL);
-if (process.env.PORTAL_URL)         allowedOrigins.push(process.env.PORTAL_URL);
+if (process.env.CLIENT_URL)  allowedOrigins.push(process.env.CLIENT_URL);
+if (process.env.PORTAL_URL)  allowedOrigins.push(process.env.PORTAL_URL);
+// Self-allow (Railway health checks)
+allowedOrigins.push('https://talentos-production-4045.up.railway.app');
 
 app.use(cors({
   origin: (origin, cb) => {

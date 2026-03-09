@@ -40,6 +40,7 @@ app.use('/api/ai',           require('./routes/ai-proxy'));
 app.use('/api/csv',          require('./routes/csv'));
 app.use('/api/workflows',    require('./routes/workflows'));
 app.use('/api/portals',      require('./routes/portals'));
+app.use('/api/reports',      require('./routes/reports'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '1.1.0' }));
 

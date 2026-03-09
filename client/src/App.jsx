@@ -7,6 +7,7 @@ import Dashboard from "./Dashboard.jsx";
 import ObjectApp from "./ObjectApp.jsx";
 import WorkflowsPage from "./Workflows.jsx";
 import PortalsPage from "./Portals.jsx";
+import ReportsPage from "./Reports.jsx";
 import { ThemeProvider, useTheme, SCHEMES, FONTS, DENSITIES } from "./Theme.jsx";
 
 // ─── API Client ───────────────────────────────────────────────────────────────
@@ -900,6 +901,7 @@ function App() {
         { id: "matching",  icon: "zap",      label: "AI Matching" },
         { id: "workflows", icon: "workflow",  label: "Workflows" },
         { id: "portals",   icon: "globe",     label: "Portals" },
+        { id: "reports",   icon: "bar-chart-2", label: "Reports" },
         { id: "search",    icon: "search",    label: "Search" },
       ]
     },
@@ -1041,6 +1043,8 @@ function App() {
           <WorkflowsPage environment={selectedEnv} />
         ) : activeNav === "portals" ? (
           <PortalsPage environment={selectedEnv} />
+        ) : activeNav === "reports" ? (
+          <ReportsPage envId={selectedEnv?.id} theme={t} />
         ) : activeNav === "settings" ? (
           <SettingsPage />
         ) : activeNav === "schema" ? (

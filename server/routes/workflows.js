@@ -61,7 +61,7 @@ router.put('/:id/steps', (req, res) => {
   store.workflow_steps = store.workflow_steps.filter(s => s.workflow_id !== req.params.id);
   // Insert new ones
   const saved = (steps || []).map((s, i) => {
-    const step = { id: s.id || uuidv4(), workflow_id: req.params.id, order: i, type: s.type, config: s.config || {}, created_at: new Date().toISOString() };
+    const step = { id: s.id || uuidv4(), workflow_id: req.params.id, name: s.name || '', order: i, type: s.type, automation_type: s.automation_type || null, config: s.config || {}, created_at: new Date().toISOString() };
     store.workflow_steps.push(step);
     return step;
   });
@@ -203,10 +203,28 @@ router.get('/people-links', (req, res) => {
   if (target_record_id)  links = links.filter(l => l.target_record_id === target_record_id);
   if (person_record_id)  links = links.filter(l => l.person_record_id === person_record_id);
   if (environment_id)    links = links.filter(l => l.environment_id === environment_id);
-  // Hydrate with person record data
+  // Hydrate with person record data AND target record/object data
   const result = links.map(l => {
     const person = findOne('records', r => r.id === l.person_record_id);
-    return { ...l, person_data: person?.data || {} };
+    const target = findOne('records', r => r.id === l.target_record_id);
+    const targetObj = target ? findOne('objects', o => o.id === target.object_id) : null;
+    // Build a display title for the target record
+    const td = target?.data || {};
+    const targetTitle = td.job_title || td.pool_name || td.name || td.first_name || l.target_record_id?.slice(0,8);
+    // Hydrate workflow steps for stage dropdown
+    const wfAssignment = findOne('record_workflow_assignments', a => a.record_id === l.target_record_id && a.type === 'people_link');
+    const wf = wfAssignment ? findOne('workflows', w => w.id === wfAssignment.workflow_id) : null;
+    const wfSteps = wf ? query('workflow_steps', s => s.workflow_id === wf.id).sort((a,b)=>a.order-b.order) : [];
+    return {
+      ...l,
+      person_data: person?.data || {},
+      target_data: td,
+      target_title: targetTitle,
+      target_object_name: targetObj?.name || 'Record',
+      target_object_color: targetObj?.color || '#4361EE',
+      workflow_steps: wfSteps,
+      workflow_name: wf?.name || null,
+    };
   });
   res.json(result);
 });

@@ -896,6 +896,7 @@ function RecordPage({ recordId, objectId, environment, allObjects, onBack, onNav
       onToggleFullPage={() => {}}
       onUpdate={(updated) => setState(s => s ? { ...s, record: updated } : s)}
       onDelete={async (id) => { await api.delete(`/records/${id}`); onBack(); }}
+      onNavigate={onNavigate}
     />
   );
 }
@@ -1119,7 +1120,7 @@ function App() {
         ) : activeNav.startsWith("record_") ? (() => {
           const parts = activeNav.split("_"); const recordId = parts[1]; const objectId = parts[2];
           const obj = navObjects.find(o => o.id === objectId);
-          return <RecordPage recordId={recordId} objectId={objectId} environment={selectedEnv} allObjects={navObjects} onBack={() => setActiveNav(obj ? `obj_${obj.id}` : "dashboard")} />;
+          return <RecordPage recordId={recordId} objectId={objectId} environment={selectedEnv} allObjects={navObjects} onBack={() => setActiveNav(obj ? `obj_${obj.id}` : "dashboard")} onNavigate={openRecord}/>;
         })() : activeNav === "search" ? (
           <SearchPage environment={selectedEnv} onNavigateToRecord={(record) => {
             openRecord(record.id, record.object_id);

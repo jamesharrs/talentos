@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { MatchingEngine } from "./AI.jsx";
 import CommunicationsPanel from "./Communications.jsx";
-import { RecordPipelinePanel } from "./Workflows.jsx";
+import { RecordPipelinePanel, LinkedRecordsPanel } from "./Workflows.jsx";
 
 const api = {
   get:    p     => fetch(`/api${p}`).then(r=>r.json()),
@@ -438,7 +438,7 @@ const STEP_COLORS = { stage_change:"#3b5bdb", ai_prompt:"#7c3aed", update_field:
 const STEP_LABELS = { stage_change:"Change Stage", ai_prompt:"AI Prompt", update_field:"Update Field", send_email:"Send Email", webhook:"Webhook" };
 const STEP_ICONS  = { stage_change:"tag", ai_prompt:"sparkles", update_field:"edit", send_email:"mail", webhook:"activity" };
 
-const RecordWorkflows = ({ record, objectId, environment }) => {
+const RecordWorkflows = ({ record, objectId, environment, objectName, onNavigate }) => {
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [running, setRunning]     = useState(null);
@@ -470,7 +470,7 @@ const RecordWorkflows = ({ record, objectId, environment }) => {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
       {/* Pipeline + People Link section */}
-      <RecordPipelinePanel record={record} objectId={objectId} environment={environment} objectName={objectName}/>
+      <RecordPipelinePanel record={record} objectId={objectId} environment={environment} objectName={objectName} onNavigate={onNavigate}/>
 
       {/* Automation workflows */}
       {automationWfs.length > 0 && (
@@ -545,17 +545,19 @@ export const PANEL_META = {
   notes:       { icon:"messageSquare", label:"Notes",     defaultOpen:true  },
   attachments: { icon:"paperclip",     label:"Files",     defaultOpen:true  },
   activity:    { icon:"activity",      label:"Activity",  defaultOpen:false },
-  workflows:   { icon:"zap",           label:"Workflows", defaultOpen:false },
+  workflows:   { icon:"layers",        label:"Pipeline",  defaultOpen:false },
+  linked:      { icon:"link",          label:"Linked Records", defaultOpen:true },
   match:       { icon:"sparkles",      label:"AI Match",  defaultOpen:false },
 };
 
 export const getDefaultPanelOrder = (objectName) => {
   const base = ["comms","notes","attachments","activity","workflows"];
+  if (objectName === "Person") base.splice(1, 0, "linked"); // after comms
   if (["Person","Job"].includes(objectName)) base.push("match");
   return base;
 };
 
-export const RecordDetail = ({ record, fields, allObjects, environment, objectName, objectColor, onClose, fullPage, onToggleFullPage, onUpdate, onDelete }) => {
+export const RecordDetail = ({ record, fields, allObjects, environment, objectName, objectColor, onClose, fullPage, onToggleFullPage, onUpdate, onDelete, onNavigate }) => {
   const [tab, setTab]           = useState("fields");
   const [editing, setEditing]   = useState({});
   const [notes, setNotes]       = useState([]);
@@ -769,7 +771,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       </div>
     );
 
-    if (id==="workflows") return <RecordWorkflows record={record} objectId={record.object_id} environment={environment} objectName={objectName}/>;
+    if (id==="workflows") return <RecordWorkflows record={record} objectId={record.object_id} environment={environment} objectName={objectName} onNavigate={onNavigate}/>;
+    if (id==="linked") return <LinkedRecordsPanel record={record} environment={environment} onNavigate={onNavigate}/>;
 
     if (id==="match") return (
       <div style={{ margin:"-16px" }}>
@@ -832,7 +835,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     { id:"activity",    icon:"activity",      label:"Activity" },
     { id:"notes",       icon:"messageSquare", label:`Notes${notes.length?` (${notes.length})`:""}` },
     { id:"attachments", icon:"paperclip",     label:`Files${attachments.length?` (${attachments.length})`:""}` },
-    { id:"workflows",   icon:"zap",           label:"Workflows" },
+    { id:"workflows",   icon:"layers",        label:"Pipeline" },
+    ...( objectName === "Person" ? [{ id:"linked", icon:"link", label:"Linked Records" }] : [] ),
     ...( ["Person","Job"].includes(objectName) ? [{ id:"match", icon:"sparkles", label:"AI Match" }] : [] ),
   ];
 
@@ -1329,6 +1333,7 @@ export default function RecordsView({ environment, object, onOpenRecord }) {
           onToggleFullPage={()=>onOpenRecord?.(selected.id, object.id)}
           onUpdate={handleDetailUpdate}
           onDelete={handleDelete}
+          onNavigate={onOpenRecord}
         />
       )}
 

@@ -679,22 +679,25 @@ export default function WorkflowsPage({ environment }) {
 
 
 // ─── RecordPipelinePanel ──────────────────────────────────────────────────────
-// Shown inside a record's Workflows panel. Lets user:
-//  1. Pick a "pipeline" workflow → drives record status
-//  2. Pick a "people_link" workflow → link People with stages
-//  3. Manage linked people + move them between stages
-export function RecordPipelinePanel({ record, objectId, environment, objectName }) {
-  const [assignments, setAssignments]   = useState([]);       // [{type, workflow:{steps}}]
+// On an object record (e.g. Job): shows two sections
+//   1. Record Pipeline  — drives the record's own status
+//   2. People Pipeline  — stage track with counts; click stage → inline list; add person
+export function RecordPipelinePanel({ record, objectId, environment, objectName, onNavigate }) {
+  const [tab, setTab]                   = useState("pipeline");
+  const [assignments, setAssignments]   = useState([]);
   const [allWorkflows, setAllWorkflows] = useState([]);
   const [peopleLinks, setPeopleLinks]   = useState([]);
-  const [personRecords, setPersonRecords] = useState([]);     // all Person records for picker
+  const [personRecords, setPersonRecords] = useState([]);
   const [loading, setLoading]           = useState(true);
+  const [selectedStage, setSelectedStage] = useState(null); // stage id or "__all__"
   const [addingPerson, setAddingPerson] = useState(false);
   const [personSearch, setPersonSearch] = useState("");
   const [saving, setSaving]             = useState(false);
+  const [stageSaved, setStageSaved]     = useState(false);
 
   const pipelineWf   = assignments.find(a => a.type === "pipeline")?.workflow;
   const peopleLinkWf = assignments.find(a => a.type === "people_link")?.workflow;
+  const plSteps      = peopleLinkWf?.steps || [];
 
   const load = async () => {
     if (!record?.id || !environment?.id) return;
@@ -714,15 +717,21 @@ export function RecordPipelinePanel({ record, objectId, environment, objectName 
 
   const assignWorkflow = async (type, workflow_id) => {
     setSaving(true);
-    await api.put("/workflows/assignments", { record_id: record.id, workflow_id: workflow_id||null, type });
+    await api.put("/workflows/assignments", { record_id: record.id, workflow_id: workflow_id || null, type });
     await load();
     setSaving(false);
   };
 
+  const setRecordStage = async (stepName) => {
+    await api.patch(`/records/${record.id}`, { data: { ...record.data, status: stepName } });
+    record.data = { ...record.data, status: stepName };
+    setStageSaved(true);
+    setTimeout(() => setStageSaved(false), 1800);
+  };
+
   const loadPersonRecords = async () => {
-    // Find Person object
     const objs = await api.get(`/objects?environment_id=${environment.id}`);
-    const personObj = (Array.isArray(objs)?objs:[]).find(o => o.name === "Person" || o.slug === "people");
+    const personObj = (Array.isArray(objs) ? objs : []).find(o => o.name === "Person");
     if (!personObj) return;
     const recs = await api.get(`/records?object_id=${personObj.id}&environment_id=${environment.id}&limit=500`);
     setPersonRecords(recs.records || []);
@@ -735,7 +744,9 @@ export function RecordPipelinePanel({ record, objectId, environment, objectName 
   };
 
   const linkPerson = async (personRecordId) => {
-    const firstStep = peopleLinkWf?.steps?.[0];
+    const firstStep = plSteps[0];
+    const existing = peopleLinks.find(l => l.person_record_id === personRecordId);
+    if (existing) { setAddingPerson(false); return; }
     await api.post("/workflows/people-links", {
       person_record_id: personRecordId,
       target_record_id: record.id,
@@ -746,6 +757,7 @@ export function RecordPipelinePanel({ record, objectId, environment, objectName 
     });
     setAddingPerson(false);
     await load();
+    setSelectedStage(firstStep?.id || null);
   };
 
   const moveStage = async (linkId, step) => {
@@ -754,202 +766,267 @@ export function RecordPipelinePanel({ record, objectId, environment, objectName 
   };
 
   const removeLink = async (linkId) => {
+    if (!confirm("Remove this person from the pipeline?")) return;
     await api.delete(`/workflows/people-links/${linkId}`);
     setPeopleLinks(ls => ls.filter(l => l.id !== linkId));
   };
 
-  const personLabel = (p) => {
+  const pLabel = (p) => {
     const d = p.person_data || {};
     return [d.first_name, d.last_name].filter(Boolean).join(" ") || d.email || p.person_record_id?.slice(0,8);
   };
+  const pSub = (p) => { const d = p.person_data || {}; return d.current_title || d.email || ""; };
+  const pInit = (p) => pLabel(p).charAt(0).toUpperCase();
 
-  const personInitial = (p) => personLabel(p).charAt(0).toUpperCase();
+  // People counts per stage
+  const countByStage = plSteps.reduce((acc, s) => {
+    acc[s.id] = peopleLinks.filter(l => l.stage_id === s.id).length;
+    return acc;
+  }, {});
+  const unstagedCount = peopleLinks.filter(l => !l.stage_id || !plSteps.find(s => s.id === l.stage_id)).length;
 
-  // Filtered person list (exclude already linked)
+  // People shown in selected stage
+  const visiblePeople = selectedStage === "__all__"
+    ? peopleLinks
+    : selectedStage
+      ? peopleLinks.filter(l => l.stage_id === selectedStage)
+      : [];
+
   const linkedIds = new Set(peopleLinks.map(l => l.person_record_id));
   const filteredPersons = personRecords.filter(r => {
     if (linkedIds.has(r.id)) return false;
     if (!personSearch) return true;
     const d = r.data || {};
-    const label = [d.first_name, d.last_name, d.email].filter(Boolean).join(" ").toLowerCase();
-    return label.includes(personSearch.toLowerCase());
+    return [d.first_name, d.last_name, d.email].filter(Boolean).join(" ").toLowerCase()
+      .includes(personSearch.toLowerCase());
   });
 
-  if (loading) return <div style={{ padding:16, color:C.text3, fontSize:13 }}>Loading…</div>;
+  const pipelineOptions   = allWorkflows.filter(w => w.workflow_type === "pipeline"    && w.object_id === objectId && !w.deleted_at);
+  const peopleLinkOptions = allWorkflows.filter(w => w.workflow_type === "people_link" && w.object_id === objectId && !w.deleted_at);
 
-  // Pipeline workflows and people_link workflows for this object
-  const pipelineOptions   = allWorkflows.filter(w => w.workflow_type === "pipeline"    && w.object_id === objectId);
-  const peopleLinkOptions = allWorkflows.filter(w => w.workflow_type === "people_link" && w.object_id === objectId);
+  if (loading) return <div style={{ padding:"20px 0", textAlign:"center", color:C.text3, fontSize:13 }}>Loading…</div>;
+
+  const tabStyle = (active) => ({
+    padding:"6px 14px", borderRadius:20, fontSize:12, fontWeight: active ? 700 : 500,
+    border:`1.5px solid ${active ? C.accent : C.border}`,
+    background: active ? C.accentLight : "transparent",
+    color: active ? C.accent : C.text2, cursor:"pointer", fontFamily:F, transition:"all .1s",
+  });
 
   return (
     <div style={{ fontFamily:F, display:"flex", flexDirection:"column", gap:16 }}>
-
-      {/* ── Record Pipeline picker ── */}
-      <div style={{ background:"#fafbff", borderRadius:12, border:`1px solid ${C.border}`, padding:14 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-          <span style={{ fontSize:16 }}>📋</span>
-          <span style={{ fontWeight:700, fontSize:13, color:C.text1 }}>Record Pipeline</span>
-          {pipelineWf && (
-            <span style={{ marginLeft:"auto", fontSize:11, color:C.green, background:C.greenLight,
-              padding:"2px 8px", borderRadius:99, fontWeight:600 }}>Active</span>
+      {/* Tabs */}
+      <div style={{ display:"flex", gap:6 }}>
+        <button style={tabStyle(tab==="pipeline")} onClick={()=>setTab("pipeline")}>📋 Record Pipeline</button>
+        <button style={tabStyle(tab==="people")} onClick={()=>setTab("people")}>
+          🔗 People Pipeline
+          {peopleLinks.length > 0 && (
+            <span style={{ marginLeft:6, background: tab==="people" ? C.accent : "#9ca3af", color:"white",
+              fontSize:10, fontWeight:700, borderRadius:99, padding:"1px 6px" }}>
+              {peopleLinks.length}
+            </span>
           )}
-        </div>
-        <div style={{ fontSize:12, color:C.text3, marginBottom:10, lineHeight:1.5 }}>
-          Drives the status of this record through defined stages.
-        </div>
-        <select value={pipelineWf?.id||""} onChange={e=>assignWorkflow("pipeline", e.target.value)}
-          disabled={saving}
-          style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:9,
-            fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
-          <option value="">— No pipeline —</option>
-          {pipelineOptions.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-        </select>
-        {/* Show current stages as visual track */}
-        {pipelineWf?.steps?.length > 0 && (
-          <div style={{ marginTop:12, display:"flex", gap:4, flexWrap:"wrap" }}>
-            {pipelineWf.steps.map((step, i) => {
-              const isCurrent = record.data?.status === step.name;
-              return (
-                <button key={step.id} onClick={async ()=>{
-                    await api.patch(`/records/${record.id}`, { data:{ ...record.data, status: step.name }});
-                  }}
-                  title={`Set status to "${step.name}"`}
-                  style={{ padding:"5px 12px", borderRadius:20, fontSize:12, fontWeight:isCurrent?700:500,
-                    border:`1.5px solid ${isCurrent?C.accent:C.border}`,
-                    background:isCurrent?C.accentLight:"white",
-                    color:isCurrent?C.accent:C.text2, cursor:"pointer", fontFamily:F,
-                    display:"flex", alignItems:"center", gap:5 }}>
-                  {i > 0 && <span style={{ fontSize:10, color:C.text3 }}>›</span>}
-                  {step.name||`Stage ${i+1}`}
-                </button>
-              );
-            })}
+        </button>
+      </div>
+
+      {/* ══ RECORD PIPELINE TAB ══ */}
+      {tab === "pipeline" && (
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <div style={{ fontSize:12, color:C.text3 }}>Assign a pipeline to drive this record's status through defined stages.</div>
+          <div>
+            <div style={{ fontSize:11, fontWeight:700, color:C.text2, marginBottom:6, textTransform:"uppercase", letterSpacing:".06em" }}>Pipeline Workflow</div>
+            <select value={pipelineWf?.id||""} onChange={e=>assignWorkflow("pipeline", e.target.value)} disabled={saving}
+              style={{ width:"100%", padding:"9px 12px", border:`1.5px solid ${C.border}`, borderRadius:9, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
+              <option value="">— None —</option>
+              {pipelineOptions.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+            {pipelineOptions.length === 0 && (
+              <div style={{ fontSize:11, color:C.text3, marginTop:6 }}>No pipeline workflows yet — create one in Settings → Workflows with type "Record Pipeline".</div>
+            )}
           </div>
-        )}
-      </div>
-
-      {/* ── People Pipeline picker ── */}
-      <div style={{ background:"#faf5ff", borderRadius:12, border:`1px solid #e9d5ff`, padding:14 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-          <span style={{ fontSize:16 }}>🔗</span>
-          <span style={{ fontWeight:700, fontSize:13, color:C.text1 }}>People Pipeline</span>
-          {peopleLinkWf && (
-            <span style={{ marginLeft:"auto", fontSize:11, color:"#7c3aed", background:"#f5f3ff",
-              padding:"2px 8px", borderRadius:99, fontWeight:600 }}>Active</span>
+          {pipelineWf?.steps?.length > 0 && (
+            <div>
+              <div style={{ fontSize:11, fontWeight:700, color:C.text2, marginBottom:8, textTransform:"uppercase", letterSpacing:".06em" }}>
+                Current Stage {stageSaved && <span style={{ color:C.green, fontWeight:600, textTransform:"none", marginLeft:6 }}>✓ Saved</span>}
+              </div>
+              <div style={{ display:"flex", borderRadius:10, overflow:"hidden", border:`1.5px solid ${C.border}` }}>
+                {pipelineWf.steps.map((step, i) => {
+                  const isCurrent = record.data?.status === step.name;
+                  const stageIdx  = pipelineWf.steps.findIndex(s => s.name === record.data?.status);
+                  const isPast    = stageIdx > i;
+                  return (
+                    <button key={step.id} onClick={() => setRecordStage(step.name)}
+                      style={{ flex:1, padding:"10px 4px", background: isCurrent ? C.accent : isPast ? `${C.accent}22` : "#f9fafb",
+                        border:"none", borderRight: i < pipelineWf.steps.length-1 ? `1px solid ${C.border}` : "none",
+                        color: isCurrent ? "white" : isPast ? C.accent : C.text3,
+                        cursor:"pointer", fontFamily:F, fontSize:11, fontWeight: isCurrent ? 700 : 500,
+                        textAlign:"center", transition:"all .12s", display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                      <span style={{ width:7, height:7, borderRadius:"50%", background: isCurrent?"white": isPast?C.accent:C.border }}/>
+                      <span style={{ whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"100%", padding:"0 2px" }}>
+                        {step.name||`Stage ${i+1}`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
-        <div style={{ fontSize:12, color:C.text3, marginBottom:10, lineHeight:1.5 }}>
-          Tracks people linked to this record and their stage (e.g. application, interview, offer).
-        </div>
-        <select value={peopleLinkWf?.id||""} onChange={e=>assignWorkflow("people_link", e.target.value)}
-          disabled={saving}
-          style={{ width:"100%", padding:"9px 12px", border:`1px solid #e9d5ff`, borderRadius:9,
-            fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
-          <option value="">— No people pipeline —</option>
-          {peopleLinkOptions.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-        </select>
-      </div>
+      )}
 
-      {/* ── Linked people ── */}
-      <div>
-        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-          <span style={{ fontWeight:700, fontSize:13, color:C.text1 }}>
-            Linked People <span style={{ fontWeight:500, color:C.text3 }}>({peopleLinks.length})</span>
-          </span>
-          {peopleLinkWf && (
+      {/* ══ PEOPLE PIPELINE TAB ══ */}
+      {tab === "people" && (
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+
+          {/* Workflow picker row */}
+          <div style={{ display:"flex", alignItems:"flex-end", gap:10 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:C.text2, marginBottom:6, textTransform:"uppercase", letterSpacing:".06em" }}>People Pipeline Workflow</div>
+              <select value={peopleLinkWf?.id||""} onChange={e=>assignWorkflow("people_link", e.target.value)} disabled={saving}
+                style={{ width:"100%", padding:"9px 12px", border:`1.5px solid ${C.border}`, borderRadius:9, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
+                <option value="">— None —</option>
+                {peopleLinkOptions.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select>
+              {peopleLinkOptions.length === 0 && (
+                <div style={{ fontSize:11, color:C.text3, marginTop:5 }}>No people pipeline workflows yet — create one with type "People Pipeline".</div>
+              )}
+            </div>
             <button onClick={openAddPerson}
-              style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:5, padding:"5px 11px",
-                borderRadius:8, border:`1.5px solid #7c3aed`, background:"#f5f3ff", color:"#7c3aed",
-                fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
-              <Ic n="plus" s={12}/> Add Person
+              style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 14px", borderRadius:9,
+                border:`1.5px solid #7c3aed`,
+                background:"#f5f3ff",
+                color:"#7c3aed",
+                fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:F, whiteSpace:"nowrap" }}>
+              <Ic n="plus" s={13}/> Add Person
             </button>
-          )}
-        </div>
-
-        {!peopleLinkWf && peopleLinks.length === 0 && (
-          <div style={{ textAlign:"center", padding:"20px 0", color:C.text3, fontSize:12 }}>
-            Select a People Pipeline above to start linking people.
           </div>
-        )}
 
-        {peopleLinks.length > 0 && (
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {peopleLinks.map(link => {
-              const steps = peopleLinkWf?.steps || [];
-              return (
-                <div key={link.id} style={{ background:C.surface, border:`1px solid ${C.border}`,
-                  borderRadius:10, padding:"10px 12px", display:"flex", alignItems:"center", gap:10 }}>
-                  {/* Avatar */}
-                  <div style={{ width:32, height:32, borderRadius:"50%", background:"#7c3aed",
-                    display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                    <span style={{ color:"white", fontSize:13, fontWeight:700 }}>{personInitial(link)}</span>
+          {/* ── Stage visualisation: counts + click to expand ── */}
+          {plSteps.length > 0 && (
+            <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
+              {/* Stage track */}
+              <div style={{ display:"flex", borderRadius:10, overflow:"hidden", border:`1.5px solid #e9d5ff`, background:"#faf5ff" }}>
+                {plSteps.map((step, i) => {
+                  const count    = countByStage[step.id] || 0;
+                  const isActive = selectedStage === step.id;
+                  return (
+                    <button key={step.id}
+                      onClick={() => setSelectedStage(isActive ? null : step.id)}
+                      style={{ flex:1, padding:"12px 6px 10px",
+                        background: isActive ? "#7c3aed" : "transparent",
+                        border:"none",
+                        borderRight: i < plSteps.length-1 ? `1px solid ${isActive ? "#9d5aff" : "#e9d5ff"}` : "none",
+                        cursor:"pointer", fontFamily:F, transition:"background .12s",
+                        display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
+                      <span style={{ fontSize:22, fontWeight:900, color: isActive ? "white" : "#7c3aed", lineHeight:1 }}>{count}</span>
+                      <span style={{ fontSize:10, fontWeight: isActive ? 700 : 500,
+                        color: isActive ? "rgba(255,255,255,.9)" : "#9d5aff",
+                        whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"100%", padding:"0 4px" }}>
+                        {step.name || `Stage ${i+1}`}
+                      </span>
+                      {/* Expand caret */}
+                      <span style={{ fontSize:8, color: isActive ? "rgba(255,255,255,.7)" : "#c4b5fd", lineHeight:1, marginTop:2 }}>
+                        {isActive ? "▲" : "▼"}
+                      </span>
+                    </button>
+                  );
+                })}
+                {/* All pill */}
+                <button onClick={() => setSelectedStage(selectedStage==="__all__" ? null : "__all__")}
+                  style={{ padding:"12px 14px 10px",
+                    background: selectedStage==="__all__" ? C.text2 : "transparent",
+                    border:"none", borderLeft:`1px solid #e9d5ff`,
+                    cursor:"pointer", fontFamily:F, transition:"background .12s",
+                    display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
+                  <span style={{ fontSize:22, fontWeight:900, color: selectedStage==="__all__" ? "white" : C.text3, lineHeight:1 }}>{peopleLinks.length}</span>
+                  <span style={{ fontSize:10, fontWeight:500, color: selectedStage==="__all__" ? "rgba(255,255,255,.8)" : C.text3 }}>All</span>
+                  <span style={{ fontSize:8, color: selectedStage==="__all__" ? "rgba(255,255,255,.6)" : "#d1d5db", lineHeight:1, marginTop:2 }}>
+                    {selectedStage==="__all__" ? "▲" : "▼"}
+                  </span>
+                </button>
+              </div>
+
+              {/* Inline expanded list — slides in below the track */}
+              {selectedStage && (
+                <div style={{ border:`1.5px solid #e9d5ff`, borderTop:"none", borderRadius:"0 0 10px 10px",
+                  background:"white", padding:"12px 12px 10px", display:"flex", flexDirection:"column", gap:8 }}>
+                  {/* Header row */}
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:2 }}>
+                    <span style={{ fontSize:11, fontWeight:700, color:"#7c3aed", flex:1 }}>
+                      {selectedStage === "__all__"
+                        ? `All People — ${visiblePeople.length} ${visiblePeople.length===1?"person":"people"}`
+                        : `${plSteps.find(s=>s.id===selectedStage)?.name || "Stage"} — ${visiblePeople.length} ${visiblePeople.length===1?"person":"people"}`}
+                    </span>
+                    <button onClick={openAddPerson}
+                      style={{ fontSize:11, color:"#7c3aed", background:"none", border:"none", cursor:"pointer", fontWeight:700, padding:"2px 6px" }}>
+                      + Add
+                    </button>
                   </div>
-                  {/* Name */}
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight:600, color:C.text1 }}>{personLabel(link)}</div>
-                    {link.person_data?.email && (
-                      <div style={{ fontSize:11, color:C.text3 }}>{link.person_data.email}</div>
-                    )}
-                  </div>
-                  {/* Stage picker — show all steps as clickable pills */}
-                  {steps.length > 0 && (
-                    <div style={{ display:"flex", gap:3, flexWrap:"wrap", maxWidth:240, justifyContent:"flex-end" }}>
-                      {steps.map(step => {
-                        const active = link.stage_id === step.id || (!link.stage_id && steps[0]?.id === step.id);
-                        return (
-                          <button key={step.id} onClick={()=>moveStage(link.id, step)}
-                            style={{ padding:"3px 9px", borderRadius:20, fontSize:11, fontWeight:active?700:500,
-                              border:`1.5px solid ${active?"#7c3aed":"#e9d5ff"}`,
-                              background: active?"#7c3aed":"white",
-                              color: active?"white":"#7c3aed",
-                              cursor:"pointer", fontFamily:F, whiteSpace:"nowrap" }}>
-                            {step.name||`Stage`}
-                          </button>
-                        );
-                      })}
+
+                  {visiblePeople.length === 0 && (
+                    <div style={{ textAlign:"center", padding:"16px 0", color:"#c4b5fd", fontSize:12 }}>
+                      No people in this stage yet.
                     </div>
                   )}
-                  {steps.length === 0 && (
-                    <span style={{ fontSize:11, color:C.text3, fontStyle:"italic" }}>
-                      {link.stage_name || "Linked"}
-                    </span>
-                  )}
-                  {/* Remove */}
-                  <button onClick={()=>removeLink(link.id)}
-                    style={{ background:"none", border:"none", cursor:"pointer", padding:4, flexShrink:0 }}>
-                    <Ic n="x" s={13} c={C.text3}/>
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
 
-      {/* ── Add person modal ── */}
+                  {visiblePeople.map(link => (
+                    <PipelinePersonRow key={link.id} link={link} steps={plSteps}
+                      label={pLabel(link)} subtitle={pSub(link)} initial={pInit(link)}
+                      onMove={moveStage} onRemove={removeLink} onNavigate={onNavigate}/>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Empty state: no workflow assigned and no people yet */}
+          {!peopleLinkWf && peopleLinks.length === 0 && (
+            <div style={{ textAlign:"center", padding:"28px 0", color:C.text3, fontSize:12 }}>
+              <div style={{ fontSize:28, marginBottom:8 }}>👥</div>
+              <div style={{ fontWeight:600, marginBottom:4, color:C.text2 }}>No people pipeline yet</div>
+              <div>Select a People Pipeline above to start tracking candidates through stages.</div>
+            </div>
+          )}
+
+          {/* No steps defined — just show all people in a flat list */}
+          {plSteps.length === 0 && peopleLinks.length > 0 && (
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:C.text2, textTransform:"uppercase", letterSpacing:".06em" }}>
+                All People ({peopleLinks.length})
+              </div>
+              {peopleLinks.map(link => (
+                <PipelinePersonRow key={link.id} link={link} steps={[]}
+                  label={pLabel(link)} subtitle={pSub(link)} initial={pInit(link)}
+                  onMove={moveStage} onRemove={removeLink} onNavigate={onNavigate}/>
+              ))}
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* Add person modal */}
       {addingPerson && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:2000,
           display:"flex", alignItems:"center", justifyContent:"center" }}
           onClick={()=>setAddingPerson(false)}>
-          <div style={{ background:C.surface, borderRadius:16, width:420, maxHeight:"70vh",
+          <div style={{ background:C.surface, borderRadius:16, width:440, maxHeight:"72vh",
             display:"flex", flexDirection:"column", overflow:"hidden", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}
             onClick={e=>e.stopPropagation()}>
-            <div style={{ padding:"16px 20px", borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", gap:10 }}>
-              <span style={{ fontWeight:700, fontSize:14, color:C.text1, flex:1 }}>Link a Person</span>
-              <button onClick={()=>setAddingPerson(false)} style={{ background:"none", border:"none", cursor:"pointer" }}>
-                <Ic n="x" s={16} c={C.text3}/>
-              </button>
+            <div style={{ padding:"16px 20px", borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center" }}>
+              <span style={{ fontWeight:800, fontSize:14, color:C.text1, flex:1 }}>Add Person to Pipeline</span>
+              <button onClick={()=>setAddingPerson(false)} style={{ background:"none", border:"none", cursor:"pointer" }}><Ic n="x" s={16} c={C.text3}/></button>
             </div>
             <div style={{ padding:"12px 16px", borderBottom:`1px solid ${C.border}` }}>
               <input autoFocus value={personSearch} onChange={e=>setPersonSearch(e.target.value)}
                 placeholder="Search by name or email…"
-                style={{ width:"100%", boxSizing:"border-box", padding:"9px 12px", border:`1px solid ${C.border}`,
+                style={{ width:"100%", boxSizing:"border-box", padding:"9px 12px", border:`1.5px solid ${C.border}`,
                   borderRadius:9, fontSize:13, fontFamily:F, outline:"none", color:C.text1 }}/>
             </div>
             <div style={{ flex:1, overflowY:"auto" }}>
               {filteredPersons.length === 0 && (
                 <div style={{ padding:"24px", textAlign:"center", color:C.text3, fontSize:13 }}>
-                  {personSearch ? "No matching people" : "All people already linked"}
+                  {personSearch ? "No matching people" : "All people are already linked"}
                 </div>
               )}
               {filteredPersons.map((r, i) => {
@@ -957,18 +1034,358 @@ export function RecordPipelinePanel({ record, objectId, environment, objectName 
                 const label = [d.first_name, d.last_name].filter(Boolean).join(" ") || d.email || r.id.slice(0,8);
                 return (
                   <div key={r.id} onClick={()=>linkPerson(r.id)}
-                    style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 16px",
-                      cursor:"pointer", borderBottom:i<filteredPersons.length-1?`1px solid ${C.border}`:"none" }}
+                    style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 16px",
+                      cursor:"pointer", borderBottom: i < filteredPersons.length-1 ? `1px solid ${C.border}` : "none" }}
                     onMouseEnter={e=>e.currentTarget.style.background=C.accentLight}
                     onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                    <div style={{ width:32, height:32, borderRadius:"50%", background:"#7c3aed",
-                      display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                    <div style={{ width:34, height:34, borderRadius:"50%", background:"#7c3aed", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                       <span style={{ color:"white", fontSize:13, fontWeight:700 }}>{label.charAt(0).toUpperCase()}</span>
                     </div>
-                    <div>
+                    <div style={{ flex:1 }}>
                       <div style={{ fontSize:13, fontWeight:600, color:C.text1 }}>{label}</div>
-                      {d.email && <div style={{ fontSize:11, color:C.text3 }}>{d.email}</div>}
+                      {d.current_title && <div style={{ fontSize:11, color:C.text3 }}>{d.current_title}</div>}
                     </div>
+                    <span style={{ fontSize:11, color:C.accent, fontWeight:600 }}>+ Add</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── PipelinePersonRow ────────────────────────────────────────────────────────
+function PipelinePersonRow({ link, steps, label, subtitle, initial, onMove, onRemove, onNavigate }) {
+  const currentIdx  = steps.findIndex(s => s.id === link.stage_id);
+  const currentStep = steps[currentIdx] || steps[0];
+  const prevStep    = currentIdx > 0 ? steps[currentIdx - 1] : null;
+  const nextStep    = currentIdx >= 0 && currentIdx < steps.length - 1 ? steps[currentIdx + 1] : null;
+
+  return (
+    <div style={{ background:"#faf5ff", border:`1px solid #e9d5ff`, borderRadius:10,
+      padding:"9px 12px", display:"flex", alignItems:"center", gap:10 }}>
+      {/* Avatar */}
+      <div style={{ width:30, height:30, borderRadius:"50%", background:"#7c3aed",
+        display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+        <span style={{ color:"white", fontSize:11, fontWeight:700 }}>{initial}</span>
+      </div>
+      {/* Name */}
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontSize:13, fontWeight:600, color:C.text1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{label}</div>
+        {subtitle && <div style={{ fontSize:11, color:C.text3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{subtitle}</div>}
+      </div>
+      {/* Stage controls */}
+      {steps.length > 0 && (
+        <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+          {/* Back */}
+          <button onClick={() => prevStep && onMove(link.id, prevStep)}
+            disabled={!prevStep}
+            title={prevStep ? `← ${prevStep.name}` : "First stage"}
+            style={{ width:22, height:22, borderRadius:6, background: prevStep ? "#ede9fe" : "#f3f4f6",
+              border:`1px solid ${prevStep ? "#c4b5fd" : "#e5e7eb"}`,
+              color: prevStep ? "#7c3aed" : "#d1d5db", cursor: prevStep ? "pointer" : "default",
+              display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, padding:0 }}>
+            ‹
+          </button>
+          {/* Current stage dropdown */}
+          <select value={link.stage_id || steps[0]?.id || ""}
+            onChange={e => { const s = steps.find(st => st.id === e.target.value); if(s) onMove(link.id, s); }}
+            style={{ padding:"4px 8px", borderRadius:20, fontSize:11, fontWeight:700,
+              border:`1.5px solid #c4b5fd`, background:"#ede9fe", color:"#6d28d9",
+              cursor:"pointer", fontFamily:F, outline:"none", maxWidth:110, textOverflow:"ellipsis" }}>
+            {steps.map(step => (
+              <option key={step.id} value={step.id}>{step.name || "Stage"}</option>
+            ))}
+          </select>
+          {/* Forward */}
+          <button onClick={() => nextStep && onMove(link.id, nextStep)}
+            disabled={!nextStep}
+            title={nextStep ? `${nextStep.name} →` : "Last stage"}
+            style={{ width:22, height:22, borderRadius:6, background: nextStep ? "#7c3aed" : "#f3f4f6",
+              border:`1px solid ${nextStep ? "#6d28d9" : "#e5e7eb"}`,
+              color: nextStep ? "white" : "#d1d5db", cursor: nextStep ? "pointer" : "default",
+              display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, padding:0 }}>
+            ›
+          </button>
+        </div>
+      )}
+      {steps.length === 0 && link.stage_name && (
+        <span style={{ fontSize:11, color:C.text3, fontStyle:"italic" }}>{link.stage_name}</span>
+      )}
+      {/* Navigate to person */}
+      {onNavigate && link.person_record_id && (
+        <button onClick={() => onNavigate(link.person_record_id, null)}
+          title="Open person record"
+          style={{ background:"none", border:"none", cursor:"pointer", padding:4, flexShrink:0, opacity:0.45 }}
+          onMouseEnter={e=>e.currentTarget.style.opacity=1}
+          onMouseLeave={e=>e.currentTarget.style.opacity=0.45}>
+          <Ic n="arrowRight" s={13} c={C.accent}/>
+        </button>
+      )}
+      {/* Remove */}
+      <button onClick={() => onRemove(link.id)}
+        style={{ background:"none", border:"none", cursor:"pointer", padding:4, flexShrink:0, opacity:0.35 }}
+        title="Remove from pipeline"
+        onMouseEnter={e=>e.currentTarget.style.opacity=1}
+        onMouseLeave={e=>e.currentTarget.style.opacity=0.35}>
+        <Ic n="x" s={12} c={C.red}/>
+      </button>
+    </div>
+  );
+}
+
+// ─── LinkedRecordsPanel ───────────────────────────────────────────────────────
+// Shown on a Person record. Shows all objects this person is linked to across
+// all pipelines, with stage dropdown and ability to link to new records.
+export function LinkedRecordsPanel({ record, environment, onNavigate }) {
+  const [links, setLinks]             = useState([]);
+  const [allObjects, setAllObjects]   = useState([]);
+  const [allRecords, setAllRecords]   = useState([]);       // for link-to-new modal
+  const [loading, setLoading]         = useState(true);
+  const [filterType, setFilterType]   = useState("all");    // object id or "all"
+  const [addingLink, setAddingLink]   = useState(false);
+  const [addSearch, setAddSearch]     = useState("");
+  const [addObjFilter, setAddObjFilter] = useState("");
+
+  const load = async () => {
+    if (!record?.id || !environment?.id) return;
+    setLoading(true);
+    const [lks, objs] = await Promise.all([
+      api.get(`/workflows/people-links?person_record_id=${record.id}`),
+      api.get(`/objects?environment_id=${environment.id}`),
+    ]);
+    setLinks(Array.isArray(lks) ? lks : []);
+    setAllObjects(Array.isArray(objs) ? objs : []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [record?.id, environment?.id]);
+
+  const loadRecordsForLinking = async () => {
+    // Load all non-person records the person isn't already linked to
+    const nonPersonObjs = allObjects.filter(o => o.name !== "Person");
+    const results = [];
+    for (const obj of nonPersonObjs) {
+      const recs = await api.get(`/records?object_id=${obj.id}&environment_id=${environment.id}&limit=200`);
+      (recs.records || []).forEach(r => results.push({ ...r, object_name: obj.name, object_color: obj.color }));
+    }
+    setAllRecords(results);
+  };
+
+  const openAddLink = async () => {
+    await loadRecordsForLinking();
+    setAddSearch(""); setAddObjFilter("");
+    setAddingLink(true);
+  };
+
+  const linkToRecord = async (targetRecord) => {
+    const existing = links.find(l => l.target_record_id === targetRecord.id);
+    if (existing) { setAddingLink(false); return; }
+    // Find if the target record has a people_link workflow assigned
+    const assignments = await api.get(`/workflows/assignments?record_id=${targetRecord.id}`);
+    const plAssignment = (Array.isArray(assignments) ? assignments : []).find(a => a.type === "people_link");
+    let firstStep = null;
+    if (plAssignment?.workflow?.steps?.length) {
+      firstStep = plAssignment.workflow.steps[0];
+    }
+    await api.post("/workflows/people-links", {
+      person_record_id: record.id,
+      target_record_id: targetRecord.id,
+      target_object_id: targetRecord.object_id,
+      stage_id:   firstStep?.id   || null,
+      stage_name: firstStep?.name || "Linked",
+      environment_id: environment.id,
+    });
+    setAddingLink(false);
+    await load();
+  };
+
+  const moveStage = async (linkId, step) => {
+    await api.patch(`/workflows/people-links/${linkId}`, { stage_id: step.id, stage_name: step.name });
+    setLinks(ls => ls.map(l => l.id === linkId ? { ...l, stage_id: step.id, stage_name: step.name } : l));
+  };
+
+  const removeLink = async (linkId) => {
+    if (!confirm("Remove this link?")) return;
+    await api.delete(`/workflows/people-links/${linkId}`);
+    setLinks(ls => ls.filter(l => l.id !== linkId));
+  };
+
+  // Distinct object types in current links for filter pills
+  const linkedObjectTypes = [...new Set(links.map(l => l.target_object_name).filter(Boolean))];
+
+  const filteredLinks = filterType === "all" ? links : links.filter(l => l.target_object_name === filterType);
+
+  // Records available to link (exclude already linked)
+  const linkedTargetIds = new Set(links.map(l => l.target_record_id));
+  const nonPersonObjs = allObjects.filter(o => o.name !== "Person");
+  const filteredAddRecords = allRecords.filter(r => {
+    if (linkedTargetIds.has(r.id)) return false;
+    if (addObjFilter && r.object_id !== addObjFilter) return false;
+    if (!addSearch) return true;
+    const d = r.data || {};
+    const label = [d.job_title, d.pool_name, d.name, d.first_name].filter(Boolean).join(" ").toLowerCase();
+    return label.includes(addSearch.toLowerCase());
+  });
+
+  const recLabel = (r) => {
+    const d = r.data || {};
+    return d.job_title || d.pool_name || d.name || d.first_name || r.id.slice(0,8);
+  };
+
+  if (loading) return <div style={{ padding:"20px 0", textAlign:"center", color:C.text3, fontSize:13 }}>Loading…</div>;
+
+  return (
+    <div style={{ fontFamily:F, display:"flex", flexDirection:"column", gap:12 }}>
+
+      {/* Header row */}
+      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+        <div style={{ flex:1, fontSize:12, color:C.text3 }}>
+          {links.length === 0 ? "Not linked to any records yet." : `Linked to ${links.length} record${links.length!==1?"s":""}.`}
+        </div>
+        <button onClick={openAddLink}
+          style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 13px", borderRadius:9,
+            border:`1.5px solid ${C.accent}`, background:C.accentLight, color:C.accent,
+            fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:F }}>
+          <Ic n="plus" s={12}/> Link to Record
+        </button>
+      </div>
+
+      {/* Object type filter pills */}
+      {linkedObjectTypes.length > 1 && (
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+          {["all", ...linkedObjectTypes].map(t => (
+            <button key={t} onClick={() => setFilterType(t)}
+              style={{ padding:"4px 12px", borderRadius:20, fontSize:11, fontWeight: filterType===t ? 700 : 500,
+                border:`1.5px solid ${filterType===t ? C.accent : C.border}`,
+                background: filterType===t ? C.accentLight : "transparent",
+                color: filterType===t ? C.accent : C.text2, cursor:"pointer", fontFamily:F }}>
+              {t === "all" ? `All (${links.length})` : t}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Links list */}
+      {filteredLinks.length === 0 && links.length > 0 && (
+        <div style={{ textAlign:"center", padding:"12px", color:C.text3, fontSize:12 }}>No records of this type.</div>
+      )}
+      {filteredLinks.length === 0 && links.length === 0 && (
+        <div style={{ textAlign:"center", padding:"28px 0", color:C.text3, fontSize:13 }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>🔗</div>
+          <div style={{ fontWeight:600, marginBottom:4 }}>No linked records</div>
+          <div style={{ fontSize:12 }}>Link this person to a job, talent pool, or any other record.</div>
+        </div>
+      )}
+      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {filteredLinks.map(link => {
+          const steps = link.workflow_steps || [];
+          const currentStep = steps.find(s => s.id === link.stage_id);
+          const objColor = link.target_object_color || C.accent;
+          return (
+            <div key={link.id} style={{ background:C.surface, border:`1px solid ${C.border}`,
+              borderRadius:12, padding:"12px 14px", display:"flex", alignItems:"center", gap:10 }}>
+              {/* Object type colour dot */}
+              <div style={{ width:36, height:36, borderRadius:10, background:`${objColor}18`,
+                border:`1.5px solid ${objColor}30`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <span style={{ fontSize:14, fontWeight:800, color:objColor }}>{link.target_object_name?.charAt(0)||"?"}</span>
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:C.text1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {link.target_title || "Record"}
+                </div>
+                <div style={{ fontSize:11, color:C.text3 }}>{link.target_object_name}</div>
+              </div>
+              {/* Stage dropdown */}
+              {steps.length > 0 ? (
+                <select value={link.stage_id || steps[0]?.id || ""}
+                  onChange={e => { const s = steps.find(st => st.id === e.target.value); if(s) moveStage(link.id, s); }}
+                  style={{ padding:"5px 10px", borderRadius:20, fontSize:11, fontWeight:600,
+                    border:`1.5px solid #e9d5ff`, background:"#f5f3ff", color:"#7c3aed",
+                    cursor:"pointer", fontFamily:F, outline:"none" }}>
+                  {steps.map(step => (
+                    <option key={step.id} value={step.id}>{step.name || "Stage"}</option>
+                  ))}
+                </select>
+              ) : (
+                <span style={{ fontSize:11, color:C.text3, padding:"4px 10px",
+                  border:`1px solid ${C.border}`, borderRadius:20, whiteSpace:"nowrap" }}>
+                  {link.stage_name || "Linked"}
+                </span>
+              )}
+              {/* Navigate to target record */}
+              {onNavigate && link.target_record_id && (
+                <button onClick={() => onNavigate(link.target_record_id, null)}
+                  title={`Open ${link.target_object_name} record`}
+                  style={{ background:"none", border:"none", cursor:"pointer", padding:4, flexShrink:0, opacity:0.5 }}
+                  onMouseEnter={e=>e.currentTarget.style.opacity=1}
+                  onMouseLeave={e=>e.currentTarget.style.opacity=0.5}>
+                  <Ic n="arrowRight" s={13} c={C.accent}/>
+                </button>
+              )}
+              {/* Remove */}
+              <button onClick={() => removeLink(link.id)}
+                style={{ background:"none", border:"none", cursor:"pointer", padding:4, flexShrink:0, opacity:0.4 }}
+                onMouseEnter={e=>e.currentTarget.style.opacity=1}
+                onMouseLeave={e=>e.currentTarget.style.opacity=0.4}>
+                <Ic n="x" s={12} c={C.red}/>
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Link to record modal */}
+      {addingLink && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:2000,
+          display:"flex", alignItems:"center", justifyContent:"center" }}
+          onClick={()=>setAddingLink(false)}>
+          <div style={{ background:C.surface, borderRadius:16, width:480, maxHeight:"75vh",
+            display:"flex", flexDirection:"column", overflow:"hidden", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}
+            onClick={e=>e.stopPropagation()}>
+            <div style={{ padding:"16px 20px", borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center" }}>
+              <span style={{ fontWeight:800, fontSize:14, color:C.text1, flex:1 }}>Link to a Record</span>
+              <button onClick={()=>setAddingLink(false)} style={{ background:"none", border:"none", cursor:"pointer" }}><Ic n="x" s={16} c={C.text3}/></button>
+            </div>
+            <div style={{ padding:"12px 16px", borderBottom:`1px solid ${C.border}`, display:"flex", gap:8 }}>
+              <input autoFocus value={addSearch} onChange={e=>setAddSearch(e.target.value)}
+                placeholder="Search records…"
+                style={{ flex:1, padding:"8px 12px", border:`1.5px solid ${C.border}`,
+                  borderRadius:9, fontSize:13, fontFamily:F, outline:"none", color:C.text1 }}/>
+              <select value={addObjFilter} onChange={e=>setAddObjFilter(e.target.value)}
+                style={{ padding:"8px 10px", border:`1.5px solid ${C.border}`, borderRadius:9,
+                  fontSize:12, fontFamily:F, outline:"none", background:"white", color:C.text2 }}>
+                <option value="">All types</option>
+                {nonPersonObjs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </div>
+            <div style={{ flex:1, overflowY:"auto" }}>
+              {filteredAddRecords.length === 0 && (
+                <div style={{ padding:"24px", textAlign:"center", color:C.text3, fontSize:13 }}>
+                  {addSearch ? "No matching records" : "No records available to link"}
+                </div>
+              )}
+              {filteredAddRecords.map((r, i) => {
+                const label = recLabel(r);
+                const col   = r.object_color || C.accent;
+                return (
+                  <div key={r.id} onClick={() => linkToRecord(r)}
+                    style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 16px",
+                      cursor:"pointer", borderBottom: i < filteredAddRecords.length-1 ? `1px solid ${C.border}` : "none" }}
+                    onMouseEnter={e=>e.currentTarget.style.background=C.accentLight}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <div style={{ width:34, height:34, borderRadius:9, background:`${col}18`, border:`1.5px solid ${col}30`,
+                      display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      <span style={{ fontSize:13, fontWeight:800, color:col }}>{label.charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:C.text1 }}>{label}</div>
+                      <div style={{ fontSize:11, color:C.text3 }}>{r.object_name}</div>
+                    </div>
+                    <span style={{ fontSize:11, color:C.accent, fontWeight:600 }}>+ Link</span>
                   </div>
                 );
               })}

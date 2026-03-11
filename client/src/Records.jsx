@@ -97,13 +97,13 @@ const Badge = ({ children, color="#6b7280", light }) => (
   </span>
 );
 
-const Inp = ({ label, value, onChange, placeholder, type="text", disabled, multiline, rows=3, style={} }) => (
+const Inp = ({ label, value, onChange, placeholder, type="text", disabled, multiline, rows=3, style={}, autoFocus }) => (
   <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
     {label && <label style={{ fontSize:12, fontWeight:600, color:C.text2 }}>{label}</label>}
     {multiline
-      ? <textarea rows={rows} value={value ?? ""} onChange={e=>onChange(e.target.value)} placeholder={placeholder} disabled={disabled}
+      ? <textarea rows={rows} value={value ?? ""} onChange={e=>onChange(e.target.value)} placeholder={placeholder} disabled={disabled} autoFocus={autoFocus}
           style={{ padding:"8px 10px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:13, fontFamily:F, outline:"none", color:C.text1, background:disabled?"#f9fafb":C.surface, resize:"vertical", ...style }}/>
-      : <input type={type} value={value ?? ""} onChange={e=>onChange(e.target.value)} placeholder={placeholder} disabled={disabled}
+      : <input type={type} value={value ?? ""} onChange={e=>onChange(e.target.value)} placeholder={placeholder} disabled={disabled} autoFocus={autoFocus}
           style={{ padding:"8px 10px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:13, fontFamily:F, outline:"none", color:C.text1, background:disabled?"#f9fafb":C.surface, width:"100%", boxSizing:"border-box", ...style }}/>
     }
   </div>
@@ -153,11 +153,11 @@ const FieldValue = ({ field, value }) => {
   }
 };
 
-const FieldEditor = ({ field, value, onChange }) => {
+const FieldEditor = ({ field, value, onChange, autoFocus }) => {
   switch(field.field_type) {
     case "textarea":
     case "rich_text":
-      return <Inp multiline value={value} onChange={onChange} placeholder={field.placeholder||field.name}/>;
+      return <Inp multiline value={value} onChange={onChange} placeholder={field.placeholder||field.name} autoFocus={autoFocus}/>;
     case "select":
       return <Sel value={value} onChange={onChange} options={(field.options||[]).map(o=>({value:o,label:o}))}/>;
     case "multi_select": {
@@ -196,15 +196,15 @@ const FieldEditor = ({ field, value, onChange }) => {
       );
     case "number":
     case "currency":
-      return <Inp type="number" value={value} onChange={v=>onChange(v===''?'':Number(v))} placeholder={field.placeholder||field.name}/>;
+      return <Inp type="number" value={value} onChange={v=>onChange(v===''?'':Number(v))} placeholder={field.placeholder||field.name} autoFocus={autoFocus}/>;
     case "date":
-      return <Inp type="date" value={value} onChange={onChange}/>;
+      return <Inp type="date" value={value} onChange={onChange} autoFocus={autoFocus}/>;
     case "email":
-      return <Inp type="email" value={value} onChange={onChange} placeholder={field.placeholder||`Enter ${field.name}`}/>;
+      return <Inp type="email" value={value} onChange={onChange} placeholder={field.placeholder||`Enter ${field.name}`} autoFocus={autoFocus}/>;
     case "url":
-      return <Inp type="url" value={value} onChange={onChange} placeholder="https://…"/>;
+      return <Inp type="url" value={value} onChange={onChange} placeholder="https://…" autoFocus={autoFocus}/>;
     default:
-      return <Inp value={value} onChange={onChange} placeholder={field.placeholder||`Enter ${field.name}`}/>;
+      return <Inp value={value} onChange={onChange} placeholder={field.placeholder||`Enter ${field.name}`} autoFocus={autoFocus}/>;
   }
 };
 
@@ -684,30 +684,19 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                   onMouseLeave={e=>{ e.currentTarget.style.background=isEditing?"#fafbff":"transparent"; const btn=e.currentTarget.querySelector(".edit-hint"); if(btn) btn.style.opacity=0; }}>
                   <div style={{ width:130, fontSize:12, fontWeight:600, color:C.text3, flexShrink:0 }}>{field.name}</div>
                   <div style={{ flex:1, minWidth:0 }}
+                    onBlur={e=>{ if(isEditing && !isClickSave && !e.currentTarget.contains(e.relatedTarget)) handleSaveField(field.api_key, originalVal); }}
                     onKeyDown={e=>{ if(isEditing && !isClickSave){ if(e.key==="Enter"&&field.field_type!=="textarea"&&field.field_type!=="rich_text") handleSaveField(field.api_key, originalVal); if(e.key==="Escape") setEditing(prev=>{const n={...prev};delete n[field.api_key];return n;}); }}}>
                     {isEditing
-                      ? <FieldEditor field={field} value={val} onChange={v=>handleFieldEdit(field.api_key, v, field.field_type)}/>
+                      ? <FieldEditor field={field} value={val} onChange={v=>handleFieldEdit(field.api_key, v, field.field_type)} autoFocus={!isClickSave}/>
                       : <div onClick={()=>!isReadonly&&setEditing(e=>({...e,[field.api_key]:originalVal}))} style={{ cursor:isReadonly?"default":"text", minHeight:22 }}>
                           <FieldValue field={field} value={val}/>
                         </div>
                     }
                   </div>
-                  {isEditing && !isClickSave ? (
-                    <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
-                      <button onClick={()=>handleSaveField(field.api_key, originalVal)}
-                        style={{ display:"flex", alignItems:"center", gap:4, padding:"5px 10px", borderRadius:7, border:`1.5px solid ${C.accent}`, background:C.accentLight, color:C.accent, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:F }}>
-                        <Ic n="check" s={12} c={C.accent}/> Save
-                      </button>
-                      <button onClick={()=>setEditing(e=>{const n={...e};delete n[field.api_key];return n;})}
-                        style={{ background:"none", border:`1px solid ${C.border}`, cursor:"pointer", color:C.text3, padding:"5px 8px", display:"flex", alignItems:"center", borderRadius:7, fontFamily:F }}
-                        title="Cancel">
-                        <Ic n="x" s={12} c={C.text3}/>
-                      </button>
-                    </div>
-                  ) : isEditing && isClickSave ? (
-                    <button onClick={()=>setEditing(e=>{const n={...e};delete n[field.api_key];return n;})}
-                      style={{ background:"none", border:`1px solid ${C.border}`, cursor:"pointer", color:C.text3, padding:"5px 8px", display:"flex", alignItems:"center", borderRadius:7, fontFamily:F, flexShrink:0 }}
-                      title="Close">
+                  {isEditing ? (
+                    <button onClick={()=>{ setEditing(e=>{const n={...e};delete n[field.api_key];return n;}); }}
+                      style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:"3px 4px", display:"flex", alignItems:"center", borderRadius:5, flexShrink:0, fontFamily:F }}
+                      title="Cancel (Esc)">
                       <Ic n="x" s={12} c={C.text3}/>
                     </button>
                   ) : !isReadonly && (

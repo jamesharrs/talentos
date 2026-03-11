@@ -913,6 +913,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [apiOnline, setApiOnline] = useState(null);
   const [showTheme, setShowTheme] = useState(false);
+  const [filterPreset, setFilterPreset] = useState(null); // { objectName, fieldKey, fieldLabel, fieldValue }
 
   useEffect(() => {
     fetch("/api/health")
@@ -972,6 +973,8 @@ function App() {
   const activeObjectId = activeNav.startsWith("record_") ? activeNav.split("_")[2] : null;
 
   const switchNav = (id) => {
+    // Clear any active filter preset when switching to a different nav item
+    if (!id.startsWith("obj_") || id !== activeNav) setFilterPreset(null);
     // If clicking an obj_ nav item while already on that object's record page,
     // force a re-mount by briefly resetting first
     if (id.startsWith("obj_") && (activeNav === id || activeNav.startsWith("record_"))) {
@@ -996,6 +999,26 @@ function App() {
     window.addEventListener("talentos:openRecord", handler);
     return () => window.removeEventListener("talentos:openRecord", handler);
   }, []);
+
+  // Global event listener — pill clicks fire talentos:filter-navigate to jump to a filtered list
+  useEffect(() => {
+    const handler = (e) => {
+      const { fieldKey, fieldLabel, fieldValue } = e.detail || {};
+      if (!fieldKey || fieldValue === undefined) return;
+      // Find the first object that has a field with this api_key
+      // We don't know the object yet — store the preset and let RecordsView apply it
+      // Navigate to the currently active object's list if we're on a record, otherwise stay
+      setFilterPreset({ fieldKey, fieldLabel, fieldValue });
+      // If we're currently on a record page, navigate back to the object list
+      if (activeNav.startsWith("record_")) {
+        const parts = activeNav.split("_");
+        const objectId = parts[2];
+        setActiveNav(`obj_${objectId}`);
+      }
+    };
+    window.addEventListener("talentos:filter-navigate", handler);
+    return () => window.removeEventListener("talentos:filter-navigate", handler);
+  }, [activeNav]);
 
   if (apiOnline === false) {
     return (
@@ -1116,6 +1139,7 @@ function App() {
             object={navObjects.find(o => `obj_${o.id}` === activeNav)}
             environment={selectedEnv}
             onOpenRecord={openRecord}
+            initialFilter={filterPreset}
           />
         ) : activeNav.startsWith("record_") ? (() => {
           const parts = activeNav.split("_"); const recordId = parts[1]; const objectId = parts[2];

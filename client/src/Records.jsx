@@ -128,18 +128,44 @@ const STATUS_COLORS = {
   "Remote":"#3b5bdb","Hybrid":"#7048e8","On-site":"#0ca678",
 };
 
+// Emit a filter-navigate event so the app shell can navigate to a filtered records list
+const emitFilterNav = (fieldKey, fieldLabel, fieldValue) => {
+  window.dispatchEvent(new CustomEvent("talentos:filter-navigate", {
+    detail: { fieldKey, fieldLabel, fieldValue }
+  }));
+};
+
 const FieldValue = ({ field, value }) => {
   if (value===null||value===undefined||value==="") return <span style={{color:C.text3,fontSize:12}}>—</span>;
+
+  // Clickable pill — navigates to a filtered list of records with this value
+  const FilterPill = ({ label, color }) => (
+    <span
+      onClick={e => { e.stopPropagation(); emitFilterNav(field.api_key, field.name, label); }}
+      title={`Browse all records where ${field.name} = "${label}"`}
+      style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 8px", borderRadius:99,
+        fontSize:11, fontWeight:600, background:`${color}18`, color, border:`1px solid ${color}28`,
+        whiteSpace:"nowrap", cursor:"pointer", userSelect:"none", transition:"filter .1s" }}
+      onMouseEnter={e=>e.currentTarget.style.filter="brightness(0.88)"}
+      onMouseLeave={e=>e.currentTarget.style.filter="none"}
+    >
+      {label}
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{opacity:0.6}}>
+        <path d="M9 18l6-6-6-6"/>
+      </svg>
+    </span>
+  );
+
   switch(field.field_type) {
     case "select": {
       const col = STATUS_COLORS[value] || C.accent;
-      return <Badge color={col} light>{value}</Badge>;
+      return <FilterPill label={value} color={col}/>;
     }
     case "multi_select": {
       const arr = Array.isArray(value) ? value : (typeof value==="string"?value.split(","):[]);
-      return <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{arr.map(v=><Badge key={v} color={STATUS_COLORS[v]||C.accent} light>{v}</Badge>)}</div>;
+      return <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{arr.map(v=><FilterPill key={v} label={v} color={STATUS_COLORS[v]||C.accent}/>)}</div>;
     }
-    case "boolean": return <Badge color={value?"#0ca678":"#868e96"} light>{value?"Yes":"No"}</Badge>;
+    case "boolean": return <FilterPill label={value?"Yes":"No"} color={value?"#0ca678":"#868e96"}/>;
     case "url":     return <a href={value} target="_blank" rel="noreferrer" style={{color:C.accent,fontSize:13,textDecoration:"none"}}>{value}</a>;
     case "email":   return <a href={`mailto:${value}`} style={{color:C.accent,fontSize:13,textDecoration:"none"}}>{value}</a>;
     case "rating":  return (
@@ -1242,12 +1268,13 @@ const CSVImportModal = ({ object, environment, onClose, onDone }) => {
   );
 };
 
-export default function RecordsView({ environment, object, onOpenRecord }) {
+export default function RecordsView({ environment, object, onOpenRecord, initialFilter }) {
   const [records, setRecords]   = useState([]);
   const [fields,  setFields]    = useState([]);
   const [loading, setLoading]   = useState(true);
   const [view,    setView]      = useState("table");
   const [search,  setSearch]    = useState("");
+  const [filterChip, setFilterChip] = useState(initialFilter || null); // { fieldKey, fieldLabel, fieldValue }
   const [selected, setSelected] = useState(null);   // slide-out panel only
   const [showForm, setShowForm] = useState(false);
   const [editRecord, setEditRecord] = useState(null);
@@ -1260,14 +1287,25 @@ export default function RecordsView({ environment, object, onOpenRecord }) {
     setLoading(true);
     const [f, r] = await Promise.all([
       api.get(`/fields?object_id=${object.id}`),
-      api.get(`/records?object_id=${object.id}&environment_id=${environment.id}&page=${page}&limit=50${search?`&search=${encodeURIComponent(search)}`:""}`),
+      api.get(`/records?object_id=${object.id}&environment_id=${environment.id}&page=${page}&limit=200${search?`&search=${encodeURIComponent(search)}`:""}`),
     ]);
     setFields(Array.isArray(f)?f:[]);
     const loaded = r.records||[];
-    setRecords(loaded);
-    setTotal(r.pagination?.total||0);
+    // Apply active filter chip client-side
+    const filtered = filterChip
+      ? loaded.filter(rec => {
+          const v = rec.data?.[filterChip.fieldKey];
+          if (Array.isArray(v)) return v.some(i => String(i).toLowerCase() === filterChip.fieldValue.toLowerCase());
+          return String(v || "").toLowerCase() === filterChip.fieldValue.toLowerCase();
+        })
+      : loaded;
+    setRecords(filtered);
+    setTotal(filterChip ? filtered.length : (r.pagination?.total||0));
     setLoading(false);
-  }, [object.id, environment.id, page, search]);
+  }, [object.id, environment.id, page, search, filterChip]);
+
+  // Sync filterChip when initialFilter changes (e.g. navigating from a pill in another record)
+  useEffect(() => { setFilterChip(initialFilter || null); setPage(1); }, [initialFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -1321,6 +1359,20 @@ export default function RecordsView({ environment, object, onOpenRecord }) {
         </div>
 
         <div style={{ flex:1 }}/>
+
+        {/* Active filter chip */}
+        {filterChip && (
+          <div style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 10px 5px 12px", borderRadius:20,
+            background:C.accentLight, border:`1.5px solid ${C.accent}`, fontSize:12, color:C.accent, fontWeight:600 }}>
+            <Ic n="filter" s={11} c={C.accent}/>
+            {filterChip.fieldLabel}: <span style={{fontStyle:"italic"}}>{filterChip.fieldValue}</span>
+            <button onClick={()=>{setFilterChip(null);setPage(1);}}
+              style={{ background:"none", border:"none", cursor:"pointer", padding:"0 0 0 4px", display:"flex", color:C.accent, opacity:0.7 }}
+              onMouseEnter={e=>e.currentTarget.style.opacity="1"} onMouseLeave={e=>e.currentTarget.style.opacity="0.7"}>
+              <Ic n="x" s={12} c={C.accent}/>
+            </button>
+          </div>
+        )}
 
         {activeTab === "records" && <>
         {/* Search */}

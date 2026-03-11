@@ -210,6 +210,7 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
   const [name, setName]       = useState(workflow?.name || "");
   const [objectId, setObjectId] = useState(workflow?.object_id || "");
   const [desc, setDesc]       = useState(workflow?.description || "");
+  const [wfType, setWfType]   = useState(workflow?.workflow_type || "automation");
   const [steps, setSteps]     = useState(workflow?.steps || []);
   const [saving, setSaving]   = useState(false);
   const [fields, setFields]   = useState([]);
@@ -252,9 +253,9 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
     try {
       let wf;
       if (workflow?.id) {
-        wf = await api.patch(`/workflows/${workflow.id}`, { name, object_id: objectId, description: desc });
+        wf = await api.patch(`/workflows/${workflow.id}`, { name, object_id: objectId, description: desc, workflow_type: wfType });
       } else {
-        wf = await api.post("/workflows", { name, object_id: objectId, description: desc, environment_id: environment.id });
+        wf = await api.post("/workflows", { name, object_id: objectId, description: desc, environment_id: environment.id, workflow_type: wfType });
       }
       if (!wf?.id) throw new Error("Server did not return a workflow ID");
       await api.put(`/workflows/${wf.id}/steps`, { steps });
@@ -309,6 +310,25 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
               <input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="What does this workflow do?"
                 style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", border: `1px solid ${C.border}`, borderRadius: 9, fontSize: 13, fontFamily: F, outline: "none", color: C.text1 }}/>
             </label>
+            {/* Workflow type */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.text2, marginBottom: 8 }}>Workflow Type</div>
+              <div style={{ display:"flex", gap:8 }}>
+                {[
+                  { value:"automation",  label:"⚡ Automation",    desc:"Run automated steps on records" },
+                  { value:"pipeline",    label:"📋 Record Pipeline", desc:"Drive a record's status/stage" },
+                  { value:"people_link", label:"🔗 People Pipeline", desc:"Link people to records with stages" },
+                ].map(t => (
+                  <button key={t.value} onClick={()=>setWfType(t.value)}
+                    style={{ flex:1, padding:"10px 12px", borderRadius:10, border:`2px solid ${wfType===t.value?C.accent:C.border}`,
+                      background: wfType===t.value ? C.accentLight : "white",
+                      cursor:"pointer", fontFamily:F, textAlign:"left" }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:wfType===t.value?C.accent:C.text1, marginBottom:3 }}>{t.label}</div>
+                    <div style={{ fontSize:11, color:C.text3, lineHeight:1.4 }}>{t.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Steps */}
@@ -596,6 +616,8 @@ export default function WorkflowsPage({ environment }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
                     <span style={{ fontSize: 15, fontWeight: 700, color: C.text1 }}>{wf.name}</span>
                     <span style={{ fontSize: 11, fontWeight: 600, color, background: `${color}15`, padding: "2px 8px", borderRadius: 99 }}>{objName(wf.object_id)}</span>
+                    {wf.workflow_type === "pipeline"    && <span style={{ fontSize:11, color:"#0ca678", background:"#ecfdf5", padding:"2px 8px", borderRadius:99, fontWeight:600 }}>📋 Pipeline</span>}
+                    {wf.workflow_type === "people_link" && <span style={{ fontSize:11, color:"#7c3aed", background:"#f5f3ff", padding:"2px 8px", borderRadius:99, fontWeight:600 }}>🔗 People</span>}
                     {!wf.active && <span style={{ fontSize: 11, color: C.text3, background: "#f3f4f6", padding: "2px 8px", borderRadius: 99 }}>Inactive</span>}
                   </div>
                   {wf.description && <div style={{ fontSize: 12, color: C.text3, marginBottom: 6 }}>{wf.description}</div>}
@@ -650,6 +672,309 @@ export default function WorkflowsPage({ environment }) {
       {/* Run panel */}
       {running && (
         <RunPanel workflow={running} environment={environment} objects={objects} onClose={() => setRunning(null)}/>
+      )}
+    </div>
+  );
+}
+
+
+// ─── RecordPipelinePanel ──────────────────────────────────────────────────────
+// Shown inside a record's Workflows panel. Lets user:
+//  1. Pick a "pipeline" workflow → drives record status
+//  2. Pick a "people_link" workflow → link People with stages
+//  3. Manage linked people + move them between stages
+export function RecordPipelinePanel({ record, objectId, environment, objectName }) {
+  const [assignments, setAssignments]   = useState([]);       // [{type, workflow:{steps}}]
+  const [allWorkflows, setAllWorkflows] = useState([]);
+  const [peopleLinks, setPeopleLinks]   = useState([]);
+  const [personRecords, setPersonRecords] = useState([]);     // all Person records for picker
+  const [loading, setLoading]           = useState(true);
+  const [addingPerson, setAddingPerson] = useState(false);
+  const [personSearch, setPersonSearch] = useState("");
+  const [saving, setSaving]             = useState(false);
+
+  const pipelineWf   = assignments.find(a => a.type === "pipeline")?.workflow;
+  const peopleLinkWf = assignments.find(a => a.type === "people_link")?.workflow;
+
+  const load = async () => {
+    if (!record?.id || !environment?.id) return;
+    setLoading(true);
+    const [asgn, wfs, links] = await Promise.all([
+      api.get(`/workflows/assignments?record_id=${record.id}`),
+      api.get(`/workflows?environment_id=${environment.id}`),
+      api.get(`/workflows/people-links?target_record_id=${record.id}`),
+    ]);
+    setAssignments(Array.isArray(asgn) ? asgn : []);
+    setAllWorkflows(Array.isArray(wfs)  ? wfs  : []);
+    setPeopleLinks(Array.isArray(links) ? links : []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [record?.id, environment?.id]);
+
+  const assignWorkflow = async (type, workflow_id) => {
+    setSaving(true);
+    await api.put("/workflows/assignments", { record_id: record.id, workflow_id: workflow_id||null, type });
+    await load();
+    setSaving(false);
+  };
+
+  const loadPersonRecords = async () => {
+    // Find Person object
+    const objs = await api.get(`/objects?environment_id=${environment.id}`);
+    const personObj = (Array.isArray(objs)?objs:[]).find(o => o.name === "Person" || o.slug === "people");
+    if (!personObj) return;
+    const recs = await api.get(`/records?object_id=${personObj.id}&environment_id=${environment.id}&limit=500`);
+    setPersonRecords(recs.records || []);
+  };
+
+  const openAddPerson = async () => {
+    await loadPersonRecords();
+    setPersonSearch("");
+    setAddingPerson(true);
+  };
+
+  const linkPerson = async (personRecordId) => {
+    const firstStep = peopleLinkWf?.steps?.[0];
+    await api.post("/workflows/people-links", {
+      person_record_id: personRecordId,
+      target_record_id: record.id,
+      target_object_id: objectId,
+      stage_id:   firstStep?.id   || null,
+      stage_name: firstStep?.name || "New",
+      environment_id: environment.id,
+    });
+    setAddingPerson(false);
+    await load();
+  };
+
+  const moveStage = async (linkId, step) => {
+    await api.patch(`/workflows/people-links/${linkId}`, { stage_id: step.id, stage_name: step.name });
+    setPeopleLinks(ls => ls.map(l => l.id === linkId ? { ...l, stage_id: step.id, stage_name: step.name } : l));
+  };
+
+  const removeLink = async (linkId) => {
+    await api.delete(`/workflows/people-links/${linkId}`);
+    setPeopleLinks(ls => ls.filter(l => l.id !== linkId));
+  };
+
+  const personLabel = (p) => {
+    const d = p.person_data || {};
+    return [d.first_name, d.last_name].filter(Boolean).join(" ") || d.email || p.person_record_id?.slice(0,8);
+  };
+
+  const personInitial = (p) => personLabel(p).charAt(0).toUpperCase();
+
+  // Filtered person list (exclude already linked)
+  const linkedIds = new Set(peopleLinks.map(l => l.person_record_id));
+  const filteredPersons = personRecords.filter(r => {
+    if (linkedIds.has(r.id)) return false;
+    if (!personSearch) return true;
+    const d = r.data || {};
+    const label = [d.first_name, d.last_name, d.email].filter(Boolean).join(" ").toLowerCase();
+    return label.includes(personSearch.toLowerCase());
+  });
+
+  if (loading) return <div style={{ padding:16, color:C.text3, fontSize:13 }}>Loading…</div>;
+
+  // Pipeline workflows and people_link workflows for this object
+  const pipelineOptions   = allWorkflows.filter(w => w.workflow_type === "pipeline"    && w.object_id === objectId);
+  const peopleLinkOptions = allWorkflows.filter(w => w.workflow_type === "people_link" && w.object_id === objectId);
+
+  return (
+    <div style={{ fontFamily:F, display:"flex", flexDirection:"column", gap:16 }}>
+
+      {/* ── Record Pipeline picker ── */}
+      <div style={{ background:"#fafbff", borderRadius:12, border:`1px solid ${C.border}`, padding:14 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+          <span style={{ fontSize:16 }}>📋</span>
+          <span style={{ fontWeight:700, fontSize:13, color:C.text1 }}>Record Pipeline</span>
+          {pipelineWf && (
+            <span style={{ marginLeft:"auto", fontSize:11, color:C.green, background:C.greenLight,
+              padding:"2px 8px", borderRadius:99, fontWeight:600 }}>Active</span>
+          )}
+        </div>
+        <div style={{ fontSize:12, color:C.text3, marginBottom:10, lineHeight:1.5 }}>
+          Drives the status of this record through defined stages.
+        </div>
+        <select value={pipelineWf?.id||""} onChange={e=>assignWorkflow("pipeline", e.target.value)}
+          disabled={saving}
+          style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:9,
+            fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
+          <option value="">— No pipeline —</option>
+          {pipelineOptions.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
+        {/* Show current stages as visual track */}
+        {pipelineWf?.steps?.length > 0 && (
+          <div style={{ marginTop:12, display:"flex", gap:4, flexWrap:"wrap" }}>
+            {pipelineWf.steps.map((step, i) => {
+              const isCurrent = record.data?.status === step.name;
+              return (
+                <button key={step.id} onClick={async ()=>{
+                    await api.patch(`/records/${record.id}`, { data:{ ...record.data, status: step.name }});
+                  }}
+                  title={`Set status to "${step.name}"`}
+                  style={{ padding:"5px 12px", borderRadius:20, fontSize:12, fontWeight:isCurrent?700:500,
+                    border:`1.5px solid ${isCurrent?C.accent:C.border}`,
+                    background:isCurrent?C.accentLight:"white",
+                    color:isCurrent?C.accent:C.text2, cursor:"pointer", fontFamily:F,
+                    display:"flex", alignItems:"center", gap:5 }}>
+                  {i > 0 && <span style={{ fontSize:10, color:C.text3 }}>›</span>}
+                  {step.name||`Stage ${i+1}`}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── People Pipeline picker ── */}
+      <div style={{ background:"#faf5ff", borderRadius:12, border:`1px solid #e9d5ff`, padding:14 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+          <span style={{ fontSize:16 }}>🔗</span>
+          <span style={{ fontWeight:700, fontSize:13, color:C.text1 }}>People Pipeline</span>
+          {peopleLinkWf && (
+            <span style={{ marginLeft:"auto", fontSize:11, color:"#7c3aed", background:"#f5f3ff",
+              padding:"2px 8px", borderRadius:99, fontWeight:600 }}>Active</span>
+          )}
+        </div>
+        <div style={{ fontSize:12, color:C.text3, marginBottom:10, lineHeight:1.5 }}>
+          Tracks people linked to this record and their stage (e.g. application, interview, offer).
+        </div>
+        <select value={peopleLinkWf?.id||""} onChange={e=>assignWorkflow("people_link", e.target.value)}
+          disabled={saving}
+          style={{ width:"100%", padding:"9px 12px", border:`1px solid #e9d5ff`, borderRadius:9,
+            fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
+          <option value="">— No people pipeline —</option>
+          {peopleLinkOptions.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
+      </div>
+
+      {/* ── Linked people ── */}
+      <div>
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+          <span style={{ fontWeight:700, fontSize:13, color:C.text1 }}>
+            Linked People <span style={{ fontWeight:500, color:C.text3 }}>({peopleLinks.length})</span>
+          </span>
+          {peopleLinkWf && (
+            <button onClick={openAddPerson}
+              style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:5, padding:"5px 11px",
+                borderRadius:8, border:`1.5px solid #7c3aed`, background:"#f5f3ff", color:"#7c3aed",
+                fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
+              <Ic n="plus" s={12}/> Add Person
+            </button>
+          )}
+        </div>
+
+        {!peopleLinkWf && peopleLinks.length === 0 && (
+          <div style={{ textAlign:"center", padding:"20px 0", color:C.text3, fontSize:12 }}>
+            Select a People Pipeline above to start linking people.
+          </div>
+        )}
+
+        {peopleLinks.length > 0 && (
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {peopleLinks.map(link => {
+              const steps = peopleLinkWf?.steps || [];
+              return (
+                <div key={link.id} style={{ background:C.surface, border:`1px solid ${C.border}`,
+                  borderRadius:10, padding:"10px 12px", display:"flex", alignItems:"center", gap:10 }}>
+                  {/* Avatar */}
+                  <div style={{ width:32, height:32, borderRadius:"50%", background:"#7c3aed",
+                    display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                    <span style={{ color:"white", fontSize:13, fontWeight:700 }}>{personInitial(link)}</span>
+                  </div>
+                  {/* Name */}
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:C.text1 }}>{personLabel(link)}</div>
+                    {link.person_data?.email && (
+                      <div style={{ fontSize:11, color:C.text3 }}>{link.person_data.email}</div>
+                    )}
+                  </div>
+                  {/* Stage picker — show all steps as clickable pills */}
+                  {steps.length > 0 && (
+                    <div style={{ display:"flex", gap:3, flexWrap:"wrap", maxWidth:240, justifyContent:"flex-end" }}>
+                      {steps.map(step => {
+                        const active = link.stage_id === step.id || (!link.stage_id && steps[0]?.id === step.id);
+                        return (
+                          <button key={step.id} onClick={()=>moveStage(link.id, step)}
+                            style={{ padding:"3px 9px", borderRadius:20, fontSize:11, fontWeight:active?700:500,
+                              border:`1.5px solid ${active?"#7c3aed":"#e9d5ff"}`,
+                              background: active?"#7c3aed":"white",
+                              color: active?"white":"#7c3aed",
+                              cursor:"pointer", fontFamily:F, whiteSpace:"nowrap" }}>
+                            {step.name||`Stage`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {steps.length === 0 && (
+                    <span style={{ fontSize:11, color:C.text3, fontStyle:"italic" }}>
+                      {link.stage_name || "Linked"}
+                    </span>
+                  )}
+                  {/* Remove */}
+                  <button onClick={()=>removeLink(link.id)}
+                    style={{ background:"none", border:"none", cursor:"pointer", padding:4, flexShrink:0 }}>
+                    <Ic n="x" s={13} c={C.text3}/>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Add person modal ── */}
+      {addingPerson && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:2000,
+          display:"flex", alignItems:"center", justifyContent:"center" }}
+          onClick={()=>setAddingPerson(false)}>
+          <div style={{ background:C.surface, borderRadius:16, width:420, maxHeight:"70vh",
+            display:"flex", flexDirection:"column", overflow:"hidden", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}
+            onClick={e=>e.stopPropagation()}>
+            <div style={{ padding:"16px 20px", borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontWeight:700, fontSize:14, color:C.text1, flex:1 }}>Link a Person</span>
+              <button onClick={()=>setAddingPerson(false)} style={{ background:"none", border:"none", cursor:"pointer" }}>
+                <Ic n="x" s={16} c={C.text3}/>
+              </button>
+            </div>
+            <div style={{ padding:"12px 16px", borderBottom:`1px solid ${C.border}` }}>
+              <input autoFocus value={personSearch} onChange={e=>setPersonSearch(e.target.value)}
+                placeholder="Search by name or email…"
+                style={{ width:"100%", boxSizing:"border-box", padding:"9px 12px", border:`1px solid ${C.border}`,
+                  borderRadius:9, fontSize:13, fontFamily:F, outline:"none", color:C.text1 }}/>
+            </div>
+            <div style={{ flex:1, overflowY:"auto" }}>
+              {filteredPersons.length === 0 && (
+                <div style={{ padding:"24px", textAlign:"center", color:C.text3, fontSize:13 }}>
+                  {personSearch ? "No matching people" : "All people already linked"}
+                </div>
+              )}
+              {filteredPersons.map((r, i) => {
+                const d = r.data||{};
+                const label = [d.first_name, d.last_name].filter(Boolean).join(" ") || d.email || r.id.slice(0,8);
+                return (
+                  <div key={r.id} onClick={()=>linkPerson(r.id)}
+                    style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 16px",
+                      cursor:"pointer", borderBottom:i<filteredPersons.length-1?`1px solid ${C.border}`:"none" }}
+                    onMouseEnter={e=>e.currentTarget.style.background=C.accentLight}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <div style={{ width:32, height:32, borderRadius:"50%", background:"#7c3aed",
+                      display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      <span style={{ color:"white", fontSize:13, fontWeight:700 }}>{label.charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div>
+                      <div style={{ fontSize:13, fontWeight:600, color:C.text1 }}>{label}</div>
+                      {d.email && <div style={{ fontSize:11, color:C.text3 }}>{d.email}</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

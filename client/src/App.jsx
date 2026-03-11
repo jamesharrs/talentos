@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import SettingsPage from "./Settings.jsx";
-import RecordsView from "./Records.jsx";
+import RecordsView, { RecordDetail } from "./Records.jsx";
 import SearchPage from "./Search.jsx";
 import { AICopilot, MatchingEngine } from "./AI.jsx";
 import Dashboard from "./Dashboard.jsx";
@@ -79,6 +79,8 @@ const Icon = ({ name, size = 16, color = "currentColor" }) => {
     workflow: "M22 12h-4l-3 9L9 3l-3 9H2",
     home: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10",
     mail: "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6",
+    user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+    "bar-chart-2": "M18 20V10M12 20V4M6 20v-6",
   };
 
   return (
@@ -640,7 +642,7 @@ const EnvironmentBadge = ({ env, selected, onClick }) => (
 );
 
 // ─── Global Search Bar ────────────────────────────────────────────────────────
-const GlobalSearch = ({ selectedEnv, onNavigateToSearch }) => {
+const GlobalSearch = ({ selectedEnv, onNavigateToSearch, onNavigateToRecord }) => {
   const [query,   setQuery]   = useState("");
   const [results, setResults] = useState([]);
   const [open,    setOpen]    = useState(false);
@@ -682,7 +684,7 @@ const GlobalSearch = ({ selectedEnv, onNavigateToSearch }) => {
   const OBJECT_COLORS = { people: "#3b5bdb", jobs: "#0ca678", "talent-pools": "#7c3aed" };
 
   return (
-    <div ref={ref} style={{ position: "sticky", top: 0, zIndex: 200, background: "var(--t-surface)", borderBottom: "1px solid var(--t-border)", padding: "10px 32px", display: "flex", alignItems: "center", gap: 12 }}>
+    <div ref={ref} style={{ position: "sticky", top: 0, zIndex: 600, background: "var(--t-surface)", borderBottom: "1px solid var(--t-border)", padding: "10px 32px", display: "flex", alignItems: "center", gap: 12 }}>
       <div style={{ position: "relative", flex: 1, maxWidth: 480 }}>
         {/* Input */}
         <input
@@ -719,7 +721,10 @@ const GlobalSearch = ({ selectedEnv, onNavigateToSearch }) => {
                 <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid var(--t-border2)", transition: "background .1s" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--t-surface2)"}
                   onMouseLeave={e => e.currentTarget.style.background = "var(--t-surface)"}
-                  onClick={() => setOpen(false)}>
+                  onClick={() => {
+                    setOpen(false);
+                    setQuery("");
+                    onNavigateToRecord?.(r.id, r.object_id);                  }}>
                   <div style={{ width: 30, height: 30, borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <span style={{ color: "white", fontSize: 11, fontWeight: 700 }}>{(name||"?").charAt(0).toUpperCase()}</span>
                   </div>
@@ -846,6 +851,55 @@ function ThemePanel({ onClose }) {
   );
 }
 
+// ─── Record Page ─────────────────────────────────────────────────────────────
+// Standalone page — no overlay, no z-index, just a regular routed view
+function RecordPage({ recordId, objectId, environment, allObjects, onBack, onNavigate }) {
+  const [state, setState] = useState(null); // { record, fields, object }
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!recordId || !objectId) return;
+    setLoading(true);
+    const load = async () => {
+      let obj = allObjects?.find(o => o.id === objectId);
+      if (!obj) {
+        const objs = await api.get(`/objects?environment_id=${environment?.id}`);
+        obj = Array.isArray(objs) ? objs.find(o => o.id === objectId) : null;
+      }
+      if (!obj) { setLoading(false); return; }
+      const [recResp, fields] = await Promise.all([
+        api.get(`/records/${recordId}`),
+        api.get(`/fields?object_id=${objectId}`),
+      ]);
+      const record = recResp?.id ? recResp : null;
+      if (!record) { setLoading(false); return; }
+      setState({ record, fields: Array.isArray(fields) ? fields : [], object: obj });
+      setLoading(false);
+    };
+    load();
+  }, [recordId, objectId, environment?.id]);
+
+  if (loading) return <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af" }}>Loading…</div>;
+  if (!state) return <div style={{ padding:40, color:"#9ca3af" }}>Record not found.</div>;
+
+  const { record, fields, object } = state;
+
+  return (
+    <RecordDetail
+      record={record}
+      fields={fields}
+      environment={environment}
+      objectName={object.name}
+      objectColor={object.color || "#4361EE"}
+      fullPage={true}
+      onClose={onBack}
+      onToggleFullPage={() => {}}
+      onUpdate={(updated) => setState(s => s ? { ...s, record: updated } : s)}
+      onDelete={async (id) => { await api.delete(`/records/${id}`); onBack(); }}
+    />
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 function App() {
   const { prefs, update } = useTheme();
@@ -882,7 +936,7 @@ function App() {
     api.get(`/objects?environment_id=${selectedEnv.id}`).then(d => setNavObjects(Array.isArray(d) ? d : []));
   }, [selectedEnv?.id]);
 
-  const OBJECT_ICONS = { people: "user", jobs: "briefcase", "talent-pools": "layers" };
+  const OBJECT_ICONS = { people: "users", jobs: "briefcase", "talent-pools": "layers" };
 
   const navSections = [
     {
@@ -913,10 +967,34 @@ function App() {
     }
   ];
 
+  // When on a record page, extract the parent object id for nav highlighting
+  const activeObjectId = activeNav.startsWith("record_") ? activeNav.split("_")[2] : null;
+
   const switchNav = (id) => {
-    setActiveNav(id);
-    setSelectedObject(null);
+    // If clicking an obj_ nav item while already on that object's record page,
+    // force a re-mount by briefly resetting first
+    if (id.startsWith("obj_") && (activeNav === id || activeNav.startsWith("record_"))) {
+      setActiveNav("__reset__");
+      setTimeout(() => { setActiveNav(id); setSelectedObject(null); }, 0);
+    } else {
+      setActiveNav(id);
+      setSelectedObject(null);
+    }
   };
+
+  const openRecord = (recordId, objectId) => {
+    setActiveNav(`record_${recordId}_${objectId}`);
+  };
+
+  // Global event listener — anything can fire talentos:openRecord to navigate to a record page
+  useEffect(() => {
+    const handler = (e) => {
+      const { recordId, objectId } = e.detail || {};
+      if (recordId && objectId) openRecord(recordId, objectId);
+    };
+    window.addEventListener("talentos:openRecord", handler);
+    return () => window.removeEventListener("talentos:openRecord", handler);
+  }, []);
 
   if (apiOnline === false) {
     return (
@@ -970,12 +1048,12 @@ function App() {
                 <button key={item.id} onClick={() => switchNav(item.id)} style={{
                   width: "100%", display: "flex", alignItems: "center", gap: 9,
                   padding: "8px 10px", borderRadius: 8, border: "none", cursor: "pointer",
-                  background: activeNav === item.id ? "var(--t-nav-active)" : "transparent",
-                  color: activeNav === item.id ? "var(--t-nav-active-c)" : "var(--t-nav-text)",
-                  fontSize: 13, fontWeight: activeNav === item.id ? 700 : 500,
+                  background: (activeNav === item.id || (activeObjectId && item.id === `obj_${activeObjectId}`)) ? "var(--t-nav-active)" : "transparent",
+                  color: (activeNav === item.id || (activeObjectId && item.id === `obj_${activeObjectId}`)) ? "var(--t-nav-active-c)" : "var(--t-nav-text)",
+                  fontSize: 13, fontWeight: (activeNav === item.id || (activeObjectId && item.id === `obj_${activeObjectId}`)) ? 700 : 500,
                   fontFamily: "inherit", textAlign: "left", transition: "all 0.15s", marginBottom: 2
                 }}>
-                  <Icon name={item.icon} size={15} color={activeNav === item.id ? "var(--t-nav-active-c)" : "var(--t-text3)"} />
+                  <Icon name={item.icon} size={15} color={(activeNav === item.id || (activeObjectId && item.id === `obj_${activeObjectId}`)) ? "var(--t-nav-active-c)" : "var(--t-text3)"} />
                   {item.label}
                 </button>
               ))}
@@ -1018,7 +1096,7 @@ function App() {
           }
         }} />
         {/* Page content */}
-        <div style={{ flex: 1, padding: "28px 32px", overflow: "auto" }}>
+        <div style={{ flex: 1, padding: activeNav.startsWith("record_") ? 0 : "28px 32px", overflow: "auto" }}>
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300, color: "#9ca3af" }}>Loading…</div>
         ) : !selectedEnv ? (
@@ -1036,15 +1114,22 @@ function App() {
           <RecordsView
             object={navObjects.find(o => `obj_${o.id}` === activeNav)}
             environment={selectedEnv}
+            onOpenRecord={openRecord}
           />
-        ) : activeNav === "search" ? (
-          <SearchPage environment={selectedEnv} />
+        ) : activeNav.startsWith("record_") ? (() => {
+          const parts = activeNav.split("_"); const recordId = parts[1]; const objectId = parts[2];
+          const obj = navObjects.find(o => o.id === objectId);
+          return <RecordPage recordId={recordId} objectId={objectId} environment={selectedEnv} allObjects={navObjects} onBack={() => setActiveNav(obj ? `obj_${obj.id}` : "dashboard")} />;
+        })() : activeNav === "search" ? (
+          <SearchPage environment={selectedEnv} onNavigateToRecord={(record) => {
+            openRecord(record.id, record.object_id);
+          }}/>
         ) : activeNav === "workflows" ? (
           <WorkflowsPage environment={selectedEnv} />
         ) : activeNav === "portals" ? (
           <PortalsPage environment={selectedEnv} />
         ) : activeNav === "reports" ? (
-          <ReportsPage envId={selectedEnv?.id} theme={t} />
+          <ReportsPage envId={selectedEnv?.id} />
         ) : activeNav === "settings" ? (
           <SettingsPage />
         ) : activeNav === "schema" ? (
@@ -1061,12 +1146,7 @@ function App() {
       <AICopilot environment={selectedEnv} onNavigateToRecord={(record) => {
         const obj = navObjects.find(o => o.slug === record.object_slug || o.id === record.object_id);
         if (!obj) return;
-        const detail = { recordId: record.id, objectId: obj.id };
-        const navId = `obj_${obj.id}`;
-        // Fire the event — if RecordsView is mounted it handles it immediately,
-        // if not, it will be stored in _pendingOpen and picked up after load()
-        window.dispatchEvent(new CustomEvent("talentos:openRecord", { detail }));
-        setActiveNav(navId);
+        openRecord(record.id, obj.id);
       }} />
     </div>
   );

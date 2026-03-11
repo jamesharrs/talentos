@@ -14,6 +14,9 @@ const C = {
 
 const api = { get: p => fetch(`/api${p}`).then(r => r.json()) };
 
+// Simple per-environment cache — survives re-mounts, cleared on env change
+const _cache = {};
+
 const Ic = ({ n, s=16, c="currentColor" }) => {
   const P = {
     users:"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
@@ -99,32 +102,54 @@ export default function Dashboard({environment,onNavigate}) {
   useEffect(()=>{if(!environment?.id)return;loadData();},[environment?.id]);
 
   const loadData = async () => {
-    setLoading(true);
+    // Return cached data instantly, then refresh in background
+    if (_cache[environment.id]) {
+      setStats(_cache[environment.id].stats);
+      setRecent(_cache[environment.id].recent);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     try {
+      // Fetch objects + all record sets in parallel (not sequential)
       const objs = await api.get(`/objects?environment_id=${environment.id}`);
-      if(!Array.isArray(objs)){setLoading(false);return;}
-      const counts={},statusBreakdowns={},recentItems=[];
-      await Promise.all(objs.map(async o=>{
-        const r = await api.get(`/records?object_id=${o.id}&environment_id=${environment.id}&limit=100`);
-        const records=r.records||[];
-        counts[o.slug]=r.pagination?.total||records.length;
-        const sb={};
-        records.forEach(rec=>{const s=rec.data?.status||"Unknown";sb[s]=(sb[s]||0)+1;});
-        statusBreakdowns[o.slug]=sb;
-        records.slice(0,5).forEach(rec=>{
-          const nameF=["first_name","job_title","pool_name","name"].find(k=>rec.data?.[k]);
-          const lastName=rec.data?.last_name?` ${rec.data.last_name}`:"";
-          recentItems.push({id:rec.id,name:nameF?(rec.data[nameF]+lastName):"Untitled",object:o.name,objectSlug:o.slug,objectColor:o.color||C.accent,status:rec.data?.status,created:rec.created_at});
+      if (!Array.isArray(objs)) { setLoading(false); return; }
+
+      // Fetch all objects' records simultaneously — limit=20 is enough for
+      // status breakdowns + recent items (we only show 5 per object / 8 total)
+      const recordSets = await Promise.all(
+        objs.map(o => api.get(`/records?object_id=${o.id}&environment_id=${environment.id}&limit=20`))
+      );
+
+      const counts={}, statusBreakdowns={}, recentItems=[];
+      objs.forEach((o, i) => {
+        const r = recordSets[i];
+        const records = r.records || [];
+        counts[o.slug] = r.pagination?.total ?? records.length;
+        const sb = {};
+        records.forEach(rec => { const s = rec.data?.status || "Unknown"; sb[s] = (sb[s]||0) + 1; });
+        statusBreakdowns[o.slug] = sb;
+        records.slice(0, 5).forEach(rec => {
+          const nameF = ["first_name","job_title","pool_name","name"].find(k => rec.data?.[k]);
+          const lastName = rec.data?.last_name ? ` ${rec.data.last_name}` : "";
+          recentItems.push({ id:rec.id, name:nameF?(rec.data[nameF]+lastName):"Untitled", object:o.name, objectSlug:o.slug, objectColor:o.color||C.accent, status:rec.data?.status, created:rec.created_at });
         });
-      }));
-      recentItems.sort((a,b)=>new Date(b.created)-new Date(a.created));
-      setStats({counts,statusBreakdowns,objects:objs});
-      setRecent(recentItems.slice(0,8));
-    } catch(e){console.error(e);}
+      });
+
+      recentItems.sort((a,b) => new Date(b.created) - new Date(a.created));
+      const statsData = { counts, statusBreakdowns, objects: objs };
+      const recentData = recentItems.slice(0, 8);
+
+      // Update cache
+      _cache[environment.id] = { stats: statsData, recent: recentData };
+      setStats(statsData);
+      setRecent(recentData);
+    } catch(e) { console.error(e); }
     setLoading(false);
   };
 
-  if(loading) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:300,fontFamily:F,color:C.text3}}>Loading dashboard…</div>;
+  if(loading && !stats) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:300,fontFamily:F,color:C.text3}}>Loading dashboard…</div>;
   if(!stats) return null;
 
   const peopleCount=stats.counts["people"]||0, jobsCount=stats.counts["jobs"]||0, poolsCount=stats.counts["talent-pools"]||0;

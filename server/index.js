@@ -41,6 +41,9 @@ app.use('/api/csv',          require('./routes/csv'));
 app.use('/api/workflows',    require('./routes/workflows'));
 app.use('/api/portals',      require('./routes/portals'));
 app.use('/api/reports',      require('./routes/reports'));
+app.use('/api/comms',            require('./routes/communications'));
+app.use('/api/email-templates',  require('./routes/email-templates'));
+app.use('/api/integrations',     require('./routes/integrations'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '1.1.0' }));
 
@@ -54,6 +57,15 @@ initDB().then(() => {
   if (!store.attachments) { store.attachments = []; dirty = true; }
   if (!store.portals)     { store.portals = [];     dirty = true; }
   if (!store.workflows)   { store.workflows = [];   dirty = true; }
+  if (!store.communications)   { store.communications = [];   dirty = true; }
+  if (!store.email_templates)  { store.email_templates = [];  dirty = true; }
+  if (!store.integrations)     { store.integrations = {};     dirty = true; }
   if (dirty) fs.writeFileSync(path.join(__dirname, '../data/talentos.json'), JSON.stringify(store, null, 2));
+  // Apply saved integration credentials to process.env
+  for (const fields of Object.values(store.integrations || {})) {
+    for (const [k, v] of Object.entries(fields)) {
+      if (v && !v.startsWith('YOUR_')) process.env[k] = v;
+    }
+  }
   app.listen(PORT, () => console.log(`TalentOS API → http://localhost:${PORT}`));
 }).catch(err => { console.error(err); process.exit(1); });

@@ -55,7 +55,10 @@ router.post('/:envId/run', (req, res) => {
   const envId = req.params.envId;
 
   // Get all records for this object
-  const allRecords = (store.records || []).filter(r => r._envId === envId && r._objectId === objectId);
+  // Flatten data field onto each row
+  const allRecords = (store.records || [])
+    .filter(r => r.environment_id === envId && r.object_id === objectId && !r.deleted_at)
+    .map(r => ({ id: r.id, created_at: r.created_at, ...( r.data || {}) }));
 
   // Apply filters
   let rows = allRecords.filter(row => {

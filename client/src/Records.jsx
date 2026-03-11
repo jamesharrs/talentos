@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { MatchingEngine } from "./AI.jsx";
+import CommunicationsPanel from "./Communications.jsx";
+import { RecordPipelinePanel } from "./Workflows.jsx";
 
 const api = {
   get:    p     => fetch(`/api${p}`).then(r=>r.json()),
@@ -207,7 +209,7 @@ const FieldEditor = ({ field, value, onChange }) => {
 };
 
 /* ─── record display name ──────────────────────────────────────────────────── */
-const recordTitle = (record, fields) => {
+export const recordTitle = (record, fields) => {
   const nameField = fields.find(f=>["first_name","name","job_title","pool_name","title"].includes(f.api_key));
   const lastField = fields.find(f=>f.api_key==="last_name");
   if (!record?.data) return "Untitled";
@@ -288,7 +290,7 @@ const RecordFormModal = ({ fields, record, objectName, onSave, onClose }) => {
 };
 
 /* ─── Table View ───────────────────────────────────────────────────────────── */
-const TableView = ({ records, fields, objectColor, onSelect, onEdit, onDelete }) => {
+const TableView = ({ records, fields, objectColor, onSelect, onEdit, onDelete, onProfile }) => {
   const listFields = fields.filter(f=>f.show_in_list).slice(0,6);
 
   if (records.length===0) return (
@@ -315,18 +317,26 @@ const TableView = ({ records, fields, objectColor, onSelect, onEdit, onDelete })
           {records.map(record => {
             const title = recordTitle(record, fields);
             return (
-              <tr key={record.id} onClick={()=>onSelect(record)} style={{ borderBottom:`1px solid ${C.border}`, cursor:"pointer", transition:"background .1s" }}
+              <tr key={record.id} style={{ borderBottom:`1px solid ${C.border}`, transition:"background .1s" }}
                 onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                <td style={{ padding:"12px 12px" }}>
+                <td style={{ padding:"12px 12px", cursor:"pointer" }} onClick={()=>onProfile(record)}>
                   <Avatar name={title} color={objectColor} size={28}/>
                 </td>
-                {listFields.map(f=>(
-                  <td key={f.id} style={{ padding:"12px 14px", maxWidth:220 }}>
-                    <FieldValue field={f} value={record.data?.[f.api_key]}/>
+                {listFields.map((f,fi)=>(
+                  <td key={f.id} style={{ padding:"12px 14px", maxWidth:220, cursor: fi===0?"pointer":"default" }}
+                    onClick={fi===0 ? ()=>onProfile(record) : undefined}>
+                    {fi===0
+                      ? <span style={{ fontWeight:700, color:"#4361EE", textDecoration:"none" }}
+                          onMouseEnter={e=>e.currentTarget.style.textDecoration="underline"}
+                          onMouseLeave={e=>e.currentTarget.style.textDecoration="none"}>
+                          <FieldValue field={f} value={record.data?.[f.api_key]}/>
+                        </span>
+                      : <FieldValue field={f} value={record.data?.[f.api_key]}/>
+                    }
                   </td>
                 ))}
                 <td style={{ padding:"12px 14px", textAlign:"right" }}>
-                  <div style={{ display:"flex", gap:4, justifyContent:"flex-end" }} onClick={e=>e.stopPropagation()}>
+                  <div style={{ display:"flex", gap:4, justifyContent:"flex-end" }}>
                     <Btn v="ghost" sz="sm" icon="edit"   onClick={()=>onEdit(record)}/>
                     <Btn v="ghost" sz="sm" icon="expand" onClick={()=>onSelect(record)}/>
                     <Btn v="ghost" sz="sm" icon="trash"  onClick={()=>onDelete(record.id)} style={{color:"#ef4444"}}/>
@@ -342,7 +352,7 @@ const TableView = ({ records, fields, objectColor, onSelect, onEdit, onDelete })
 };
 
 /* ─── Kanban View ──────────────────────────────────────────────────────────── */
-const KanbanView = ({ records, fields, objectColor, onSelect, onEdit, onDelete, onStatusChange }) => {
+const KanbanView = ({ records, fields, objectColor, onSelect, onEdit, onDelete, onStatusChange, onProfile }) => {
   const statusField = fields.find(f=>f.api_key==="status"&&f.field_type==="select");
   const columns = statusField?.options || ["Active","Passive","Archived"];
   const [dragging, setDragging] = useState(null);
@@ -393,14 +403,14 @@ const KanbanView = ({ records, fields, objectColor, onSelect, onEdit, onDelete, 
                 const sub   = subtitleField ? record.data?.[subtitleField.api_key] : null;
                 const extra = extraField ? record.data?.[extraField.api_key] : null;
                 return (
-                  <div key={record.id} draggable onDragStart={()=>setDragging(record.id)} onClick={()=>onSelect(record)}
+                  <div key={record.id} draggable onDragStart={()=>setDragging(record.id)} onClick={()=>onProfile(record)}
                     style={{ background:C.surface, borderRadius:10, border:`1px solid ${C.border}`, padding:"12px 14px", cursor:"pointer", transition:"all .12s", boxShadow:"0 1px 3px rgba(0,0,0,.05)" }}
                     onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
                     onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.05)";e.currentTarget.style.transform="none";}}>
                     <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
                       <Avatar name={fullTitle||"?"} color={colColor} size={30}/>
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, fontWeight:700, color:C.text1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{fullTitle||"Untitled"}</div>
+                        <div style={{ fontSize:13, fontWeight:700, color:"#4361EE", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{fullTitle||"Untitled"}</div>
                         {sub && <div style={{ fontSize:11, color:C.text3, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{sub}</div>}
                         {extra && <div style={{ fontSize:11, color:C.text3, marginTop:1 }}>{extra}</div>}
                       </div>
@@ -431,8 +441,8 @@ const STEP_ICONS  = { stage_change:"tag", ai_prompt:"sparkles", update_field:"ed
 const RecordWorkflows = ({ record, objectId, environment }) => {
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading]     = useState(true);
-  const [running, setRunning]     = useState(null); // workflow id currently running
-  const [results, setResults]     = useState({});   // keyed by workflow id
+  const [running, setRunning]     = useState(null);
+  const [results, setResults]     = useState({});
 
   useEffect(() => {
     if (!objectId || !environment?.id) return;
@@ -452,23 +462,26 @@ const RecordWorkflows = ({ record, objectId, environment }) => {
     setRunning(null);
   };
 
-  if (loading) return <div style={{ padding: "32px 0", textAlign:"center", color:C.text3, fontSize:13 }}>Loading workflows…</div>;
+  if (loading) return <div style={{ padding:"32px 0", textAlign:"center", color:C.text3, fontSize:13 }}>Loading…</div>;
 
-  if (workflows.length === 0) return (
-    <div style={{ padding:"40px 0", textAlign:"center", color:C.text3 }}>
-      <div style={{ fontSize:32, marginBottom:8 }}>⚡</div>
-      <div style={{ fontSize:14, fontWeight:600, color:C.text2, marginBottom:4 }}>No workflows linked to this object</div>
-      <div style={{ fontSize:12 }}>Create a workflow in the Workflows section and link it to this object type.</div>
-    </div>
-  );
+  // Automation workflows (original behaviour)
+  const automationWfs = workflows.filter(w => !w.workflow_type || w.workflow_type === "automation");
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-      {workflows.map(wf => {
-        const res = results[wf.id];
-        const isRunning = running === wf.id;
-        return (
-          <div key={wf.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden" }}>
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      {/* Pipeline + People Link section */}
+      <RecordPipelinePanel record={record} objectId={objectId} environment={environment} objectName={objectName}/>
+
+      {/* Automation workflows */}
+      {automationWfs.length > 0 && (
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:10 }}>⚡ Automations</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {automationWfs.map(wf => {
+              const res = results[wf.id];
+              const isRunning = running === wf.id;
+              return (
+                <div key={wf.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden" }}>
             {/* Header */}
             <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px", background:"#f9fafb", borderBottom:`1px solid ${C.border}` }}>
               <div style={{ width:32, height:32, borderRadius:9, background:`linear-gradient(135deg,${C.accent},#7c3aed)`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
@@ -516,20 +529,57 @@ const RecordWorkflows = ({ record, objectId, environment }) => {
           </div>
         );
       })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-/* ─── Record Detail (slide-in panel + full page) ───────────────────────────── */
-const RecordDetail = ({ record, fields, allObjects, environment, objectName, objectColor, onClose, fullPage, onToggleFullPage, onUpdate, onDelete }) => {
+
+/* ─── Record Detail (slide-in panel + full-page 2-col layout) ─────────────── */
+
+// Panel registry — future: load custom panels from object config (Settings > Objects > Panels)
+export const PANEL_META = {
+  comms:       { icon:"mail",          label:"Communications", defaultOpen:true  },
+  notes:       { icon:"messageSquare", label:"Notes",     defaultOpen:true  },
+  attachments: { icon:"paperclip",     label:"Files",     defaultOpen:true  },
+  activity:    { icon:"activity",      label:"Activity",  defaultOpen:false },
+  workflows:   { icon:"zap",           label:"Workflows", defaultOpen:false },
+  match:       { icon:"sparkles",      label:"AI Match",  defaultOpen:false },
+};
+
+export const getDefaultPanelOrder = (objectName) => {
+  const base = ["comms","notes","attachments","activity","workflows"];
+  if (["Person","Job"].includes(objectName)) base.push("match");
+  return base;
+};
+
+export const RecordDetail = ({ record, fields, allObjects, environment, objectName, objectColor, onClose, fullPage, onToggleFullPage, onUpdate, onDelete }) => {
   const [tab, setTab]           = useState("fields");
   const [editing, setEditing]   = useState({});
   const [notes, setNotes]       = useState([]);
   const [attachments, setAttachments] = useState([]);
   const [activity, setActivity] = useState([]);
-  const [relRecords, setRelRecords] = useState({});
   const [newNote, setNewNote]   = useState("");
   const [saving, setSaving]     = useState(false);
+  const [openPanels, setOpenPanels] = useState({comms:true,notes:true,attachments:true,activity:false,workflows:false,match:false});
+  const [composeType, setComposeType] = useState(null);   // drives compose modal in CommunicationsPanel
+  const [showCommMenu, setShowCommMenu] = useState(false);
+  const [draggingPanel, setDraggingPanel] = useState(null);
+  const [dragOverPanel, setDragOverPanel] = useState(null);
+
+  const storageKey = `talentos_panels_${objectName}`;
+  const [panelOrder, setPanelOrder] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(storageKey)) || getDefaultPanelOrder(objectName); }
+    catch { return getDefaultPanelOrder(objectName); }
+  });
+
+  const savePanelOrder = (order) => {
+    setPanelOrder(order);
+    try { localStorage.setItem(storageKey, JSON.stringify(order)); } catch {}
+  };
+
 
   const load = useCallback(async () => {
     const [n, att, act] = await Promise.all([
@@ -545,7 +595,6 @@ const RecordDetail = ({ record, fields, allObjects, environment, objectName, obj
   useEffect(() => { load(); setEditing({}); setTab("fields"); }, [record.id, load]);
 
   const handleFieldEdit = (key, value) => setEditing(e=>({...e,[key]:value}));
-
   const handleSaveField = async (key) => {
     setSaving(true);
     const updated = await api.patch(`/records/${record.id}`, { data: { [key]: editing[key] } });
@@ -553,24 +602,26 @@ const RecordDetail = ({ record, fields, allObjects, environment, objectName, obj
     setEditing(e=>{ const n={...e}; delete n[key]; return n; });
     setSaving(false);
   };
-
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
     await api.post("/notes", { record_id:record.id, content:newNote, author:"Admin" });
-    setNewNote("");
-    load();
+    setNewNote(""); load();
   };
-
-  const handleDeleteNote = async (id) => {
-    await api.del(`/notes/${id}`);
-    load();
-  };
-
+  const handleDeleteNote = async (id) => { await api.del(`/notes/${id}`); load(); };
   const handleAddAttachment = async () => {
-    const name = prompt("File name (demo):");
-    if (!name) return;
-    await api.post("/attachments", { record_id:record.id, name, size:0, type:"application/pdf" });
-    load();
+    const name = prompt("File name (demo):"); if (!name) return;
+    await api.post("/attachments", { record_id:record.id, name, size:0, type:"application/pdf" }); load();
+  };
+
+  // Drag handlers for panel reorder
+  const onPanelDragStart = (e, id) => { setDraggingPanel(id); e.dataTransfer.effectAllowed="move"; };
+  const onPanelDragOver  = (e, id) => { e.preventDefault(); setDragOverPanel(id); };
+  const onPanelDrop      = (targetId) => {
+    if (!draggingPanel || draggingPanel===targetId) { setDraggingPanel(null); setDragOverPanel(null); return; }
+    const next=[...panelOrder];
+    const from=next.indexOf(draggingPanel), to=next.indexOf(targetId);
+    next.splice(from,1); next.splice(to,0,draggingPanel);
+    savePanelOrder(next); setDraggingPanel(null); setDragOverPanel(null);
   };
 
   const title = recordTitle(record, fields);
@@ -583,6 +634,199 @@ const RecordDetail = ({ record, fields, allObjects, environment, objectName, obj
     { label:"Additional", fs: fields.filter((_,i)=>i>=7) },
   ].filter(s=>s.fs.length);
 
+
+  // ── Shared field panel (used in both slide-out tab and full-page left col) ──
+  const FieldsPanel = () => (
+    <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
+      {fieldSections.map(section => (
+        <div key={section.label} style={{ marginBottom:20 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>{section.label}</div>
+          <div style={{ background:"#f8f9fc", borderRadius:12, overflow:"hidden", border:`1px solid ${C.border}` }}>
+            {section.fs.map((field,i) => {
+              const isEditing = editing.hasOwnProperty(field.api_key);
+              const val = isEditing ? editing[field.api_key] : record.data?.[field.api_key];
+              return (
+                <div key={field.id}
+                  style={{ display:"flex", alignItems:isEditing?"flex-start":"center", gap:12, padding:"11px 14px", borderBottom:i<section.fs.length-1?`1px solid ${C.border}`:"none", background:isEditing?"#fafbff":"transparent", transition:"background .1s" }}
+                  onMouseEnter={e=>{ if(!isEditing) { e.currentTarget.style.background="#f0f4ff"; const btn=e.currentTarget.querySelector(".edit-hint"); if(btn) btn.style.opacity=1; }}}
+                  onMouseLeave={e=>{ e.currentTarget.style.background=isEditing?"#fafbff":"transparent"; const btn=e.currentTarget.querySelector(".edit-hint"); if(btn) btn.style.opacity=0; }}>
+                  <div style={{ width:130, fontSize:12, fontWeight:600, color:C.text3, flexShrink:0 }}>{field.name}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    {isEditing
+                      ? <FieldEditor field={field} value={val} onChange={v=>handleFieldEdit(field.api_key,v)}/>
+                      : <div onClick={()=>!field.is_system&&handleFieldEdit(field.api_key,val)} style={{ cursor:field.is_system?"default":"text", minHeight:22 }}>
+                          <FieldValue field={field} value={val}/>
+                        </div>
+                    }
+                  </div>
+                  {isEditing ? (
+                    <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+                      <Btn sz="sm" onClick={()=>handleSaveField(field.api_key)} disabled={saving}>Save</Btn>
+                      <Btn v="ghost" sz="sm" icon="x" onClick={()=>setEditing(e=>{const n={...e};delete n[field.api_key];return n;})}/>
+                    </div>
+                  ) : !field.is_system && (
+                    <button className="edit-hint" onClick={()=>handleFieldEdit(field.api_key,val)}
+                      style={{ background:"none", border:"none", cursor:"pointer", color:C.accent, opacity:0, padding:"3px 6px", display:"flex", alignItems:"center", gap:4, fontSize:11, fontWeight:600, borderRadius:6, transition:"opacity .1s", flexShrink:0, fontFamily:F }}>
+                      <Ic n="edit" s={12} c={C.accent}/> Edit
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+
+  // ── Panel content renderer ──
+  const PanelContent = ({ id }) => {
+    if (id==="comms") return (
+      <CommunicationsPanel record={record} environment={environment} externalCompose={composeType} onExternalComposeDone={()=>setComposeType(null)}/>
+    );
+    if (id==="notes") return (
+      <div>
+        <div style={{ display:"flex", flexDirection:"column", gap:4, marginBottom:14 }}>
+          <textarea value={newNote} onChange={e=>setNewNote(e.target.value)} placeholder="Add a note…" rows={3}
+            style={{ padding:"10px 12px", borderRadius:10, border:`1px solid ${C.border}`, fontSize:13, fontFamily:F, outline:"none", color:C.text1, resize:"vertical", width:"100%", boxSizing:"border-box" }}/>
+          <div style={{ display:"flex", justifyContent:"flex-end" }}>
+            <Btn onClick={handleAddNote} disabled={!newNote.trim()} sz="sm">Add Note</Btn>
+          </div>
+        </div>
+        {notes.length===0
+          ? <div style={{ textAlign:"center", padding:"20px 0", color:C.text3, fontSize:13 }}>No notes yet</div>
+          : notes.map(note=>(
+            <div key={note.id} style={{ background:"#f8f9fc", borderRadius:10, padding:"12px 14px", marginBottom:8, border:`1px solid ${C.border}` }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <Avatar name={note.author} size={22} color={C.accent}/>
+                  <span style={{ fontSize:12, fontWeight:600, color:C.text2 }}>{note.author}</span>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ fontSize:11, color:C.text3 }}>{new Date(note.created_at).toLocaleString()}</span>
+                  <button onClick={()=>handleDeleteNote(note.id)} style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:2, display:"flex" }}><Ic n="trash" s={12}/></button>
+                </div>
+              </div>
+              <p style={{ margin:0, fontSize:13, color:C.text1, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{note.content}</p>
+            </div>
+          ))
+        }
+      </div>
+    );
+
+    if (id==="attachments") return (
+      <div>
+        <button onClick={handleAddAttachment}
+          style={{ width:"100%", border:`2px dashed ${C.border}`, borderRadius:12, padding:"18px", textAlign:"center", cursor:"pointer", background:"transparent", marginBottom:12, fontFamily:F, color:C.text3, transition:"all .15s" }}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text3;}}>
+          <Ic n="upload" s={18}/><div style={{ fontSize:13, marginTop:4, fontWeight:600 }}>Upload File</div>
+        </button>
+        {attachments.length===0
+          ? <div style={{ textAlign:"center", padding:"16px 0", color:C.text3, fontSize:13 }}>No attachments yet</div>
+          : attachments.map(att=>(
+            <div key={att.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 14px", background:"#f8f9fc", borderRadius:10, marginBottom:8, border:`1px solid ${C.border}` }}>
+              <div style={{ width:32, height:32, borderRadius:8, background:C.accentLight, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <Ic n="file" s={15} c={C.accent}/>
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:C.text1 }}>{att.name}</div>
+                <div style={{ fontSize:11, color:C.text3 }}>{new Date(att.created_at).toLocaleDateString()}</div>
+              </div>
+              <button onClick={async()=>{await api.del(`/attachments/${att.id}`);load();}} style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:4, display:"flex" }}><Ic n="trash" s={14}/></button>
+            </div>
+          ))
+        }
+      </div>
+    );
+
+
+    if (id==="activity") return (
+      <div>
+        {activity.length===0
+          ? <div style={{ textAlign:"center", padding:"28px 0", color:C.text3, fontSize:13 }}>No activity yet</div>
+          : activity.map(event=>(
+            <div key={event.id} style={{ display:"flex", gap:12, marginBottom:14 }}>
+              <div style={{ width:28, height:28, borderRadius:"50%", background:event.action==="created"?"#f0fdf4":C.accentLight, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <Ic n={event.action==="created"?"plus":"edit"} s={12} c={event.action==="created"?"#16a34a":C.accent}/>
+              </div>
+              <div style={{ flex:1, paddingTop:4 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:C.text1, textTransform:"capitalize" }}>{event.action}</div>
+                {event.actor && <div style={{ fontSize:11, color:C.text3 }}>by {event.actor}</div>}
+                <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>{new Date(event.created_at).toLocaleString()}</div>
+                {event.changes && Object.keys(event.changes).length>0 && (
+                  <div style={{ marginTop:6, background:"#f8f9fc", borderRadius:8, padding:"8px 10px" }}>
+                    {Object.entries(event.changes).slice(0,5).map(([k,v])=>(
+                      <div key={k} style={{ fontSize:11, color:C.text2 }}><strong>{k}:</strong> {String(v)?.slice(0,60)}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    );
+
+    if (id==="workflows") return <RecordWorkflows record={record} objectId={record.object_id} environment={environment} objectName={objectName}/>;
+
+    if (id==="match") return (
+      <div style={{ margin:"-16px" }}>
+        <MatchingEngine environment={environment} initialRecord={record} initialObject={{ name:objectName, slug:objectName==="Person"?"people":"jobs" }}/>
+      </div>
+    );
+
+    return null;
+  };
+
+
+  // ── Collapsible draggable panel card (right col) ──
+  const PanelCard = ({ id }) => {
+    const meta = PANEL_META[id];
+    if (!meta) return null;
+    const isOpen = openPanels[id];
+    const badge = id==="notes" ? notes.length : id==="attachments" ? attachments.length : 0;
+    const isDragOver = dragOverPanel===id;
+
+    return (
+      <div draggable onDragStart={e=>onPanelDragStart(e,id)} onDragOver={e=>onPanelDragOver(e,id)} onDrop={()=>onPanelDrop(id)} onDragEnd={()=>{setDraggingPanel(null);setDragOverPanel(null);}}
+        style={{ background:C.surface, border:`1.5px solid ${isDragOver?C.accent:C.border}`, borderRadius:14, marginBottom:12, overflow:"hidden", transition:"border-color .15s, opacity .15s", opacity:draggingPanel===id?0.5:1, boxShadow:isDragOver?`0 0 0 3px ${C.accent}22`:"0 1px 4px rgba(0,0,0,.04)" }}>
+        {/* Panel header — click to collapse, drag handle on left */}
+        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px", cursor:"pointer", userSelect:"none", borderBottom:isOpen?`1px solid ${C.border}`:"none" }}
+          onClick={()=>setOpenPanels(p=>({...p,[id]:!p[id]}))}>
+          <div title="Drag to reorder" style={{ color:C.text3, cursor:"grab", padding:"0 2px", display:"flex", flexShrink:0 }} onClick={e=>e.stopPropagation()}>
+            <svg width="12" height="18" viewBox="0 0 12 18" fill="none"><circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="9" cy="4" r="1.5" fill="currentColor"/><circle cx="4" cy="9" r="1.5" fill="currentColor"/><circle cx="9" cy="9" r="1.5" fill="currentColor"/><circle cx="4" cy="14" r="1.5" fill="currentColor"/><circle cx="9" cy="14" r="1.5" fill="currentColor"/></svg>
+          </div>
+          <Ic n={meta.icon} s={14} c={C.accent}/>
+          <span style={{ flex:1, fontSize:13, fontWeight:700, color:C.text1 }}>{meta.label}</span>
+          {badge>0 && <span style={{ background:C.accentLight, color:C.accent, fontSize:11, fontWeight:700, borderRadius:20, padding:"1px 7px" }}>{badge}</span>}
+          <span style={{ display:"flex", transition:"transform .2s", transform:isOpen?"rotate(180deg)":"rotate(0deg)" }}><Ic n="chevD" s={14} c={C.text3}/></span>
+        </div>
+        {isOpen && <div style={{ padding:"16px" }}><PanelContent id={id}/></div>}
+      </div>
+    );
+  };
+
+
+  // ── Shared header (slide-out only) ──
+  const Header = () => (
+    <div style={{ display:"flex", alignItems:"center", gap:14, padding:"16px 24px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+      <Avatar name={title} color={objectColor} size={38}/>
+      <div style={{ flex:1, minWidth:0 }}>
+        <h2 style={{ margin:0, fontSize:17, fontWeight:800, color:C.text1 }}>{title}</h2>
+        {subtitle && <div style={{ fontSize:12, color:C.text3, marginTop:1 }}>{subtitle}</div>}
+      </div>
+      {status && statusField && <Badge color={STATUS_COLORS[status]||C.accent} light>{status}</Badge>}
+      <div style={{ display:"flex", gap:6 }}>
+        <Btn v="ghost" sz="sm" icon="expand" onClick={onToggleFullPage}/>
+        <Btn v="danger" sz="sm" icon="trash" onClick={()=>onDelete(record.id)}/>
+        <Btn v="ghost" sz="sm" icon="x" onClick={onClose}/>
+      </div>
+    </div>
+  );
+
+  // ── SLIDE-OUT (600px panel) — tabs layout ──
   const TABS = [
     { id:"fields",      icon:"edit",          label:"Fields" },
     { id:"activity",    icon:"activity",      label:"Activity" },
@@ -592,31 +836,12 @@ const RecordDetail = ({ record, fields, allObjects, environment, objectName, obj
     ...( ["Person","Job"].includes(objectName) ? [{ id:"match", icon:"sparkles", label:"AI Match" }] : [] ),
   ];
 
-  const containerStyle = fullPage
-    ? { position:"fixed", inset:0, background:C.surface, zIndex:900, display:"flex", flexDirection:"column", overflow:"hidden" }
-    : { position:"fixed", top:0, right:0, bottom:0, width:600, background:C.surface, zIndex:900, display:"flex", flexDirection:"column", boxShadow:"-8px 0 40px rgba(0,0,0,.14)", animation:"slideIn .2s ease" };
-
-  return (
+  if (!fullPage) return (
     <>
       <style>{`@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
-      {!fullPage && <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.2)", zIndex:899 }} onClick={onClose}/>}
-      <div style={containerStyle}>
-        {/* Header */}
-        <div style={{ display:"flex", alignItems:"center", gap:14, padding:"18px 24px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
-          <Avatar name={title} color={objectColor} size={40}/>
-          <div style={{ flex:1, minWidth:0 }}>
-            <h2 style={{ margin:0, fontSize:17, fontWeight:800, color:C.text1 }}>{title}</h2>
-            {subtitle && <div style={{ fontSize:12, color:C.text3, marginTop:1 }}>{subtitle}</div>}
-          </div>
-          {status && statusField && <Badge color={STATUS_COLORS[status]||C.accent} light>{status}</Badge>}
-          <div style={{ display:"flex", gap:6 }}>
-            <Btn v="ghost" sz="sm" icon={fullPage?"chevL":"expand"} onClick={onToggleFullPage}/>
-            <Btn v="danger" sz="sm" icon="trash" onClick={()=>onDelete(record.id)}/>
-            <Btn v="ghost" sz="sm" icon="x" onClick={onClose}/>
-          </div>
-        </div>
-
-        {/* Tabs */}
+      <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.2)", zIndex:899 }} onClick={onClose}/>
+      <div style={{ position:"fixed", top:0, right:0, bottom:0, width:600, background:C.surface, zIndex:900, display:"flex", flexDirection:"column", boxShadow:"-8px 0 40px rgba(0,0,0,.14)", animation:"slideIn .2s ease" }}>
+        <Header/>
         <div style={{ display:"flex", gap:0, padding:"0 24px", borderBottom:`1px solid ${C.border}`, flexShrink:0, overflowX:"auto" }}>
           {TABS.map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)}
@@ -625,154 +850,253 @@ const RecordDetail = ({ record, fields, allObjects, environment, objectName, obj
             </button>
           ))}
         </div>
-
-        {/* Body */}
         <div style={{ flex:1, overflow:"auto", padding:"24px" }}>
-
-          {/* ── Fields tab ── */}
-          {tab==="fields" && (
-            <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
-              {fieldSections.map(section => (
-                <div key={section.label} style={{ marginBottom:24 }}>
-                  <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>{section.label}</div>
-                  <div style={{ background:"#f8f9fc", borderRadius:12, overflow:"hidden", border:`1px solid ${C.border}` }}>
-                    {section.fs.map((field,i) => {
-                      const isEditing = editing.hasOwnProperty(field.api_key);
-                      const val = isEditing ? editing[field.api_key] : record.data?.[field.api_key];
-                      return (
-                        <div key={field.id} style={{ display:"flex", alignItems:isEditing?"flex-start":"center", gap:12, padding:"12px 16px", borderBottom:i<section.fs.length-1?`1px solid ${C.border}`:"none", background:isEditing?"#fafbff":"transparent", transition:"background .1s" }}>
-                          <div style={{ width:140, fontSize:12, fontWeight:600, color:C.text3, flexShrink:0 }}>{field.name}</div>
-                          <div style={{ flex:1, minWidth:0 }}>
-                            {isEditing
-                              ? <FieldEditor field={field} value={val} onChange={v=>handleFieldEdit(field.api_key,v)}/>
-                              : <div onClick={()=>!field.is_system&&handleFieldEdit(field.api_key, val)} style={{ cursor:"text", minHeight:22 }}>
-                                  <FieldValue field={field} value={val}/>
-                                </div>
-                            }
-                          </div>
-                          {isEditing ? (
-                            <div style={{ display:"flex", gap:4, flexShrink:0 }}>
-                              <Btn sz="sm" onClick={()=>handleSaveField(field.api_key)} disabled={saving}>Save</Btn>
-                              <Btn v="ghost" sz="sm" icon="x" onClick={()=>setEditing(e=>{const n={...e};delete n[field.api_key];return n;})}/>
-                            </div>
-                          ) : (
-                            <button onClick={()=>handleFieldEdit(field.api_key, val)} style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, opacity:0, padding:4, display:"flex", transition:"opacity .1s" }}
-                              onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0}>
-                              <Ic n="edit" s={13}/>
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* ── Activity tab ── */}
-          {tab==="activity" && (
-            <div>
-              <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:14 }}>Timeline</div>
-              {activity.length===0 ? (
-                <div style={{ textAlign:"center", padding:"48px 0", color:C.text3, fontSize:13 }}>No activity yet</div>
-              ) : activity.map(event=>(
-                <div key={event.id} style={{ display:"flex", gap:12, marginBottom:16 }}>
-                  <div style={{ display:"flex", flexDirection:"column", alignItems:"center" }}>
-                    <div style={{ width:28, height:28, borderRadius:"50%", background:event.action==="created"?"#f0fdf4":C.accentLight, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                      <Ic n={event.action==="created"?"plus":"edit"} s={12} c={event.action==="created"?"#16a34a":C.accent}/>
-                    </div>
-                  </div>
-                  <div style={{ flex:1, paddingTop:4 }}>
-                    <div style={{ fontSize:13, fontWeight:600, color:C.text1, textTransform:"capitalize" }}>{event.action}</div>
-                    {event.actor && <div style={{ fontSize:11, color:C.text3 }}>by {event.actor}</div>}
-                    <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>{new Date(event.created_at).toLocaleString()}</div>
-                    {event.changes && Object.keys(event.changes).length>0 && (
-                      <div style={{ marginTop:6, background:"#f8f9fc", borderRadius:8, padding:"8px 10px" }}>
-                        {Object.entries(event.changes).slice(0,5).map(([k,v])=>(
-                          <div key={k} style={{ fontSize:11, color:C.text2 }}><strong>{k}:</strong> {String(v)?.slice(0,60)}</div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* ── Notes tab ── */}
-          {tab==="notes" && (
-            <div>
-              <div style={{ display:"flex", flexDirection:"column", gap:4, marginBottom:16 }}>
-                <textarea value={newNote} onChange={e=>setNewNote(e.target.value)} placeholder="Add a note…" rows={3}
-                  style={{ padding:"10px 12px", borderRadius:10, border:`1px solid ${C.border}`, fontSize:13, fontFamily:F, outline:"none", color:C.text1, resize:"vertical", width:"100%", boxSizing:"border-box" }}/>
-                <div style={{ display:"flex", justifyContent:"flex-end" }}>
-                  <Btn onClick={handleAddNote} disabled={!newNote.trim()} sz="sm">Add Note</Btn>
-                </div>
-              </div>
-              {notes.length===0 ? (
-                <div style={{ textAlign:"center", padding:"32px 0", color:C.text3, fontSize:13 }}>No notes yet</div>
-              ) : notes.map(note=>(
-                <div key={note.id} style={{ background:"#f8f9fc", borderRadius:10, padding:"12px 14px", marginBottom:10, border:`1px solid ${C.border}` }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <Avatar name={note.author} size={22} color={C.accent}/>
-                      <span style={{ fontSize:12, fontWeight:600, color:C.text2 }}>{note.author}</span>
-                    </div>
-                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                      <span style={{ fontSize:11, color:C.text3 }}>{new Date(note.created_at).toLocaleString()}</span>
-                      <button onClick={()=>handleDeleteNote(note.id)} style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:2, display:"flex" }}><Ic n="trash" s={12}/></button>
-                    </div>
-                  </div>
-                  <p style={{ margin:0, fontSize:13, color:C.text1, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{note.content}</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* ── Attachments tab ── */}
-          {tab==="attachments" && (
-            <div>
-              <button onClick={handleAddAttachment}
-                style={{ width:"100%", border:`2px dashed ${C.border}`, borderRadius:12, padding:"24px", textAlign:"center", cursor:"pointer", background:"transparent", marginBottom:16, fontFamily:F, color:C.text3, transition:"all .15s" }}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text3;}}>
-                <Ic n="upload" s={20}/><div style={{ fontSize:13, marginTop:6, fontWeight:600 }}>Upload File</div>
-                <div style={{ fontSize:11, marginTop:2 }}>Click to add attachment (demo)</div>
-              </button>
-              {attachments.length===0 ? (
-                <div style={{ textAlign:"center", padding:"24px 0", color:C.text3, fontSize:13 }}>No attachments yet</div>
-              ) : attachments.map(att=>(
-                <div key={att.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px", background:"#f8f9fc", borderRadius:10, marginBottom:8, border:`1px solid ${C.border}` }}>
-                  <div style={{ width:36, height:36, borderRadius:8, background:C.accentLight, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                    <Ic n="file" s={16} c={C.accent}/>
-                  </div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:13, fontWeight:600, color:C.text1 }}>{att.name}</div>
-                    <div style={{ fontSize:11, color:C.text3 }}>{att.uploaded_by} · {new Date(att.created_at).toLocaleDateString()}</div>
-                  </div>
-                  <button onClick={async()=>{await api.del(`/attachments/${att.id}`);load();}} style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:4, display:"flex" }}><Ic n="trash" s={14}/></button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* ── Workflows tab ── */}
-          {tab==="workflows" && (
-            <RecordWorkflows record={record} objectId={record.object_id} environment={environment}/>
-          )}
-
-          {/* ── AI Match tab ── */}
-          {tab==="match" && (
-            <div style={{ margin:"-24px" }}>
-              <MatchingEngine environment={environment} initialRecord={record} initialObject={{ name: objectName, slug: objectName==="Person"?"people":"jobs" }}/>
-            </div>
-          )}
+          {tab==="fields"  && <FieldsPanel/>}
+          {tab!=="fields"  && <PanelContent id={tab}/>}
         </div>
       </div>
     </>
   );
+
+
+  // ── FULL PAGE — 2-col layout ──
+  // ── Resizable column split ──
+  const colStorageKey = `talentos_colwidth_${objectName}`;
+  const [leftPct, setLeftPct] = useState(() => {
+    try { return parseFloat(localStorage.getItem(colStorageKey)) || 38; } catch { return 38; }
+  });
+  const containerRef = useRef(null);
+  const draggingCol  = useRef(false);
+
+  const onDividerMouseDown = (e) => {
+    e.preventDefault();
+    draggingCol.current = true;
+    const onMove = (ev) => {
+      if (!draggingCol.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const pct  = Math.min(65, Math.max(20, ((ev.clientX - rect.left) / rect.width) * 100));
+      setLeftPct(pct);
+    };
+    const onUp = () => {
+      draggingCol.current = false;
+      try { localStorage.setItem(colStorageKey, leftPct.toFixed(1)); } catch {}
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  // Persist on release — capture latest via ref
+  const leftPctRef = useRef(leftPct);
+  useEffect(() => { leftPctRef.current = leftPct; }, [leftPct]);
+
+  // Tinted identity card background from objectColor
+  const hex = objectColor?.replace("#","") || "4361EE";
+  const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
+  const cardBg = `rgba(${r},${g},${b},0.07)`;
+  const cardBorder = `rgba(${r},${g},${b},0.18)`;
+
+  // ── Keyboard shortcuts ──
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      if (e.key === "Escape") onClose?.();
+      if (e.key === "c" || e.key === "C") setShowCommMenu(v => !v);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // ── Photo upload ──
+  const photoInputRef = useRef(null);
+  const [photoUrl, setPhotoUrl] = useState(record?.data?.photo_url || null);
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const url = ev.target.result;
+      setPhotoUrl(url);
+      await api.patch(`/records/${record.id}`, { data: { ...record.data, photo_url: url } });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // ── Functionality bar (full page only) ──
+  const COMM_OPTIONS = [
+    { type:"email",    label:"Send Email",    icon:"✉️" },
+    { type:"sms",      label:"Send SMS",      icon:"💬" },
+    { type:"whatsapp", label:"Send WhatsApp", icon:"📱" },
+    { type:"call",     label:"Log Call",      icon:"📞" },
+  ];
+
+  // Last comms date from activity
+  const lastCommDate = activity?.length
+    ? new Date(activity[0]?.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short"})
+    : null;
+
+  const ActionBtn = ({ icon, label, onClick, accent }) => (
+    <button onClick={onClick}
+      style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 13px", borderRadius:9,
+        border:`1.5px solid ${accent ? C.accent : C.border}`,
+        background: accent ? C.accentLight : C.bg,
+        color: accent ? C.accent : C.text2,
+        fontWeight:600, fontSize:13, cursor:"pointer", fontFamily:F, whiteSpace:"nowrap",
+        transition:"all .12s" }}
+      onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
+      onMouseLeave={e=>{ e.currentTarget.style.borderColor=accent?C.accent:C.border; e.currentTarget.style.color=accent?C.accent:C.text2; }}>
+      <Ic n={icon} s={13} c="currentColor"/> {label}
+    </button>
+  );
+
+  const FunctionalityBar = () => (
+    <div style={{ display:"flex", alignItems:"center", gap:0, background:C.surface,
+      borderBottom:`1px solid ${C.border}`, flexShrink:0, position:"relative", zIndex:50 }}>
+
+      {/* LEFT: back + name breadcrumb — fixed, never scrolls away */}
+      <div style={{ display:"flex", alignItems:"center", gap:0, borderRight:`1px solid ${C.border}`, padding:"0 16px", height:46, flexShrink:0 }}>
+        <button onClick={onClose}
+          style={{ display:"flex", alignItems:"center", gap:5, background:"none", border:"none",
+            cursor:"pointer", color:C.text3, fontSize:12, fontWeight:600, fontFamily:F, padding:"4px 0" }}
+          onMouseEnter={e=>e.currentTarget.style.color=C.accent}
+          onMouseLeave={e=>e.currentTarget.style.color=C.text3}>
+          <Ic n="arrowLeft" s={13}/> {objectName}s
+        </button>
+        <span style={{ margin:"0 8px", color:C.border, fontSize:16 }}>/</span>
+        <span style={{ fontSize:13, fontWeight:700, color:C.text1, maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{title}</span>
+        {status && statusField && (
+          <span style={{ marginLeft:8 }}><Badge color={STATUS_COLORS[status]||C.accent} light>{status}</Badge></span>
+        )}
+      </div>
+
+      {/* RIGHT: action buttons */}
+      <div style={{ display:"flex", alignItems:"center", gap:6, padding:"0 16px", flex:1 }}>
+        {/* Communicate dropdown */}
+        <div style={{ position:"relative" }}>
+          <button
+            onClick={()=>setShowCommMenu(v=>!v)}
+            onBlur={()=>setTimeout(()=>setShowCommMenu(false),150)}
+            style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 13px", borderRadius:9,
+              border:`1.5px solid ${C.accent}`, background:C.accentLight, color:C.accent,
+              fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:F }}>
+            <Ic n="mail" s={13} c={C.accent}/> Communicate
+            <svg width="10" height="10" viewBox="0 0 10 10" style={{ marginLeft:2, opacity:0.7 }}><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
+          </button>
+          {showCommMenu && (
+            <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, background:C.surface,
+              border:`1.5px solid ${C.border}`, borderRadius:12, boxShadow:"0 8px 32px rgba(0,0,0,.14)",
+              minWidth:200, zIndex:200, overflow:"hidden", padding:"4px 0" }}>
+              {COMM_OPTIONS.map(opt=>(
+                <button key={opt.type}
+                  onClick={()=>{ setComposeType(opt.type); setShowCommMenu(false); }}
+                  style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 16px",
+                    background:"none", border:"none", cursor:"pointer", fontSize:13, color:C.text1,
+                    textAlign:"left", fontFamily:F, transition:"background .1s" }}
+                  onMouseEnter={e=>e.currentTarget.style.background=C.accentLight}
+                  onMouseLeave={e=>e.currentTarget.style.background="none"}>
+                  <span style={{ fontSize:15 }}>{opt.icon}</span>
+                  <span style={{ fontWeight:500 }}>{opt.label}</span>
+                </button>
+              ))}
+              <div style={{ borderTop:`1px solid ${C.border}`, margin:"4px 0", padding:"2px 16px 2px" }}>
+                <div style={{ fontSize:11, color:C.text3, paddingTop:4 }}>Shortcut: <kbd style={{ background:"#f1f5f9", borderRadius:4, padding:"1px 5px", fontFamily:"monospace" }}>C</kbd></div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Spacer */}
+        <div style={{ flex:1 }}/>
+
+        {/* Last activity indicator */}
+        {lastCommDate && (
+          <div style={{ fontSize:12, color:C.text3, display:"flex", alignItems:"center", gap:5 }}>
+            <Ic n="activity" s={12} c={C.text3}/> Last contact {lastCommDate}
+          </div>
+        )}
+
+        {/* Destructive + close — far right, always visible */}
+        <div style={{ display:"flex", gap:4, marginLeft:8 }}>
+          <Btn v="danger" sz="sm" icon="trash" onClick={()=>onDelete(record.id)}/>
+          <Btn v="ghost"  sz="sm" icon="x"     onClick={onClose}/>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", overflow:"hidden", background:"#F4F6FB" }}>
+      <FunctionalityBar/>
+      {/* 2-col body */}
+      <div ref={containerRef} style={{ flex:1, display:"flex", overflow:"hidden", userSelect:draggingCol.current?"none":"auto" }}>
+
+        {/* LEFT COL — Identity card + Fields */}
+        <div style={{ width:`${leftPct}%`, flexShrink:0, background:C.surface, display:"flex", flexDirection:"column", overflow:"auto" }}>
+          {/* Identity card — tinted with record colour */}
+          <div style={{ padding:"20px 20px 16px", borderBottom:`1px solid ${cardBorder}`, background:cardBg }}>
+            {/* Avatar row with photo upload */}
+            <div style={{ display:"flex", alignItems:"flex-start", gap:14, marginBottom:14 }}>
+              {/* Clickable avatar with photo upload */}
+              <div style={{ position:"relative", flexShrink:0 }} onClick={()=>photoInputRef.current?.click()} title="Click to upload photo">
+                {photoUrl
+                  ? <img src={photoUrl} style={{ width:56, height:56, borderRadius:14, objectFit:"cover", border:`2px solid ${cardBorder}` }}/>
+                  : <Avatar name={title} color={objectColor} size={56}/>
+                }
+                <div style={{ position:"absolute", inset:0, borderRadius:14, background:"rgba(0,0,0,0)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", transition:"background .15s" }}
+                  onMouseEnter={e=>e.currentTarget.style.background="rgba(0,0,0,0.35)"}
+                  onMouseLeave={e=>e.currentTarget.style.background="rgba(0,0,0,0)"}>
+                  <Ic n="edit" s={14} c="#fff"/>
+                </div>
+                <input ref={photoInputRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handlePhotoUpload}/>
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:18, fontWeight:800, color:C.text1, lineHeight:1.2, wordBreak:"break-word" }}>{title}</div>
+                {subtitle && <div style={{ fontSize:13, color:C.text3, marginTop:3 }}>{subtitle}</div>}
+                <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:8 }}>
+                  <div style={{ padding:"4px 10px", borderRadius:20, background:`rgba(${r},${g},${b},0.15)`, color:objectColor, fontWeight:700, fontSize:11 }}>{objectName}</div>
+                  <div style={{ padding:"4px 10px", borderRadius:20, background:`rgba(${r},${g},${b},0.07)`, color:C.text3, fontWeight:600, fontSize:11 }}>
+                    Added {new Date(record.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Fields section */}
+          <div style={{ flex:1, overflow:"auto" }}>
+            <div style={{ padding:"14px 20px 6px", display:"flex", alignItems:"center", justifyContent:"space-between", borderBottom:`1px solid ${C.border}` }}>
+              <span style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.07em" }}>Profile Fields</span>
+              <span style={{ fontSize:11, color:C.text3 }}>Click any field to edit</span>
+            </div>
+            <div style={{ padding:"16px 20px 24px" }}>
+              <FieldsPanel/>
+            </div>
+          </div>
+        </div>
+
+        {/* DRAG DIVIDER — with visible grip dots */}
+        <div onMouseDown={onDividerMouseDown}
+          style={{ width:8, flexShrink:0, background:"transparent", cursor:"col-resize", position:"relative", zIndex:10, display:"flex", alignItems:"center", justifyContent:"center" }}
+          onMouseEnter={e=>{ e.currentTarget.querySelector(".divider-track").style.background=C.accent; e.currentTarget.querySelector(".divider-dots").style.opacity="1"; }}
+          onMouseLeave={e=>{ e.currentTarget.querySelector(".divider-track").style.background=C.border; e.currentTarget.querySelector(".divider-dots").style.opacity="0.4"; }}>
+          <div className="divider-track" style={{ position:"absolute", top:0, bottom:0, left:"50%", transform:"translateX(-50%)", width:2, background:C.border, transition:"background .15s" }}/>
+          <div className="divider-dots" style={{ position:"relative", zIndex:1, display:"flex", flexDirection:"column", gap:3, opacity:0.4, transition:"opacity .15s" }}>
+            {[0,1,2,3,4,5].map(i=><div key={i} style={{ width:3, height:3, borderRadius:"50%", background:C.text3 }}/>)}
+          </div>
+        </div>
+
+        {/* RIGHT COL — Panel cards */}
+        <div style={{ flex:1, overflow:"auto", padding:"16px 20px 24px", background:"#F4F6FB" }}>
+          {panelOrder.filter(id=>PANEL_META[id]).map(id=>(
+            <PanelCard key={id} id={id}/>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 };
+
 
 /* ─── Main Records View ────────────────────────────────────────────────────── */
 
@@ -854,26 +1178,19 @@ const CSVImportModal = ({ object, environment, onClose, onDone }) => {
   );
 };
 
-// Module-level pending — survives remounts, no timing issues
-let _pendingOpen = null; // { recordId, objectId }
-
-export default function RecordsView({ environment, object }) {
+export default function RecordsView({ environment, object, onOpenRecord }) {
   const [records, setRecords]   = useState([]);
   const [fields,  setFields]    = useState([]);
   const [loading, setLoading]   = useState(true);
   const [view,    setView]      = useState("table");
   const [search,  setSearch]    = useState("");
-  const [selected, setSelected] = useState(null);
-  const [fullPage, setFullPage] = useState(false);
+  const [selected, setSelected] = useState(null);   // slide-out panel only
   const [showForm, setShowForm] = useState(false);
   const [editRecord, setEditRecord] = useState(null);
   const [page, setPage]         = useState(1);
   const [showImport, setShowImport] = useState(false);
-  const [activeTab, setActiveTab]   = useState("records"); // "records" | "matching"
+  const [activeTab, setActiveTab]   = useState("records");
   const [total, setTotal]       = useState(0);
-
-  // Ref always holds the latest records so event handler can read them synchronously
-  const recordsRef = useRef([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -883,38 +1200,12 @@ export default function RecordsView({ environment, object }) {
     ]);
     setFields(Array.isArray(f)?f:[]);
     const loaded = r.records||[];
-    recordsRef.current = loaded;
     setRecords(loaded);
     setTotal(r.pagination?.total||0);
     setLoading(false);
-
-    // Check if copilot was waiting to open a record
-    if (_pendingOpen && _pendingOpen.objectId === object.id) {
-      const match = loaded.find(rec => rec.id === _pendingOpen.recordId);
-      if (match) {
-        _pendingOpen = null;
-        setSelected(match);
-      }
-    }
   }, [object.id, environment.id, page, search]);
 
   useEffect(() => { load(); }, [load]);
-
-  // Listen for copilot record-open events
-  useEffect(() => {
-    const handler = (e) => {
-      const { recordId, objectId } = e.detail || {};
-      if (objectId !== object.id) return;
-      const match = recordsRef.current.find(r => r.id === recordId);
-      if (match) {
-        setSelected(match);
-      } else {
-        _pendingOpen = { recordId, objectId };
-      }
-    };
-    window.addEventListener("talentos:openRecord", handler);
-    return () => window.removeEventListener("talentos:openRecord", handler);
-  }, [object.id]);
 
   const handleCreate = async (data) => {
     await api.post("/records", { object_id:object.id, environment_id:environment.id, data, created_by:"Admin" });
@@ -1002,11 +1293,13 @@ export default function RecordsView({ environment, object }) {
           <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:C.text3 }}>Loading…</div>
         ) : view==="table" ? (
           <TableView records={records} fields={fields} objectColor={object.color||C.accent}
-            onSelect={r=>{setSelected(r);setFullPage(false);}} onEdit={r=>setEditRecord(r)} onDelete={handleDelete}/>
+            onProfile={r=>onOpenRecord?.(r.id, object.id)}
+            onSelect={r=>{setSelected(r);}} onEdit={r=>setEditRecord(r)} onDelete={handleDelete}/>
         ) : (
           <div style={{ padding:"20px" }}>
             <KanbanView records={records} fields={fields} objectColor={object.color||C.accent}
-              onSelect={r=>{setSelected(r);setFullPage(false);}} onEdit={r=>setEditRecord(r)}
+              onProfile={r=>onOpenRecord?.(r.id, object.id)}
+              onSelect={r=>{setSelected(r);}} onEdit={r=>setEditRecord(r)}
               onDelete={handleDelete} onStatusChange={handleStatusChange}/>
           </div>
         )}
@@ -1023,7 +1316,7 @@ export default function RecordsView({ environment, object }) {
 
       </>}
 
-      {/* Detail panel */}
+      {/* Slide-out panel (expand icon) */}
       {selected && (
         <RecordDetail
           record={selected}
@@ -1031,9 +1324,9 @@ export default function RecordsView({ environment, object }) {
           environment={environment}
           objectName={object.name}
           objectColor={object.color||C.accent}
-          fullPage={fullPage}
-          onClose={()=>{setSelected(null);setFullPage(false);}}
-          onToggleFullPage={()=>setFullPage(f=>!f)}
+          fullPage={false}
+          onClose={()=>setSelected(null)}
+          onToggleFullPage={()=>onOpenRecord?.(selected.id, object.id)}
           onUpdate={handleDetailUpdate}
           onDelete={handleDelete}
         />

@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
+import SuperAdminSection from "./SuperAdmin.jsx";
+
 const api = {
   get:   p     => fetch(`/api${p}`).then(r=>r.json()),
   post:  (p,b) => fetch(`/api${p}`,{method:"POST",  headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>r.json()),
@@ -889,16 +891,24 @@ const DataModelSection = () => {
 
 // ── Main Settings Page ────────────────────────────────────────────────────────
 const SECTIONS = [
-  { id:"datamodel", icon:"database", label:"Data Model" },
-  { id:"users",    icon:"users",    label:"Users" },
-  { id:"roles",    icon:"shield",   label:"Roles & Permissions" },
-  { id:"security", icon:"lock",     label:"Security" },
-  { id:"sessions", icon:"activity", label:"Active Sessions" },
-  { id:"audit",    icon:"key",      label:"Audit Log" },
+  { id:"datamodel",   icon:"database", label:"Data Model" },
+  { id:"users",       icon:"users",    label:"Users" },
+  { id:"roles",       icon:"shield",   label:"Roles & Permissions" },
+  { id:"security",    icon:"lock",     label:"Security" },
+  { id:"sessions",    icon:"activity", label:"Active Sessions" },
+  { id:"audit",       icon:"key",      label:"Audit Log" },
 ];
 
-export default function SettingsPage() {
+const SUPER_ADMIN_SECTIONS = [
+  { id:"superadmin",  icon:"zap",      label:"Super Admin" },
+];
+
+export default function SettingsPage({ currentUser }) {
   const [activeSection, setActiveSection] = useState("datamodel");
+
+  // Super admin check — currentUser prop from App, fallback to localStorage
+  const user = currentUser || (() => { try { return JSON.parse(localStorage.getItem("talentos_user")||"{}"); } catch { return {}; } })();
+  const isSuperAdmin = user?.role_name === "super_admin" || user?.role_name === "Super Admin" || user?.is_super_admin;
 
   return (
     <div style={{display:"flex",gap:0,minHeight:"100%"}}>
@@ -911,17 +921,32 @@ export default function SettingsPage() {
               <Ic n={s.icon} s={15}/>{s.label}
             </button>
           ))}
+
+          {/* Super Admin section — divider + gated nav item */}
+          <div style={{ margin:"12px 0 6px", borderTop:`1px solid ${C.border}`, paddingTop:10 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.08em", padding:"0 10px 4px" }}>System</div>
+            {SUPER_ADMIN_SECTIONS.map(s=>(
+              <button key={s.id} onClick={()=>setActiveSection(s.id)}
+                style={{display:"flex",alignItems:"center",gap:9,padding:"8px 10px",borderRadius:8,border:"none",cursor:"pointer",
+                  background:activeSection===s.id?"#fef3c7":"transparent",
+                  color:activeSection===s.id?"#92400e":C.text2,
+                  fontSize:13,fontWeight:activeSection===s.id?700:500,fontFamily:F,textAlign:"left",transition:"all .12s"}}>
+                <Ic n={s.icon} s={15}/>{s.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Content */}
       <div style={{flex:1,minWidth:0}}>
         {activeSection==="datamodel" && <DataModelSection/>}
-        {activeSection==="users"    && <UsersSection/>}
-        {activeSection==="roles"    && <RolesSection/>}
-        {activeSection==="security" && <SecuritySection/>}
-        {activeSection==="sessions" && <SessionsSection/>}
-        {activeSection==="audit"    && <AuditLogSection/>}
+        {activeSection==="users"     && <UsersSection/>}
+        {activeSection==="roles"     && <RolesSection/>}
+        {activeSection==="security"  && <SecuritySection/>}
+        {activeSection==="sessions"  && <SessionsSection/>}
+        {activeSection==="audit"     && <AuditLogSection/>}
+        {activeSection==="superadmin" && <SuperAdminSection/>}
       </div>
     </div>
   );

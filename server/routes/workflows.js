@@ -6,9 +6,11 @@ const { query, findOne, insert, update, remove, getStore, saveStore } = require(
 // Ensure tables exist
 const ensureTables = () => {
   const store = getStore();
-  if (!store.workflows)      store.workflows = [];
-  if (!store.workflow_steps) store.workflow_steps = [];
-  if (!store.workflow_runs)  store.workflow_runs = [];
+  if (!store.workflows)               store.workflows = [];
+  if (!store.workflow_steps)          store.workflow_steps = [];
+  if (!store.workflow_runs)           store.workflow_runs = [];
+  if (!store.record_workflow_assignments) store.record_workflow_assignments = [];
+  if (!store.people_links)            store.people_links = [];
 };
 
 // GET /api/workflows?environment_id=&object_id=
@@ -29,8 +31,8 @@ router.get('/', (req, res) => {
 // POST /api/workflows
 router.post('/', (req, res) => {
   ensureTables();
-  const { name, object_id, environment_id, description } = req.body;
-  const wf = insert('workflows', { id: uuidv4(), name, object_id, environment_id, description: description||'', active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+  const { name, object_id, environment_id, description, workflow_type } = req.body;
+  const wf = insert('workflows', { id: uuidv4(), name, object_id, environment_id, description: description||'', workflow_type: workflow_type||'automation', active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
   res.json({ ...wf, steps: [] });
 });
 
@@ -153,6 +155,94 @@ router.get('/runs', (req, res) => {
   if (record_id)   runs = runs.filter(r => r.record_id === record_id);
   if (workflow_id) runs = runs.filter(r => r.workflow_id === workflow_id);
   res.json(runs.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 100));
+});
+
+// ── Record workflow assignments ───────────────────────────────────────────────
+// GET  /api/workflows/assignments?record_id=
+router.get('/assignments', (req, res) => {
+  ensureTables();
+  const { record_id } = req.query;
+  if (!record_id) return res.status(400).json({ error: 'record_id required' });
+  const assignments = query('record_workflow_assignments', a => a.record_id === record_id);
+  // Hydrate with workflow + steps
+  const result = assignments.map(a => {
+    const wf = findOne('workflows', w => w.id === a.workflow_id);
+    if (!wf) return null;
+    const steps = query('workflow_steps', s => s.workflow_id === wf.id).sort((a,b) => a.order - b.order);
+    return { ...a, workflow: { ...wf, steps } };
+  }).filter(Boolean);
+  res.json(result);
+});
+
+// PUT /api/workflows/assignments  — upsert: one per (record_id, type)
+router.put('/assignments', (req, res) => {
+  ensureTables();
+  const { record_id, workflow_id, type } = req.body; // type: 'pipeline' | 'people_link'
+  if (!record_id || !type) return res.status(400).json({ error: 'record_id and type required' });
+  const store = getStore();
+  // Remove existing assignment of this type for this record
+  store.record_workflow_assignments = store.record_workflow_assignments.filter(
+    a => !(a.record_id === record_id && a.type === type)
+  );
+  if (workflow_id) {
+    // Add new assignment
+    store.record_workflow_assignments.push({
+      id: uuidv4(), record_id, workflow_id, type, created_at: new Date().toISOString()
+    });
+  }
+  saveStore();
+  res.json({ ok: true, record_id, workflow_id, type });
+});
+
+// ── People links ──────────────────────────────────────────────────────────────
+// GET  /api/workflows/people-links?target_record_id=  or ?person_record_id=
+router.get('/people-links', (req, res) => {
+  ensureTables();
+  const { target_record_id, person_record_id, environment_id } = req.query;
+  let links = query('people_links', () => true);
+  if (target_record_id)  links = links.filter(l => l.target_record_id === target_record_id);
+  if (person_record_id)  links = links.filter(l => l.person_record_id === person_record_id);
+  if (environment_id)    links = links.filter(l => l.environment_id === environment_id);
+  // Hydrate with person record data
+  const result = links.map(l => {
+    const person = findOne('records', r => r.id === l.person_record_id);
+    return { ...l, person_data: person?.data || {} };
+  });
+  res.json(result);
+});
+
+// POST /api/workflows/people-links
+router.post('/people-links', (req, res) => {
+  ensureTables();
+  const { person_record_id, target_record_id, target_object_id, stage_id, stage_name, environment_id } = req.body;
+  if (!person_record_id || !target_record_id) return res.status(400).json({ error: 'person_record_id and target_record_id required' });
+  // Prevent duplicates
+  const existing = findOne('people_links', l => l.person_record_id === person_record_id && l.target_record_id === target_record_id);
+  if (existing) return res.status(409).json({ error: 'Link already exists', link: existing });
+  const link = insert('people_links', {
+    id: uuidv4(), person_record_id, target_record_id, target_object_id: target_object_id||null,
+    stage_id: stage_id||null, stage_name: stage_name||null,
+    environment_id: environment_id||null, created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+  });
+  const person = findOne('records', r => r.id === person_record_id);
+  res.json({ ...link, person_data: person?.data || {} });
+});
+
+// PATCH /api/workflows/people-links/:id  — update stage
+router.patch('/people-links/:id', (req, res) => {
+  ensureTables();
+  const { stage_id, stage_name } = req.body;
+  const link = update('people_links', l => l.id === req.params.id, { stage_id, stage_name, updated_at: new Date().toISOString() });
+  if (!link) return res.status(404).json({ error: 'Not found' });
+  const person = findOne('records', r => r.id === link.person_record_id);
+  res.json({ ...link, person_data: person?.data || {} });
+});
+
+// DELETE /api/workflows/people-links/:id
+router.delete('/people-links/:id', (req, res) => {
+  ensureTables();
+  remove('people_links', l => l.id === req.params.id);
+  res.json({ ok: true });
 });
 
 module.exports = router;

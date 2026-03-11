@@ -37,6 +37,133 @@ const OPS = [
   { value: 'notempty', label: 'not empty' },
 ];
 
+// Example templates — objectSlug resolved to real ID at runtime
+const EXAMPLE_TEMPLATES = [
+  {
+    name: 'Candidates by Status',
+    description: 'Count of people grouped by their current status',
+    icon: '👥',
+    objectSlug: 'people',
+    columns: ['first_name', 'last_name', 'status', 'source'],
+    filters: [],
+    groupBy: 'status',
+    sortBy: '_count',
+    sortDir: 'desc',
+    formulas: [{ label: 'Total', expr: 'COUNT()' }],
+    view: 'bar',
+    chartX: 'status',
+    chartY: '_count',
+  },
+  {
+    name: 'Candidates by Source',
+    description: 'Where are candidates coming from?',
+    icon: '📊',
+    objectSlug: 'people',
+    columns: ['first_name', 'last_name', 'source', 'status'],
+    filters: [],
+    groupBy: 'source',
+    sortBy: '_count',
+    sortDir: 'desc',
+    formulas: [],
+    view: 'pie',
+    chartX: 'source',
+    chartY: '_count',
+  },
+  {
+    name: 'Active Candidates',
+    description: 'All people with Active or Passive status',
+    icon: '✅',
+    objectSlug: 'people',
+    columns: ['first_name', 'last_name', 'current_title', 'current_company', 'status', 'source', 'location'],
+    filters: [{ field: 'status', op: 'neq', value: 'Archived' }],
+    groupBy: '',
+    sortBy: 'last_name',
+    sortDir: 'asc',
+    formulas: [],
+    view: 'table',
+    chartX: '',
+    chartY: '',
+  },
+  {
+    name: 'Jobs by Department',
+    description: 'Headcount of open roles per department',
+    icon: '💼',
+    objectSlug: 'jobs',
+    columns: ['job_title', 'department', 'status', 'priority', 'work_type'],
+    filters: [{ field: 'status', op: 'eq', value: 'Open' }],
+    groupBy: 'department',
+    sortBy: '_count',
+    sortDir: 'desc',
+    formulas: [],
+    view: 'bar',
+    chartX: 'department',
+    chartY: '_count',
+  },
+  {
+    name: 'Jobs Pipeline Overview',
+    description: 'All jobs with salary range and status',
+    icon: '📋',
+    objectSlug: 'jobs',
+    columns: ['job_title', 'department', 'location', 'status', 'priority', 'salary_min', 'salary_max'],
+    filters: [],
+    groupBy: '',
+    sortBy: 'department',
+    sortDir: 'asc',
+    formulas: [{ label: 'Salary Range', expr: 'DIFF(salary_max,salary_min)' }],
+    view: 'table',
+    chartX: '',
+    chartY: '',
+  },
+  {
+    name: 'High Priority Open Roles',
+    description: 'Critical and High priority jobs that are open',
+    icon: '🚨',
+    objectSlug: 'jobs',
+    columns: ['job_title', 'department', 'priority', 'hiring_manager', 'location', 'work_type'],
+    filters: [
+      { field: 'status', op: 'eq', value: 'Open' },
+      { field: 'priority', op: 'contains', value: 'High' },
+    ],
+    groupBy: '',
+    sortBy: 'priority',
+    sortDir: 'asc',
+    formulas: [],
+    view: 'table',
+    chartX: '',
+    chartY: '',
+  },
+  {
+    name: 'Remote vs On-site Jobs',
+    description: 'Breakdown of jobs by work type',
+    icon: '🏠',
+    objectSlug: 'jobs',
+    columns: ['job_title', 'work_type', 'department', 'status'],
+    filters: [],
+    groupBy: 'work_type',
+    sortBy: '_count',
+    sortDir: 'desc',
+    formulas: [],
+    view: 'pie',
+    chartX: 'work_type',
+    chartY: '_count',
+  },
+  {
+    name: 'Talent Pool Summary',
+    description: 'Overview of all talent pools by category and status',
+    icon: '🌊',
+    objectSlug: 'talent-pools',
+    columns: ['pool_name', 'category', 'status', 'owner'],
+    filters: [{ field: 'status', op: 'eq', value: 'Active' }],
+    groupBy: 'category',
+    sortBy: '_count',
+    sortDir: 'desc',
+    formulas: [],
+    view: 'bar',
+    chartX: 'category',
+    chartY: '_count',
+  },
+];
+
 function evalFormula(expr, row, rows) {
   try {
     const e = expr.trim();
@@ -94,10 +221,11 @@ function evalFormula(expr, row, rows) {
 
 const CHART_COLORS = ['#4361EE','#7B2FBE','#0CAF77','#F59E0B','#EF4444','#06B6D4','#EC4899','#84CC16'];
 
-export default function Reports({ envId, theme: t }) {
+export default function Reports({ envId }) {
   const [objects, setObjects] = useState([]);
   const [fields, setFields]   = useState([]);
   const [saved, setSaved]     = useState([]);
+  const skipReset = useRef(false); // true when loading template/report — suppresses field-change reset
 
   // Builder state
   const [selObject, setSelObject] = useState('');
@@ -119,18 +247,19 @@ export default function Reports({ envId, theme: t }) {
   const [view, setView]       = useState('table'); // table | bar | line | pie
   const [chartX, setChartX]   = useState('');
   const [chartY, setChartY]   = useState('');
-  const [panel, setPanel]     = useState('builder'); // builder | saved | formula
+  const [panel, setPanel]     = useState('builder'); // builder | saved | formula | templates
   const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     if (!envId) return;
-    fetch(`${API}/objects/${envId}`).then(r=>r.json()).then(setObjects).catch(()=>{});
+    fetch(`${API}/objects?environment_id=${envId}`).then(r=>r.json()).then(d=>setObjects(Array.isArray(d)?d:[])).catch(()=>{});
     fetch(`${API}/reports/${envId}`).then(r=>r.json()).then(setSaved).catch(()=>{});
   }, [envId]);
 
   useEffect(() => {
     if (!selObject || !envId) { setFields([]); return; }
-    fetch(`${API}/fields/${envId}/${selObject}`).then(r=>r.json()).then(setFields).catch(()=>{});
+    fetch(`${API}/fields?object_id=${selObject}`).then(r=>r.json()).then(d=>setFields(Array.isArray(d)?d:[])).catch(()=>{});
+    if (skipReset.current) { skipReset.current = false; return; } // template/report load — keep config
     setSelCols([]); setGroupBy(''); setSortBy(''); setFilters([]); setFormulas([]); setRan(false); setRows([]);
   }, [selObject, envId]);
 
@@ -167,11 +296,43 @@ export default function Reports({ envId, theme: t }) {
   };
 
   const loadReport = r => {
+    skipReset.current = true;
     setReportName(r.name); setSelObject(r.objectId); setSelCols(r.columns || []);
     setFilters(r.filters || []); setGroupBy(r.groupBy || ''); setSortBy(r.sortBy || '');
     setSortDir(r.sortDir || 'asc'); setFormulas(r.formulas || []);
     setView(r.view || 'table'); setChartX(r.chartX || ''); setChartY(r.chartY || '');
     setPanel('builder'); setRan(false); setRows([]);
+  };
+
+  const loadTemplate = tmpl => {
+    // Resolve objectSlug to real objectId
+    const obj = objects.find(o => o.slug === tmpl.objectSlug);
+    if (!obj) return;
+    skipReset.current = true;
+    setReportName(tmpl.name);
+    setSelObject(obj.id);
+    setSelCols(tmpl.columns || []);
+    setFilters(tmpl.filters || []);
+    setGroupBy(tmpl.groupBy || '');
+    setSortBy(tmpl.sortBy || '');
+    setSortDir(tmpl.sortDir || 'asc');
+    setFormulas(tmpl.formulas || []);
+    setView(tmpl.view || 'table');
+    setChartX(tmpl.chartX || '');
+    setChartY(tmpl.chartY || '');
+    setPanel('builder');
+    setRan(false);
+    setRows([]);
+  };
+
+  const copyReport = async r => {
+    const copy = { ...r, name: r.name + ' (copy)', id: undefined, createdAt: undefined };
+    delete copy.id; delete copy.createdAt;
+    const res = await fetch(`${API}/reports/${envId}`, {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(copy)
+    });
+    const saved2 = await res.json();
+    setSaved(p => [...p, saved2]);
   };
 
   const deleteReport = async id => {
@@ -192,10 +353,9 @@ export default function Reports({ envId, theme: t }) {
   const displayCols = rows.length > 0 ? Object.keys(rows[0]).filter(k => !k.startsWith('_') || k.startsWith('__')).map(k => k.startsWith('__') ? k.slice(2) : k) : [];
   const rawCols     = rows.length > 0 ? Object.keys(rows[0]) : [];
 
-  const bg = t?.bg || '#EEF2FF';
   const card = '#FFFFFF';
   const S = {
-    wrap:   { display:'flex', height:'100%', background: bg, fontFamily: t?.font || 'DM Sans, sans-serif', overflow:'hidden' },
+    wrap:   { display:'flex', height:'100%', background:'var(--t-bg, #EEF2FF)', fontFamily:'var(--t-font, DM Sans, sans-serif)', overflow:'hidden' },
     side:   { width:280, background:card, borderRight:`1px solid ${BORDER}`, display:'flex', flexDirection:'column', flexShrink:0, overflow:'hidden' },
     main:   { flex:1, display:'flex', flexDirection:'column', overflow:'hidden' },
     topbar: { padding:'12px 20px', borderBottom:`1px solid ${BORDER}`, display:'flex', alignItems:'center', gap:10, background:card, flexWrap:'wrap' },
@@ -212,11 +372,11 @@ export default function Reports({ envId, theme: t }) {
       {/* ── SIDEBAR ── */}
       <div style={S.side}>
         {/* Tabs */}
-        <div style={{ display:'flex', borderBottom:`1px solid ${BORDER}` }}>
-          {['builder','saved','formula'].map(p => (
-            <button key={p} onClick={() => setPanel(p)} style={{ flex:1, padding:'10px 0', border:'none', cursor:'pointer', fontSize:12, fontWeight:700,
-              background: panel===p ? LIGHT : 'transparent', color: panel===p ? ACCENT : MID, letterSpacing:'0.05em', textTransform:'uppercase', fontFamily:'inherit' }}>
-              {p==='builder' ? '⚙ Build' : p==='saved' ? '📋 Saved' : '∑ Formulas'}
+        <div style={{ display:'flex', borderBottom:`1px solid ${BORDER}`, flexWrap:'wrap' }}>
+          {['builder','templates','saved','formula'].map(p => (
+            <button key={p} onClick={() => setPanel(p)} style={{ flex:1, padding:'9px 0', border:'none', cursor:'pointer', fontSize:11, fontWeight:700,
+              background: panel===p ? LIGHT : 'transparent', color: panel===p ? ACCENT : MID, letterSpacing:'0.04em', textTransform:'uppercase', fontFamily:'inherit', minWidth:60 }}>
+              {p==='builder' ? '⚙' : p==='templates' ? '⭐' : p==='saved' ? '📋' : '∑'}
             </button>
           ))}
         </div>
@@ -230,7 +390,7 @@ export default function Reports({ envId, theme: t }) {
                 <select value={selObject} onChange={e => setSelObject(e.target.value)}
                   style={{ ...S.input, width:'100%' }}>
                   <option value=''>— select object —</option>
-                  {objects.map(o => <option key={o.id} value={o.id}>{o.icon} {o.name}</option>)}
+                  {objects.map(o => <option key={o.id} value={o.id}>{o.plural_name || o.name}</option>)}
                 </select>
               </div>
 
@@ -302,8 +462,46 @@ export default function Reports({ envId, theme: t }) {
             </>
           )}
 
-          {panel === 'saved' && (
+          {panel === 'templates' && (
             <div style={S.section}>
+              <p style={{ fontSize:12, color:MUTED, marginBottom:12, lineHeight:1.5 }}>
+                Click a template to load it into the builder, then customise and save.
+              </p>
+              {EXAMPLE_TEMPLATES.map((tmpl, i) => {
+                const objExists = objects.some(o => o.slug === tmpl.objectSlug);
+                return (
+                  <div key={i} style={{ background: objExists ? '#F8F9FF' : '#FAFAFA', borderRadius:10, padding:'10px 12px', marginBottom:8,
+                    border:`1px solid ${objExists ? BORDER : '#E0E0E0'}`, opacity: objExists ? 1 : 0.5 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                      <span style={{ fontSize:18 }}>{tmpl.icon}</span>
+                      <span style={{ fontWeight:700, fontSize:13, color:DARK }}>{tmpl.name}</span>
+                    </div>
+                    <div style={{ fontSize:11, color:MUTED, marginBottom:8, lineHeight:1.4 }}>{tmpl.description}</div>
+                    <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:8 }}>
+                      <span style={{ fontSize:10, padding:'2px 6px', borderRadius:10, background:'#EEF2FF', color:ACCENT, fontWeight:600 }}>
+                        {tmpl.objectSlug}
+                      </span>
+                      {tmpl.groupBy && <span style={{ fontSize:10, padding:'2px 6px', borderRadius:10, background:'#F0FDF4', color:'#0CAF77', fontWeight:600 }}>grouped</span>}
+                      {tmpl.formulas.length > 0 && <span style={{ fontSize:10, padding:'2px 6px', borderRadius:10, background:'#FFF7ED', color:'#D97706', fontWeight:600 }}>formula</span>}
+                      <span style={{ fontSize:10, padding:'2px 6px', borderRadius:10, background:'#F4F6FD', color:MID, fontWeight:600 }}>
+                        {tmpl.view} view
+                      </span>
+                    </div>
+                    {objExists ? (
+                      <button onClick={() => loadTemplate(tmpl)}
+                        style={{ ...S.btn, background:LIGHT, color:ACCENT, padding:'4px 10px', fontSize:11, width:'100%' }}>
+                        Use Template →
+                      </button>
+                    ) : (
+                      <div style={{ fontSize:11, color:'#EF4444' }}>Object "{tmpl.objectSlug}" not found</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {panel === 'saved' && (            <div style={S.section}>
               {saved.length === 0 && <p style={{ color:MUTED, fontSize:13 }}>No saved reports yet.</p>}
               {saved.map(r => (
                 <div key={r.id} style={{ background:'#F8F9FF', borderRadius:10, padding:'10px 12px', marginBottom:8, border:`1px solid ${BORDER}` }}>
@@ -311,6 +509,7 @@ export default function Reports({ envId, theme: t }) {
                   <div style={{ fontSize:11, color:MUTED, marginBottom:8 }}>{new Date(r.createdAt).toLocaleDateString()}</div>
                   <div style={{ display:'flex', gap:6 }}>
                     <button onClick={() => loadReport(r)} style={{ ...S.btn, background:LIGHT, color:ACCENT, padding:'4px 10px', fontSize:11 }}>Load</button>
+                    <button onClick={() => copyReport(r)} style={{ ...S.btn, background:'#F0FDF4', color:'#0CAF77', padding:'4px 10px', fontSize:11 }}>Copy</button>
                     <button onClick={() => deleteReport(r.id)} style={{ ...S.btn, background:'#FEE2E2', color:'#EF4444', padding:'4px 10px', fontSize:11 }}>Delete</button>
                   </div>
                 </div>

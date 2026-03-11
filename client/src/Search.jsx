@@ -201,7 +201,7 @@ const getSaved = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KE
 const setSaved = (s) => localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
 
 /* ─── Main Search & Filter Page ──────────────────────────────────────────── */
-export default function SearchPage({ environment }) {
+export default function SearchPage({ environment, onNavigateToRecord }) {
   const [query,      setQuery]      = useState("");
   const [objects,    setObjects]    = useState([]);
   const [fields,     setFields]     = useState({});   // { object_id: [fields] }
@@ -480,7 +480,7 @@ export default function SearchPage({ environment }) {
                     </div>
                     <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                       {recs.slice(0,10).map(r => (
-                        <ResultCard key={r.id} record={r} fields={fields[obj.id]||[]} object={obj} onClick={()=>{}}/>
+                        <ResultCard key={r.id} record={r} fields={fields[obj.id]||[]} object={obj} onClick={()=>onNavigateToRecord?.(r)}/>
                       ))}
                       {recs.length>10 && (
                         <div style={{ fontSize:12, color:C.text3, textAlign:"center", padding:"6px 0" }}>+{recs.length-10} more results</div>

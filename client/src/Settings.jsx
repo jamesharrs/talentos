@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
 import SuperAdminSection from "./SuperAdmin.jsx";
+import OrgChart from "./OrgChart.jsx";
 
 const api = {
   get:   p     => fetch(`/api${p}`).then(r=>r.json()),
@@ -894,6 +895,7 @@ const SECTIONS = [
   { id:"datamodel",   icon:"database", label:"Data Model" },
   { id:"users",       icon:"users",    label:"Users" },
   { id:"roles",       icon:"shield",   label:"Roles & Permissions" },
+  { id:"org",         icon:"layers",   label:"Org Structure" },
   { id:"security",    icon:"lock",     label:"Security" },
   { id:"sessions",    icon:"activity", label:"Active Sessions" },
   { id:"audit",       icon:"key",      label:"Audit Log" },
@@ -903,7 +905,7 @@ const SUPER_ADMIN_SECTIONS = [
   { id:"superadmin",  icon:"zap",      label:"Super Admin" },
 ];
 
-export default function SettingsPage({ currentUser }) {
+export default function SettingsPage({ currentUser, environment }) {
   const [activeSection, setActiveSection] = useState("datamodel");
 
   // Super admin check — currentUser prop from App, fallback to localStorage
@@ -943,6 +945,7 @@ export default function SettingsPage({ currentUser }) {
         {activeSection==="datamodel" && <DataModelSection/>}
         {activeSection==="users"     && <UsersSection/>}
         {activeSection==="roles"     && <RolesSection/>}
+        {activeSection==="org"       && <OrgChart environment={environment}/>}
         {activeSection==="security"  && <SecuritySection/>}
         {activeSection==="sessions"  && <SessionsSection/>}
         {activeSection==="audit"     && <AuditLogSection/>}

@@ -27,10 +27,31 @@ router.get('/search', (req, res) => {
 });
 
 router.get('/', (req, res) => {
-  const { object_id, environment_id, page=1, limit=50, search, sort_dir='desc' } = req.query;
+  const { object_id, environment_id, page=1, limit=50, search, sort_dir='desc', filter_key, filter_value, user_id } = req.query;
   if (!object_id||!environment_id) return res.status(400).json({error:'object_id and environment_id required'});
   let records = query('records', r=>r.object_id===object_id&&r.environment_id===environment_id&&!r.deleted_at);
+
+  // Org scoping: filter to user's visible subtree if user_id provided and user has an org unit
+  if (user_id) {
+    const user = findOne('users', u => u.id === user_id);
+    const role = user && findOne('roles', r => r.id === user.role_id);
+    const isSuperAdmin = role && (role.slug === 'super_admin' || role.slug === 'admin');
+    if (user && user.org_unit_id && !isSuperAdmin) {
+      const { getSubtree } = require('./org_units');
+      const allUnits = query('org_units');
+      const visibleIds = getSubtree(user.org_unit_id, allUnits);
+      records = records.filter(r => !r.org_unit_id || visibleIds.includes(r.org_unit_id));
+    }
+  }
+
   if (search) records = records.filter(r=>JSON.stringify(r.data).toLowerCase().includes(search.toLowerCase()));
+  if (filter_key && filter_value !== undefined) {
+    records = records.filter(r => {
+      const v = r.data?.[filter_key];
+      if (Array.isArray(v)) return v.some(i => String(i).toLowerCase() === filter_value.toLowerCase());
+      return String(v || '').toLowerCase() === filter_value.toLowerCase();
+    });
+  }
   records.sort((a,b)=>sort_dir==='asc'?new Date(a.created_at)-new Date(b.created_at):new Date(b.created_at)-new Date(a.created_at));
   const total = records.length;
   const start = (parseInt(page)-1)*parseInt(limit);
@@ -43,12 +64,15 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { object_id, environment_id, data={}, created_by } = req.body;
+  const { object_id, environment_id, data={}, created_by, user_id } = req.body;
   if (!object_id||!environment_id) return res.status(400).json({error:'object_id and environment_id required'});
   const required = query('fields', f=>f.object_id===object_id&&f.is_required);
   const missing = required.filter(f=>!data[f.api_key]&&data[f.api_key]!==0);
   if (missing.length) return res.status(400).json({error:'Missing required fields',missing:missing.map(f=>f.api_key)});
-  const record = insert('records', {id:uuidv4(),object_id,environment_id,data,created_by:created_by||null,created_at:new Date().toISOString(),updated_at:new Date().toISOString(),deleted_at:null});
+  // Inherit org_unit_id from creating user
+  const creator = user_id ? findOne('users', u => u.id === user_id) : null;
+  const org_unit_id = creator?.org_unit_id || null;
+  const record = insert('records', {id:uuidv4(),object_id,environment_id,data,org_unit_id,created_by:created_by||null,created_at:new Date().toISOString(),updated_at:new Date().toISOString(),deleted_at:null});
   insert('activity', {id:uuidv4(),environment_id,record_id:record.id,object_id,action:'created',actor:created_by||null,changes:data,created_at:new Date().toISOString()});
   res.status(201).json(record);
 });

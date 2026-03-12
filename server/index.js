@@ -33,6 +33,7 @@ app.use('/api/fields',       require('./routes/fields'));
 app.use('/api/records',      require('./routes/records'));
 app.use('/api/users',        require('./routes/users'));
 app.use('/api/roles',        require('./routes/roles'));
+app.use('/api/org-units',    require('./routes/org_units'));
 app.use('/api/security',     require('./routes/security'));
 app.use('/api/notes',        require('./routes/notes'));
 app.use('/api/attachments',  require('./routes/attachments'));

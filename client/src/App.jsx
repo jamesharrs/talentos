@@ -1214,7 +1214,7 @@ function App() {
         ) : activeNav === "reports" ? (
           <ReportsPage envId={selectedEnv?.id} initialReport={reportPreset} />
         ) : activeNav === "settings" ? (
-          <SettingsPage />
+          <SettingsPage environment={selectedEnv} />
         ) : activeNav === "schema" ? (
           selectedObject
             ? <ObjectSchemaView object={selectedObject} allObjects={allObjects} environmentId={selectedEnv.id} onBack={() => setSelectedObject(null)} />

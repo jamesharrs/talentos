@@ -8,8 +8,9 @@ const DB_PATH  = path.join(DATA_DIR, 'talentos.json');
 
 let store = {
   environments: [], objects: [], fields: [], records: [],
-  relationships: [], activity: [],
-  users: [], roles: [], permissions: [], sessions: [], audit_log: []
+    relationships: [], activity: [],
+    users: [], roles: [], permissions: [], sessions: [], audit_log: [],
+    org_units: []
 };
 
 function loadStore() {
@@ -53,6 +54,7 @@ async function initDB() {
     if (!store.permissions) store.permissions = [];
     if (!store.sessions) store.sessions = [];
     if (!store.audit_log) store.audit_log = [];
+    if (!store.org_units) store.org_units = [];
     await seedUsersAndRoles();
     console.log('✅ Store loaded');
     return;

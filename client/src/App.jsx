@@ -1070,7 +1070,7 @@ function App() {
       {/* Theme Panel */}
       {showTheme && <ThemePanel onClose={() => setShowTheme(false)} />}
       {/* Sidebar */}
-      <div style={{ width: 220, background: "var(--t-nav-bg)", borderRight: "1px solid var(--t-border2)", display: "flex", flexDirection: "column", padding: "0 0 16px", position: "fixed", height: "100vh", top: 0, left: 0, zIndex: 100 }}>
+      <div style={{ width: 220, background: "var(--t-nav-bg)", borderRight: "1px solid var(--t-border2)", display: "flex", flexDirection: "column", padding: "0 0 16px", position: "fixed", height: "100vh", top: 0, left: 0, zIndex: 100, overflowY: "hidden" }}>
         {/* Logo */}
         <div style={{ padding: "20px 16px 16px", borderBottom: "1px solid var(--t-border2)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1084,16 +1084,8 @@ function App() {
           </div>
         </div>
 
-        {/* Environment */}
-        <div style={{ padding: "12px 12px 8px" }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--t-text3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6, paddingLeft: 4 }}>Environment</div>
-          {environments.map(env => (
-            <EnvironmentBadge key={env.id} env={env} selected={selectedEnv?.id === env.id} onClick={() => { setSelectedEnv(env); setSelectedObject(null); }} />
-          ))}
-        </div>
-
         {/* Nav */}
-        <div style={{ padding: "8px 12px", flex: 1 }}>
+        <div style={{ padding: "8px 12px", flex: 1, overflowY: "auto", minHeight: 0 }}>
           {navSections.map(section => (
             <div key={section.label} style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: "var(--t-text3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6, paddingLeft: 4 }}>{section.label}</div>
@@ -1146,10 +1138,10 @@ function App() {
                 </span>
               </div>
               <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:12, fontWeight:600, color:"var(--t-text1)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                <div style={{ fontSize:12, fontWeight:600, color:"var(--t-text1)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", lineHeight:"1.4", paddingBottom:1 }}>
                   {session.user.first_name} {session.user.last_name}
                 </div>
-                <div style={{ fontSize:10, color:"var(--t-text3)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                <div style={{ fontSize:10, color:"var(--t-text3)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", lineHeight:"1.4" }}>
                   {session.role?.name || ""}
                 </div>
               </div>

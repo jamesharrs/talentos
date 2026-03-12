@@ -1026,22 +1026,23 @@ function App() {
   }, []);
   useEffect(() => {
     const handler = (e) => {
-      const { fieldKey, fieldLabel, fieldValue } = e.detail || {};
+      const { fieldKey, fieldLabel, fieldValue, objectSlug } = e.detail || {};
       if (!fieldKey || fieldValue === undefined) return;
-      // Find the first object that has a field with this api_key
-      // We don't know the object yet — store the preset and let RecordsView apply it
-      // Navigate to the currently active object's list if we're on a record, otherwise stay
       setFilterPreset({ fieldKey, fieldLabel, fieldValue });
-      // If we're currently on a record page, navigate back to the object list
+      // If objectSlug provided (e.g. from dashboard), navigate to that object
+      if (objectSlug) {
+        const obj = navObjects.find(o => o.slug === objectSlug);
+        if (obj) { setActiveNav(`obj_${obj.id}`); return; }
+      }
+      // If on a record page, navigate back to its parent object list
       if (activeNav.startsWith("record_")) {
-        const parts = activeNav.split("_");
-        const objectId = parts[2];
+        const objectId = activeNav.split("_")[2];
         setActiveNav(`obj_${objectId}`);
       }
     };
     window.addEventListener("talentos:filter-navigate", handler);
     return () => window.removeEventListener("talentos:filter-navigate", handler);
-  }, [activeNav]);
+  }, [activeNav, navObjects]);
 
   // Show login page if no session
   if (!session) {

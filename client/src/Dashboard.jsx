@@ -206,12 +206,9 @@ export default function Dashboard({environment,onNavigate}) {
 
   // Navigation helpers
   const goToFiltered = (objectSlug, fieldKey, fieldLabel, fieldValue) => {
-    const obj = stats.objects.find(o => o.slug === objectSlug);
-    if (!obj) return;
     window.dispatchEvent(new CustomEvent("talentos:filter-navigate", {
-      detail: { fieldKey, fieldLabel, fieldValue }
+      detail: { fieldKey, fieldLabel, fieldValue, objectSlug }
     }));
-    onNavigate?.(objectSlug);
   };
 
   const openReport = (objectSlug, reportConfig) => {

@@ -27,37 +27,60 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     trendUp:"M23 6l-9.5 9.5-5-5L1 18M17 6h6v6",
     trendDown:"M23 18l-9.5-9.5-5 5L1 6M17 18h6v-6",
     clock:"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2",
+    barChart:"M18 20V10M12 20V4M6 20v-6",
   };
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d={P[n]||""}/></svg>;
 };
 
 const spark = (peak) => [0.55,0.7,0.5,0.8,0.65,0.9,1].map(r=>({v:Math.round((peak||10)*r)}));
 
-const StatCard = ({ label, value, sub, icon, color, trend }) => (
-  <div style={{background:C.surface,borderRadius:18,border:`1px solid ${C.border}`,padding:"22px 24px",flex:1,minWidth:170,boxShadow:"0 1px 4px rgba(67,97,238,0.06)"}}>
-    <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:16}}>
-      <div style={{width:44,height:44,borderRadius:14,background:`${color}14`,display:"flex",alignItems:"center",justifyContent:"center"}}>
-        <Ic n={icon} s={20} c={color}/>
+const StatCard = ({ label, value, sub, icon, color, trend, onClick, onReport }) => {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{background:C.surface,borderRadius:18,border:`1.5px solid ${hovered&&onClick ? color+"60" : C.border}`,
+        padding:"22px 24px",flex:1,minWidth:170,
+        boxShadow: hovered&&onClick ? `0 4px 20px ${color}18` : "0 1px 4px rgba(67,97,238,0.06)",
+        cursor: onClick ? "pointer" : "default", transition:"all .15s", position:"relative"}}>
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:16}}>
+        <div style={{width:44,height:44,borderRadius:14,background:`${color}14`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <Ic n={icon} s={20} c={color}/>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          {trend!==undefined&&<div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:trend>=0?C.green:C.red,background:trend>=0?"#ECFDF5":"#FEF2F2",padding:"4px 9px",borderRadius:99}}>
+            <Ic n={trend>=0?"trendUp":"trendDown"} s={10} c={trend>=0?C.green:C.red}/>{Math.abs(trend)}%
+          </div>}
+          {onReport&&<button onClick={e=>{e.stopPropagation();onReport();}}
+            title="Open as report"
+            style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,cursor:"pointer",padding:"3px 7px",fontSize:10,fontWeight:700,color:C.text3,fontFamily:F,display:"flex",alignItems:"center",gap:3,transition:"all .1s"}}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor=color;e.currentTarget.style.color=color;}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text3;}}>
+            <Ic n="barChart" s={10} c="currentColor"/> Report
+          </button>}
+        </div>
       </div>
-      {trend!==undefined&&<div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:trend>=0?C.green:C.red,background:trend>=0?"#ECFDF5":"#FEF2F2",padding:"4px 9px",borderRadius:99}}>
-        <Ic n={trend>=0?"trendUp":"trendDown"} s={10} c={trend>=0?C.green:C.red}/>{Math.abs(trend)}%
+      <div style={{fontSize:32,fontWeight:800,color:C.text1,letterSpacing:"-1px",lineHeight:1}}>{value}</div>
+      <div style={{fontSize:13,fontWeight:600,color:C.text2,marginTop:6}}>{label}</div>
+      {sub&&<div style={{fontSize:11,color:C.text3,marginTop:2}}>{sub}</div>}
+      {onClick&&hovered&&<div style={{position:"absolute",bottom:14,right:16,fontSize:10,fontWeight:700,color:color,display:"flex",alignItems:"center",gap:3,opacity:0.8}}>
+        View records <Ic n="arrowR" s={10} c={color}/>
       </div>}
+      <div style={{marginTop:14,height:40}}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={spark(value)} margin={{top:0,right:0,bottom:0,left:0}}>
+            <defs><linearGradient id={`g${label.replace(/\s/g,"")}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.25}/><stop offset="100%" stopColor={color} stopOpacity={0}/>
+            </linearGradient></defs>
+            <Area type="monotone" dataKey="v" stroke={color} strokeWidth={2} fill={`url(#g${label.replace(/\s/g,"")})`} dot={false}/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
     </div>
-    <div style={{fontSize:32,fontWeight:800,color:C.text1,letterSpacing:"-1px",lineHeight:1}}>{value}</div>
-    <div style={{fontSize:13,fontWeight:600,color:C.text2,marginTop:6}}>{label}</div>
-    {sub&&<div style={{fontSize:11,color:C.text3,marginTop:2}}>{sub}</div>}
-    <div style={{marginTop:14,height:40}}>
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={spark(value)} margin={{top:0,right:0,bottom:0,left:0}}>
-          <defs><linearGradient id={`g${label.replace(/\s/g,"")}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity={0.25}/><stop offset="100%" stopColor={color} stopOpacity={0}/>
-          </linearGradient></defs>
-          <Area type="monotone" dataKey="v" stroke={color} strokeWidth={2} fill={`url(#g${label.replace(/\s/g,"")})`} dot={false}/>
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  </div>
-);
+  );
+};
 
 const CustomTooltip = ({active,payload,label}) => {
   if(!active||!payload?.length) return null;
@@ -67,17 +90,22 @@ const CustomTooltip = ({active,payload,label}) => {
   </div>;
 };
 
-const LegendItem = ({color,label,value,total}) => (
-  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+const LegendItem = ({color,label,value,total,onClick}) => (
+  <div onClick={onClick} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,borderRadius:8,padding:"2px 4px",cursor:onClick?"pointer":"default",transition:"background .1s"}}
+    onMouseEnter={e=>{if(onClick)e.currentTarget.style.background=`${color}10`;}}
+    onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
     <div style={{width:10,height:10,borderRadius:3,background:color,flexShrink:0}}/>
     <span style={{fontSize:12,color:C.text2,flex:1}}>{label}</span>
     <span style={{fontSize:12,fontWeight:700,color:C.text1}}>{value}</span>
     <span style={{fontSize:11,color:C.text3,minWidth:32,textAlign:"right"}}>{total?Math.round((value/total)*100):0}%</span>
+    {onClick&&<Ic n="arrowR" s={10} c={color}/>}
   </div>
 );
 
-const RecentRow = ({item}) => (
-  <div style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:`1px solid ${C.border}`}}>
+const RecentRow = ({item, onClick}) => (
+  <div onClick={onClick} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 6px",borderBottom:`1px solid ${C.border}`,borderRadius:8,cursor:onClick?"pointer":"default",transition:"background .1s"}}
+    onMouseEnter={e=>{if(onClick)e.currentTarget.style.background=C.accentLight;}}
+    onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
     <div style={{width:36,height:36,borderRadius:12,background:item.objectColor,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
       <span style={{color:"white",fontSize:13,fontWeight:800}}>{item.name?.charAt(0)?.toUpperCase()||"?"}</span>
     </div>
@@ -89,6 +117,7 @@ const RecentRow = ({item}) => (
       background:item.status==="Active"||item.status==="Open"?"#ECFDF5":item.status==="Placed"||item.status==="Filled"?"#EEF2FF":"#F9FAFB",
       color:item.status==="Active"||item.status==="Open"?C.green:item.status==="Placed"||item.status==="Filled"?C.accent:C.text3
     }}>{item.status}</span>}
+    {onClick&&<Ic n="arrowR" s={12} c={C.text3}/>}
   </div>
 );
 
@@ -133,7 +162,7 @@ export default function Dashboard({environment,onNavigate}) {
         records.slice(0, 5).forEach(rec => {
           const nameF = ["first_name","job_title","pool_name","name"].find(k => rec.data?.[k]);
           const lastName = rec.data?.last_name ? ` ${rec.data.last_name}` : "";
-          recentItems.push({ id:rec.id, name:nameF?(rec.data[nameF]+lastName):"Untitled", object:o.name, objectSlug:o.slug, objectColor:o.color||C.accent, status:rec.data?.status, created:rec.created_at });
+          recentItems.push({ id:rec.id, objectId:o.id, name:nameF?(rec.data[nameF]+lastName):"Untitled", object:o.name, objectSlug:o.slug, objectColor:o.color||C.accent, status:rec.data?.status, created:rec.created_at });
         });
       });
 
@@ -175,6 +204,22 @@ export default function Dashboard({environment,onNavigate}) {
   const greeting=hr<12?"Good morning":hr<18?"Good afternoon":"Good evening";
   const today=new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
 
+  // Navigation helpers
+  const goToFiltered = (objectSlug, fieldKey, fieldLabel, fieldValue) => {
+    const obj = stats.objects.find(o => o.slug === objectSlug);
+    if (!obj) return;
+    window.dispatchEvent(new CustomEvent("talentos:filter-navigate", {
+      detail: { fieldKey, fieldLabel, fieldValue }
+    }));
+    onNavigate?.(objectSlug);
+  };
+
+  const openReport = (objectSlug, reportConfig) => {
+    window.dispatchEvent(new CustomEvent("talentos:open-report", {
+      detail: { objectSlug, ...reportConfig }
+    }));
+  };
+
   return (
     <div style={{fontFamily:F,color:C.text1}}>
 
@@ -195,10 +240,18 @@ export default function Dashboard({environment,onNavigate}) {
 
       {/* Stat cards */}
       <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
-        <StatCard label="Total Candidates" value={peopleCount} sub={`${activePeople} active`}   icon="users"     color={C.accent} trend={12}/>
-        <StatCard label="Open Jobs"        value={openJobs}    sub={`${jobsCount} total roles`} icon="briefcase" color={C.green}  trend={5}/>
-        <StatCard label="Talent Pools"     value={poolsCount}  sub="curated pipelines"          icon="layers"    color={C.purple} trend={2}/>
-        <StatCard label="Placements"       value={placedCount} sub="this environment"           icon="check"     color={C.amber}  trend={8}/>
+        <StatCard label="Total Candidates" value={peopleCount} sub={`${activePeople} active`}   icon="users"     color={C.accent} trend={12}
+          onClick={() => onNavigate?.("people")}
+          onReport={() => openReport("people", { groupBy:"status", view:"bar", chartX:"status", chartY:"_count", name:"Candidates by Status" })}/>
+        <StatCard label="Open Jobs"        value={openJobs}    sub={`${jobsCount} total roles`} icon="briefcase" color={C.green}  trend={5}
+          onClick={() => goToFiltered("jobs", "status", "Status", "Open")}
+          onReport={() => openReport("jobs", { filters:[{field:"status",op:"eq",value:"Open"}], groupBy:"department", view:"bar", chartX:"department", chartY:"_count", name:"Open Jobs by Department" })}/>
+        <StatCard label="Talent Pools"     value={poolsCount}  sub="curated pipelines"          icon="layers"    color={C.purple} trend={2}
+          onClick={() => onNavigate?.("talent-pools")}
+          onReport={() => openReport("talent-pools", { groupBy:"category", view:"pie", chartX:"category", chartY:"_count", name:"Pools by Category" })}/>
+        <StatCard label="Placements"       value={placedCount} sub="this environment"           icon="check"     color={C.amber}  trend={8}
+          onClick={() => goToFiltered("people", "status", "Status", "Placed")}
+          onReport={() => openReport("people", { filters:[{field:"status",op:"eq",value:"Placed"}], view:"table", name:"All Placements" })}/>
       </div>
 
       {/* Charts row */}
@@ -237,7 +290,8 @@ export default function Dashboard({environment,onNavigate}) {
                 </Pie>
               </PieChart>
             </div>
-            {jobDonut.map((d,i)=><LegendItem key={i} color={d.color} label={d.name} value={d.value} total={totalJobs}/>)}
+            {jobDonut.map((d,i)=><LegendItem key={i} color={d.color} label={d.name} value={d.value} total={totalJobs}
+              onClick={() => goToFiltered("jobs", "status", "Status", d.name)}/>)}
           </>:<div style={{textAlign:"center",padding:"32px 0",color:C.text3,fontSize:12}}>No jobs yet</div>}
           <button onClick={()=>onNavigate?.("jobs")} style={{marginTop:10,width:"100%",padding:"8px",borderRadius:10,border:`1.5px solid ${C.border}`,background:"transparent",fontSize:12,fontWeight:600,color:C.accent,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
             View all jobs <Ic n="arrowR" s={12} c={C.accent}/>
@@ -258,7 +312,8 @@ export default function Dashboard({environment,onNavigate}) {
                 </Pie>
               </PieChart>
             </div>
-            {peopleDonut.map((d,i)=><LegendItem key={i} color={d.color} label={d.name} value={d.value} total={totalPeople}/>)}
+            {peopleDonut.map((d,i)=><LegendItem key={i} color={d.color} label={d.name} value={d.value} total={totalPeople}
+              onClick={() => goToFiltered("people", "status", "Status", d.name)}/>)}
           </>:<div style={{textAlign:"center",padding:"32px 0",color:C.text3,fontSize:12}}>No candidates yet</div>}
           <button onClick={()=>onNavigate?.("people")} style={{marginTop:10,width:"100%",padding:"8px",borderRadius:10,border:`1.5px solid ${C.border}`,background:"transparent",fontSize:12,fontWeight:600,color:C.accent,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
             View all candidates <Ic n="arrowR" s={12} c={C.accent}/>
@@ -278,7 +333,9 @@ export default function Dashboard({environment,onNavigate}) {
                 <div style={{fontSize:13,fontWeight:600,color:C.text2}}>No records yet</div>
                 <div style={{fontSize:12,marginTop:4}}>Use the Copilot or nav to create your first record</div>
               </div>
-            :<div>{recent.map(item=><RecentRow key={item.id} item={item}/>)}</div>
+            :<div>{recent.map(item=><RecentRow key={item.id} item={item} onClick={()=>{
+              window.dispatchEvent(new CustomEvent("talentos:openRecord", { detail: { recordId: item.id, objectId: item.objectId } }));
+            }}/>)}</div>
           }
         </div>
       </div>

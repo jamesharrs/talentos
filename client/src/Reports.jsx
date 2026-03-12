@@ -221,7 +221,7 @@ function evalFormula(expr, row, rows) {
 
 const CHART_COLORS = ['#4361EE','#7B2FBE','#0CAF77','#F59E0B','#EF4444','#06B6D4','#EC4899','#84CC16'];
 
-export default function Reports({ envId }) {
+export default function Reports({ envId, initialReport }) {
   const [objects, setObjects] = useState([]);
   const [fields, setFields]   = useState([]);
   const [saved, setSaved]     = useState([]);
@@ -256,10 +256,36 @@ export default function Reports({ envId }) {
     fetch(`${API}/reports/${envId}`).then(r=>r.json()).then(setSaved).catch(()=>{});
   }, [envId]);
 
+  // Auto-load when a report preset arrives (e.g. from dashboard card)
+  useEffect(() => {
+    if (!initialReport || objects.length === 0) return;
+    const obj = objects.find(o => o.id === initialReport.objectId || o.slug === initialReport.objectSlug);
+    if (!obj) return;
+    skipReset.current = true;
+    setReportName(initialReport.name || "Dashboard Report");
+    setSelObject(obj.id);
+    setSelCols(initialReport.columns || []);
+    setFilters(initialReport.filters || []);
+    setGroupBy(initialReport.groupBy || "");
+    setSortBy(initialReport.sortBy || "_count");
+    setSortDir(initialReport.sortDir || "desc");
+    setFormulas(initialReport.formulas || []);
+    setView(initialReport.view || "bar");
+    setChartX(initialReport.chartX || initialReport.groupBy || "");
+    setChartY(initialReport.chartY || "_count");
+    setPanel("builder");
+    setRan(false);
+    setRows([]);
+  }, [initialReport, objects]);
+
   useEffect(() => {
     if (!selObject || !envId) { setFields([]); return; }
-    fetch(`${API}/fields?object_id=${selObject}`).then(r=>r.json()).then(d=>setFields(Array.isArray(d)?d:[])).catch(()=>{});
-    if (skipReset.current) { skipReset.current = false; return; } // template/report load — keep config
+    fetch(`${API}/fields?object_id=${selObject}`).then(r=>r.json()).then(d=>{
+      setFields(Array.isArray(d)?d:[]);
+      // Auto-run if we were pre-loaded from a dashboard preset
+      if (skipReset.current) { skipReset.current = false; setTimeout(()=>run(), 50); return; }
+    }).catch(()=>{});
+    if (skipReset.current) return; // run() called above after fields load
     setSelCols([]); setGroupBy(''); setSortBy(''); setFilters([]); setFormulas([]); setRan(false); setRows([]);
   }, [selObject, envId]);
 
@@ -554,6 +580,12 @@ export default function Reports({ envId }) {
       <div style={S.main}>
         {/* Top bar */}
         <div style={S.topbar}>
+          {initialReport && (
+            <button onClick={() => window.dispatchEvent(new CustomEvent("talentos:navigate", { detail: "dashboard" }))}
+              style={{...S.btn, background:"transparent", color:MID, padding:"6px 10px", fontSize:12, display:"flex", alignItems:"center", gap:5, border:`1px solid ${BORDER}`}}>
+              ← Dashboard
+            </button>
+          )}
           <input value={reportName} onChange={e => setReportName(e.target.value)}
             style={{ ...S.input, fontWeight:700, fontSize:15, color:DARK, border:'none', background:'transparent', width:200, padding:'4px 0' }} />
           <div style={{ flex:1 }} />

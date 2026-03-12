@@ -94,3 +94,29 @@ router.post('/auth/login', (req, res) => {
 });
 
 module.exports = router;
+
+// POST /api/users/login — simple credential check, returns user + role + permissions
+router.post('/login', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'email and password required' });
+  const u = findOne('users', u => u.email === email);
+  if (!u) return res.status(401).json({ error: 'Invalid credentials' });
+  if (u.status === 'deactivated') return res.status(403).json({ error: 'Account deactivated' });
+  const hashed = hashPassword(password);
+  if (u.password_hash !== hashed) return res.status(401).json({ error: 'Invalid credentials' });
+  const role = findOne('roles', r => r.id === u.role_id);
+  const permissions = query('permissions', p => p.role_id === u.role_id && p.allowed);
+  // Update last login
+  update('users', x => x.id === u.id, { last_login: new Date().toISOString(), login_count: (u.login_count||0)+1 });
+  insert('audit_log', { id:require('uuid').v4(), action:'user.login', actor:u.id, target_id:u.id, target_type:'user', details:{ email }, created_at:new Date().toISOString() });
+  res.json({ ...u, password_hash: undefined, role, permissions });
+});
+
+// GET /api/users/me/:id — refresh user session data
+router.get('/me/:id', (req, res) => {
+  const u = findOne('users', u => u.id === req.params.id);
+  if (!u) return res.status(404).json({ error: 'Not found' });
+  const role = findOne('roles', r => r.id === u.role_id);
+  const permissions = query('permissions', p => p.role_id === u.role_id && p.allowed);
+  res.json({ ...u, password_hash: undefined, role, permissions });
+});

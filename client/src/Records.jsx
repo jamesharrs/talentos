@@ -363,9 +363,9 @@ const TableView = ({ records, fields, objectColor, onSelect, onEdit, onDelete, o
                 ))}
                 <td style={{ padding:"12px 14px", textAlign:"right" }}>
                   <div style={{ display:"flex", gap:4, justifyContent:"flex-end" }}>
-                    <Btn v="ghost" sz="sm" icon="edit"   onClick={()=>onEdit(record)}/>
+                    {onEdit   && <Btn v="ghost" sz="sm" icon="edit"   onClick={()=>onEdit(record)}/>}
                     <Btn v="ghost" sz="sm" icon="expand" onClick={()=>onSelect(record)}/>
-                    <Btn v="ghost" sz="sm" icon="trash"  onClick={()=>onDelete(record.id)} style={{color:"#ef4444"}}/>
+                    {onDelete && <Btn v="ghost" sz="sm" icon="trash"  onClick={()=>onDelete(record.id)} style={{color:"#ef4444"}}/>}
                   </div>
                 </td>
               </tr>
@@ -442,8 +442,8 @@ const KanbanView = ({ records, fields, objectColor, onSelect, onEdit, onDelete, 
                       </div>
                     </div>
                     <div style={{ display:"flex", justifyContent:"flex-end", gap:4, marginTop:8 }} onClick={e=>e.stopPropagation()}>
-                      <button onClick={()=>onEdit(record)} style={{ background:"none", border:"none", cursor:"pointer", padding:3, color:C.text3, borderRadius:5, display:"flex" }}><Ic n="edit" s={12}/></button>
-                      <button onClick={()=>onDelete(record.id)} style={{ background:"none", border:"none", cursor:"pointer", padding:3, color:"#ef444450", borderRadius:5, display:"flex" }}><Ic n="trash" s={12}/></button>
+                      {onEdit   && <button onClick={()=>onEdit(record)} style={{ background:"none", border:"none", cursor:"pointer", padding:3, color:C.text3, borderRadius:5, display:"flex" }}><Ic n="edit" s={12}/></button>}
+                      {onDelete && <button onClick={()=>onDelete(record.id)} style={{ background:"none", border:"none", cursor:"pointer", padding:3, color:"#ef444450", borderRadius:5, display:"flex" }}><Ic n="trash" s={12}/></button>}
                     </div>
                   </div>
                 );
@@ -1268,13 +1268,23 @@ const CSVImportModal = ({ object, environment, onClose, onDone }) => {
   );
 };
 
-export default function RecordsView({ environment, object, onOpenRecord, initialFilter }) {
+export default function RecordsView({ environment, object, onOpenRecord, initialFilter, session }) {
   const [records, setRecords]   = useState([]);
   const [fields,  setFields]    = useState([]);
   const [loading, setLoading]   = useState(true);
   const [view,    setView]      = useState("table");
   const [search,  setSearch]    = useState("");
   const [filterChip, setFilterChip] = useState(initialFilter || null); // { fieldKey, fieldLabel, fieldValue }
+
+  // Permission helper — Super Admin always passes; no session → deny
+  const can = (action) => {
+    if (!session) return true; // graceful fallback if no auth
+    const { role, permissions } = session;
+    if (role?.slug === "super_admin" || role?.slug === "admin") return true;
+    return (permissions || []).some(
+      p => p.object_slug === object.slug && p.action === action && p.allowed
+    );
+  };
   const [selected, setSelected] = useState(null);   // slide-out panel only
   const [showForm, setShowForm] = useState(false);
   const [editRecord, setEditRecord] = useState(null);
@@ -1392,7 +1402,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
           ))}
         </div>
 
-        <Btn icon="plus" onClick={()=>setShowForm(true)}>New {object.name}</Btn>
+        <Btn icon="plus" onClick={()=>setShowForm(true)} style={{display:can("create")?"":"none"}}>New {object.name}</Btn>
         </>}
       </div>
 
@@ -1410,13 +1420,17 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
         ) : view==="table" ? (
           <TableView records={records} fields={fields} objectColor={object.color||C.accent}
             onProfile={r=>onOpenRecord?.(r.id, object.id)}
-            onSelect={r=>{setSelected(r);}} onEdit={r=>setEditRecord(r)} onDelete={handleDelete}/>
+            onSelect={r=>{setSelected(r);}}
+            onEdit={can("edit") ? r=>setEditRecord(r) : null}
+            onDelete={can("delete") ? handleDelete : null}/>
         ) : (
           <div style={{ padding:"20px" }}>
             <KanbanView records={records} fields={fields} objectColor={object.color||C.accent}
               onProfile={r=>onOpenRecord?.(r.id, object.id)}
-              onSelect={r=>{setSelected(r);}} onEdit={r=>setEditRecord(r)}
-              onDelete={handleDelete} onStatusChange={handleStatusChange}/>
+              onSelect={r=>{setSelected(r);}}
+              onEdit={can("edit") ? r=>setEditRecord(r) : null}
+              onDelete={can("delete") ? handleDelete : null}
+              onStatusChange={handleStatusChange}/>
           </div>
         )}
       </div>

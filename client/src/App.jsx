@@ -9,6 +9,8 @@ import WorkflowsPage from "./Workflows.jsx";
 import PortalsPage from "./Portals.jsx";
 import ReportsPage from "./Reports.jsx";
 import { ThemeProvider, useTheme, SCHEMES, FONTS, DENSITIES } from "./Theme.jsx";
+import LoginPage from "./LoginPage.jsx";
+import { getSession, clearSession } from "./usePermissions.js";
 
 // ─── API Client ───────────────────────────────────────────────────────────────
 const api = {
@@ -81,6 +83,7 @@ const Icon = ({ name, size = 16, color = "currentColor" }) => {
     mail: "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6",
     user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
     "bar-chart-2": "M18 20V10M12 20V4M6 20v-6",
+    "log-out": "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
   };
 
   return (
@@ -904,6 +907,7 @@ function RecordPage({ recordId, objectId, environment, allObjects, onBack, onNav
 // ─── Main App ─────────────────────────────────────────────────────────────────
 function App() {
   const { prefs, update } = useTheme();
+  const [session, setSession]   = useState(() => getSession()); // { user, role, permissions }
   const [environments, setEnvironments] = useState([]);
   const [selectedEnv, setSelectedEnv] = useState(null);
   const [selectedObject, setSelectedObject] = useState(null);
@@ -913,7 +917,8 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [apiOnline, setApiOnline] = useState(null);
   const [showTheme, setShowTheme] = useState(false);
-  const [filterPreset, setFilterPreset] = useState(null); // { objectName, fieldKey, fieldLabel, fieldValue }
+  const [filterPreset, setFilterPreset] = useState(null);
+  const [reportPreset, setReportPreset] = useState(null); // { objectSlug, name, filters, groupBy, view, ... }
 
   useEffect(() => {
     fetch("/api/health")
@@ -973,8 +978,8 @@ function App() {
   const activeObjectId = activeNav.startsWith("record_") ? activeNav.split("_")[2] : null;
 
   const switchNav = (id) => {
-    // Clear any active filter preset when switching to a different nav item
     if (!id.startsWith("obj_") || id !== activeNav) setFilterPreset(null);
+    if (id !== "reports") setReportPreset(null);
     // If clicking an obj_ nav item while already on that object's record page,
     // force a re-mount by briefly resetting first
     if (id.startsWith("obj_") && (activeNav === id || activeNav.startsWith("record_"))) {
@@ -1000,7 +1005,25 @@ function App() {
     return () => window.removeEventListener("talentos:openRecord", handler);
   }, []);
 
-  // Global event listener — pill clicks fire talentos:filter-navigate to jump to a filtered list
+  // Global event listener — dashboard fires talentos:open-report to open Reports with a preset
+  useEffect(() => {
+    const handler = (e) => {
+      const { objectSlug, ...config } = e.detail || {};
+      if (!objectSlug) return;
+      const obj = navObjects.find(o => o.slug === objectSlug);
+      setReportPreset({ objectId: obj?.id, objectSlug, ...config });
+      setActiveNav("reports");
+    };
+    window.addEventListener("talentos:open-report", handler);
+    return () => window.removeEventListener("talentos:open-report", handler);
+  }, [navObjects]);
+
+  // talentos:navigate — generic nav event (e.g. "← Dashboard" back button)
+  useEffect(() => {
+    const handler = (e) => { if (e.detail) switchNav(e.detail); };
+    window.addEventListener("talentos:navigate", handler);
+    return () => window.removeEventListener("talentos:navigate", handler);
+  }, []);
   useEffect(() => {
     const handler = (e) => {
       const { fieldKey, fieldLabel, fieldValue } = e.detail || {};
@@ -1019,6 +1042,11 @@ function App() {
     window.addEventListener("talentos:filter-navigate", handler);
     return () => window.removeEventListener("talentos:filter-navigate", handler);
   }, [activeNav]);
+
+  // Show login page if no session
+  if (!session) {
+    return <LoginPage onLogin={(s) => setSession(s)} />;
+  }
 
   if (apiOnline === false) {
     return (
@@ -1106,6 +1134,34 @@ function App() {
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#10b981", flexShrink: 0 }} />
             <span style={{ fontSize: 11, color: "var(--t-text2)" }}>API Connected</span>
           </div>
+
+          {/* Logged-in user + logout */}
+          {session?.user && (
+            <div style={{ padding:"8px 10px", borderRadius:10, background:"var(--t-surface2)", display:"flex", alignItems:"center", gap:8 }}>
+              <div style={{ width:28, height:28, borderRadius:"50%", background:session.role?.color||"#4f46e5",
+                display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <span style={{ color:"white", fontSize:11, fontWeight:700 }}>
+                  {(session.user.first_name?.[0]||"")+(session.user.last_name?.[0]||"")}
+                </span>
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:12, fontWeight:600, color:"var(--t-text1)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                  {session.user.first_name} {session.user.last_name}
+                </div>
+                <div style={{ fontSize:10, color:"var(--t-text3)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                  {session.role?.name || ""}
+                </div>
+              </div>
+              <button onClick={() => { clearSession(); setSession(null); }}
+                title="Sign out"
+                style={{ background:"none", border:"none", cursor:"pointer", padding:4, borderRadius:6,
+                  color:"var(--t-text3)", display:"flex", alignItems:"center" }}
+                onMouseEnter={e=>e.currentTarget.style.color="#e03131"}
+                onMouseLeave={e=>e.currentTarget.style.color="var(--t-text3)"}>
+                <Icon name="log-out" size={13} color="currentColor"/>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1140,6 +1196,7 @@ function App() {
             environment={selectedEnv}
             onOpenRecord={openRecord}
             initialFilter={filterPreset}
+            session={session}
           />
         ) : activeNav.startsWith("record_") ? (() => {
           const parts = activeNav.split("_"); const recordId = parts[1]; const objectId = parts[2];
@@ -1154,7 +1211,7 @@ function App() {
         ) : activeNav === "portals" ? (
           <PortalsPage environment={selectedEnv} />
         ) : activeNav === "reports" ? (
-          <ReportsPage envId={selectedEnv?.id} />
+          <ReportsPage envId={selectedEnv?.id} initialReport={reportPreset} />
         ) : activeNav === "settings" ? (
           <SettingsPage />
         ) : activeNav === "schema" ? (

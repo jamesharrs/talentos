@@ -918,6 +918,8 @@ function PeopleCanvas({ people, openJobs, relationships, activeFilters, selected
 // ── Main export ────────────────────────────────────────────────────────────────
 export default function OrgChart({ environment }) {
   const [activeFilters, setActiveFilters] = useState(["reports_to","dotted_line_to","interim_manager_of"]);
+  const [viewMode, setViewMode]           = useState("structure"); // "structure" | "people"
+  const [peopleSearch, setPeopleSearch]   = useState("");
 
   // All data loaded together
   const [units, setUnits]             = useState([]);
@@ -982,7 +984,7 @@ export default function OrgChart({ environment }) {
   useEffect(() => { load(); }, [load]);
 
   // ── Drill helpers ──────────────────────────────────────────────────────────
-  const isDrilled = drillPath.length > 0;
+  const isDrilled = viewMode === "people";
   const currentUnit = isDrilled ? units.find(u => u.id === drillPath[drillPath.length - 1]) : null;
 
   // Get all descendant unit IDs of a given unit (inclusive)
@@ -1014,24 +1016,30 @@ export default function OrgChart({ environment }) {
   }, [unitNameToIds]);
 
   // People scoped to current drilled unit (including descendants, matched by department)
-  const scopedPeople = isDrilled
-    ? (() => {
-        const drillUnitId = drillPath[drillPath.length - 1];
-        const descIds = getDescendantIds(drillUnitId);
-        const descUnitNames = new Set(
-          units.filter(u => descIds.has(u.id)).map(u => u.name.toLowerCase())
-        );
-        const drillUnit = units.find(u => u.id === drillUnitId);
-        const isRoot = !drillUnit?.parent_id;
-        const allUnitNames = new Set(units.map(u => u.name.toLowerCase()));
-        return people.filter(p => {
-          const dept = (p.data?.department || "").toLowerCase();
-          if (descUnitNames.has(dept)) return true;
-          if (isRoot && !allUnitNames.has(dept)) return true;
-          return false;
-        });
-      })()
-    : people;
+  const scopedPeople = (() => {
+    const drillUnitId = drillPath[drillPath.length - 1];
+    if (!drillUnitId) {
+      // People view, no dept selected — show all
+      const base = people;
+      if (!peopleSearch.trim()) return base;
+      const q = peopleSearch.toLowerCase();
+      return base.filter(p => `${p.data?.first_name||""} ${p.data?.last_name||""}`.toLowerCase().includes(q));
+    }
+    const descIds = getDescendantIds(drillUnitId);
+    const descUnitNames = new Set(units.filter(u => descIds.has(u.id)).map(u => u.name.toLowerCase()));
+    const drillUnit = units.find(u => u.id === drillUnitId);
+    const isRoot = !drillUnit?.parent_id;
+    const allUnitNames = new Set(units.map(u => u.name.toLowerCase()));
+    const base = people.filter(p => {
+      const dept = (p.data?.department || "").toLowerCase();
+      if (descUnitNames.has(dept)) return true;
+      if (isRoot && !allUnitNames.has(dept)) return true;
+      return false;
+    });
+    if (!peopleSearch.trim()) return base;
+    const q = peopleSearch.toLowerCase();
+    return base.filter(p => `${p.data?.first_name||""} ${p.data?.last_name||""}`.toLowerCase().includes(q));
+  })();
 
   const scopedJobs = isDrilled
     ? (() => {
@@ -1055,18 +1063,24 @@ export default function OrgChart({ environment }) {
   const drillInto = (unitId) => {
     setDrillPath(prev => [...prev, unitId]);
     setSelectedId(null);
-    zp.reset();
-  };
-
-  const drillTo = (index) => {
-    setDrillPath(prev => prev.slice(0, index + 1));
-    setSelectedId(null);
+    setViewMode("people");
+    setPeopleSearch("");
     zp.reset();
   };
 
   const drillBack = () => {
     setDrillPath([]);
     setSelectedId(null);
+    setViewMode("structure");
+    setPeopleSearch("");
+    zp.reset();
+  };
+
+  const drillTo = (index) => {
+    setDrillPath(prev => prev.slice(0, index + 1));
+    setSelectedId(null);
+    setViewMode("people");
+    setPeopleSearch("");
     zp.reset();
   };
 
@@ -1140,10 +1154,11 @@ export default function OrgChart({ environment }) {
   return (
     <div style={{ fontFamily:F, color:C.text1, height:"100%", display:"flex", flexDirection:"column" }}>
       {/* Header */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16, flexShrink:0, gap:12 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16, flexShrink:0, gap:12, flexWrap:"wrap" }}>
+
+        {/* Left — breadcrumb + subtitle */}
         <div>
-          {/* Breadcrumb */}
-          <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:4, minHeight:20 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:3, minHeight:20 }}>
             <button onClick={drillBack}
               style={{ background:"none", border:"none", cursor:"pointer", padding:0,
                 fontSize:13, fontWeight:700, color: isDrilled ? C.accent : C.text1,
@@ -1165,18 +1180,56 @@ export default function OrgChart({ environment }) {
           </div>
           <p style={{ margin:0, fontSize:12, color:C.text3 }}>
             {isDrilled
-              ? `${scopedPeople.length} people · click nodes to inspect · + buttons to add relationships`
-              : "Org structure · click a unit to drill into its people"}
+              ? `${scopedPeople.length} people${peopleSearch ? ` matching "${peopleSearch}"` : ""} · click nodes to inspect`
+              : `${units.length} units · ${people.length} people`}
           </p>
         </div>
 
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          {/* Relationship type filters (drilled view only) */}
+        {/* Right — view switcher + search/actions */}
+        <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+
+          {/* View mode toggle */}
+          <div style={{ display:"flex", borderRadius:9, border:`1px solid ${C.border}`, overflow:"hidden", background:C.surface }}>
+            {[["structure","🏢 Structure"],["people","👤 People"]].map(([mode, label]) => (
+              <button key={mode} onClick={() => {
+                setViewMode(mode);
+                setSelectedId(null);
+                setPeopleSearch("");
+                if (mode === "structure") setDrillPath([]);
+                zp.reset();
+              }}
+                style={{ padding:"6px 14px", border:"none", background: viewMode===mode ? C.accent : "transparent",
+                  color: viewMode===mode ? "#fff" : C.text2, fontSize:12, fontWeight:700,
+                  cursor:"pointer", fontFamily:F, transition:"all .12s" }}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* People search (people view only) */}
           {isDrilled && (
-            <div style={{ display:"flex", gap:6 }}>
+            <div style={{ position:"relative" }}>
+              <input value={peopleSearch} onChange={e => setPeopleSearch(e.target.value)}
+                placeholder="Search people…"
+                style={{ padding:"6px 10px 6px 30px", borderRadius:8, border:`1px solid ${C.border}`,
+                  fontSize:12, fontFamily:F, width:160, background:C.surface, color:C.text1, outline:"none" }}/>
+              <svg style={{ position:"absolute", left:9, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }}
+                width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.text3} strokeWidth="2">
+                <path d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+              </svg>
+              {peopleSearch && (
+                <button onClick={() => setPeopleSearch("")}
+                  style={{ position:"absolute", right:7, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:C.text3, fontSize:14, padding:0 }}>×</button>
+              )}
+            </div>
+          )}
+
+          {/* Relationship filters (people view only) */}
+          {isDrilled && (
+            <div style={{ display:"flex", gap:5 }}>
               {Object.entries(REL_META).filter(([k])=>k!=="manages").map(([type, meta])=>(
                 <button key={type} onClick={()=>toggleFilter(type)}
-                  style={{ padding:"5px 10px", borderRadius:8, border:`1px solid ${activeFilters.includes(type)?meta.color:C.border}`,
+                  style={{ padding:"5px 9px", borderRadius:7, border:`1px solid ${activeFilters.includes(type)?meta.color:C.border}`,
                     background: activeFilters.includes(type) ? `${meta.color}12` : "transparent",
                     color: activeFilters.includes(type) ? meta.color : C.text3,
                     fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:F, transition:"all 0.15s" }}>
@@ -1186,7 +1239,7 @@ export default function OrgChart({ environment }) {
             </div>
           )}
 
-          {/* Company view actions */}
+          {/* Structure view actions */}
           {!isDrilled && (
             <>
               {unassignedUsers.length > 0 && (
@@ -1196,8 +1249,8 @@ export default function OrgChart({ environment }) {
                 </div>
               )}
               <button onClick={()=>{ setNewParent(""); setShowAdd(p=>!p); }}
-                style={{ padding:"8px 16px",borderRadius:8,border:"none",background:C.accent,
-                  color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:F }}>
+                style={{ padding:"7px 14px",borderRadius:8,border:"none",background:C.accent,
+                  color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F }}>
                 + Add Unit
               </button>
             </>

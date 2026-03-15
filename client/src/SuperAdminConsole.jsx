@@ -54,7 +54,9 @@ function LoginScreen({ onAuth }) {
     <div style={{ minHeight:'100vh', background:C.bg, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:F }}>
       <div style={{ width:360, padding:'36px 32px', background:C.surface, borderRadius:16, border:`1px solid ${C.border}`, boxShadow:'0 24px 60px rgba(0,0,0,.5)' }}>
         <div style={{ textAlign:'center', marginBottom:28 }}>
-          <div style={{ width:52, height:52, borderRadius:14, background:`${C.purple}20`, border:`1px solid ${C.purple}40`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px', fontSize:22 }}>🔐</div>
+          <div style={{ width:52, height:52, borderRadius:14, background:`${C.purple}20`, border:`1px solid ${C.purple}40`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.purple} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
           <div style={{ fontSize:18, fontWeight:800, color:C.text1 }}>TalentOS Super Admin</div>
           <div style={{ fontSize:12, color:C.text3, marginTop:4 }}>Internal access only</div>
         </div>
@@ -253,13 +255,25 @@ function EnvSection() {
 }
 
 
-// ── Main Console ──────────────────────────────────────────────────────────────
+// ── Nav icon map ──────────────────────────────────────────────────────────────
+const NAV_ICONS = {
+  env:      "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
+  health:   "M22 12h-4l-3 9L9 3l-3 9H2",
+  clients:  "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10",
+  provision:"M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+  perf:     "M18 20V10M12 20V4M6 20v-6",
+};
+
+const NavIcon = ({ id, size=14, color="currentColor" }) => {
+  const d = NAV_ICONS[id] || NAV_ICONS.env;
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d={d}/></svg>;
+};
 const NAV_ITEMS = [
-  { id:'env',      label:'Environment',  icon:'⚙️',  desc:'Manage .env variables' },
-  { id:'health',   label:'System Health', icon:'📊', desc:'Server stats & uptime' },
-  { id:'clients',  label:'Clients',      icon:'🏢',  desc:'Manage client organisations' },
-  { id:'provision',label:'Provision',    icon:'⚡',  desc:'Provision a new client environment' },
-  { id:'perf',     label:'Performance',  icon:'📈',  desc:'Platform-wide stats & usage' },
+  { id:'env',      label:'Environment',  icon:'env',     desc:'Manage .env variables' },
+  { id:'health',   label:'System Health', icon:'health', desc:'Server stats & uptime' },
+  { id:'clients',  label:'Clients',      icon:'clients', desc:'Manage client organisations' },
+  { id:'provision',label:'Provision',    icon:'provision',desc:'Provision a new client environment' },
+  { id:'perf',     label:'Performance',  icon:'perf',    desc:'Platform-wide stats & usage' },
 ];
 
 export default function SuperAdminConsole() {
@@ -277,7 +291,9 @@ export default function SuperAdminConsole() {
         {/* Logo */}
         <div style={{ padding:'20px 18px 16px', borderBottom:`1px solid ${C.border}` }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <div style={{ width:28, height:28, borderRadius:8, background:`${C.purple}25`, border:`1px solid ${C.purple}40`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>🔐</div>
+            <div style={{ width:28, height:28, borderRadius:8, background:`${C.purple}25`, border:`1px solid ${C.purple}40`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.purple} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
             <div>
               <div style={{ fontSize:13, fontWeight:800, color:C.text1 }}>Super Admin</div>
               <div style={{ fontSize:10, color:C.text3 }}>TalentOS Internal</div>
@@ -294,7 +310,7 @@ export default function SuperAdminConsole() {
                 background: section===item.id ? `${C.purple}18` : 'transparent',
                 color: section===item.id ? C.purple : C.text2,
                 fontSize:12, fontWeight: section===item.id ? 700 : 500, cursor:'pointer', fontFamily:F, textAlign:'left', transition:'all .12s' }}>
-              <span style={{ fontSize:14 }}>{item.icon}</span>
+              <NavIcon id={item.id} size={14} color={section===item.id ? C.purple : C.text2}/>
               {item.label}
             </button>
           ))}

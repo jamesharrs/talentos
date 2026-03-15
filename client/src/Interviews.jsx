@@ -414,11 +414,17 @@ const TypeFormModal = ({ type, envId, onSave, onClose }) => {
 
 
 // ── Schedule Interview Modal ──────────────────────────────────────────────────
-const ScheduleModal = ({ interviewType, envId, onSave, onClose }) => {
+const ScheduleModal = ({ interviewType, envId, onSave, onClose, initialValues }) => {
+  const isEdit = !!initialValues?.id;
   const [form, setForm] = useState({
-    candidate_id: null, candidate_name: "", job_id: null, job_name: "",
-    date: "", time: "", notes: "",
-    interviewers: interviewType?.interviewers || [],
+    candidate_id: initialValues?.candidate_id || null,
+    candidate_name: initialValues?.candidate_name || "",
+    job_id: initialValues?.job_id || null,
+    job_name: initialValues?.job_name || "",
+    date: initialValues?.date || "",
+    time: initialValues?.time || "",
+    notes: initialValues?.notes || "",
+    interviewers: initialValues?.interviewers || interviewType?.interviewers || [],
   });
   const [candidates, setCandidates] = useState([]);
   const [jobs, setJobs] = useState([]);
@@ -458,7 +464,7 @@ const ScheduleModal = ({ interviewType, envId, onSave, onClose }) => {
               <Ic n={meta.iconName} s={22} c={meta.color}/>
             </div>
             <div>
-              <div style={{fontSize:16,fontWeight:800,color:C.text1}}>Schedule: {interviewType?.name}</div>
+              <div style={{fontSize:16,fontWeight:800,color:C.text1}}>{isEdit ? "Edit Interview" : `Schedule: ${interviewType?.name}`}</div>
               <div style={{fontSize:12,color:C.text3}}>{interviewType?.duration} min · {interviewType?.format}</div>
             </div>
             <button onClick={onClose} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:C.text3,fontSize:20}}>×</button>
@@ -502,7 +508,7 @@ const ScheduleModal = ({ interviewType, envId, onSave, onClose }) => {
           <div style={{display:"flex",gap:8,marginTop:20,justifyContent:"flex-end"}}>
             <Btn v="ghost" onClick={onClose}>Cancel</Btn>
             <Btn v="primary" onClick={handle} disabled={saving||!form.candidate_id||!form.date||!form.time} icon="calendar">
-              {saving?"Scheduling…":"Schedule Interview"}
+              {saving ? "Saving…" : isEdit ? "Save Changes" : "Schedule Interview"}
             </Btn>
           </div>
         </div>
@@ -555,6 +561,7 @@ export default function Interviews({ environment }) {
   const [showForm, setShowForm]     = useState(false);
   const [editType, setEditType]     = useState(null);
   const [scheduleFor, setScheduleFor] = useState(null);
+  const [editScheduled, setEditScheduled] = useState(null);
 
   const load = useCallback(async () => {
     if (!envId) return;
@@ -591,6 +598,15 @@ export default function Interviews({ environment }) {
   const handleDeleteScheduled = async (id) => {
     if (!confirm("Cancel this interview?")) return;
     await api.del(`/interviews/${id}`); load();
+  };
+
+  const handleUpdateScheduled = async (form) => {
+    await api.patch(`/interviews/${editScheduled.id}`, {
+      date: form.date, time: form.time, notes: form.notes,
+      interviewers: form.interviewers, candidate_id: form.candidate_id,
+      candidate_name: form.candidate_name, job_id: form.job_id, job_name: form.job_name,
+    });
+    setEditScheduled(null); load();
   };
 
   const scheduledSorted = [...scheduled].sort((a,b) => {
@@ -660,11 +676,11 @@ export default function Interviews({ environment }) {
             : <>
                 {upcoming.length>0 && <>
                   <div style={{padding:"12px 18px",background:"#f8f9fc",borderBottom:`1px solid ${C.border}`,fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em"}}>Upcoming ({upcoming.length})</div>
-                  {upcoming.map(s=><InterviewRow key={s.id} interview={s} onEdit={()=>{}} onDelete={()=>handleDeleteScheduled(s.id)}/>)}
+                  {upcoming.map(s=><InterviewRow key={s.id} interview={s} onEdit={()=>setEditScheduled(s)} onDelete={()=>handleDeleteScheduled(s.id)}/>)}
                 </>}
                 {past.length>0 && <>
                   <div style={{padding:"12px 18px",background:"#f8f9fc",borderBottom:`1px solid ${C.border}`,fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em"}}>Past ({past.length})</div>
-                  {past.map(s=><InterviewRow key={s.id} interview={s} onEdit={()=>{}} onDelete={()=>handleDeleteScheduled(s.id)}/>)}
+                  {past.map(s=><InterviewRow key={s.id} interview={s} onEdit={()=>setEditScheduled(s)} onDelete={()=>handleDeleteScheduled(s.id)}/>)}
                 </>}
               </>
           }
@@ -673,6 +689,13 @@ export default function Interviews({ environment }) {
 
       {showForm && <TypeFormModal type={editType} envId={envId} onSave={handleSaveType} onClose={()=>{setShowForm(false);setEditType(null);}}/>}
       {scheduleFor && <ScheduleModal interviewType={scheduleFor} envId={envId} onSave={handleSchedule} onClose={()=>setScheduleFor(null)}/>}
+      {editScheduled && <ScheduleModal
+        interviewType={{ id: editScheduled.interview_type_id, name: editScheduled.interview_type_name, duration: editScheduled.duration, format: editScheduled.format, interview_format: editScheduled.interview_format, interviewers: editScheduled.interviewers }}
+        envId={envId}
+        initialValues={editScheduled}
+        onSave={handleUpdateScheduled}
+        onClose={()=>setEditScheduled(null)}
+      />}
     </div>
   );
 }

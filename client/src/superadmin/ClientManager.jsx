@@ -71,7 +71,9 @@ export function ClientList({ onProvision, onSelectClient }) {
       {loading && <div style={{color:C.text3,padding:40,textAlign:'center'}}>Loading…</div>}
       {!loading && filtered.length===0 && (
         <div style={{...cardSt,padding:'60px 40px',textAlign:'center'}}>
-          <div style={{fontSize:36,marginBottom:12}}>🏢</div>
+          <div style={{width:52,height:52,borderRadius:16,background:`${C.accent}15`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 12px'}}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10"/></svg>
+            </div>
           <div style={{fontSize:16,fontWeight:700,color:C.text2,marginBottom:8}}>No clients yet</div>
           <Btn onClick={onProvision}>⚡ Provision first client</Btn>
         </div>
@@ -315,7 +317,9 @@ export function ProvisionWizard({ onDone, onCancel }) {
 
   if(step===5&&result) return (
     <div style={{maxWidth:500,margin:'0 auto',textAlign:'center',padding:40}}>
-      <div style={{width:60,height:60,borderRadius:18,background:`${C.green}15`,border:`1px solid ${C.green}30`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px',fontSize:26}}>✓</div>
+      <div style={{width:60,height:60,borderRadius:18,background:`${C.green}15`,border:`1px solid ${C.green}30`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+    </div>
       <div style={{fontSize:20,fontWeight:800,color:C.text1,marginBottom:6}}>Client Provisioned!</div>
       <div style={{fontSize:13,color:C.text3,marginBottom:24}}>{result.client?.name} is ready to use.</div>
       <div style={{background:C.surface2,borderRadius:12,border:`1px solid ${C.border}`,padding:18,textAlign:'left',marginBottom:16}}>

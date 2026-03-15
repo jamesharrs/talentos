@@ -1,7 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 
-router.post('/translate', async (req, res) => {
+router.post('/', async (req, res) => {
   const { targetLanguage, targetCode, strings } = req.body;
   if (!targetLanguage || !strings) return res.status(400).json({ error: 'targetLanguage and strings required' });
 

@@ -89,6 +89,7 @@ const Icon = ({ name, size = 16, color = "currentColor" }) => {
     "bar-chart-2": "M18 20V10M12 20V4M6 20v-6",
     "git-branch": "M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9",
     "log-out": "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
+    calendar: "M3 4h18v18H3V4zM16 2v4M8 2v4M3 10h18",
   };
 
   return (

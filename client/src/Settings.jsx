@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import ReactDOM from "react-dom";
+import FileTypesSettings from "./settings/FileTypesSettings.jsx";
+import { FormsList } from "./Forms.jsx";
 
 import SuperAdminSection from "./SuperAdmin.jsx";
 import OrgChart from "./OrgChart.jsx";
@@ -104,6 +106,12 @@ const PATHS = {
   chevR:"M9 18l6-6-6-6",
   database:"M12 2C8.13 2 5 3.34 5 5v14c0 1.66 3.13 3 7 3s7-1.34 7-3V5c0-1.66-3.13-3-7-3zM5 12c0 1.66 3.13 3 7 3s7-1.34 7-3M5 8c0 1.66 3.13 3 7 3s7-1.34 7-3",
   sliders:"M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
+  form:"M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 0 2-2h2a2 2 0 0 0 2 2M9 12h6M9 16h4",
+  paperclip:"M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48",
+  zap:"M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+  layers:"M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
+  workflow:"M22 12h-4l-3 9L9 3l-3 9H2",
+  sun:"M12 3v1M12 20v1M4.22 4.22l.7.7M18.36 18.36l.7.7M3 12h1M20 12h1M4.22 19.78l.7-.7M18.36 5.64l.7-.7M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
 };
 const Ic = ({n,s=16,c="currentColor"}) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -1390,6 +1398,8 @@ const SECTIONS = [];
 const SUPER_ADMIN_SECTIONS = [
   { id:"audit",       icon:"key",      label:"Audit Log" },
   { id:"datamodel",   icon:"database", label:"Data Model" },
+  { id:"file_types",  icon:"paperclip",label:"File Types" },
+  { id:"forms",       icon:"form",     label:"Forms" },
   { id:"superadmin",  icon:"zap",      label:"Integrations" },
   { id:"config",      icon:"refresh",  label:"Import / Export" },
   { id:"org",         icon:"layers",   label:"Org Structure" },
@@ -1455,6 +1465,8 @@ export default function SettingsPage({ currentUser, environment }) {
         {activeSection==="security"   && <SecuritySection/>}
         {activeSection==="sessions"   && <SessionsSection/>}
         {activeSection==="audit"      && <AuditLogSection/>}
+        {activeSection==="file_types" && <FileTypesSettings environment={environment} objects={[]}/>}
+        {activeSection==="forms"      && <FormsList environment={environment}/>}
         {activeSection==="appearance" && <AppearanceSection/>}
         {activeSection==="language"   && <LanguageSection/>}
         {activeSection==="workflows"  && <WorkflowsPage environment={environment}/>}

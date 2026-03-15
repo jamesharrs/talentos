@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { MatchingEngine } from "./AI.jsx";
 import CommunicationsPanel from "./Communications.jsx";
 import { RecordPipelinePanel, PeoplePipelineWidget, LinkedRecordsPanel } from "./Workflows.jsx";
+import { RecordFormPanel } from "./Forms.jsx";
 
 const api = {
   get:    p     => fetch(`/api${p}`).then(r=>r.json()),
@@ -72,6 +73,7 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     file:"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
     tag:"M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z",
     briefcase:"M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2",
+    form:"M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 0 2-2h2a2 2 0 0 0 2 2M9 12h6M9 16h4",
   };
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -1513,6 +1515,7 @@ export const PANEL_META = {
   comms:       { icon:"mail",          label:"Communications", defaultOpen:true  },
   notes:       { icon:"messageSquare", label:"Notes",     defaultOpen:true  },
   attachments: { icon:"paperclip",     label:"Files",     defaultOpen:true  },
+  forms:       { icon:"clipboard",     label:"Forms",     defaultOpen:false },
   activity:    { icon:"activity",      label:"Activity",  defaultOpen:false },
   workflows:   { icon:"layers",        label:"Pipeline",  defaultOpen:false },
   linked:      { icon:"link",          label:"Linked Records", defaultOpen:true },
@@ -1522,10 +1525,364 @@ export const PANEL_META = {
 };
 
 export const getDefaultPanelOrder = (objectName) => {
-  const base = ["comms","notes","attachments","activity","workflows"];
+  const base = ["comms","notes","attachments","forms","activity","workflows"];
   if (objectName === "Person") base.splice(1, 0, "linked", "reporting");
   if (["Person","Job"].includes(objectName)) base.push("match");
   return base;
+};
+
+// ─── Forms Panel ─────────────────────────────────────────────────────────────
+const FormsPanel = ({ record, environment, objectSlug }) => {
+  const [forms,      setForms]      = useState([]);
+  const [subs,       setSubs]       = useState([]);
+  const [activeForm, setActiveForm] = useState(null);
+  const [filling,    setFilling]    = useState(false);
+  const [formData,   setFormData]   = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [expanded,   setExpanded]   = useState({});
+
+  const loadForms = useCallback(async () => {
+    if (!environment?.id) return;
+    const f = await api.get(`/api/forms?environment_id=${environment.id}&object_slug=${objectSlug||'people'}`);
+    if (Array.isArray(f)) setForms(f);
+    const s = await api.get(`/api/forms/submissions/by-record/${record.id}?environment_id=${environment.id}`);
+    if (Array.isArray(s)) setSubs(s);
+  }, [record.id, environment?.id, objectSlug]);
+
+  useEffect(() => { loadForms(); }, [loadForms]);
+
+  const openForm = (form) => {
+    setActiveForm(form);
+    const init = {};
+    (form.fields||[]).forEach(f => { init[f.id || f.name] = ''; });
+    setFormData(init);
+    setFilling(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!activeForm) return;
+    setSubmitting(true);
+    const res = await fetch(`/api/forms/${activeForm.id}/submissions`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ record_id:record.id, record_name:record.data?.first_name ? `${record.data.first_name} ${record.data.last_name||''}`.trim() : record.id, data: formData, environment_id: environment?.id, submitted_by:'Admin' }),
+    });
+    if (res.ok) { setFilling(false); setActiveForm(null); await loadForms(); }
+    setSubmitting(false);
+  };
+
+  const renderInput = (field) => {
+    const key = field.id || field.name;
+    const val = formData[key] ?? '';
+    const st  = { width:'100%',padding:'8px 10px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:F,color:C.text1,outline:'none',boxSizing:'border-box',background:'#f9fafb' };
+
+    if (field.field_type==='textarea')
+      return <textarea value={val} onChange={e=>setFormData(d=>({...d,[key]:e.target.value}))} placeholder={field.placeholder||''} rows={3} style={{...st,resize:'vertical'}}/>;
+    if (field.field_type==='select'||field.field_type==='multiselect')
+      return <select value={val} onChange={e=>setFormData(d=>({...d,[key]:e.target.value}))} style={st}>
+        <option value="">— select —</option>
+        {(field.options||[]).map(o=><option key={o} value={o}>{o}</option>)}
+      </select>;
+    if (field.field_type==='boolean')
+      return <div style={{display:'flex',gap:8}}>
+        {['Yes','No'].map(v=><button key={v} onClick={()=>setFormData(d=>({...d,[key]:v}))} style={{padding:'6px 16px',borderRadius:8,border:`1px solid ${val===v?C.accent:C.border}`,background:val===v?C.accentLight:'transparent',color:val===v?C.accent:C.text2,fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:F}}>{v}</button>)}
+      </div>;
+    if (field.field_type==='rating')
+      return <div style={{display:'flex',gap:4}}>
+        {[1,2,3,4,5].map(n=><button key={n} onClick={()=>setFormData(d=>({...d,[key]:n}))} style={{background:'none',border:'none',cursor:'pointer',fontSize:22,color:n<=(val||0)?C.amber:'#D1D5DB',padding:'0 2px'}}>★</button>)}
+      </div>;
+    if (field.field_type==='date')
+      return <input type="date" value={val} onChange={e=>setFormData(d=>({...d,[key]:e.target.value}))} style={st}/>;
+    if (field.field_type==='number'||field.field_type==='currency')
+      return <input type="number" value={val} onChange={e=>setFormData(d=>({...d,[key]:e.target.value}))} placeholder={field.placeholder||''} style={st}/>;
+    return <input type={field.field_type==='email'?'email':field.field_type==='url'?'url':'text'} value={val} onChange={e=>setFormData(d=>({...d,[key]:e.target.value}))} placeholder={field.placeholder||''} style={st}/>;
+  };
+
+  if (forms.length===0 && subs.length===0) return (
+    <div style={{textAlign:'center',padding:'28px 0',color:C.text3,fontSize:13}}>
+      <div style={{marginBottom:6}}>No forms configured for this record type.</div>
+      <div style={{fontSize:11}}>Go to Settings → Forms to create forms.</div>
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Available forms to fill */}
+      {forms.length>0 && (
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>Available Forms</div>
+          {forms.map(form=>(
+            <div key={form.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,background:'#f9fafb',marginBottom:6}}>
+              <div style={{width:30,height:30,borderRadius:8,background:`${form.color||C.accent}15`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                <span style={{fontSize:14}}>📋</span>
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:600,color:C.text1}}>{form.name}</div>
+                {form.description&&<div style={{fontSize:11,color:C.text3}}>{form.description}</div>}
+              </div>
+              {form.is_confidential&&<span style={{fontSize:10,padding:'1px 5px',borderRadius:4,background:'#FEF2F2',color:C.red}}>🔒</span>}
+              <button onClick={()=>openForm(form)} style={{padding:'5px 12px',borderRadius:7,border:`1px solid ${C.accent}`,background:C.accentLight,color:C.accent,fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:F,flexShrink:0}}>Fill in</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Past submissions */}
+      {subs.length>0 && (
+        <div>
+          <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>Submissions ({subs.length})</div>
+          {subs.map(sub=>(
+            <div key={sub.id} style={{borderRadius:10,border:`1px solid ${C.border}`,marginBottom:8,overflow:'hidden'}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:'#f9fafb',cursor:'pointer'}} onClick={()=>setExpanded(e=>({...e,[sub.id]:!e[sub.id]}))}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.text1}}>{sub.form_name}</div>
+                  <div style={{fontSize:11,color:C.text3}}>By {sub.submitted_by} · {new Date(sub.submitted_at).toLocaleDateString()}</div>
+                </div>
+                <span style={{color:C.text3,fontSize:16}}>{expanded[sub.id]?'−':'+'}</span>
+              </div>
+              {expanded[sub.id] && (
+                <div style={{padding:'10px 12px',borderTop:`1px solid ${C.border}`}}>
+                  {Object.entries(sub.data||{}).map(([k,v])=>(
+                    <div key={k} style={{display:'flex',padding:'5px 0',borderBottom:`1px solid ${C.border}`,fontSize:12}}>
+                      <span style={{color:C.text3,width:140,flexShrink:0,fontWeight:500}}>{k}</span>
+                      <span style={{color:C.text1}}>{Array.isArray(v)?v.join(', '):String(v||'—')}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Fill-in Modal */}
+      {filling && activeForm && (
+        <div onMouseDown={e=>e.stopPropagation()} onClick={e=>e.target===e.currentTarget&&setFilling(false)}
+          style={{position:'fixed',inset:0,background:'rgba(15,23,41,.45)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+          <div style={{background:C.surface,borderRadius:16,width:'100%',maxWidth:520,maxHeight:'85vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 64px rgba(0,0,0,.2)',overflow:'hidden',fontFamily:F}}>
+            <div style={{padding:'16px 20px',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div>
+                <div style={{fontSize:15,fontWeight:800,color:C.text1}}>{activeForm.name}</div>
+                {activeForm.description&&<div style={{fontSize:11,color:C.text3,marginTop:2}}>{activeForm.description}</div>}
+              </div>
+              <button onClick={()=>setFilling(false)} style={{background:'none',border:'none',cursor:'pointer',color:C.text3,fontSize:20}}>×</button>
+            </div>
+            <div style={{flex:1,overflowY:'auto',padding:'16px 20px'}}>
+              {(activeForm.fields||[]).map((field,i)=>(
+                <div key={field.id||i} style={{marginBottom:14}}>
+                  <label style={{fontSize:12,fontWeight:700,color:C.text2,display:'block',marginBottom:5}}>
+                    {field.name} {field.is_required&&<span style={{color:C.red}}>*</span>}
+                  </label>
+                  {field.help_text&&<div style={{fontSize:11,color:C.text3,marginBottom:4}}>{field.help_text}</div>}
+                  {renderInput(field)}
+                </div>
+              ))}
+            </div>
+            <div style={{padding:'12px 20px',borderTop:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between'}}>
+              <button onClick={()=>setFilling(false)} style={{padding:'8px 16px',borderRadius:8,border:`1px solid ${C.border}`,background:'transparent',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:F,color:C.text2}}>Cancel</button>
+              <button onClick={handleSubmit} disabled={submitting} style={{padding:'8px 20px',borderRadius:8,border:'none',background:C.accent,color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:F,opacity:submitting?0.5:1}}>{submitting?'Submitting…':'Submit'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Doc Extract Modal ────────────────────────────────────────────────────────
+const DocExtractModal = ({ result, mappings, record, onApply, onClose }) => {
+  const ITEMS = (mappings||[]).filter(m => {
+    const v = result[m.extracted_key];
+    return v !== null && v !== undefined && String(v).trim() !== '';
+  }).map(m => ({ ...m, val: result[m.extracted_key] }));
+
+  const [selected, setSelected] = useState(() => {
+    const init = {};
+    ITEMS.forEach(item => { init[item.extracted_key] = !!item.field_api_key; });
+    return init;
+  });
+
+  const toggle = k => setSelected(s => ({ ...s, [k]: !s[k] }));
+  const mappedSelected = ITEMS.filter(i => selected[i.extracted_key] && i.field_api_key);
+
+  const handleApply = () => {
+    const out = {};
+    mappedSelected.forEach(i => { out[i.field_api_key] = i.val; });
+    onApply(out);
+  };
+
+  return (
+    <div onMouseDown={e=>e.stopPropagation()} onClick={e=>e.target===e.currentTarget&&onClose()}
+      style={{position:'fixed',inset:0,background:'rgba(15,23,41,.45)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+      <div style={{background:C.surface,borderRadius:18,width:'100%',maxWidth:560,maxHeight:'85vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 64px rgba(0,0,0,.2)',overflow:'hidden',fontFamily:F}}>
+        <div style={{padding:'18px 22px',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div>
+            <div style={{fontSize:16,fontWeight:800,color:C.text1}}>Document Data Extracted</div>
+            <div style={{fontSize:12,color:C.text3,marginTop:2}}>Select fields to apply to this record</div>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:C.text3,fontSize:20}}>×</button>
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:'16px 22px'}}>
+          {ITEMS.length===0
+            ? <div style={{textAlign:'center',padding:'32px 0',color:C.text3,fontSize:13}}>No data could be extracted. Ensure the document is clear and well-lit. Try a higher resolution image for scanned documents.</div>
+            : ITEMS.map(item=>(
+              <div key={item.extracted_key} onClick={()=>toggle(item.extracted_key)}
+                style={{display:'flex',alignItems:'flex-start',gap:12,padding:'10px 14px',borderRadius:10,marginBottom:6,cursor:'pointer',
+                  background:selected[item.extracted_key]?`${C.accent}08`:'#f8f9fc',
+                  border:`1px solid ${selected[item.extracted_key]?C.accent:C.border}`,transition:'all .12s'}}>
+                <input type="checkbox" checked={!!selected[item.extracted_key]} onChange={()=>toggle(item.extracted_key)}
+                  style={{width:15,height:15,accentColor:C.accent,flexShrink:0,marginTop:3,cursor:'pointer'}}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
+                    <span style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.05em'}}>
+                      {item.field_label||item.extracted_key}
+                    </span>
+                    {!item.field_api_key && <span style={{fontSize:10,padding:'1px 5px',borderRadius:4,background:'#FEF3C7',color:'#92400E'}}>not mapped</span>}
+                  </div>
+                  <div style={{fontSize:13,color:C.text1,wordBreak:'break-word'}}>{String(item.val)}</div>
+                  {item.description&&<div style={{fontSize:11,color:C.text3,marginTop:2}}>{item.description}</div>}
+                </div>
+                {record.data?.[item.field_api_key]&&(
+                  <div style={{fontSize:11,color:C.text3,textAlign:'right',flexShrink:0}}>
+                    <div style={{color:C.red,textDecoration:'line-through',maxWidth:100,overflow:'hidden',textOverflow:'ellipsis'}}>{String(record.data[item.field_api_key])}</div>
+                    <div style={{fontSize:9}}>will replace</div>
+                  </div>
+                )}
+              </div>
+            ))
+          }
+        </div>
+        <div style={{padding:'14px 22px',borderTop:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span style={{fontSize:12,color:C.text3}}>{mappedSelected.length} field{mappedSelected.length!==1?'s':''} will be applied</span>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={onClose} style={{padding:'8px 16px',borderRadius:8,border:`1px solid ${C.border}`,background:'transparent',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:F,color:C.text2}}>Cancel</button>
+            <button onClick={handleApply} disabled={mappedSelected.length===0}
+              style={{padding:'8px 16px',borderRadius:8,border:'none',background:C.accent,color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:F,opacity:mappedSelected.length===0?0.5:1}}>
+              Apply {mappedSelected.length} field{mappedSelected.length!==1?'s':''}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── CV Parse Modal ───────────────────────────────────────────────────────────
+const CvParseModal = ({ result, fields, record, onApply, onClose }) => {
+  const [selected, setSelected] = useState({});
+
+  // All potentially mappable fields — shown if Claude extracted a value
+  const FIELD_DEFS = [
+    { key:'first_name',       label:'First Name'        },
+    { key:'last_name',        label:'Last Name'         },
+    { key:'email',            label:'Email'             },
+    { key:'phone',            label:'Phone'             },
+    { key:'current_title',    label:'Current Title'     },
+    { key:'location',         label:'Location'          },
+    { key:'linkedin_url',     label:'LinkedIn URL'      },
+    { key:'summary',          label:'Summary'           },
+    { key:'notice_period',    label:'Notice Period'     },
+    { key:'nationality',      label:'Nationality'       },
+    { key:'years_experience', label:'Years Experience'  },
+  ];
+
+  // Show fields where Claude returned a non-empty value
+  const MAPPABLE = FIELD_DEFS.filter(m => {
+    const val = result[m.key];
+    if (val === null || val === undefined) return false;
+    if (typeof val === 'string' && val.trim() === '') return false;
+    if (typeof val === 'number' && isNaN(val)) return false;
+    return true;
+  });
+
+  useEffect(() => {
+    const init = {};
+    MAPPABLE.forEach(m => { init[m.key] = true; });
+    setSelected(init);
+  }, []);
+
+  const toggle = k => setSelected(s => ({ ...s, [k]: !s[k] }));
+
+  const handleApply = () => {
+    const toApply = {};
+    MAPPABLE.forEach(m => { if (selected[m.key]) toApply[m.key] = result[m.key]; });
+    onApply(toApply);
+  };
+
+  const labelSt = { fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.06em' };
+
+  return (
+    <div onMouseDown={e=>e.stopPropagation()} onClick={e=>e.target===e.currentTarget&&onClose()}
+      style={{ position:'fixed', inset:0, background:'rgba(15,23,41,.45)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+      <div style={{ background:C.surface, borderRadius:18, width:'100%', maxWidth:560, maxHeight:'85vh', display:'flex', flexDirection:'column', boxShadow:'0 24px 64px rgba(0,0,0,.2)', overflow:'hidden', fontFamily:F }}>
+        {/* Header */}
+        <div style={{ padding:'18px 22px', borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div>
+            <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>CV Parsed Successfully</div>
+            <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>Select fields to apply to this record</div>
+          </div>
+          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:C.text3, fontSize:20 }}>×</button>
+        </div>
+
+        {/* Fields */}
+        <div style={{ flex:1, overflowY:'auto', padding:'16px 22px' }}>
+          {MAPPABLE.length === 0 && (
+            <div style={{ textAlign:'center', padding:'24px 0' }}>
+              <div style={{ color:C.text3, fontSize:13, marginBottom:12 }}>
+                Claude didn't extract any field values from this CV. This usually means the file format couldn't be read — try uploading a PDF instead of DOCX.
+              </div>
+              {result && Object.keys(result).filter(k=>result[k]!==null&&!Array.isArray(result[k])).length > 0 && (
+                <div style={{ textAlign:'left', background:'#f8f9fc', borderRadius:8, padding:12, fontSize:11, color:C.text3 }}>
+                  <b>Raw result:</b> {JSON.stringify(result).slice(0,300)}
+                </div>
+              )}
+            </div>
+          )}
+          {MAPPABLE.map(m => (
+            <div key={m.key} onClick={()=>toggle(m.key)}
+              style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', borderRadius:10, marginBottom:6, cursor:'pointer',
+                background: selected[m.key] ? `${C.accent}08` : '#f8f9fc',
+                border:`1px solid ${selected[m.key] ? C.accent : C.border}`, transition:'all .12s' }}>
+              <input type="checkbox" checked={!!selected[m.key]} onChange={()=>toggle(m.key)}
+                style={{ width:15, height:15, accentColor:C.accent, flexShrink:0, cursor:'pointer' }}/>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.05em' }}>{m.label}</div>
+                <div style={{ fontSize:13, color:C.text1, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{String(result[m.key])}</div>
+              </div>
+              {record.data?.[m.key] && (
+                <div style={{ fontSize:11, color:C.text3, textAlign:'right', flexShrink:0 }}>
+                  <div style={{ color:C.red, textDecoration:'line-through', maxWidth:100, overflow:'hidden', textOverflow:'ellipsis' }}>{String(record.data[m.key])}</div>
+                  <div style={{ fontSize:9 }}>will be replaced</div>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Extra parsed info (read-only) */}
+          {(result.skills?.length || result.work_history?.length || result.education?.length) && (
+            <div style={{ marginTop:12, padding:'12px 14px', borderRadius:10, background:'#f8f9fc', border:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:11, fontWeight:700, color:C.text3, marginBottom:8 }}>ALSO EXTRACTED (not applied to fields)</div>
+              {result.skills?.length > 0 && <div style={{ fontSize:12, color:C.text2, marginBottom:4 }}><b>Skills:</b> {result.skills.slice(0,8).join(', ')}{result.skills.length>8?' …':''}</div>}
+              {result.years_experience && <div style={{ fontSize:12, color:C.text2, marginBottom:4 }}><b>Experience:</b> {result.years_experience} years</div>}
+              {result.education?.length > 0 && <div style={{ fontSize:12, color:C.text2, marginBottom:4 }}><b>Education:</b> {result.education[0]?.degree} — {result.education[0]?.institution}</div>}
+              {result.work_history?.length > 0 && <div style={{ fontSize:12, color:C.text2 }}><b>Last role:</b> {result.work_history[0]?.title} @ {result.work_history[0]?.company}</div>}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding:'14px 22px', borderTop:`1px solid ${C.border}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <span style={{ fontSize:12, color:C.text3 }}>{Object.values(selected).filter(Boolean).length} field{Object.values(selected).filter(Boolean).length!==1?'s':''} selected</span>
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={onClose} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:F, color:C.text2 }}>Cancel</button>
+            <button onClick={handleApply} disabled={Object.values(selected).filter(Boolean).length===0}
+              style={{ padding:'8px 16px', borderRadius:8, border:'none', background:C.accent, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, opacity:Object.values(selected).filter(Boolean).length===0?0.5:1 }}>
+              Apply {Object.values(selected).filter(Boolean).length} field{Object.values(selected).filter(Boolean).length!==1?'s':''}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export const RecordDetail = ({ record, fields, allObjects, environment, objectName, objectColor, onClose, fullPage, onToggleFullPage, onUpdate, onDelete, onNavigate }) => {
@@ -1541,6 +1898,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const [showCommMenu, setShowCommMenu] = useState(false);
   const [draggingPanel, setDraggingPanel] = useState(null);
   const [dragOverPanel, setDragOverPanel] = useState(null);
+  const currentObject = (allObjects||[]).find(o => o.id === record?.object_id) || {};
 
   const storageKey = `talentos_panels_${objectName}`;
   const [panelOrder, setPanelOrder] = useState(() => {
@@ -1615,6 +1973,108 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const handleAddAttachment = async () => {
     const name = prompt("File name (demo):"); if (!name) return;
     await api.post("/attachments", { record_id:record.id, name, size:0, type:"application/pdf" }); load();
+  };
+
+  // ── File upload state ──────────────────────────────────────────────────────
+  const fileInputRef      = useRef(null);
+  const [fileTypes,       setFileTypes]       = useState([]);
+  const [uploading,       setUploading]       = useState(false);
+  const [uploadDragging,  setUploadDragging]  = useState(false);
+  const [cvParseResult,   setCvParseResult]   = useState(null);
+  const [cvParsing,       setCvParsing]       = useState(false);
+  const [cvParseAtt,      setCvParseAtt]      = useState(null);
+  const [selectedFileType, setSelectedFileType] = useState('');
+  const [docExtractResult,   setDocExtractResult]   = useState(null);
+  const [docExtracting,      setDocExtracting]      = useState(false);
+  const [docExtractAtt,      setDocExtractAtt]      = useState(null);
+  const [docExtractMappings, setDocExtractMappings] = useState([]);
+
+  useEffect(() => {
+    api.get(`/file-types?object_slug=${currentObject.slug||'people'}`).then(d => {
+      if (Array.isArray(d)) setFileTypes(d);
+    }).catch(()=>{});
+  }, [currentObject.slug]);
+
+  const handleFileUpload = async (file, fileTypeId) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const ft     = fileTypes.find(t => t.id === fileTypeId);
+      const formData = new FormData();
+      formData.append('file',           file);
+      formData.append('record_id',      record.id);
+      formData.append('file_type_id',   fileTypeId || '');
+      formData.append('file_type_name', ft?.name || 'Other');
+      formData.append('uploaded_by',    'Admin');
+      formData.append('environment_id', currentObject.environment_id || environment?.id || '');
+      const res = await fetch('/api/attachments/upload', { method:'POST', body: formData });
+      const att = await res.json();
+      if (res.ok) {
+        load();
+        if (ft?.parse_cv) {
+          if (confirm(`"${ft.name}" file uploaded. Parse CV fields automatically?`)) {
+            handleCvParse(att);
+          }
+        }
+      }
+    } catch(e) { console.error('Upload error:', e); }
+    setUploading(false);
+  };
+
+  const handleDropUpload = (e) => {
+    e.preventDefault(); setUploadDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileUpload(file, selectedFileType);
+  };
+
+  const handleCvParse = async (att) => {
+    setCvParseAtt(att); setCvParsing(true); setCvParseResult(null);
+    try {
+      const res  = await fetch(`/api/cv-parse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attachment_id: att.id }),
+      });
+      const data = await res.json();
+      if (res.ok) setCvParseResult(data.parsed);
+      else        alert('CV parsing failed: ' + data.error);
+    } catch(e) { alert('CV parsing error: ' + e.message); }
+    setCvParsing(false);
+  };
+
+  const handleApplyCvFields = async (selectedFields) => {
+    const updates = {};
+    Object.entries(selectedFields).forEach(([key, val]) => {
+      if (val !== null && val !== undefined && val !== '') updates[key] = val;
+    });
+    if (Object.keys(updates).length === 0) return;
+    await api.patch(`/records/${record.id}`, { data: { ...record.data, ...updates }, updated_by: 'Admin' });
+    setCvParseResult(null); setCvParseAtt(null);
+    load();
+  };
+
+  const handleDocExtract = async (att) => {
+    const ft = fileTypes.find(t => t.id === att.file_type_id);
+    if (!ft?.extract_enabled) return;
+    if (!ft?.mappings?.length) { alert('This file type has no extraction mappings. Go to Settings → File Types to configure them.'); return; }
+    setDocExtractAtt(att); setDocExtractMappings(ft.mappings);
+    setDocExtracting(true); setDocExtractResult(null);
+    try {
+      const res = await fetch('/api/doc-extract', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attachment_id: att.id, file_type_id: att.file_type_id, mappings: ft.mappings }),
+      });
+      const data = await res.json();
+      if (res.ok) setDocExtractResult(data.parsed);
+      else alert('Extraction failed: ' + data.error);
+    } catch(e) { alert('Extraction error: ' + e.message); }
+    setDocExtracting(false);
+  };
+
+  const handleApplyDocFields = async (fieldsToApply) => {
+    if (!Object.keys(fieldsToApply).length) return;
+    await api.patch(`/records/${record.id}`, { data: { ...record.data, ...fieldsToApply }, updated_by: 'Admin' });
+    setDocExtractResult(null); setDocExtractAtt(null); load();
   };
 
   // Drag handlers for panel reorder
@@ -1739,30 +2199,92 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
     if (id==="attachments") return (
       <div>
-        <button onClick={handleAddAttachment}
-          style={{ width:"100%", border:`2px dashed ${C.border}`, borderRadius:12, padding:"18px", textAlign:"center", cursor:"pointer", background:"transparent", marginBottom:12, fontFamily:F, color:C.text3, transition:"all .15s" }}
-          onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
-          onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text3;}}>
-          <Ic n="upload" s={18}/><div style={{ fontSize:13, marginTop:4, fontWeight:600 }}>Upload File</div>
-        </button>
+        {/* File type selector + drop zone */}
+        <div style={{ marginBottom:8 }}>
+          <select value={selectedFileType} onChange={e=>setSelectedFileType(e.target.value)}
+            style={{ width:'100%', padding:'7px 10px', borderRadius:8, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, color:C.text2, background:C.surface, marginBottom:8 }}>
+            <option value="">Select file type…</option>
+            {fileTypes.map(ft=><option key={ft.id} value={ft.id}>{ft.name}</option>)}
+          </select>
+          <div
+            onClick={()=>fileInputRef.current?.click()}
+            onDragOver={e=>{e.preventDefault();setUploadDragging(true);}}
+            onDragLeave={()=>setUploadDragging(false)}
+            onDrop={handleDropUpload}
+            style={{ width:'100%', border:`2px dashed ${uploadDragging?C.accent:C.border}`, borderRadius:12, padding:'16px', textAlign:'center', cursor:'pointer', background:uploadDragging?`${C.accent}06`:'transparent', fontFamily:F, color:uploadDragging?C.accent:C.text3, transition:'all .15s', boxSizing:'border-box' }}>
+            {uploading
+              ? <><Ic n="upload" s={16}/><div style={{fontSize:12,marginTop:4}}>Uploading…</div></>
+              : <><Ic n="upload" s={16}/><div style={{fontSize:12,marginTop:4,fontWeight:600}}>Click or drop file to upload</div><div style={{fontSize:10,marginTop:2}}>{selectedFileType?fileTypes.find(t=>t.id===selectedFileType)?.allowed_formats?.join(', '):'Select a file type above first'}</div></>
+            }
+          </div>
+          <input ref={fileInputRef} type="file" style={{display:'none'}}
+            onChange={e=>{ const f=e.target.files?.[0]; if(f) handleFileUpload(f, selectedFileType); e.target.value=''; }}/>
+        </div>
+
+        {/* File list */}
         {attachments.length===0
-          ? <div style={{ textAlign:"center", padding:"16px 0", color:C.text3, fontSize:13 }}>No attachments yet</div>
-          : attachments.map(att=>(
-            <div key={att.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 14px", background:"#f8f9fc", borderRadius:10, marginBottom:8, border:`1px solid ${C.border}` }}>
-              <div style={{ width:32, height:32, borderRadius:8, background:C.accentLight, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                <Ic n="file" s={15} c={C.accent}/>
+          ? <div style={{ textAlign:'center', padding:'16px 0', color:C.text3, fontSize:13 }}>No files yet</div>
+          : attachments.map(att=>{
+            const isCV = att.file_type_name?.toLowerCase().includes('cv') || att.file_type_name?.toLowerCase().includes('resume');
+            const ext  = att.ext || att.name?.split('.').pop()?.toLowerCase() || '';
+            const iconName = ['jpg','jpeg','png','gif','webp'].includes(ext)?'image':['pdf'].includes(ext)?'file-text':'file';
+            return (
+              <div key={att.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:'#f8f9fc', borderRadius:10, marginBottom:6, border:`1px solid ${C.border}` }}>
+                <div style={{ width:32, height:32, borderRadius:8, background:C.accentLight, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <Ic n={iconName} s={14} c={C.accent}/>
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:12, fontWeight:600, color:C.text1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{att.name}</div>
+                  <div style={{ display:'flex', gap:6, alignItems:'center', marginTop:2 }}>
+                    {att.file_type_name && <span style={{ fontSize:10, fontWeight:700, padding:'1px 5px', borderRadius:4, background:`${C.accent}14`, color:C.accent }}>{att.file_type_name}</span>}
+                    <span style={{ fontSize:10, color:C.text3 }}>{att.size ? `${Math.round(att.size/1024)}KB · ` : ''}{new Date(att.created_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap:4, flexShrink:0 }}>
+                  {isCV && att.filename && (
+                    <button onClick={()=>handleCvParse(att)} disabled={cvParsing} title="Parse CV fields"
+                      style={{background:'none',border:`1px solid ${C.accent}30`,borderRadius:6,cursor:'pointer',padding:'4px 7px',color:C.accent,fontSize:10,fontWeight:700,fontFamily:F}}>
+                      {cvParsing&&cvParseAtt?.id===att.id?'…':'Parse CV'}
+                    </button>
+                  )}
+                  {att.file_type_id && fileTypes.find(t=>t.id===att.file_type_id)?.extract_enabled && att.filename && (
+                    <button onClick={()=>handleDocExtract(att)} disabled={docExtracting} title="Extract data from document"
+                      style={{background:'none',border:`1px solid ${C.green}40`,borderRadius:6,cursor:'pointer',padding:'4px 7px',color:C.green,fontSize:10,fontWeight:700,fontFamily:F}}>
+                      {docExtracting&&docExtractAtt?.id===att.id?'…':'Extract Data'}
+                    </button>
+                  )}
+                  {att.url && att.url !== '#' && (
+                    <a href={att.url} target="_blank" rel="noreferrer"
+                      style={{ background:'none', border:'none', cursor:'pointer', padding:4, color:C.text3, display:'flex' }}>
+                      <Ic n="link" s={13}/>
+                    </a>
+                  )}
+                  <button onClick={async()=>{await api.del(`/attachments/${att.id}`);load();}}
+                    style={{ background:'none', border:'none', cursor:'pointer', padding:4, color:C.text3, display:'flex' }}>
+                    <Ic n="trash" s={13}/>
+                  </button>
+                </div>
               </div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, fontWeight:600, color:C.text1 }}>{att.name}</div>
-                <div style={{ fontSize:11, color:C.text3 }}>{new Date(att.created_at).toLocaleDateString()}</div>
-              </div>
-              <button onClick={async()=>{await api.del(`/attachments/${att.id}`);load();}} style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:4, display:"flex" }}><Ic n="trash" s={14}/></button>
-            </div>
-          ))
+            );
+          })
         }
+
+        {/* CV Parse Modal */}
+        {cvParseResult && (
+          <CvParseModal
+            result={cvParseResult}
+            fields={fields}
+            record={record}
+            onApply={handleApplyCvFields}
+            onClose={()=>{ setCvParseResult(null); setCvParseAtt(null); }}
+          />
+        )}
+        {docExtractResult && (
+          <DocExtractModal result={docExtractResult} mappings={docExtractMappings} record={record}
+            onApply={handleApplyDocFields} onClose={()=>{ setDocExtractResult(null); setDocExtractAtt(null); }}/>
+        )}
       </div>
     );
-
 
     if (id==="activity") return (
       <div>
@@ -1821,6 +2343,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     );
 
     if (id==="workflows") return <RecordWorkflows record={record} objectId={record.object_id} environment={environment} objectName={objectName} onNavigate={onNavigate}/>;
+    if (id==="forms")     return <RecordFormPanel record={record} objectSlug={currentObject.slug||'people'} environment={environment} currentUser={null}/>;
     if (id==="linked") return <LinkedRecordsPanel record={record} environment={environment} onNavigate={onNavigate}/>;
     if (id==="reporting") return <ReportingPanel record={record} environment={environment}/>;
     if (id==="user") return <UserPanel record={record}/>;
@@ -1886,6 +2409,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     { id:"activity",    icon:"activity",      label:"Activity" },
     { id:"notes",       icon:"messageSquare", label:`Notes${notes.length?` (${notes.length})`:""}` },
     { id:"attachments", icon:"paperclip",     label:`Files${attachments.length?` (${attachments.length})`:""}` },
+    { id:"forms",       icon:"form",          label:"Forms" },
     { id:"workflows",   icon:"layers",        label:"Pipeline" },
     ...( objectName === "Person" ? [{ id:"linked", icon:"link", label:"Linked Records" }] : [] ),
     ...( ["Person","Job"].includes(objectName) ? [{ id:"match", icon:"sparkles", label:"AI Match" }] : [] ),

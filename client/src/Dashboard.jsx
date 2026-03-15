@@ -333,8 +333,11 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div style={{height:200,display:"flex",alignItems:"center",justifyContent:"center",color:C.text3,fontSize:12,flexDirection:"column",gap:6}}>
-              <div style={{fontSize:28}}>📊</div>No data yet for this year
+            <div style={{height:200,display:"flex",alignItems:"center",justifyContent:"center",color:C.text3,fontSize:12,flexDirection:"column",gap:8}}>
+              <div style={{width:44,height:44,borderRadius:13,background:`${C.accent}10`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="1.5" strokeLinecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+              </div>
+              No data yet for this year
             </div>
           )}
         </div>
@@ -406,8 +409,11 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
               })}
             </div>
           ) : (
-            <div style={{textAlign:"center",padding:"32px 0",color:C.text3,fontSize:12,flexDirection:"column",display:"flex",alignItems:"center",gap:6}}>
-              <div style={{fontSize:28}}>🏢</div>No department data yet
+            <div style={{textAlign:"center",padding:"32px 0",color:C.text3,fontSize:12,flexDirection:"column",display:"flex",alignItems:"center",gap:8}}>
+              <div style={{width:40,height:40,borderRadius:12,background:`${C.green}10`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="1.5" strokeLinecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10"/></svg>
+              </div>
+              No department data yet
             </div>
           )}
         </div>

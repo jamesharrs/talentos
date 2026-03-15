@@ -15,16 +15,16 @@ const api = {
 };
 
 const INTERVIEW_TYPES = [
-  { value:"phone_screen",     label:"Phone Screen",        icon:"📞", color:"#0CAF77" },
-  { value:"video",            label:"Video Interview",     icon:"🎥", color:"#4361EE" },
-  { value:"technical",        label:"Technical Interview", icon:"💻", color:"#7C3AED" },
-  { value:"panel",            label:"Panel Interview",     icon:"👥", color:"#F79009" },
-  { value:"onsite",           label:"On-site Interview",   icon:"🏢", color:"#EF4444" },
-  { value:"culture_fit",      label:"Culture Fit",         icon:"🤝", color:"#0891b2" },
-  { value:"assessment",       label:"Assessment Centre",   icon:"📝", color:"#6366f1" },
-  { value:"campus_event",     label:"Campus Event",        icon:"🎓", color:"#ec4899" },
-  { value:"career_fair",      label:"Career Fair",         icon:"🎪", color:"#f59e0b" },
-  { value:"offer_meeting",    label:"Offer Meeting",       icon:"🤝", color:"#10b981" },
+  { value:"phone_screen",  label:"Phone Screen",        iconName:"phone",      color:"#0CAF77" },
+  { value:"video",         label:"Video Interview",     iconName:"video",      color:"#4361EE" },
+  { value:"technical",     label:"Technical",           iconName:"code",       color:"#7C3AED" },
+  { value:"panel",         label:"Panel Interview",     iconName:"users",      color:"#F79009" },
+  { value:"onsite",        label:"On-site",             iconName:"building",   color:"#EF4444" },
+  { value:"culture_fit",   label:"Culture Fit",         iconName:"heart",      color:"#0891b2" },
+  { value:"assessment",    label:"Assessment",          iconName:"clipboard",  color:"#6366f1" },
+  { value:"campus_event",  label:"Campus Event",        iconName:"graduation", color:"#ec4899" },
+  { value:"career_fair",   label:"Career Fair",         iconName:"megaphone",  color:"#f59e0b" },
+  { value:"offer_meeting", label:"Offer Meeting",       iconName:"check-circle",color:"#10b981" },
 ];
 
 const DURATIONS = [15,20,30,45,60,90,120];
@@ -47,6 +47,13 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     star:"M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
     video:"M23 7l-7 5 7 5V7zM1 5h15v14H1z",
     phone:"M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z",
+    code:"M16 18l6-6-6-6M8 6l-6 6 6 6",
+    building:"M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10",
+    heart:"M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z",
+    clipboard:"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z",
+    graduation:"M22 10v6M2 10l10-5 10 5-10 5zM6 12v5c3 3 9 3 12 0v-5",
+    megaphone:"M3 11l19-9-9 19-2-8-8-2z",
+    "check-circle":"M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3",
   };
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d={P[n]||""}/></svg>;
 };
@@ -86,7 +93,9 @@ const TypeCard = ({ type, onEdit, onDelete, onSchedule }) => {
       <div style={{padding:"18px 20px"}}>
         <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <div style={{width:40,height:40,borderRadius:12,background:`${meta.color}15`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{meta.icon}</div>
+            <div style={{width:40,height:40,borderRadius:12,background:`${meta.color}15`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <Ic n={meta.iconName} s={20} c={meta.color}/>
+            </div>
             <div>
               <div style={{fontSize:15,fontWeight:800,color:C.text1}}>{type.name}</div>
               <div style={{fontSize:12,color:C.text3,marginTop:1}}>{meta.label}</div>
@@ -332,9 +341,11 @@ const TypeFormModal = ({ type, envId, onSave, onClose }) => {
                 <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}}>
                   {INTERVIEW_TYPES.map(t=>(
                     <button key={t.value} onClick={()=>set("interview_format",t.value)}
-                      style={{padding:"8px 4px",borderRadius:10,border:`2px solid ${form.interview_format===t.value?t.color:C.border}`,background:form.interview_format===t.value?`${t.color}12`:"transparent",cursor:"pointer",textAlign:"center",fontFamily:F,transition:"all .12s"}}>
-                      <div style={{fontSize:18}}>{t.icon}</div>
-                      <div style={{fontSize:9,fontWeight:700,color:form.interview_format===t.value?t.color:C.text3,marginTop:2}}>{t.label}</div>
+                      style={{padding:"8px 4px",borderRadius:10,border:`2px solid ${form.interview_format===t.value?t.color:C.border}`,background:form.interview_format===t.value?`${t.color}12`:"transparent",cursor:"pointer",textAlign:"center",fontFamily:F,transition:"all .12s",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                      <div style={{width:28,height:28,borderRadius:8,background:form.interview_format===t.value?`${t.color}20`:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                        <Ic n={t.iconName} s={14} c={form.interview_format===t.value?t.color:"#94a3b8"}/>
+                      </div>
+                      <div style={{fontSize:9,fontWeight:700,color:form.interview_format===t.value?t.color:C.text3,lineHeight:1.2}}>{t.label}</div>
                     </button>
                   ))}
                 </div>
@@ -443,7 +454,9 @@ const ScheduleModal = ({ interviewType, envId, onSave, onClose }) => {
         <div style={{height:4,background:meta.color}}/>
         <div style={{padding:"20px 24px"}}>
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
-            <div style={{width:44,height:44,borderRadius:12,background:`${meta.color}15`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{meta.icon}</div>
+            <div style={{width:44,height:44,borderRadius:12,background:`${meta.color}15`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <Ic n={meta.iconName} s={22} c={meta.color}/>
+            </div>
             <div>
               <div style={{fontSize:16,fontWeight:800,color:C.text1}}>Schedule: {interviewType?.name}</div>
               <div style={{fontSize:12,color:C.text3}}>{interviewType?.duration} min · {interviewType?.format}</div>
@@ -510,7 +523,9 @@ const InterviewRow = ({ interview, onEdit, onDelete }) => {
   return (
     <div style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",borderBottom:`1px solid ${C.border}`,transition:"background .1s"}}
       onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-      <div style={{width:38,height:38,borderRadius:11,background:`${meta.color}15`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{meta.icon}</div>
+      <div style={{width:38,height:38,borderRadius:11,background:`${meta.color}15`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+        <Ic n={meta.iconName} s={18} c={meta.color}/>
+      </div>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text1}}>{interview.candidate_name||"Unknown candidate"}</div>
         <div style={{fontSize:11,color:C.text3,marginTop:1}}>{interview.interview_type_name} · {interview.job_name||"No job"}</div>
@@ -597,8 +612,10 @@ export default function Interviews({ environment }) {
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           {/* View toggle */}
           <div style={{display:"flex",borderRadius:9,border:`1px solid ${C.border}`,overflow:"hidden",background:C.surface}}>
-            {[["types","📋 Types"],["scheduled","📅 Scheduled"]].map(([v,l])=>(
-              <button key={v} onClick={()=>setView(v)} style={{padding:"7px 14px",border:"none",background:view===v?C.accent:"transparent",color:view===v?"#fff":C.text2,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,transition:"all .12s"}}>{l}</button>
+            {[["types","Types","list"],["scheduled","Scheduled","calendar"]].map(([v,l,icon])=>(
+              <button key={v} onClick={()=>setView(v)} style={{padding:"7px 14px",border:"none",background:view===v?C.accent:"transparent",color:view===v?"#fff":C.text2,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,transition:"all .12s",display:"flex",alignItems:"center",gap:5}}>
+                <Ic n={icon} s={12} c={view===v?"#fff":C.text2}/>{l}
+              </button>
             ))}
           </div>
           {view==="types" && <Btn v="primary" icon="plus" onClick={()=>{setEditType(null);setShowForm(true);}}>New interview type</Btn>}
@@ -612,7 +629,9 @@ export default function Interviews({ environment }) {
         types.length===0
           ? <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center"}}>
               <div style={{textAlign:"center",padding:"60px 40px",background:C.surface,borderRadius:20,border:`2px dashed ${C.border}`,maxWidth:420}}>
-                <div style={{fontSize:48,marginBottom:12}}>📅</div>
+                <div style={{width:64,height:64,borderRadius:20,background:`${C.accent}12`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}>
+                  <Ic n="calendar" s={28} c={C.accent}/>
+                </div>
                 <div style={{fontSize:17,fontWeight:700,color:C.text2,marginBottom:8}}>No interview types yet</div>
                 <div style={{fontSize:13,color:C.text3,marginBottom:20}}>Create your first interview type — like a Calendly event type — to start scheduling with candidates.</div>
                 <Btn v="primary" icon="plus" onClick={()=>setShowForm(true)}>Create interview type</Btn>
@@ -632,7 +651,9 @@ export default function Interviews({ environment }) {
         <div style={{background:C.surface,borderRadius:16,border:`1px solid ${C.border}`,overflow:"hidden"}}>
           {scheduledSorted.length===0
             ? <div style={{padding:"60px 40px",textAlign:"center",color:C.text3}}>
-                <div style={{fontSize:36,marginBottom:8}}>📅</div>
+                <div style={{width:52,height:52,borderRadius:16,background:`${C.accent}12`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}>
+                  <Ic n="calendar" s={22} c={C.accent}/>
+                </div>
                 <div style={{fontSize:14,fontWeight:600,color:C.text2,marginBottom:4}}>No interviews scheduled</div>
                 <div style={{fontSize:12}}>Create an interview type first, then schedule candidates.</div>
               </div>

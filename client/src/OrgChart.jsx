@@ -12,7 +12,20 @@ const C = {
   accent:"#4361EE", accentLight:"#EEF2FF",
   green:"#0CAF77", red:"#EF4444", amber:"#F79009",
 };
-const TYPE_ICONS  = { company:"🏢", region:"🌍", division:"🏗️", team:"👥" };
+const TYPE_ICONS  = { company:"building2", region:"globe", division:"layers", team:"users" };
+const TYPE_ICON_PATHS = {
+  building2:"M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10",
+  globe:"M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z",
+  layers:"M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
+  users:"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+  folder:"M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z",
+};
+
+const UnitIcon = ({ type, size=16, color="currentColor" }) => {
+  const iconName = TYPE_ICONS[type] || "folder";
+  const d = TYPE_ICON_PATHS[iconName] || TYPE_ICON_PATHS.folder;
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d={d}/></svg>;
+};
 const TYPE_COLORS = { company:"#4361EE", region:"#7C3AED", division:"#0CAF77", team:"#F79009" };
 const UNIT_TYPES  = ["company","region","division","team"];
 const NODE_W = 180, NODE_H = 72, H_GAP = 40, V_GAP = 80;
@@ -317,8 +330,8 @@ function UnitPanel({ unit, allUnits, allUsers, onClose, onUpdate, onDelete, onAd
       <div style={{ padding:"16px 16px 12px", borderBottom:`1px solid ${C.border}`, background:`${color}08` }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            <div style={{ width:36,height:36,borderRadius:10,background:`${color}20`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>
-              {TYPE_ICONS[unit.type]||"📁"}
+            <div style={{ width:36,height:36,borderRadius:10,background:`${color}20`,display:"flex",alignItems:"center",justifyContent:"center" }}>
+              <UnitIcon type={unit.type} size={18} color={color}/>
             </div>
             <div>
               <div style={{ fontSize:15,fontWeight:800,color:C.text1 }}>{unit.name}</div>
@@ -328,9 +341,9 @@ function UnitPanel({ unit, allUnits, allUsers, onClose, onUpdate, onDelete, onAd
           <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",color:C.text3,fontSize:20,lineHeight:1,padding:4 }}>×</button>
         </div>
         <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-          {[["✏️ Edit",()=>setEditing(p=>!p),"#fff",`1px solid ${C.border}`,C.text2],
+          {[["Edit",()=>setEditing(p=>!p),"#fff",`1px solid ${C.border}`,C.text2],
             ["+ Child",()=>onAddChild(unit.id),C.accentLight,`1px solid ${C.accent}40`,C.accent],
-            ["🗑 Delete",()=>onDelete(unit.id),"#fff5f5","1px solid #fee2e2",C.red]
+            ["Delete",()=>onDelete(unit.id),"#fff5f5","1px solid #fee2e2",C.red]
           ].map(([lbl,fn,bg,bdr,clr])=>(
             <button key={lbl} onClick={fn} style={{ padding:"5px 10px",borderRadius:7,border:bdr,
               background:bg,color:clr,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F }}>{lbl}</button>
@@ -344,7 +357,7 @@ function UnitPanel({ unit, allUnits, allUsers, onClose, onUpdate, onDelete, onAd
               style={{ padding:"6px 9px",borderRadius:7,border:`1px solid ${C.border}`,fontSize:13,fontFamily:F }}/>
             <div style={{ display:"flex", gap:8 }}>
               <select value={editType} onChange={e=>setEditType(e.target.value)} style={{ flex:1,padding:"6px 8px",borderRadius:7,border:`1px solid ${C.border}`,fontSize:12,fontFamily:F }}>
-                {UNIT_TYPES.map(t=><option key={t} value={t}>{TYPE_ICONS[t]} {t}</option>)}
+                {UNIT_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
               </select>
               <input type="color" value={editColor} onChange={e=>setEditColor(e.target.value)}
                 style={{ width:36,height:32,borderRadius:7,border:`1px solid ${C.border}`,cursor:"pointer",padding:2 }}/>
@@ -419,7 +432,7 @@ function CompanyCanvas({ units, users, people, selectedId, onSelect, onDrillInto
               onMouseEnter={e=>{ if(!isSelected) e.currentTarget.style.borderColor=color; }}
               onMouseLeave={e=>{ if(!isSelected) e.currentTarget.style.borderColor=C.border; }}>
               <div style={{ width:32,height:32,borderRadius:9,background:`${color}15`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0 }}>
-                {TYPE_ICONS[unit.type]||"📁"}
+                <UnitIcon type={unit.type} size={16} color={color}/>
               </div>
               <div style={{ minWidth:0, flex:1 }}>
                 <div style={{ fontWeight:700,fontSize:13,color:C.text1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{unit.name}</div>
@@ -437,7 +450,7 @@ function CompanyCanvas({ units, users, people, selectedId, onSelect, onDrillInto
                     cursor:"pointer", transition:"background 0.15s" }}
                   onMouseEnter={e=>{ e.currentTarget.style.background=`${color}35`; }}
                   onMouseLeave={e=>{ e.currentTarget.style.background=`${color}18`; }}>
-                  {pCount} 👤
+                  {pCount} people
                 </div>
               )}
             </div>
@@ -570,7 +583,9 @@ function OpenRoleModal({ defaultDept, workflows, onSave, onClose }) {
         <div style={{ padding:"12px 16px 10px", borderBottom:`1px solid ${C.border}`,
           background:"#FFF7ED", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontSize:18 }}>💼</span>
+            <div style={{ width:28,height:28,borderRadius:8,background:`${C.amber}20`,display:"flex",alignItems:"center",justifyContent:"center" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.amber} strokeWidth="2" strokeLinecap="round"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+            </div>
             <span style={{ fontSize:13, fontWeight:800, color:C.amber }}>Create Open Role</span>
           </div>
           <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",color:C.text3,fontSize:20,lineHeight:1,padding:2 }}>×</button>
@@ -679,15 +694,21 @@ function PlusMenu({ anchorEl, dir, onAddReport, onOpenRole, onClose }) {
         <div style={{ fontSize:10, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.05em" }}>{label}</div>
       </div>
       {[
-        { icon:"👤", label:"Add existing person", color:C.accent, onClick: onAddReport },
-        { icon:"💼", label:"Create open role",    color:C.amber,  onClick: onOpenRole  },
+        { iconName:"user-plus", label:"Add existing person", color:C.accent, onClick: onAddReport },
+        { iconName:"briefcase",  label:"Create open role",    color:C.amber,  onClick: onOpenRole  },
       ].map(item => (
         <div key={item.label} onClick={item.onClick}
           style={{ padding:"10px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:10,
             borderBottom:`1px solid ${C.border}` }}
           onMouseEnter={e=>e.currentTarget.style.background="#F8FAFF"}
           onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-          <span style={{ fontSize:16 }}>{item.icon}</span>
+          <div style={{ width:28,height:28,borderRadius:8,background:`${item.color}15`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={item.color} strokeWidth="2" strokeLinecap="round">
+              <path d={item.iconName==="user-plus"
+                ? "M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6"
+                : "M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"}/>
+            </svg>
+          </div>
           <div>
             <div style={{ fontSize:12, fontWeight:700, color:item.color }}>{item.label}</div>
           </div>
@@ -823,7 +844,9 @@ function PeopleCanvas({ people, openJobs, relationships, activeFilters, selected
 
   if (people.length === 0 && (!openJobs || openJobs.length === 0)) return (
     <div style={{ padding:60, textAlign:"center", color:C.text3, fontFamily:F }}>
-      <div style={{ fontSize:32, marginBottom:12 }}>👥</div>
+      <div style={{ width:52,height:52,borderRadius:16,background:`${C.accent}10`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
       <div style={{ fontSize:14, fontWeight:600, color:C.text2, marginBottom:6 }}>No people in this unit</div>
       <div style={{ fontSize:12 }}>People are matched by their Department field.</div>
     </div>
@@ -889,8 +912,9 @@ function PeopleCanvas({ people, openJobs, relationships, activeFilters, selected
               onMouseEnter={e=>{ if(!isSelected) e.currentTarget.style.borderColor=C.amber; }}
               onMouseLeave={e=>{ if(!isSelected) e.currentTarget.style.borderColor=C.amber+"80"; }}>
               <div style={{ width:30,height:30,borderRadius:9,background:`${C.amber}18`,
-                display:"flex",alignItems:"center",justifyContent:"center",
-                fontSize:14,flexShrink:0 }}>💼</div>
+                display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.amber} strokeWidth="2" strokeLinecap="round"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+              </div>
               <div style={{ minWidth:0, flex:1 }}>
                 <div style={{ fontWeight:700,fontSize:12,color:C.amber,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{title}</div>
                 <div style={{ fontSize:10,color:C.text3,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
@@ -1467,8 +1491,7 @@ export default function OrgChart({ environment }) {
               style={{ background:"none", border:"none", cursor:"pointer", padding:0,
                 fontSize:13, fontWeight:700, color: isDrilled ? C.accent : C.text1,
                 fontFamily:F, textDecoration: isDrilled ? "underline" : "none" }}>
-              🏢 {environment?.name || "Company"}
-            </button>
+              🏢 {environment?.name || "Company"}</button>
             {breadcrumbs.map((u, i) => (
               <React.Fragment key={u.id}>
                 <span style={{ color:C.text3, fontSize:13 }}>›</span>
@@ -1499,18 +1522,17 @@ export default function OrgChart({ environment }) {
 
           {/* View mode toggle */}
           <div style={{ display:"flex", borderRadius:9, border:`1px solid ${C.border}`, overflow:"hidden", background:C.surface }}>
-            {[["structure","🏢 Structure"],["people","👤 People"]].map(([mode, label]) => (
+            {[["structure","Structure","git-branch"],["people","People","users"]].map(([mode, label, icon]) => (
               <button key={mode} onClick={() => {
-                setViewMode(mode);
-                setSelectedId(null);
-                setPeopleSearch("");
-                setDeptFilter("all");
-                if (mode === "structure") setDrillPath([]);
-                zp.reset();
+                setViewMode(mode); setSelectedId(null); setPeopleSearch(""); setDeptFilter("all");
+                if (mode === "structure") setDrillPath([]); zp.reset();
               }}
                 style={{ padding:"6px 14px", border:"none", background: viewMode===mode ? C.accent : "transparent",
                   color: viewMode===mode ? "#fff" : C.text2, fontSize:12, fontWeight:700,
-                  cursor:"pointer", fontFamily:F, transition:"all .12s" }}>
+                  cursor:"pointer", fontFamily:F, transition:"all .12s", display:"flex", alignItems:"center", gap:5 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d={icon==="git-branch" ? "M6 3v12M6 15a6 6 0 0 0 6 6M6 9h12M18 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" : "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"}/>
+                </svg>
                 {label}
               </button>
             ))}
@@ -1566,8 +1588,10 @@ export default function OrgChart({ environment }) {
                   border:`1px solid ${showVacancies ? C.amber : C.border}`,
                   background: showVacancies ? `${C.amber}12` : "transparent",
                   color: showVacancies ? C.amber : C.text3,
-                  fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:F, transition:"all 0.15s" }}>
-                💼 Vacancies
+                  fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:F, transition:"all 0.15s",
+                  display:"flex", alignItems:"center", gap:4 }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                Vacancies
               </button>
             </div>
           )}
@@ -1578,7 +1602,8 @@ export default function OrgChart({ environment }) {
               {unassignedUsers.length > 0 && (
                 <div style={{ display:"flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:8,
                   background:"#FFF7ED",border:"1px solid #FED7AA",fontSize:12,color:"#92400E",fontWeight:600 }}>
-                  ⚠️ {unassignedUsers.length} unassigned
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#92400E" strokeWidth="2" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"/></svg>
+                  {unassignedUsers.length} unassigned
                 </div>
               )}
               <button onClick={()=>{ setNewParent(""); setShowAdd(p=>!p); }}
@@ -1600,7 +1625,7 @@ export default function OrgChart({ environment }) {
               style={{ padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:F,width:180 }}/>],
               ["TYPE",<select key="t" value={newType} onChange={e=>{setNewType(e.target.value);setNewColor(TYPE_COLORS[e.target.value]||C.accent);}}
                 style={{ padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:F }}>
-                {UNIT_TYPES.map(t=><option key={t} value={t}>{TYPE_ICONS[t]} {t}</option>)}</select>],
+                {UNIT_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select>],
               ["PARENT",<select key="p" value={newParent} onChange={e=>setNewParent(e.target.value)}
                 style={{ padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:F }}>
                 <option value="">— root —</option>
@@ -1662,7 +1687,9 @@ export default function OrgChart({ environment }) {
         <div style={{ flex:1,display:"flex",alignItems:"center",justifyContent:"center" }}>
           <div style={{ textAlign:"center",padding:"60px 40px",background:C.surface,borderRadius:16,
             border:`2px dashed ${C.border}`,color:C.text3,maxWidth:420 }}>
-            <div style={{ fontSize:48,marginBottom:12 }}>🏢</div>
+            <div style={{ width:60,height:60,borderRadius:18,background:`${C.accent}10`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10"/></svg>
+            </div>
             <div style={{ fontSize:16,fontWeight:700,color:C.text2,marginBottom:6 }}>No org structure yet</div>
             <div style={{ fontSize:13,marginBottom:20 }}>Start by creating a top-level company or region unit.</div>
             <button onClick={()=>setShowAdd(true)}

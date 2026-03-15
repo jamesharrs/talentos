@@ -774,6 +774,7 @@ const FIELD_TYPES_DM = [
   {value:"email",label:"Email",icon:"@"},{value:"phone",label:"Phone",icon:"☎"},{value:"url",label:"URL",icon:"🔗"},
   {value:"date",label:"Date",icon:"📅"},{value:"boolean",label:"Boolean",icon:"◉"},{value:"select",label:"Select",icon:"▾"},
   {value:"multi_select",label:"Multi Select",icon:"☑"},{value:"currency",label:"Currency",icon:"$"},{value:"rating",label:"Rating",icon:"★"},
+  {value:"people",label:"People",icon:"👤"},
 ];
 const COLORS_DM = ["#6366f1","#f59e0b","#10b981","#ef4444","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f97316","#64748b"];
 
@@ -913,6 +914,8 @@ const DataModelSection = () => {
       is_required: field?.is_required||false, show_in_list: field?.show_in_list!==undefined?!!field.show_in_list:true,
       options: field?.options ? (Array.isArray(field.options)?field.options.join(", "):field.options) : "",
       placeholder: field?.placeholder||"", help_text: field?.help_text||"",
+      related_object_slug: field?.related_object_slug||"people",
+      people_multi: field?.people_multi!==undefined ? !!field.people_multi : true,
     });
     const [autoKey, setAutoKey] = useState(!isEdit);
     const [saving, setSaving] = useState(false);
@@ -921,7 +924,9 @@ const DataModelSection = () => {
     const handle = async () => {
       setSaving(true);
       await saveField({ ...form, object_id: selObj.id, environment_id: selEnv.id,
-        options: ["select","multi_select"].includes(form.field_type) ? form.options.split(",").map(s=>s.trim()).filter(Boolean) : undefined
+        options: ["select","multi_select"].includes(form.field_type) ? form.options.split(",").map(s=>s.trim()).filter(Boolean) : undefined,
+        related_object_slug: form.field_type === "people" ? form.related_object_slug : undefined,
+        people_multi: form.field_type === "people" ? form.people_multi : undefined,
       }, field?.id);
       setSaving(false);
     };
@@ -941,6 +946,24 @@ const DataModelSection = () => {
             <Inp label="API Key" value={form.api_key} onChange={v=>{set("api_key",v);setAutoKey(false);}} disabled={isEdit&&field?.is_system}/>
           </div>
           {["select","multi_select"].includes(form.field_type) && <div style={{marginBottom:12}}><Inp label="Options (comma-separated)" value={form.options} onChange={v=>set("options",v)} placeholder="Option A, Option B"/></div>}
+          {form.field_type === "people" && (
+            <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
+              <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>People Field Settings</div>
+              <div style={{marginBottom:8}}>
+                <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>OBJECT TO LINK</label>
+                <Inp value={form.related_object_slug} onChange={v=>set("related_object_slug",v)} placeholder="people"/>
+                <div style={{fontSize:10,color:C.text3,marginTop:2}}>Object slug (e.g. people, users)</div>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                {[{v:false,l:"Single select"},{v:true,l:"Multi select"}].map(({v,l})=>(
+                  <button key={String(v)} onClick={()=>set("people_multi",v)}
+                    style={{flex:1,padding:"6px",borderRadius:8,border:`2px solid ${form.people_multi===v?"#3b5bdb":"#e8eaed"}`,background:form.people_multi===v?"#3b5bdb":"#fff",color:form.people_multi===v?"#fff":"#6b7280",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:F}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
             <Inp label="Placeholder" value={form.placeholder} onChange={v=>set("placeholder",v)}/>
             <Inp label="Help Text" value={form.help_text} onChange={v=>set("help_text",v)}/>

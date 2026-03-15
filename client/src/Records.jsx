@@ -173,6 +173,24 @@ const FieldValue = ({ field, value }) => {
         {[1,2,3,4,5].map(i=><Ic key={i} n="star" s={14} c={i<=value?"#f59f00":"#e5e7eb"}/>)}
       </div>
     );
+    case "people": {
+      const people = Array.isArray(value) ? value : (value ? [value] : []);
+      if (!people.length) return <span style={{color:C.text3,fontSize:12}}>—</span>;
+      return (
+        <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+          {people.map((p,i) => {
+            const name = typeof p === "object" ? (p.name || p.label || p.id) : String(p);
+            const initials = name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+            return (
+              <span key={i} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"2px 8px 2px 4px",borderRadius:99,background:`${C.accent}12`,border:`1px solid ${C.accent}28`,fontSize:12,fontWeight:600,color:C.accent}}>
+                <span style={{width:18,height:18,borderRadius:"50%",background:C.accent,color:"#fff",fontSize:9,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{initials}</span>
+                {name}
+              </span>
+            );
+          })}
+        </div>
+      );
+    }
     case "currency": return <span style={{fontSize:13,color:C.text1,fontWeight:600}}>${Number(value).toLocaleString()}</span>;
     case "date":    return <span style={{fontSize:13}}>{new Date(value).toLocaleDateString()}</span>;
     default:        return <span style={{fontSize:13,color:C.text1,lineHeight:1.5}}>{String(value)}</span>;
@@ -227,6 +245,9 @@ const FieldEditor = ({ field, value, onChange, autoFocus }) => {
       return <Inp type="date" value={value} onChange={onChange} autoFocus={autoFocus}/>;
     case "email":
       return <Inp type="email" value={value} onChange={onChange} placeholder={field.placeholder||`Enter ${field.name}`} autoFocus={autoFocus}/>;
+    case "people": {
+      return <PeoplePicker field={field} value={value} onChange={onChange}/>;
+    }
     case "url":
       return <Inp type="url" value={value} onChange={onChange} placeholder="https://…" autoFocus={autoFocus}/>;
     default:
@@ -234,7 +255,98 @@ const FieldEditor = ({ field, value, onChange, autoFocus }) => {
   }
 };
 
-/* ─── record display name ──────────────────────────────────────────────────── */
+/* ─── People Picker ─────────────────────────────────────────────────────────── */
+// Module-level environment ref — set by RecordsView on mount
+let _currentEnvId = null;
+
+const PeoplePicker = ({ field, value, onChange }) => {
+  const [search, setSearch] = useState("");
+  const [options, setOptions] = useState([]);
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const isMulti = field.people_multi !== false;
+  const selected = Array.isArray(value) ? value : (value ? [value] : []);
+
+  useEffect(() => {
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  useEffect(() => {
+    if (!open || !_currentEnvId) return;
+    const slug = field.related_object_slug || "people";
+    api.get(`/records?environment_id=${_currentEnvId}&object_slug=${slug}&limit=200`)
+      .then(res => {
+        const recs = Array.isArray(res) ? res : (res.records || []);
+        setOptions(recs.map(r => ({
+          id: r.id,
+          name: `${r.data?.first_name||""} ${r.data?.last_name||""}`.trim() || r.data?.name || r.data?.job_title || r.id
+        })));
+      }).catch(() => {});
+  }, [open, field.related_object_slug]);
+
+  const filtered = options.filter(o => o.name.toLowerCase().includes(search.toLowerCase()));
+  const isSelected = id => selected.some(s => (typeof s === "object" ? s.id : s) === id);
+
+  const toggle = (opt) => {
+    if (isMulti) {
+      const already = isSelected(opt.id);
+      onChange(already ? selected.filter(s => (typeof s==="object"?s.id:s) !== opt.id) : [...selected, {id:opt.id,name:opt.name}]);
+    } else {
+      onChange(isSelected(opt.id) ? [] : [{id:opt.id,name:opt.name}]);
+      setOpen(false);
+    }
+  };
+
+  const remove = (id) => onChange(selected.filter(s => (typeof s==="object"?s.id:s) !== id));
+
+  const initials = name => name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+
+  return (
+    <div ref={ref} style={{position:"relative"}}>
+      {/* Selected pills */}
+      <div onClick={() => setOpen(o=>!o)} style={{display:"flex",flexWrap:"wrap",gap:4,padding:"6px 8px",borderRadius:8,border:`1.5px solid ${open?C.accent:C.border}`,background:C.surface,cursor:"pointer",minHeight:36,alignItems:"center"}}>
+        {selected.map((s,i) => {
+          const name = typeof s==="object" ? s.name : s;
+          const id   = typeof s==="object" ? s.id   : s;
+          return (
+            <span key={i} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"2px 6px 2px 4px",borderRadius:99,background:`${C.accent}12`,border:`1px solid ${C.accent}28`,fontSize:12,fontWeight:600,color:C.accent}}>
+              <span style={{width:16,height:16,borderRadius:"50%",background:C.accent,color:"#fff",fontSize:8,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{initials(name||"?")}</span>
+              {name}
+              <button onClick={e=>{e.stopPropagation();remove(id);}} style={{background:"none",border:"none",cursor:"pointer",color:C.accent,padding:0,fontSize:14,lineHeight:1,opacity:0.6}}>×</button>
+            </span>
+          );
+        })}
+        {selected.length === 0 && <span style={{color:C.text3,fontSize:13}}>Select {isMulti?"people":"person"}…</span>}
+      </div>
+      {/* Dropdown */}
+      {open && (
+        <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,zIndex:400,background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,boxShadow:"0 6px 20px rgba(0,0,0,.12)",maxHeight:220,display:"flex",flexDirection:"column"}}>
+          <div style={{padding:"6px 8px",borderBottom:`1px solid ${C.border}`}}>
+            <input autoFocus value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search…"
+              style={{width:"100%",border:"none",outline:"none",fontSize:13,fontFamily:F,color:C.text1,background:"transparent"}}/>
+          </div>
+          <div style={{overflowY:"auto",flex:1}}>
+            {filtered.length === 0 && <div style={{padding:"12px",fontSize:12,color:C.text3,textAlign:"center"}}>{options.length===0?"Loading…":"No matches"}</div>}
+            {filtered.map(opt => (
+              <div key={opt.id} onClick={()=>toggle(opt)}
+                style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",cursor:"pointer",background:isSelected(opt.id)?`${C.accent}08`:"transparent",transition:"background .1s"}}
+                onMouseEnter={e=>e.currentTarget.style.background=isSelected(opt.id)?`${C.accent}12`:"#f8f9fc"}
+                onMouseLeave={e=>e.currentTarget.style.background=isSelected(opt.id)?`${C.accent}08`:"transparent"}>
+                <span style={{width:24,height:24,borderRadius:"50%",background:isSelected(opt.id)?C.accent:`${C.accent}20`,color:isSelected(opt.id)?"#fff":C.accent,fontSize:9,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{initials(opt.name||"?")}</span>
+                <span style={{fontSize:13,fontWeight:isSelected(opt.id)?700:500,color:isSelected(opt.id)?C.accent:C.text1}}>{opt.name}</span>
+                {isSelected(opt.id) && <span style={{marginLeft:"auto",color:C.accent,fontSize:16}}>✓</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 export const recordTitle = (record, fields) => {
   const nameField = fields.find(f=>["first_name","name","job_title","pool_name","title"].includes(f.api_key));
   const lastField = fields.find(f=>f.api_key==="last_name");
@@ -2120,6 +2232,8 @@ const CSVImportModal = ({ object, environment, onClose, onDone }) => {
 };
 
 export default function RecordsView({ environment, object, onOpenRecord, initialFilter, session, autoCreate, onAutoCreateConsumed }) {
+  // Make environment available to PeoplePicker without prop drilling
+  useEffect(() => { _currentEnvId = environment?.id; }, [environment?.id]);
   const [records, setRecords]   = useState([]);
   const [fields,  setFields]    = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -2158,14 +2272,15 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   const [selected, setSelected] = useState(null);   // slide-out panel only
   const [showForm, setShowForm] = useState(false);
 
-  // Clear selection when records change
-  useEffect(() => { setSelectedIds(new Set()); }, [object?.id, page, search, activeFilters.length]);
   useEffect(() => {
     if (autoCreate) { setShowForm(true); onAutoCreateConsumed?.(); }
   }, [autoCreate]);
   const [editRecord, setEditRecord] = useState(null);
   const [page, setPage]         = useState(1);
   const [showImport, setShowImport] = useState(false);
+
+  // Clear selection when object/page/search/filters change
+  useEffect(() => { setSelectedIds(new Set()); }, [object?.id, page, search, activeFilters.length]);
   const [activeTab, setActiveTab]   = useState("records");
   const [total, setTotal]       = useState(0);
 

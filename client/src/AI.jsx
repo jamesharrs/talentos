@@ -568,8 +568,46 @@ SCHEDULING RULES:
 - interviewers: array of names (strings), can be empty []
 - notes: optional string, can be empty ""
 - Always confirm date/time with the user before outputting the block
-- Be helpful and suggest sensible defaults`;
+- Be helpful and suggest sensible defaults
 
+FORM CREATION INSTRUCTIONS:
+When a user wants to create a form, questionnaire, scorecard, survey, or data capture template:
+
+Step 1: Ask what the form is for (e.g. interview scorecard, screening questionnaire, survey, onboarding checklist).
+Step 2: Suggest a sensible set of fields based on the use case. Ask if they want to add, remove or change any.
+Step 3: Confirm the form name, category, and which objects it applies to (people, jobs, etc.).
+Step 4: Output EXACTLY this format:
+<CREATE_FORM>
+{
+  "name": "Technical Interview Scorecard",
+  "description": "Evaluate candidates on technical and behavioural skills",
+  "category": "interview",
+  "applies_to": ["people"],
+  "sharing": "internal",
+  "confidential": false,
+  "allow_multiple": true,
+  "show_in_record": true,
+  "searchable": true,
+  "fields": [
+    { "field_type": "rating",        "label": "Overall Rating",       "api_key": "overall_rating",    "required": true,  "options": [] },
+    { "field_type": "select",        "label": "Recommendation",       "api_key": "recommendation",    "required": true,  "options": ["Strong Yes","Yes","Maybe","No"] },
+    { "field_type": "textarea",      "label": "Technical Skills",     "api_key": "technical_skills",  "required": false, "options": [] },
+    { "field_type": "textarea",      "label": "Behavioural Notes",    "api_key": "behavioural_notes", "required": false, "options": [] },
+    { "field_type": "text",          "label": "Interviewer Name",     "api_key": "interviewer_name",  "required": false, "options": [] }
+  ]
+}
+</CREATE_FORM>
+
+FORM RULES:
+- category must be one of: general, screening, interview, survey, confidential
+- applies_to is an array of object slugs: "people", "jobs", "talent_pools"
+- field_type options: text, textarea, number, email, phone, url, date, select, multi_select, rating, boolean, currency
+- For select/multi_select fields, always include an "options" array of strings
+- api_key must be lowercase with underscores, no spaces (auto-derive from label if not obvious)
+- Be proactive — suggest 4-8 sensible fields based on the form's purpose
+- rating fields go from 1-5 stars automatically — no options needed
+- boolean fields render as Yes/No toggle — no options needed
+- Always confirm fields with user before outputting the block`;
 
 const QUICK_ACTIONS = [
   { id:"summarise", icon:"fileText",  label:"Summarise profile",    prompt:"Please provide a concise professional summary of this candidate profile, highlighting their key strengths." },
@@ -584,6 +622,7 @@ const CREATE_ACTIONS = [
   { id:"new-pool",     icon:"layers",    label:"New Talent Pool", prompt:"I want to create a new talent pool" },
   { id:"new-workflow",   icon:"workflow",  label:"New Workflow",    prompt:"I want to create a new workflow" },
   { id:"new-interview",  icon:"calendar",  label:"Schedule Interview", prompt:"I want to schedule an interview" },
+  { id:"new-form",       icon:"form",      label:"Create Form",        prompt:"I want to create a new form" },
   { id:"new-user",     icon:"user",      label:"Invite User",     prompt:"I want to invite a new user" },
   { id:"new-role",     icon:"shield",    label:"New Role",        prompt:"I want to create a new role" },
   { id:"search",       icon:"search",    label:"Search records",  prompt:"Search for " },
@@ -609,6 +648,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   const [adminUsers,   setAdminUsers]   = useState([]);
   const [interviewTypes, setInterviewTypes] = useState([]);
   const [pendingInterview, setPendingInterview] = useState(null);
+  const [pendingForm,      setPendingForm]      = useState(null);
   const bottomRef = useRef(null);
   const inputRef  = useRef(null);
 
@@ -677,6 +717,12 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     try { return JSON.parse(match[1].trim()); } catch { return null; }
   };
 
+  const parseCreateForm = (text) => {
+    const match = text.match(/<CREATE_FORM>([\s\S]*?)<\/CREATE_FORM>/);
+    if (!match) return null;
+    try { return JSON.parse(match[1].trim()); } catch { return null; }
+  };
+
   const parseSearchQuery = (text) => {
     const match = text.match(/<SEARCH_QUERY>([\s\S]*?)<\/SEARCH_QUERY>/);
     if (!match) return null;
@@ -692,6 +738,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     .replace(/<CREATE_USER>[\s\S]*?<\/CREATE_USER>/g,"")
     .replace(/<CREATE_ROLE>[\s\S]*?<\/CREATE_ROLE>/g,"")
     .replace(/<SCHEDULE_INTERVIEW>[\s\S]*?<\/SCHEDULE_INTERVIEW>/g,"")
+    .replace(/<CREATE_FORM>[\s\S]*?<\/CREATE_FORM>/g,"")
     .replace(/<SEARCH_QUERY>[\s\S]*?<\/SEARCH_QUERY>/g,"")
     .trim();
 
@@ -728,6 +775,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     setPendingUser(null);
     setPendingRole(null);
     setPendingInterview(null);
+    setPendingForm(null);
 
     const newMessages=[...messages,{role:"user",content:userMsg,ts:new Date()}];
     setMessages(newMessages);
@@ -788,6 +836,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       const userData      = parseCreateUser(reply);
       const roleData      = parseCreateRole(reply);
       const interviewData = parseScheduleInterview(reply);
+      const formData2     = parseCreateForm(reply);
       const displayText = stripBlocks(reply);
       const msgIndex = newMessages.length;
 
@@ -796,14 +845,16 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         : userData       ? `I've prepared the invite for **${userData.first_name} ${userData.last_name}**:`
         : roleData       ? `I've prepared the **${roleData.name}** role:`
         : interviewData  ? `I've prepared the interview for **${interviewData.candidate_name||'the candidate'}**:`
+        : formData2      ? `I've designed the **${formData2.name}** form:`
         : "";
 
-      setMessages(m=>[...m,{role:"assistant",content:displayText||fallbackMsg,ts:new Date(),hasCreate:!!createData,hasWorkflow:!!workflowData,hasUser:!!userData,hasRole:!!roleData,hasInterview:!!interviewData,hasSearch:searchHits.length>0,searchIndex:msgIndex}]);
+      setMessages(m=>[...m,{role:"assistant",content:displayText||fallbackMsg,ts:new Date(),hasCreate:!!createData,hasWorkflow:!!workflowData,hasUser:!!userData,hasRole:!!roleData,hasInterview:!!interviewData,hasForm:!!formData2,hasSearch:searchHits.length>0,searchIndex:msgIndex}]);
       if(createData)    setPendingRecord(createData);
       if(workflowData)  setPendingWorkflow(workflowData);
       if(userData)      setPendingUser(userData);
       if(roleData)      setPendingRole(roleData);
       if(interviewData) setPendingInterview(interviewData);
+      if(formData2)     setPendingForm(formData2);
 
     } catch(err){
       setMessages(m=>[...m,{role:"assistant",content:"I encountered an error. Please check your API key is set on the server.",ts:new Date(),error:true}]);
@@ -930,6 +981,44 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       setPendingInterview(null);
     } catch(err) {
       setMessages(m=>[...m,{role:"assistant",content:`Failed to schedule interview: ${err.message}`,ts:new Date(),error:true}]);
+    }
+    setCreating(false);
+  };
+
+  const handleConfirmForm = async () => {
+    if (!pendingForm || !environment?.id) return;
+    setCreating(true);
+    try {
+      // Ensure each field has a unique id and api_key
+      const fields = (pendingForm.fields || []).map((f, i) => ({
+        ...f,
+        id: `field_${i}_${Math.random().toString(36).slice(2,6)}`,
+        api_key: f.api_key || f.label?.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'') || `field_${i}`,
+        options: f.options || [],
+        searchable: f.searchable !== false,
+        confidential: !!f.confidential,
+        required: !!f.required,
+        show_in_list: !!f.show_in_list,
+      }));
+      const form = await api.post("/forms", {
+        environment_id: environment.id,
+        name:           pendingForm.name,
+        description:    pendingForm.description || '',
+        category:       pendingForm.category    || 'general',
+        applies_to:     pendingForm.applies_to  || ['people'],
+        sharing:        pendingForm.sharing      || 'internal',
+        confidential:   pendingForm.confidential || false,
+        allow_multiple: pendingForm.allow_multiple !== false,
+        show_in_record: pendingForm.show_in_record !== false,
+        searchable:     pendingForm.searchable !== false,
+        parseable:      pendingForm.parseable   !== false,
+        fields,
+        created_by:     'Copilot',
+      });
+      setMessages(m=>[...m,{role:"assistant",content:`✅ Form **${form.name}** created with ${fields.length} field${fields.length!==1?'s':''}! Find it in Settings → Forms to edit or attach it to records.`,ts:new Date()}]);
+      setPendingForm(null);
+    } catch(err) {
+      setMessages(m=>[...m,{role:"assistant",content:`Failed to create form: ${err.message}`,ts:new Date(),error:true}]);
     }
     setCreating(false);
   };
@@ -1180,6 +1269,46 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                       <button onClick={()=>setPendingInterview(null)} style={{flex:1,padding:"8px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.text2,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>Discard</button>
                       <button onClick={handleConfirmInterview} disabled={creating} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:"#7C3AED",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                         {creating?<><Ic n="loader" s={12}/> Scheduling…</>:<><Ic n="check" s={12}/> Confirm Interview</>}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Form Creation Card ── */}
+                {pendingForm&&(
+                  <div style={{margin:"8px 0",padding:"14px",borderRadius:12,border:"1.5px solid #0CAF77",background:"#F0FDF4"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                      <div style={{width:28,height:28,borderRadius:8,background:"#0CAF77",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                        <Ic n="form" s={14} c="white"/>
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:700,color:"#111827"}}>{pendingForm.name}</div>
+                        <div style={{fontSize:11,color:"#0CAF77",fontWeight:600,textTransform:"capitalize"}}>
+                          {pendingForm.category} · {(pendingForm.applies_to||[]).join(', ')}
+                          {pendingForm.confidential&&" · 🔒 Confidential"}
+                        </div>
+                      </div>
+                      <div style={{fontSize:11,color:"#0CAF77",fontWeight:700,background:"#DCFCE7",padding:"3px 8px",borderRadius:99,flexShrink:0}}>
+                        {(pendingForm.fields||[]).filter(f=>f.field_type!=='section').length} fields
+                      </div>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:3,marginBottom:12,maxHeight:160,overflowY:"auto"}}>
+                      {(pendingForm.fields||[]).map((f,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",background:"white",borderRadius:6,border:"1px solid #D1FAE5",fontSize:12}}>
+                          <span style={{color:"#059669",fontWeight:700,width:90,flexShrink:0,fontSize:10,textTransform:"uppercase"}}>{f.field_type}</span>
+                          <span style={{color:"#111827",flex:1}}>{f.label}</span>
+                          {f.required&&<span style={{fontSize:9,color:"#EF4444",fontWeight:700,flexShrink:0}}>REQ</span>}
+                          {f.options?.length>0&&<span style={{fontSize:9,color:"#6B7280",flexShrink:0}}>{f.options.length} opts</span>}
+                        </div>
+                      ))}
+                    </div>
+                    {pendingForm.description&&(
+                      <div style={{fontSize:11,color:"#6B7280",marginBottom:10,fontStyle:"italic"}}>{pendingForm.description}</div>
+                    )}
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={()=>setPendingForm(null)} style={{flex:1,padding:"8px",borderRadius:8,border:"1px solid #E5E7EB",background:"transparent",color:"#374151",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>Discard</button>
+                      <button onClick={handleConfirmForm} disabled={creating} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:"#0CAF77",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                        {creating?<><Ic n="loader" s={12}/> Creating…</>:<><Ic n="check" s={12}/> Create Form</>}
                       </button>
                     </div>
                   </div>

@@ -10,6 +10,7 @@ import WorkflowsPage from "./Workflows.jsx";
 import PortalsPage from "./Portals.jsx";
 import ReportsPage from "./Reports.jsx";
 import Interviews from "./Interviews.jsx";
+import SuperAdminConsole from "./SuperAdminConsole.jsx";
 import { ThemeProvider, useTheme, SCHEMES, FONTS, DENSITIES } from "./Theme.jsx";
 import { useI18n } from "./i18n/I18nContext.jsx";
 import LoginPage from "./LoginPage.jsx";
@@ -955,6 +956,11 @@ function RecordPage({ recordId, objectId, environment, allObjects, onBack, onNav
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 function App() {
+  // Super Admin route — completely separate from main app
+  if (window.location.pathname === '/superadmin') {
+    return <SuperAdminConsole />;
+  }
+
   const { prefs, update } = useTheme();
   const { t, isRTL } = useI18n();
   const [session, setSession]   = useState(() => getSession()); // { user, role, permissions }

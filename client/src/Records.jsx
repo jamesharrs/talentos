@@ -271,102 +271,112 @@ const PeoplePicker = ({ field, value, onChange }) => {
   const [search, setSearch] = useState("");
   const [options, setOptions] = useState([]);
   const [open, setOpen] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const ref = useRef(null);
-  const isMulti = field.people_multi !== false;
+  const inputRef = useRef(null);
+  const isMulti = field.field_type === "multi_lookup" || field.field_type === "people" || field.people_multi !== false;
   const selected = Array.isArray(value) ? value : (value ? [value] : []);
 
   useEffect(() => {
-    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) { setOpen(false); setSearch(""); } };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
+  // Load options once on first open
   useEffect(() => {
-    if (!open || !_currentEnvId) return;
-    // For multi_lookup/lookup, use lookup_object_id directly if available
-    if (field.lookup_object_id) {
-      api.get(`/records?object_id=${field.lookup_object_id}&environment_id=${_currentEnvId}&limit=200`)
+    if (!open || loaded || !_currentEnvId) return;
+    const fetchRecords = (objectId) =>
+      api.get(`/records?object_id=${objectId}&environment_id=${_currentEnvId}&limit=200`)
         .then(res => {
           const recs = Array.isArray(res) ? res : (res.records || []);
           setOptions(recs.map(r => ({
             id: r.id,
             name: `${r.data?.first_name||""} ${r.data?.last_name||""}`.trim() || r.data?.name || r.data?.job_title || r.id
           })));
+          setLoaded(true);
         }).catch(() => {});
-      return;
-    }
-    // Fallback: resolve by slug
+
+    if (field.lookup_object_id) { fetchRecords(field.lookup_object_id); return; }
     const slug = field.related_object_slug || "people";
     api.get(`/objects?environment_id=${_currentEnvId}`)
-      .then(objs => {
-        const obj = (Array.isArray(objs) ? objs : []).find(o => o.slug === slug);
-        if (!obj) return;
-        return api.get(`/records?object_id=${obj.id}&environment_id=${_currentEnvId}&limit=200`);
-      })
-      .then(res => {
-        if (!res) return;
-        const recs = Array.isArray(res) ? res : (res.records || []);
-        setOptions(recs.map(r => ({
-          id: r.id,
-          name: `${r.data?.first_name||""} ${r.data?.last_name||""}`.trim() || r.data?.name || r.data?.job_title || r.id
-        })));
-      }).catch(() => {});
-  }, [open, field.lookup_object_id, field.related_object_slug]);
+      .then(objs => (Array.isArray(objs) ? objs : []).find(o => o.slug === slug))
+      .then(obj => obj && fetchRecords(obj.id))
+      .catch(() => {});
+  }, [open, loaded, field.lookup_object_id, field.related_object_slug]);
 
   const filtered = options.filter(o => o.name.toLowerCase().includes(search.toLowerCase()));
   const isSelected = id => selected.some(s => (typeof s === "object" ? s.id : s) === id);
+  const inits = name => (name||"?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
 
-  const toggle = (opt) => {
+  const toggle = (opt, e) => {
+    e?.stopPropagation();
+    const already = isSelected(opt.id);
     if (isMulti) {
-      const already = isSelected(opt.id);
-      onChange(already ? selected.filter(s => (typeof s==="object"?s.id:s) !== opt.id) : [...selected, {id:opt.id,name:opt.name}]);
+      onChange(already ? selected.filter(s=>(typeof s==="object"?s.id:s)!==opt.id) : [...selected,{id:opt.id,name:opt.name}]);
+      setSearch(""); inputRef.current?.focus();
     } else {
-      onChange(isSelected(opt.id) ? [] : [{id:opt.id,name:opt.name}]);
-      setOpen(false);
+      onChange(already ? [] : [{id:opt.id,name:opt.name}]);
+      setOpen(false); setSearch("");
     }
   };
 
-  const remove = (id) => onChange(selected.filter(s => (typeof s==="object"?s.id:s) !== id));
-
-  const initials = name => name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+  const remove = (id, e) => { e.stopPropagation(); onChange(selected.filter(s=>(typeof s==="object"?s.id:s)!==id)); };
 
   return (
     <div ref={ref} style={{position:"relative"}}>
-      {/* Selected pills */}
-      <div onClick={() => setOpen(o=>!o)} style={{display:"flex",flexWrap:"wrap",gap:4,padding:"6px 8px",borderRadius:8,border:`1.5px solid ${open?C.accent:C.border}`,background:C.surface,cursor:"pointer",minHeight:36,alignItems:"center"}}>
+      {/* Combined pill + search input box */}
+      <div onClick={()=>{ setOpen(true); setTimeout(()=>inputRef.current?.focus(),10); }}
+        style={{display:"flex",flexWrap:"wrap",gap:4,padding:"5px 8px",borderRadius:8,
+          border:`1.5px solid ${open?C.accent:C.border}`,background:C.surface,cursor:"text",
+          minHeight:36,alignItems:"center",transition:"border-color .15s"}}>
         {selected.map((s,i) => {
           const name = typeof s==="object" ? s.name : s;
           const id   = typeof s==="object" ? s.id   : s;
           return (
-            <span key={i} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"2px 6px 2px 4px",borderRadius:99,background:`${C.accent}12`,border:`1px solid ${C.accent}28`,fontSize:12,fontWeight:600,color:C.accent}}>
-              <span style={{width:16,height:16,borderRadius:"50%",background:C.accent,color:"#fff",fontSize:8,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{initials(name||"?")}</span>
+            <span key={i} style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 6px 2px 3px",
+              borderRadius:99,background:`${C.accent}12`,border:`1px solid ${C.accent}28`,fontSize:12,fontWeight:600,color:C.accent}}>
+              <span style={{width:16,height:16,borderRadius:"50%",background:C.accent,color:"#fff",fontSize:8,
+                fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                {inits(name)}
+              </span>
               {name}
-              <button onClick={e=>{e.stopPropagation();remove(id);}} style={{background:"none",border:"none",cursor:"pointer",color:C.accent,padding:0,fontSize:14,lineHeight:1,opacity:0.6}}>×</button>
+              <button onClick={e=>remove(id,e)} style={{background:"none",border:"none",cursor:"pointer",
+                color:C.accent,padding:"0 0 0 2px",fontSize:13,lineHeight:1,opacity:0.5,display:"flex",alignItems:"center"}}>×</button>
             </span>
           );
         })}
-        {selected.length === 0 && <span style={{color:C.text3,fontSize:13}}>Select {isMulti?"people":"person"}…</span>}
+        <input ref={inputRef} value={search} onChange={e=>{ setSearch(e.target.value); setOpen(true); }}
+          onFocus={()=>setOpen(true)}
+          placeholder={selected.length===0?(field.placeholder||`Search ${field.name||"people"}…`):""}
+          style={{border:"none",outline:"none",fontSize:13,fontFamily:F,color:C.text1,background:"transparent",
+            minWidth:80,flex:1,padding:"1px 0"}}/>
       </div>
       {/* Dropdown */}
       {open && (
-        <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,zIndex:400,background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,boxShadow:"0 6px 20px rgba(0,0,0,.12)",maxHeight:220,display:"flex",flexDirection:"column"}}>
-          <div style={{padding:"6px 8px",borderBottom:`1px solid ${C.border}`}}>
-            <input autoFocus value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search…"
-              style={{width:"100%",border:"none",outline:"none",fontSize:13,fontFamily:F,color:C.text1,background:"transparent"}}/>
-          </div>
-          <div style={{overflowY:"auto",flex:1}}>
-            {filtered.length === 0 && <div style={{padding:"12px",fontSize:12,color:C.text3,textAlign:"center"}}>{options.length===0?"Loading…":"No matches"}</div>}
-            {filtered.map(opt => (
-              <div key={opt.id} onClick={()=>toggle(opt)}
-                style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",cursor:"pointer",background:isSelected(opt.id)?`${C.accent}08`:"transparent",transition:"background .1s"}}
-                onMouseEnter={e=>e.currentTarget.style.background=isSelected(opt.id)?`${C.accent}12`:"#f8f9fc"}
-                onMouseLeave={e=>e.currentTarget.style.background=isSelected(opt.id)?`${C.accent}08`:"transparent"}>
-                <span style={{width:24,height:24,borderRadius:"50%",background:isSelected(opt.id)?C.accent:`${C.accent}20`,color:isSelected(opt.id)?"#fff":C.accent,fontSize:9,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{initials(opt.name||"?")}</span>
-                <span style={{fontSize:13,fontWeight:isSelected(opt.id)?700:500,color:isSelected(opt.id)?C.accent:C.text1}}>{opt.name}</span>
-                {isSelected(opt.id) && <span style={{marginLeft:"auto",color:C.accent,fontSize:16}}>✓</span>}
-              </div>
-            ))}
-          </div>
+        <div style={{position:"absolute",top:"calc(100% + 3px)",left:0,right:0,zIndex:400,background:C.surface,
+          border:`1px solid ${C.border}`,borderRadius:9,boxShadow:"0 8px 24px rgba(0,0,0,.1)",
+          maxHeight:200,overflowY:"auto"}}>
+          {!loaded && <div style={{padding:"12px",fontSize:12,color:C.text3,textAlign:"center"}}>Loading…</div>}
+          {loaded && filtered.length===0 && <div style={{padding:"12px",fontSize:12,color:C.text3,textAlign:"center"}}>No matches</div>}
+          {filtered.map(opt => (
+            <div key={opt.id} onMouseDown={e=>toggle(opt,e)}
+              style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",cursor:"pointer",
+                background:isSelected(opt.id)?`${C.accent}08`:"transparent"}}
+              onMouseEnter={e=>e.currentTarget.style.background=`${C.accent}08`}
+              onMouseLeave={e=>e.currentTarget.style.background=isSelected(opt.id)?`${C.accent}08`:"transparent"}>
+              <span style={{width:26,height:26,borderRadius:"50%",flexShrink:0,
+                background:isSelected(opt.id)?C.accent:`${C.accent}18`,
+                color:isSelected(opt.id)?"#fff":C.accent,
+                fontSize:10,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>
+                {inits(opt.name)}
+              </span>
+              <span style={{fontSize:13,color:C.text1,fontWeight:isSelected(opt.id)?600:400,flex:1}}>{opt.name}</span>
+              {isSelected(opt.id) && (
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

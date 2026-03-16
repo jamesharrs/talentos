@@ -229,9 +229,13 @@ const SimplePeoplePicker = ({ value, onChange, envId, multi=true, placeholder="S
 
   useEffect(() => {
     if (!open || !envId) return;
-    api.get(`/records?environment_id=${envId}&object_slug=people&limit=200`).then(res => {
-      const recs = Array.isArray(res) ? res : (res.records||[]);
-      setOpts(recs.map(r => ({ id:r.id, name:`${r.data?.first_name||""} ${r.data?.last_name||""}`.trim()||r.id })));
+    api.get(`/objects?environment_id=${envId}`).then(objs => {
+      const ppl = (Array.isArray(objs) ? objs : []).find(o => o.slug === "people");
+      if (!ppl) return;
+      api.get(`/records?object_id=${ppl.id}&environment_id=${envId}&limit=200`).then(res => {
+        const recs = Array.isArray(res) ? res : (res.records||[]);
+        setOpts(recs.map(r => ({ id:r.id, name:`${r.data?.first_name||""} ${r.data?.last_name||""}`.trim()||r.id })));
+      });
     }).catch(()=>{});
   }, [open, envId]);
 

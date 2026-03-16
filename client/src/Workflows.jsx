@@ -276,6 +276,13 @@ const StepCard = ({ step, index, total, onChange, onDelete, onMoveUp, onMoveDown
                 </div>
               </div>
             )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave, onClose }) => {
   const [name, setName]       = useState(workflow?.name || "");
   const [objectId, setObjectId] = useState(workflow?.object_id || "");

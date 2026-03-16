@@ -10,6 +10,7 @@ import WorkflowsPage from "./Workflows.jsx";
 import PortalsPage from "./Portals.jsx";
 import ReportsPage from "./Reports.jsx";
 import Interviews from "./Interviews.jsx";
+import OffersModule from "./Offers.jsx";
 import SuperAdminConsole from "./SuperAdminConsole.jsx";
 import { ThemeProvider, useTheme, SCHEMES, FONTS, DENSITIES } from "./Theme.jsx";
 import { useI18n } from "./i18n/I18nContext.jsx";
@@ -1019,6 +1020,7 @@ function App() {
       items: [
         { id: "orgchart",   icon: "git-branch",  label: t("nav.orgChart") },
         { id: "interviews", icon: "calendar",     label: t("nav.interviews") },
+        { id: "offers",     icon: "dollar",       label: "Offers" },
         { id: "matching",   icon: "zap",          label: t("nav.aiMatching") },
         { id: "reports",    icon: "bar-chart-2",  label: t("nav.reports") },
         { id: "search",     icon: "search",       label: t("nav.search") },
@@ -1260,6 +1262,10 @@ function App() {
         ) : activeNav === "interviews" ? (
           <div style={{ padding:"28px 32px", flex:1, overflow:"auto" }}>
             <Interviews environment={selectedEnv} />
+          </div>
+        ) : activeNav === "offers" ? (
+          <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
+            <OffersModule environment={selectedEnv} />
           </div>
         ) : activeNav === "schema" ? (
           selectedObject

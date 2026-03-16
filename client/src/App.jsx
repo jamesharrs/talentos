@@ -1,17 +1,21 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import SettingsPage from "./Settings.jsx";
-import OrgChart from "./OrgChart.jsx";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+
+// Heavy modules — loaded on demand only when navigated to
+const SettingsPage    = lazy(() => import("./Settings.jsx"));
+const OrgChart        = lazy(() => import("./OrgChart.jsx"));
+const SearchPage      = lazy(() => import("./Search.jsx"));
+const Dashboard       = lazy(() => import("./Dashboard.jsx"));
+const ObjectApp       = lazy(() => import("./ObjectApp.jsx"));
+const WorkflowsPage   = lazy(() => import("./Workflows.jsx"));
+const PortalsPage     = lazy(() => import("./Portals.jsx"));
+const ReportsPage     = lazy(() => import("./Reports.jsx"));
+const Interviews      = lazy(() => import("./Interviews.jsx"));
+const OffersModule    = lazy(() => import("./Offers.jsx"));
+const SuperAdminConsole = lazy(() => import("./SuperAdminConsole.jsx"));
+
+// Records loaded eagerly — used everywhere for record detail navigation
 import RecordsView, { RecordDetail } from "./Records.jsx";
-import SearchPage from "./Search.jsx";
 import { AICopilot, MatchingEngine } from "./AI.jsx";
-import Dashboard from "./Dashboard.jsx";
-import ObjectApp from "./ObjectApp.jsx";
-import WorkflowsPage from "./Workflows.jsx";
-import PortalsPage from "./Portals.jsx";
-import ReportsPage from "./Reports.jsx";
-import Interviews from "./Interviews.jsx";
-import OffersModule from "./Offers.jsx";
-import SuperAdminConsole from "./SuperAdminConsole.jsx";
 import { ThemeProvider, useTheme, SCHEMES, FONTS, DENSITIES } from "./Theme.jsx";
 import { useI18n } from "./i18n/I18nContext.jsx";
 import LoginPage from "./LoginPage.jsx";
@@ -1225,7 +1229,9 @@ function App() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300, color: "#9ca3af" }}>Loading…</div>
         ) : !selectedEnv ? (
           <div style={{ textAlign: "center", padding: 60, color: "#9ca3af" }}>No environments found.</div>
-        ) : activeNav === "dashboard" ? (
+        ) : (
+        <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}>
+        { activeNav === "dashboard" ? (
           <Dashboard environment={selectedEnv} session={session} onOpenRecord={openRecord} onNavigate={(slug) => {
             if (slug === "matching") { setActiveNav("matching"); return; }
             if (slug === "search")   { setActiveNav("search");   return; }
@@ -1277,6 +1283,8 @@ function App() {
             ? <RecordsView object={selectedObject} environment={selectedEnv} />
             : <ObjectsListView environment={selectedEnv} onSelectObject={(obj, objs) => { setSelectedObject(obj); setAllObjects(objs); }} mode="app" />
         ) : null}
+        </Suspense>
+        )}
         </div>
       </div>
       <AICopilot environment={selectedEnv} onNavigateToRecord={(record) => {

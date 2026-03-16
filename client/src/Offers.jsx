@@ -785,7 +785,9 @@ export default function OffersModule({ environment }) {
         </div>
         <div style={{display:"flex",gap:8,paddingBottom:16}}>
           <div style={{flex:1,position:"relative"}}>
-            <Ic n="search" s={14} c={C.text3}/>
+            <div style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",display:"flex"}}>
+              <Ic n="search" s={14} c={C.text3}/>
+            </div>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search candidates, jobs…"
               style={{width:"100%",padding:"8px 12px 8px 34px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:F,outline:"none",color:C.text1,boxSizing:"border-box"}}/>
           </div>

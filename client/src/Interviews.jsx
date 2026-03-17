@@ -54,6 +54,8 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     graduation:"M22 10v6M2 10l10-5 10 5-10 5zM6 12v5c3 3 9 3 12 0v-5",
     megaphone:"M3 11l19-9-9 19-2-8-8-2z",
     "check-circle":"M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3",
+    "help-circle":"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01",
+    list:"M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
   };
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d={P[n]||""}/></svg>;
 };
@@ -572,12 +574,25 @@ const ScheduleModal = ({ interviewType, envId, onSave, onClose, initialValues })
 
 
 // ── Scheduled Interview Row ───────────────────────────────────────────────────
-const InterviewRow = ({ interview, onEdit, onDelete }) => {
+const InterviewRow = ({ interview, onEdit, onDelete, envId }) => {
   const meta = INTERVIEW_TYPES.find(t=>t.value===interview.interview_format)||INTERVIEW_TYPES[1];
   const dt = interview.date ? new Date(`${interview.date}T${interview.time||"09:00"}`) : null;
   const isPast = dt && dt < new Date();
   const statusColor = isPast ? C.text3 : interview.status==="confirmed" ? C.green : C.amber;
   const statusLabel = isPast ? "Completed" : interview.status==="confirmed" ? "Confirmed" : "Pending";
+  const [botToken, setBotToken] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    api.get(`/bot/sessions/by-interview/${interview.id}`)
+      .then(s => s?.token && setBotToken(s.token))
+      .catch(() => {});
+  }, [interview.id]);
+
+  const copyBotLink = () => {
+    const url = `${window.location.origin}/bot/${botToken}`;
+    navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  };
 
   return (
     <div style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",borderBottom:`1px solid ${C.border}`,transition:"background .1s"}}
@@ -597,6 +612,11 @@ const InterviewRow = ({ interview, onEdit, onDelete }) => {
         <span style={{fontSize:11,fontWeight:700,padding:"3px 8px",borderRadius:99,background:`${statusColor}14`,color:statusColor}}>{statusLabel}</span>
       </div>
       <div style={{display:"flex",gap:4,flexShrink:0}}>
+        {botToken && (
+          <button onClick={copyBotLink} title="Copy pre-screen link" style={{background:copied?"#d1fae5":"none",border:`1px solid ${copied?"#6ee7b7":"#e5e7eb"}`,cursor:"pointer",padding:"4px 8px",borderRadius:7,color:copied?"#059669":C.text3,fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:4,transition:"all .15s"}}>
+            <Ic n={copied?"check":"link"} s={11}/>{copied?"Copied!":"Pre-screen"}
+          </button>
+        )}
         <button onClick={onEdit} style={{background:"none",border:"none",cursor:"pointer",padding:5,borderRadius:7,color:C.text3}}><Ic n="edit" s={13}/></button>
         <button onClick={onDelete} style={{background:"none",border:"none",cursor:"pointer",padding:5,borderRadius:7,color:C.text3}}><Ic n="trash" s={13}/></button>
       </div>
@@ -605,11 +625,87 @@ const InterviewRow = ({ interview, onEdit, onDelete }) => {
 };
 
 // ── Main Interviews Module ────────────────────────────────────────────────────
+// ── Question Bank View ────────────────────────────────────────────────────────
+const TYPE_COLORS = { knockout:"#dc2626", competency:"#2563eb", technical:"#7c3aed", culture:"#059669" };
+const TYPE_LABELS = { knockout:"Eligibility / Knockout", competency:"Competency / Behavioural", technical:"Technical", culture:"Culture Fit" };
+
+const AddQuestionModal = ({ onSave, onClose }) => {
+  const [form, setForm] = useState({ text:"", type:"competency", competency:"", weight:10, options:"", pass_value:"" });
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2000}} onClick={onClose}>
+      <div style={{background:"white",borderRadius:16,padding:28,width:520,maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:20}}>Add Question</div>
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:12,fontWeight:700,color:"#6b7280",display:"block",marginBottom:5}}>Question text</label>
+          <textarea value={form.text} onChange={e=>set("text",e.target.value)} rows={3} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:13,resize:"vertical",fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} placeholder="Enter the question…"/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+          <div>
+            <label style={{fontSize:12,fontWeight:700,color:"#6b7280",display:"block",marginBottom:5}}>Type</label>
+            <select value={form.type} onChange={e=>set("type",e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid #e5e7eb",fontSize:13,outline:"none"}}>
+              {Object.entries(TYPE_LABELS).map(([v,l])=><option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{fontSize:12,fontWeight:700,color:"#6b7280",display:"block",marginBottom:5}}>Weight (pts)</label>
+            <input type="number" min={1} max={50} value={form.weight} onChange={e=>set("weight",Number(e.target.value))} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid #e5e7eb",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+          </div>
+        </div>
+        {form.type==="knockout" && (
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#6b7280",display:"block",marginBottom:5}}>Options (comma-separated)</label><input value={form.options} onChange={e=>set("options",e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid #e5e7eb",fontSize:13,outline:"none",boxSizing:"border-box"}} placeholder="Yes, No"/></div>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#6b7280",display:"block",marginBottom:5}}>Pass value</label><input value={form.pass_value} onChange={e=>set("pass_value",e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid #e5e7eb",fontSize:13,outline:"none",boxSizing:"border-box"}} placeholder="Yes"/></div>
+          </div>
+        )}
+        <div style={{display:"flex",gap:10,marginTop:20}}>
+          <button onClick={onClose} style={{flex:1,padding:"10px",borderRadius:10,border:"1px solid #e5e7eb",background:"white",fontSize:13,cursor:"pointer"}}>Cancel</button>
+          <button onClick={()=>onSave({...form,options:form.options?form.options.split(",").map(s=>s.trim()):null,pass_value:form.pass_value||null})} disabled={!form.text.trim()} style={{flex:2,padding:"10px",borderRadius:10,border:"none",background:"#4361ee",color:"white",fontSize:13,fontWeight:700,cursor:"pointer"}}>Add Question</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const QuestionBankView = ({ questions, onDelete, showAdd, onSaveAdd, onCloseAdd }) => {
+  const grouped = ["knockout","competency","technical","culture"].reduce((acc,t)=>({...acc,[t]:questions.filter(q=>q.type===t)}),[]);
+  return (
+    <div>
+      {Object.entries(grouped).map(([type, qs]) => (
+        <div key={type} style={{marginBottom:20}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+            <span style={{fontSize:11,fontWeight:700,color:TYPE_COLORS[type],textTransform:"uppercase",letterSpacing:"0.06em"}}>{TYPE_LABELS[type]}</span>
+            <span style={{fontSize:11,color:"#9ca3af"}}>({qs.length})</span>
+          </div>
+          {qs.length===0 ? <div style={{padding:"12px 16px",borderRadius:10,border:"1px dashed #e5e7eb",fontSize:13,color:"#9ca3af",textAlign:"center"}}>No {TYPE_LABELS[type].toLowerCase()} questions yet</div>
+          : qs.map(q=>(
+            <div key={q.id} style={{display:"flex",alignItems:"flex-start",gap:12,padding:"12px 16px",borderRadius:10,border:"1px solid #e5e7eb",marginBottom:6,background:"white"}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,color:"#111827",lineHeight:1.5,marginBottom:4}}>{q.text}</div>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <span style={{fontSize:11,fontWeight:700,padding:"2px 6px",borderRadius:99,background:`${TYPE_COLORS[type]}14`,color:TYPE_COLORS[type]}}>{TYPE_LABELS[type]}</span>
+                  <span style={{fontSize:11,color:"#9ca3af"}}>{q.weight} pts</span>
+                  {q.options && <span style={{fontSize:11,color:"#9ca3af"}}>Options: {q.options.join(", ")}</span>}
+                  {q.is_custom && <span style={{fontSize:11,fontWeight:700,color:"#7c3aed",background:"#f5f3ff",padding:"2px 6px",borderRadius:99}}>Custom</span>}
+                </div>
+              </div>
+              {q.is_custom && <button onClick={()=>onDelete(q.id)} style={{background:"none",border:"none",cursor:"pointer",padding:4,color:"#9ca3af",flexShrink:0,borderRadius:6}}><svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button>}
+            </div>
+          ))}
+        </div>
+      ))}
+      {showAdd && <AddQuestionModal onSave={onSaveAdd} onClose={onCloseAdd}/>}
+    </div>
+  );
+};
+
 export default function Interviews({ environment }) {
   const envId = environment?.id;
-  const [view, setView]             = useState("types"); // "types" | "scheduled"
+  const [view, setView]             = useState("types"); // "types" | "scheduled" | "questions"
   const [types, setTypes]           = useState([]);
   const [scheduled, setScheduled]   = useState([]);
+  const [questions, setQuestions]   = useState([]);
+  const [showAddQuestion, setShowAddQuestion] = useState(false);
   const [loading, setLoading]       = useState(true);
   const [showForm, setShowForm]     = useState(false);
   const [editType, setEditType]     = useState(null);
@@ -620,12 +716,14 @@ export default function Interviews({ environment }) {
     if (!envId) return;
     setLoading(true);
     try {
-      const [t, s] = await Promise.all([
+      const [t, s, q] = await Promise.all([
         api.get(`/interview-types?environment_id=${envId}`),
         api.get(`/interviews?environment_id=${envId}`),
+        api.get(`/bot/questions`),
       ]);
       setTypes(Array.isArray(t)?t:[]);
       setScheduled(Array.isArray(s)?s:[]);
+      setQuestions(Array.isArray(q)?q:[]);
     } catch(e) { console.error(e); }
     setLoading(false);
   }, [envId]);
@@ -690,7 +788,7 @@ export default function Interviews({ environment }) {
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           {/* View toggle */}
           <div style={{display:"flex",borderRadius:9,border:`1px solid ${C.border}`,overflow:"hidden",background:C.surface}}>
-            {[["types","Types","list"],["scheduled","Scheduled","calendar"]].map(([v,l,icon])=>(
+            {[["types","Types","list"],["scheduled","Scheduled","calendar"],["questions","Question Bank","help-circle"]].map(([v,l,icon])=>(
               <button key={v} onClick={()=>setView(v)} style={{padding:"7px 14px",border:"none",background:view===v?C.accent:"transparent",color:view===v?"#fff":C.text2,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,transition:"all .12s",display:"flex",alignItems:"center",gap:5}}>
                 <Ic n={icon} s={12} c={view===v?"#fff":C.text2}/>{l}
               </button>
@@ -698,6 +796,7 @@ export default function Interviews({ environment }) {
           </div>
           {view==="types" && <Btn v="primary" icon="plus" onClick={()=>{setEditType(null);setShowForm(true);}}>New interview type</Btn>}
           {view==="scheduled" && <Btn v="primary" icon="calendar" onClick={()=>setScheduleFor(types[0]||null)} disabled={types.length===0}>Schedule interview</Btn>}
+          {view==="questions" && <Btn v="primary" icon="plus" onClick={()=>setShowAddQuestion(true)}>Add question</Btn>}
         </div>
       </div>
 
@@ -738,11 +837,11 @@ export default function Interviews({ environment }) {
             : <>
                 {upcoming.length>0 && <>
                   <div style={{padding:"12px 18px",background:"#f8f9fc",borderBottom:`1px solid ${C.border}`,fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em"}}>Upcoming ({upcoming.length})</div>
-                  {upcoming.map(s=><InterviewRow key={s.id} interview={s} onEdit={()=>setEditScheduled(s)} onDelete={()=>handleDeleteScheduled(s.id)}/>)}
+                  {upcoming.map(s=><InterviewRow key={s.id} interview={s} envId={envId} onEdit={()=>setEditScheduled(s)} onDelete={()=>handleDeleteScheduled(s.id)}/>)}
                 </>}
                 {past.length>0 && <>
                   <div style={{padding:"12px 18px",background:"#f8f9fc",borderBottom:`1px solid ${C.border}`,fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em"}}>Past ({past.length})</div>
-                  {past.map(s=><InterviewRow key={s.id} interview={s} onEdit={()=>setEditScheduled(s)} onDelete={()=>handleDeleteScheduled(s.id)}/>)}
+                  {past.map(s=><InterviewRow key={s.id} interview={s} envId={envId} onEdit={()=>setEditScheduled(s)} onDelete={()=>handleDeleteScheduled(s.id)}/>)}
                 </>}
               </>
           }
@@ -758,6 +857,11 @@ export default function Interviews({ environment }) {
         onSave={handleUpdateScheduled}
         onClose={()=>setEditScheduled(null)}
       />}
+
+      {/* Question Bank View */}
+      {!loading && view==="questions" && (
+        <QuestionBankView questions={questions} onAdd={()=>setShowAddQuestion(true)} onDelete={async (id)=>{ await api.del(`/bot/questions/${id}`); load(); }} showAdd={showAddQuestion} onSaveAdd={async (form)=>{ await api.post(`/bot/questions`,form); setShowAddQuestion(false); load(); }} onCloseAdd={()=>setShowAddQuestion(false)}/>
+      )}
     </div>
   );
 }

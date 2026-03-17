@@ -2110,8 +2110,11 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const [recordSearchResults, setRecordSearchResults] = useState([]);
   const recordSearchRef = useRef(null);
   const recordSearchInputRef = useRef(null);
-  const [draggingPanel, setDraggingPanel] = useState(null);
-  const [dragOverPanel, setDragOverPanel] = useState(null);
+  const [draggingPanel, setDraggingPanel] = useState(null);   // id being dragged
+  const [insertBefore,  setInsertBefore]  = useState(null);   // id to insert before (null = end)
+  const dragState    = useRef(null); // { id, cardEls }
+  const insertRef    = useRef(null); // mirrors insertBefore for use inside event closures
+  const rightColRef  = useRef(null);
   const currentObject = (allObjects||[]).find(o => o.id === record?.object_id) || {};
 
   const storageKey = `talentos_panels_${objectName}`;
@@ -2345,15 +2348,62 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     setDocExtractResult(null); setDocExtractAtt(null); load();
   };
 
-  // Drag handlers for panel reorder
-  const onPanelDragStart = (e, id) => { setDraggingPanel(id); e.dataTransfer.effectAllowed="move"; };
-  const onPanelDragOver  = (e, id) => { e.preventDefault(); setDragOverPanel(id); };
-  const onPanelDrop      = (targetId) => {
-    if (!draggingPanel || draggingPanel===targetId) { setDraggingPanel(null); setDragOverPanel(null); return; }
-    const next=[...panelOrder];
-    const from=next.indexOf(draggingPanel), to=next.indexOf(targetId);
-    next.splice(from,1); next.splice(to,0,draggingPanel);
-    savePanelOrder(next); setDraggingPanel(null); setDragOverPanel(null);
+  // ── Mouse-based panel drag-to-reorder ─────────────────────────────────────
+  const startPanelDrag = (id) => {
+    // Collect card DOM elements in current order
+    const cardEls = panelOrder
+      .filter(pid => PANEL_META[pid])
+      .map(pid => ({ id: pid, el: document.querySelector(`[data-panel-id="${pid}"]`) }))
+      .filter(x => x.el);
+
+    insertRef.current = null;
+    dragState.current = { id, cardEls };
+    setDraggingPanel(id);
+    setInsertBefore(null);
+
+    const onMove = (e) => {
+      if (!dragState.current) return;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      // Find which gap the cursor is in — scan each card's midpoint
+      let before = null;
+      for (const { id: pid, el } of dragState.current.cardEls) {
+        if (pid === dragState.current.id) continue;
+        const rect = el.getBoundingClientRect();
+        if (clientY < rect.top + rect.height / 2) { before = pid; break; }
+      }
+      if (insertRef.current !== before) {
+        insertRef.current = before;
+        setInsertBefore(before);
+      }
+    };
+
+    const onUp = () => {
+      if (!dragState.current) return;
+      const fromId = dragState.current.id;
+      const target = insertRef.current;
+      dragState.current = null;
+
+      // Reorder
+      const next = panelOrder.filter(pid => pid !== fromId);
+      const idx  = target === null ? next.length : next.indexOf(target);
+      if (idx !== -1) next.splice(idx, 0, fromId);
+      else next.push(fromId);
+      savePanelOrder(next);
+
+      setDraggingPanel(null);
+      setInsertBefore(null);
+      insertRef.current = null;
+
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup",   onUp);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend",  onUp);
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup",   onUp);
+    window.addEventListener("touchmove", onMove, { passive: true });
+    window.addEventListener("touchend",  onUp);
   };
 
   const title = recordTitle(record, fields);
@@ -2631,57 +2681,43 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
 
   // ── Collapsible draggable panel card (right col) ──
-  // gripActive ref: only allow drag when the grip handle initiated it
   const gripActive = useRef(false);
 
   const PanelCard = ({ id }) => {
     const meta = PANEL_META[id];
     if (!meta) return null;
-    const isOpen = openPanels[id];
+    const isOpen    = openPanels[id];
+    const isDragging = draggingPanel === id;
     const badge = id==="notes" ? notes.length : id==="attachments" ? attachments.length : 0;
-    const isDragOver = dragOverPanel===id;
-
-    const handleDragStart = (e) => {
-      if (!gripActive.current) { e.preventDefault(); return; }
-      onPanelDragStart(e, id);
-    };
-    const handleDragEnd = () => {
-      gripActive.current = false;
-      setDraggingPanel(null);
-      setDragOverPanel(null);
-    };
 
     return (
       <div
-        draggable
-        onDragStart={handleDragStart}
-        onDragOver={e=>onPanelDragOver(e,id)}
-        onDrop={()=>onPanelDrop(id)}
-        onDragEnd={handleDragEnd}
+        data-panel-id={id}
         style={{
-          background:C.surface,
-          border:`1.5px solid ${isDragOver?C.accent:C.border}`,
-          borderRadius:14, marginBottom:12, overflow:"hidden",
-          transition:"border-color .15s, opacity .15s, box-shadow .15s",
-          opacity:draggingPanel===id?0.45:1,
-          boxShadow:isDragOver?`0 0 0 3px ${C.accent}28, 0 4px 16px rgba(0,0,0,.08)`:"0 1px 4px rgba(0,0,0,.04)",
-          transform:draggingPanel===id?"scale(0.98)":"scale(1)",
+          background: C.surface,
+          border: `1.5px solid ${C.border}`,
+          borderRadius: 14, marginBottom: 12, overflow: "hidden",
+          transition: "opacity .15s, box-shadow .15s, transform .1s",
+          opacity:   isDragging ? 0.35 : 1,
+          boxShadow: isDragging ? "none" : "0 1px 4px rgba(0,0,0,.04)",
+          transform: isDragging ? "scale(0.97)" : "scale(1)",
+          cursor: isDragging ? "grabbing" : "default",
         }}>
 
-        {/* Panel header — grip handle initiates drag; rest of header clicks to collapse */}
+        {/* Panel header */}
         <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px",
-          userSelect:"none", borderBottom:isOpen?`1px solid ${C.border}`:"none" }}>
+          userSelect:"none", borderBottom: isOpen ? `1px solid ${C.border}` : "none" }}>
 
-          {/* ⠿ Grip — mousedown arms drag; cursor shows affordance */}
+          {/* ⠿ Grip handle */}
           <div
             title="Drag to reorder"
-            onMouseDown={()=>{ gripActive.current = true; }}
-            onMouseUp={()=>{ gripActive.current = false; }}
-            onClick={e=>e.stopPropagation()}
-            style={{ color:C.text3, cursor:"grab", padding:"2px 3px", display:"flex",
-              flexShrink:0, borderRadius:4, transition:"color .12s, background .12s" }}
+            onMouseDown={e => { e.preventDefault(); startPanelDrag(id); }}
+            onTouchStart={e => { startPanelDrag(id); }}
+            onClick={e => e.stopPropagation()}
+            style={{ color: C.text3, cursor: "grab", padding: "2px 3px",
+              display:"flex", flexShrink:0, borderRadius:4, transition:"color .12s, background .12s" }}
             onMouseEnter={e=>{ e.currentTarget.style.color=C.accent; e.currentTarget.style.background=C.accentLight; }}
-            onMouseLeave={e=>{ e.currentTarget.style.color=C.text3; e.currentTarget.style.background="transparent"; }}>
+            onMouseLeave={e=>{ e.currentTarget.style.color=C.text3;  e.currentTarget.style.background="transparent"; }}>
             <svg width="12" height="18" viewBox="0 0 12 18" fill="none">
               <circle cx="4" cy="4"  r="1.5" fill="currentColor"/>
               <circle cx="9" cy="4"  r="1.5" fill="currentColor"/>
@@ -2692,21 +2728,21 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
             </svg>
           </div>
 
-          {/* Clickable area — collapses/expands the panel */}
+          {/* Clickable label row — collapses/expands */}
           <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, cursor:"pointer" }}
-            onClick={()=>setOpenPanels(p=>{
-              const next={...p,[id]:!p[id]};
-              try{localStorage.setItem(openPanelsKey,JSON.stringify(next));}catch{}
+            onClick={() => setOpenPanels(p => {
+              const next = { ...p, [id]: !p[id] };
+              try { localStorage.setItem(openPanelsKey, JSON.stringify(next)); } catch {}
               return next;
             })}>
             <Ic n={meta.icon} s={14} c={C.accent}/>
             <span style={{ flex:1, fontSize:13, fontWeight:700, color:C.text1 }}>{meta.label}</span>
-            {badge>0 && (
+            {badge > 0 && (
               <span style={{ background:C.accentLight, color:C.accent, fontSize:11,
                 fontWeight:700, borderRadius:20, padding:"1px 7px" }}>{badge}</span>
             )}
             <span style={{ display:"flex", transition:"transform .2s",
-              transform:isOpen?"rotate(180deg)":"rotate(0deg)" }}>
+              transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
               <Ic n="chevD" s={14} c={C.text3}/>
             </span>
           </div>
@@ -2714,6 +2750,16 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
         {isOpen && <div style={{ padding:"16px" }}><PanelContent id={id}/></div>}
       </div>
+    );
+  };
+
+  // Thin blue line shown between panels while dragging
+  const DropIndicator = ({ beforeId }) => {
+    if (!draggingPanel) return null;
+    if (insertBefore !== beforeId) return null;
+    return (
+      <div style={{ height:3, borderRadius:2, background:C.accent,
+        margin:"0 0 12px 0", boxShadow:`0 0 6px ${C.accent}60`, transition:"opacity .1s" }}/>
     );
   };
 
@@ -3074,10 +3120,16 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         </div>
 
         {/* RIGHT COL — Panel cards */}
-        <div style={{ flex:1, overflow:"auto", padding:"16px 20px 24px", background:"#F4F6FB" }}>
+        <div ref={rightColRef} style={{ flex:1, overflow:"auto", padding:"16px 20px 24px", background:"#F4F6FB",
+          userSelect: draggingPanel ? "none" : "auto" }}>
           {panelOrder.filter(id=>PANEL_META[id]).map(id=>(
-            <PanelCard key={id} id={id}/>
+            <div key={id}>
+              <DropIndicator beforeId={id}/>
+              <PanelCard id={id}/>
+            </div>
           ))}
+          {/* Drop indicator at the very end */}
+          <DropIndicator beforeId={null}/>
         </div>
       </div>
     </div>

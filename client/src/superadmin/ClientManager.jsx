@@ -147,7 +147,14 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
     if (!confirm('Load standard test data? This adds 15 people, 8 jobs and 3 talent pools.')) return;
     setLoadingTD(true);
     try {
-      const r = await fetch('/api/superadmin/clients/load-test-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ environment_id: envId, tenant_slug: client?.tenant_slug }) });
+      const slug = client?.tenant_slug;
+      // Fetch the correct environment ID from the tenant store (not master)
+      let tenantEnvId = envId;
+      if (slug) {
+        const envs = await fetch(`/api/environments?tenant=${slug}`).then(r=>r.json()).catch(()=>[]);
+        if (Array.isArray(envs) && envs.length > 0) tenantEnvId = envs[0].id;
+      }
+      const r = await fetch('/api/superadmin/clients/load-test-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ environment_id: tenantEnvId, tenant_slug: slug }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Failed');
       setTdResults(prev => ({ ...prev, [envId]: d }));

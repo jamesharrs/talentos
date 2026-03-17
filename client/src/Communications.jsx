@@ -192,18 +192,40 @@ function ComposeModal({ type, record, environment, onSave, onClose }) {
   const isSimulated = providerStatus && type !== "call" && direction === "outbound" && providerStatus[type] === "simulation";
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.45)", zIndex:1800, display:"flex", alignItems:"center", justifyContent:"center" }} onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
-      <div style={{ background:C.surface, borderRadius:18, width:540, maxHeight:"85vh", overflow:"auto", padding:28, boxShadow:"0 24px 60px rgba(0,0,0,.22)" }}>
+    <div style={{ position:"fixed", inset:0, zIndex:1800, pointerEvents:"none" }}>
+      {/* Backdrop — only dims slightly, doesn't block the record panel */}
+      <div style={{ position:"absolute", inset:0, background:"rgba(15,23,41,.25)", pointerEvents:"auto" }} onClick={onClose}/>
+
+      {/* Floating popout window — bottom-right, above the panel */}
+      <div style={{
+        position:"absolute", bottom:24, right:24,
+        width:520, maxHeight:"80vh",
+        background:C.surface, borderRadius:16,
+        boxShadow:"0 20px 60px rgba(0,0,0,.28), 0 0 0 1px rgba(0,0,0,.06)",
+        display:"flex", flexDirection:"column",
+        pointerEvents:"auto", overflow:"hidden",
+      }}>
         {showAI && <AIComposeModal type={type} record={record} objectName="Person" onUse={({subject:s,body:b})=>{if(s)setSubject(s);setBody(b);setShowAI(false)}} onClose={()=>setShowAI(false)}/>}
 
-        {/* Header */}
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:isSimulated?8:20 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <TypeIcon type={type} size={18}/>
-            <span style={{ fontWeight:700, fontSize:16 }}>{type==="call" ? "Log Call" : `New ${meta.label}`}</span>
+        {/* Popout title bar */}
+        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"14px 18px", borderBottom:`1px solid ${C.border}`, background:"#f8f9fc", flexShrink:0 }}>
+          <div style={{ width:32, height:32, borderRadius:9, background:meta.color||C.accent, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            <TypeIcon type={type} size={15} color="#fff"/>
           </div>
-          <button onClick={onClose} style={{ border:"none", background:"none", cursor:"pointer", fontSize:20, color:C.text3 }}>×</button>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontWeight:700, fontSize:14, color:C.text1 }}>{type==="call" ? "Log Call" : `New ${meta.label}`}</div>
+            {record?.data && <div style={{ fontSize:11, color:C.text3, marginTop:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              {[record.data.first_name, record.data.last_name].filter(Boolean).join(" ") || record.data.job_title || ""}
+            </div>}
+          </div>
+          <div style={{ display:"flex", gap:4 }}>
+            <button onClick={onClose} style={{ width:28, height:28, borderRadius:7, border:`1px solid ${C.border}`, background:"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:C.text3, fontSize:18, lineHeight:1 }}>×</button>
+          </div>
         </div>
+
+        {/* Scrollable body */}
+        <div style={{ flex:1, overflowY:"auto", padding:"18px 20px" }}>
+
 
         {/* Simulation mode badge */}
         {isSimulated && (
@@ -289,14 +311,17 @@ function ComposeModal({ type, record, environment, onSave, onClose }) {
           </>
         )}
 
-        <div style={{ display:"flex", gap:10, marginTop:16, justifyContent:"flex-end" }}>
-          <button onClick={onClose} style={{ padding:"9px 20px", border:`1.5px solid ${C.border}`, borderRadius:10, background:"none", cursor:"pointer", fontSize:13 }}>Cancel</button>
+        </div>{/* end scrollable body */}
+
+        {/* Sticky footer */}
+        <div style={{ padding:"12px 20px", borderTop:`1px solid ${C.border}`, background:"#f8f9fc", display:"flex", gap:8, justifyContent:"flex-end", flexShrink:0 }}>
+          <button onClick={onClose} style={{ padding:"8px 18px", border:`1.5px solid ${C.border}`, borderRadius:9, background:"transparent", cursor:"pointer", fontSize:13, fontWeight:600, color:C.text2 }}>Cancel</button>
           <button onClick={save} disabled={saving || (!body && type!=="call")}
-            style={{ padding:"9px 20px", background:C.accent, color:"#fff", border:"none", borderRadius:10, cursor:"pointer", fontWeight:600, fontSize:13, opacity:(saving||(!body&&type!=="call"))?0.5:1 }}>
+            style={{ padding:"8px 20px", background:C.accent, color:"#fff", border:"none", borderRadius:9, cursor:"pointer", fontWeight:700, fontSize:13, opacity:(saving||(!body&&type!=="call"))?0.5:1 }}>
             {saving ? "Saving…" : type==="call" ? "Log Call" : direction==="outbound" ? (isSimulated ? `Save (Simulated)` : `Send ${meta.label}`) : "Save"}
           </button>
         </div>
-      </div>
+      </div>{/* end popout window */}
     </div>
   );
 }

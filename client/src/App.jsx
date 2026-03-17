@@ -811,13 +811,8 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
 
   return (
     <div ref={ref} style={{ position: "sticky", top: 0, zIndex: 600, background: "var(--t-surface)", borderBottom: "1px solid var(--t-border)", padding: "8px 20px", display: "flex", alignItems: "center", gap: 10 }}>
-      {/* Calendar icon */}
-      <button onClick={() => onNavigateToCalendar?.()} title="Calendar" style={{ width:34, height:34, borderRadius:9, border:"1px solid var(--t-border)", background:"var(--t-surface2)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0, transition:"background .12s" }}
-        onMouseEnter={e=>e.currentTarget.style.background="var(--t-accent-light,#eef2ff)"}
-        onMouseLeave={e=>e.currentTarget.style.background="var(--t-surface2)"}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--t-accent)" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      </button>
-      <div style={{ position: "relative", flex: 1, maxWidth: 480 }}>
+      {/* Search — takes available space */}
+      <div style={{ position: "relative", flex: 1 }}>
         {/* Input */}
         <input
           value={query}
@@ -879,8 +874,8 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
           </div>
         )}
       </div>
-      {/* Create dropdown */}
-      <div ref={createRef} style={{ position: "relative", flexShrink: 0, marginLeft:"auto" }}>
+      {/* Create dropdown — sits right of search */}
+      <div ref={createRef} style={{ position: "relative", flexShrink: 0 }}>
         <button
           onClick={() => setShowCreate(s => !s)}
           style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10,
@@ -918,71 +913,76 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
         )}
       </div>
 
-      {/* ── Notification Bell ── */}
-      <div ref={bellRef} style={{ position:"relative", flexShrink:0 }}>
-        <button onClick={() => setBellOpen(o => !o)} title="Notifications"
-          style={{ width:34, height:34, borderRadius:9, border:"1px solid var(--t-border)", background: bellOpen ? "var(--t-accent-light,#eef2ff)" : "var(--t-surface2)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0, position:"relative", transition:"background .12s" }}
+      {/* ── Right group: Calendar + Bell ── */}
+      <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:8, flexShrink:0, borderLeft:"1px solid var(--t-border)", paddingLeft:10 }}>
+
+        {/* Calendar */}
+        <button onClick={() => onNavigateToCalendar?.()} title="Calendar"
+          style={{ width:34, height:34, borderRadius:9, border:"1px solid var(--t-border)", background:"var(--t-surface2)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", transition:"background .12s" }}
           onMouseEnter={e=>e.currentTarget.style.background="var(--t-accent-light,#eef2ff)"}
-          onMouseLeave={e=>{ if(!bellOpen) e.currentTarget.style.background="var(--t-surface2)"; }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--t-accent)" strokeWidth="2" strokeLinecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-          {unread > 0 && (
-            <span style={{ position:"absolute", top:-3, right:-3, minWidth:16, height:16, borderRadius:99, background:"#ef4444", color:"white", fontSize:9, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 4px", border:"2px solid var(--t-surface)", lineHeight:1 }}>
-              {unread > 9 ? "9+" : unread}
-            </span>
-          )}
+          onMouseLeave={e=>e.currentTarget.style.background="var(--t-surface2)"}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--t-accent)" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         </button>
 
-        {/* Bell dropdown panel */}
-        {bellOpen && (
-          <div style={{ position:"absolute", top:"calc(100% + 8px)", right:0, width:360, maxHeight:480, background:"var(--t-surface)", border:"1px solid var(--t-border)", borderRadius:14, boxShadow:"0 12px 40px rgba(0,0,0,.15)", zIndex:500, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-            {/* Header */}
-            <div style={{ padding:"12px 14px 10px", borderBottom:"1px solid var(--t-border)", display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ fontSize:13, fontWeight:700, color:"var(--t-text1)", flex:1 }}>Notifications</span>
-              {unread > 0 && <span style={{ fontSize:11, color:"var(--t-text3)" }}>{unread} unread</span>}
-              {unread > 0 && (
-                <button onClick={markAllRead} style={{ fontSize:11, color:"var(--t-accent)", fontWeight:600, background:"none", border:"none", cursor:"pointer", padding:"2px 6px", borderRadius:5 }}>Mark all read</button>
-              )}
-            </div>
-            {/* List */}
-            <div style={{ overflowY:"auto", flex:1 }}>
-              {notifs.length === 0 && (
-                <div style={{ padding:"32px 16px", textAlign:"center", color:"var(--t-text3)", fontSize:12 }}>
-                  <div style={{ fontSize:24, marginBottom:8 }}>🔔</div>
-                  <div>All caught up!</div>
-                </div>
-              )}
-              {notifs.map(n => {
-                const color = NOTIF_COLORS[n.type] || "#6b7280";
-                const icon  = NOTIF_ICONS[n.type]  || null;
-                const isUnread = !n.read_at;
-                return (
-                  <div key={n.id} onClick={() => { if(isUnread) markRead(n.id); }}
-                    style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"10px 14px", borderBottom:"1px solid var(--t-border2,#f3f4f6)", cursor: isUnread ? "pointer" : "default", background: isUnread ? `${color}08` : "transparent", transition:"background .1s" }}
-                    onMouseEnter={e=>{ if(isUnread) e.currentTarget.style.background=`${color}14`; }}
-                    onMouseLeave={e=>{ e.currentTarget.style.background = isUnread ? `${color}08` : "transparent"; }}>
-                    {/* Icon */}
-                    <div style={{ width:28, height:28, borderRadius:8, background:`${color}18`, color, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
-                      {icon}
-                    </div>
-                    {/* Content */}
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
-                        <span style={{ fontSize:12, fontWeight: isUnread ? 700 : 500, color:"var(--t-text1)", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{n.title}</span>
-                        {isUnread && <span style={{ width:6, height:6, borderRadius:"50%", background:color, flexShrink:0 }}/>}
-                      </div>
-                      <div style={{ fontSize:11, color:"var(--t-text3)", lineHeight:1.4, marginBottom:3, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{n.body}</div>
-                      <div style={{ fontSize:10, color:"var(--t-text3)" }}>{relTime(n.created_at)}</div>
-                    </div>
-                    {/* Delete */}
-                    <button onClick={e => deleteNotif(n.id, e)} style={{ background:"none", border:"none", cursor:"pointer", padding:"2px 4px", color:"var(--t-text3)", borderRadius:4, opacity:0, transition:"opacity .1s", fontSize:14, lineHeight:1 }}
-                      onMouseEnter={e=>{e.currentTarget.style.opacity="1"; e.currentTarget.style.color="#ef4444";}}
-                      onMouseLeave={e=>{e.currentTarget.style.opacity="0"; e.currentTarget.style.color="var(--t-text3)";}}>×</button>
+        {/* Bell */}
+        <div ref={bellRef} style={{ position:"relative" }}>
+          <button onClick={() => setBellOpen(o => !o)} title="Notifications"
+            style={{ width:34, height:34, borderRadius:9, border:"1px solid var(--t-border)", background: bellOpen ? "var(--t-accent-light,#eef2ff)" : "var(--t-surface2)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", position:"relative", transition:"background .12s" }}
+            onMouseEnter={e=>e.currentTarget.style.background="var(--t-accent-light,#eef2ff)"}
+            onMouseLeave={e=>{ if(!bellOpen) e.currentTarget.style.background="var(--t-surface2)"; }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--t-accent)" strokeWidth="2" strokeLinecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+            {unread > 0 && (
+              <span style={{ position:"absolute", top:-4, right:-4, minWidth:17, height:17, borderRadius:99, background:"#ef4444", color:"white", fontSize:9, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 4px", border:"2px solid var(--t-surface)", lineHeight:1 }}>
+                {unread > 9 ? "9+" : unread}
+              </span>
+            )}
+          </button>
+
+          {/* Dropdown */}
+          {bellOpen && (
+            <div style={{ position:"absolute", top:"calc(100% + 8px)", right:0, width:360, maxHeight:480, background:"var(--t-surface)", border:"1px solid var(--t-border)", borderRadius:14, boxShadow:"0 12px 40px rgba(0,0,0,.18)", zIndex:700, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+              <div style={{ padding:"12px 14px 10px", borderBottom:"1px solid var(--t-border)", display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:13, fontWeight:700, color:"var(--t-text1)", flex:1 }}>Notifications</span>
+                {unread > 0 && <span style={{ fontSize:11, color:"var(--t-text3)" }}>{unread} unread</span>}
+                {unread > 0 && <button onClick={markAllRead} style={{ fontSize:11, color:"var(--t-accent)", fontWeight:600, background:"none", border:"none", cursor:"pointer", padding:"2px 6px", borderRadius:5 }}>Mark all read</button>}
+              </div>
+              <div style={{ overflowY:"auto", flex:1 }}>
+                {notifs.length === 0 ? (
+                  <div style={{ padding:"32px 16px", textAlign:"center", color:"var(--t-text3)", fontSize:12 }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin:"0 auto 8px", display:"block", opacity:0.4 }}><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                    All caught up!
                   </div>
-                );
-              })}
+                ) : notifs.map(n => {
+                  const color    = NOTIF_COLORS[n.type] || "#6b7280";
+                  const icon     = NOTIF_ICONS[n.type]  || null;
+                  const isUnread = !n.read_at;
+                  return (
+                    <div key={n.id} onClick={() => { if(isUnread) markRead(n.id); }}
+                      style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"11px 14px", borderBottom:"1px solid #f3f4f6", cursor: isUnread ? "pointer" : "default", background: isUnread ? `${color}09` : "transparent", transition:"background .1s" }}
+                      onMouseEnter={e=>{ e.currentTarget.style.background = isUnread ? `${color}16` : "#f9fafb"; }}
+                      onMouseLeave={e=>{ e.currentTarget.style.background = isUnread ? `${color}09` : "transparent"; }}>
+                      <div style={{ width:30, height:30, borderRadius:9, background:`${color}18`, color, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
+                        {icon}
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                          <span style={{ fontSize:12, fontWeight: isUnread ? 700 : 500, color:"#111827", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{n.title}</span>
+                          {isUnread && <span style={{ width:7, height:7, borderRadius:"50%", background:color, flexShrink:0 }}/>}
+                        </div>
+                        <div style={{ fontSize:11, color:"#6b7280", lineHeight:1.45, marginBottom:3 }}>{n.body}</div>
+                        <div style={{ fontSize:10, color:"#9ca3af" }}>{relTime(n.created_at)}</div>
+                      </div>
+                      <button onClick={e=>deleteNotif(n.id,e)}
+                        style={{ background:"none", border:"none", cursor:"pointer", padding:"2px 5px", color:"#d1d5db", borderRadius:4, fontSize:16, lineHeight:1, flexShrink:0 }}
+                        onMouseEnter={e=>{e.currentTarget.style.color="#ef4444";}}
+                        onMouseLeave={e=>{e.currentTarget.style.color="#d1d5db";}}>×</button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

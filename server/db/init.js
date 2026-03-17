@@ -3,6 +3,7 @@ const path = require('path');
 const fs   = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { AsyncLocalStorage } = require('async_hooks');
+const pg = require('./postgres');
 
 const DATA_DIR = process.env.DATA_PATH || path.join(__dirname, '../../data');
 
@@ -35,7 +36,7 @@ function loadTenantStore(slug) {
       storeCache[key] = { ...base, ...loaded };
     } else {
       storeCache[key] = base;
-      fs.writeFileSync(file, JSON.stringify(base, null, 2));
+      try { fs.writeFileSync(file, JSON.stringify(base, null, 2)); } catch(e) {}
       console.log(`Created tenant store: ${file}`);
     }
   } catch(e) {
@@ -66,8 +67,15 @@ function saveStore(slugOverride) {
     delete _saveTimers[key];
     const store = storeCache[key];
     if (!store) return;
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(tenantDbPath(key === 'master' ? null : key), JSON.stringify(store, null, 2));
+    // JSON fallback (always write locally too — good for dev & backup)
+    try {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+      fs.writeFileSync(tenantDbPath(key === 'master' ? null : key), JSON.stringify(store, null, 2));
+    } catch(e) { /* ignore fs errors in read-only environments */ }
+    // Postgres write (non-blocking)
+    if (pg.isEnabled()) {
+      pg.saveTenant(key, store).catch(e => console.error('PG saveStore error:', e.message));
+    }
   }, 150);
 }
 
@@ -76,8 +84,13 @@ function saveStoreNow(slugOverride) {
   if (_saveTimers[key]) { clearTimeout(_saveTimers[key]); delete _saveTimers[key]; }
   const store = storeCache[key];
   if (!store) return;
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(tenantDbPath(key === 'master' ? null : key), JSON.stringify(store, null, 2));
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(tenantDbPath(key === 'master' ? null : key), JSON.stringify(store, null, 2));
+  } catch(e) { /* ignore */ }
+  if (pg.isEnabled()) {
+    pg.saveTenant(key, store).catch(e => console.error('PG saveStoreNow error:', e.message));
+  }
 }
 
 function query(table, predicate) {

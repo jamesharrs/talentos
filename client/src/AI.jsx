@@ -848,7 +848,9 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         : formData2      ? `I've designed the **${formData2.name}** form:`
         : "";
 
-      setMessages(m=>[...m,{role:"assistant",content:displayText||fallbackMsg,ts:new Date(),hasCreate:!!createData,hasWorkflow:!!workflowData,hasUser:!!userData,hasRole:!!roleData,hasInterview:!!interviewData,hasForm:!!formData2,hasSearch:searchHits.length>0,searchIndex:msgIndex}]);
+      // Store action data on the message itself so each card is self-contained and immune to state resets
+      setMessages(m=>[...m,{role:"assistant",content:displayText||fallbackMsg,ts:new Date(),hasCreate:!!createData,hasWorkflow:!!workflowData,hasUser:!!userData,hasRole:!!roleData,hasInterview:!!interviewData,hasForm:!!formData2,hasSearch:searchHits.length>0,searchIndex:msgIndex,
+        interviewData, formData2}]);
       if(createData)    setPendingRecord(createData);
       if(workflowData)  setPendingWorkflow(workflowData);
       if(userData)      setPendingUser(userData);
@@ -954,30 +956,42 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     setCreating(false);
   };
 
-  const handleConfirmInterview = async () => {
-    if (!pendingInterview || !environment?.id) return;
+  const handleConfirmInterview = async (interviewSnapshot) => {
+    // Use passed-in snapshot to avoid stale-state issues when pendingInterview was reset
+    const iv = interviewSnapshot || pendingInterview;
+    if (!iv || !environment?.id) return;
     setCreating(true);
     try {
-      // Resolve candidate_id from current record if not set
-      const candidateId = pendingInterview.candidate_id || currentRecord?.id || null;
-      const candidateName = pendingInterview.candidate_name ||
+      const candidateId = iv.candidate_id || currentRecord?.id || null;
+      const candidateName = iv.candidate_name ||
         (currentRecord?.data ? `${currentRecord.data.first_name||''} ${currentRecord.data.last_name||''}`.trim() : '') || 'Candidate';
       const created = await api.post("/interviews", {
         environment_id:       environment.id,
         candidate_id:         candidateId,
         candidate_name:       candidateName,
-        interview_type_id:    pendingInterview.interview_type_id   || null,
-        interview_type_name:  pendingInterview.interview_type_name || 'Interview',
-        date:                 pendingInterview.date,
-        time:                 pendingInterview.time  || '10:00',
-        duration:             pendingInterview.duration || 45,
-        format:               pendingInterview.format || 'Video Call',
-        interviewers:         pendingInterview.interviewers || [],
-        notes:                pendingInterview.notes || '',
+        interview_type_id:    iv.interview_type_id   || null,
+        interview_type_name:  iv.interview_type_name || 'Interview',
+        date:                 iv.date,
+        time:                 iv.time  || '10:00',
+        duration:             iv.duration || 45,
+        format:               iv.format || 'Video Call',
+        interviewers:         iv.interviewers || [],
+        notes:                iv.notes || '',
         status:               'pending',
       });
-      const dateStr = new Date(`${created.date}T${created.time}`).toLocaleString('en-GB',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-      setMessages(m=>[...m,{role:"assistant",content:`✅ Interview scheduled for **${candidateName}** on **${dateStr}** (${created.format}, ${created.duration}min). View it in the Interviews section.`,ts:new Date()}]);
+      if (created?.error) throw new Error(created.error);
+      const dateVal = iv.date;
+      const timeVal = iv.time || '10:00';
+      let dateStr = 'the scheduled date';
+      if (dateVal) {
+        try {
+          const d = new Date(`${dateVal}T${timeVal}`);
+          dateStr = isNaN(d.getTime()) ? dateVal : d.toLocaleString('en-GB',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+        } catch { dateStr = dateVal; }
+      }
+      const fmt = iv.format || 'Video Call';
+      const dur = iv.duration || 45;
+      setMessages(m=>[...m,{role:"assistant",content:`✅ Interview scheduled for **${candidateName}** on **${dateStr}** (${fmt}, ${dur} min). View it in the Interviews section.`,ts:new Date()}]);
       setPendingInterview(null);
     } catch(err) {
       setMessages(m=>[...m,{role:"assistant",content:`Failed to schedule interview: ${err.message}`,ts:new Date(),error:true}]);
@@ -1239,25 +1253,27 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                 )}
 
                 {/* ── Interview Scheduling Card ── */}
-                {pendingInterview&&(
+                {msg.role==="assistant"&&msg.hasInterview&&msg.interviewData&&!msg.confirmed&&(()=>{
+                  const iv = msg.interviewData;
+                  return (
                   <div style={{margin:"8px 0",padding:"14px",borderRadius:12,border:`1.5px solid #7C3AED`,background:"#FAF5FF"}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
                       <div style={{width:28,height:28,borderRadius:8,background:"#7C3AED",display:"flex",alignItems:"center",justifyContent:"center"}}>
                         <Ic n="calendar" s={14} c="white"/>
                       </div>
                       <div style={{flex:1}}>
-                        <div style={{fontSize:13,fontWeight:700,color:C.text1}}>{pendingInterview.interview_type_name||'Interview'}</div>
-                        <div style={{fontSize:11,color:"#7C3AED",fontWeight:600}}>{pendingInterview.candidate_name}</div>
+                        <div style={{fontSize:13,fontWeight:700,color:C.text1}}>{iv.interview_type_name||'Interview'}</div>
+                        <div style={{fontSize:11,color:"#7C3AED",fontWeight:600}}>{iv.candidate_name}</div>
                       </div>
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
                       {[
-                        ["📅 Date", pendingInterview.date],
-                        ["⏰ Time", pendingInterview.time||"10:00"],
-                        ["⏱ Duration", `${pendingInterview.duration||45} min`],
-                        ["📍 Format", pendingInterview.format||"Video Call"],
-                        pendingInterview.interviewers?.length ? ["👥 Interviewers", pendingInterview.interviewers.join(", ")] : null,
-                        pendingInterview.notes ? ["📝 Notes", pendingInterview.notes] : null,
+                        ["📅 Date", iv.date],
+                        ["⏰ Time", iv.time||"10:00"],
+                        ["⏱ Duration", `${iv.duration||45} min`],
+                        ["📍 Format", iv.format||"Video Call"],
+                        iv.interviewers?.length ? ["👥 Interviewers", (Array.isArray(iv.interviewers)?iv.interviewers:[iv.interviewers]).join(", ")] : null,
+                        iv.notes ? ["📝 Notes", iv.notes] : null,
                       ].filter(Boolean).map(([label,val])=>(
                         <div key={label} style={{background:"white",borderRadius:8,padding:"7px 10px",border:`1px solid #E9D5FF`}}>
                           <div style={{fontSize:10,color:"#9CA3AF",marginBottom:2}}>{label}</div>
@@ -1266,16 +1282,17 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                       ))}
                     </div>
                     <div style={{display:"flex",gap:8}}>
-                      <button onClick={()=>setPendingInterview(null)} style={{flex:1,padding:"8px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.text2,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>Discard</button>
-                      <button onClick={handleConfirmInterview} disabled={creating} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:"#7C3AED",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                      <button onClick={()=>setMessages(m=>m.map((x,j)=>j===i?{...x,confirmed:true}:x))} style={{flex:1,padding:"8px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.text2,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>Discard</button>
+                      <button onClick={()=>{setMessages(m=>m.map((x,j)=>j===i?{...x,confirmed:true}:x));handleConfirmInterview(iv);}} disabled={creating} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:"#7C3AED",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                         {creating?<><Ic n="loader" s={12}/> Scheduling…</>:<><Ic n="check" s={12}/> Confirm Interview</>}
                       </button>
                     </div>
                   </div>
-                )}
+                  );
+                })()}
 
                 {/* ── Form Creation Card ── */}
-                {pendingForm&&(
+                {msg.role==="assistant"&&msg.hasForm&&pendingForm&&i===messages.length-1&&(
                   <div style={{margin:"8px 0",padding:"14px",borderRadius:12,border:"1.5px solid #0CAF77",background:"#F0FDF4"}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
                       <div style={{width:28,height:28,borderRadius:8,background:"#0CAF77",display:"flex",alignItems:"center",justifyContent:"center"}}>

@@ -49,6 +49,69 @@ router.get('/', (req, res) => {
 
 router.get('/meta', (req, res) => res.json({ trigger_types: TRIGGER_TYPES, action_types: ACTION_TYPES }));
 
+// ── AUDIT: all runs for a specific record (GDPR-friendly) ─────────────────────
+router.get('/runs/by-record/:record_id', (req, res) => {
+  const runs = query('agent_runs', r => r.record_id === req.params.record_id)
+    .sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  res.json(runs);
+});
+
+// ── AUDIT: all runs across all agents (with optional filters) ─────────────────
+router.get('/runs/all', (req, res) => {
+  const { environment_id, record_id, status, from, to } = req.query;
+  let runs = query('agent_runs', () => true);
+  if (environment_id) runs = runs.filter(r => r.environment_id === environment_id);
+  if (record_id)      runs = runs.filter(r => r.record_id === record_id);
+  if (status)         runs = runs.filter(r => r.status === status);
+  if (from)           runs = runs.filter(r => new Date(r.created_at) >= new Date(from));
+  if (to)             runs = runs.filter(r => new Date(r.created_at) <= new Date(to));
+  res.json(runs.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)));
+});
+
+// ── GDPR: Right to Erasure — purge all AI run data for a record ───────────────
+router.delete('/runs/by-record/:record_id', (req, res) => {
+  const s = getStore();
+  const before = s.agent_runs.length;
+  s.agent_runs = s.agent_runs.filter(r => r.record_id !== req.params.record_id);
+  const purged = before - s.agent_runs.length;
+  saveStore();
+  // Also purge any AI-generated notes for this record
+  if (s.notes) {
+    const notesBefore = s.notes.length;
+    s.notes = s.notes.filter(n => !(n.record_id === req.params.record_id && n.ai_generated));
+    saveStore();
+    res.json({ purged_runs: purged, purged_notes: notesBefore - s.notes.length });
+  } else {
+    res.json({ purged_runs: purged, purged_notes: 0 });
+  }
+});
+
+// ── GDPR: Right to Explanation — full AI decision report for a record ─────────
+router.get('/runs/explanation/:record_id', (req, res) => {
+  const record_id = req.params.record_id;
+  const runs = query('agent_runs', r => r.record_id === record_id)
+    .sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+
+  // Build a human-readable explanation report
+  const report = {
+    record_id,
+    generated_at: new Date().toISOString(),
+    total_ai_interactions: runs.length,
+    summary: `This record was processed by AI ${runs.length} time(s).`,
+    interactions: runs.map(r => ({
+      date: r.created_at,
+      agent: r.agent_name,
+      trigger: r.trigger,
+      status: r.status,
+      ai_output: r.ai_output,
+      was_reviewed_by_human: r.pending_actions?.some(a => a.approved !== undefined) || false,
+      reviewer_notes: r.pending_actions?.filter(a => a.modifier_note).map(a => a.modifier_note) || [],
+      steps: r.steps?.map(s => s.step) || [],
+    })),
+  };
+  res.json(report);
+});
+
 router.get('/approvals/pending', (req, res) => {
   const { environment_id } = req.query;
   let runs = query('agent_runs', r => r.status === 'pending_approval');

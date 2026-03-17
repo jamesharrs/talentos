@@ -14,6 +14,7 @@ const api = {
   get:(u)=>fetch(u).then(r=>r.json()),
   post:(u,b)=>fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
   patch:(u,b)=>fetch(u,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  del:(u)=>fetch(u,{method:'DELETE'}).then(r=>r.json()),
 };
 
 const Ic = ({n,s=16,c=C.text3})=>{
@@ -80,69 +81,313 @@ function PolicyRow({ label, description, value, onChange }) {
 }
 
 // ── AI AUDIT LOG ──────────────────────────────────────────────────────────────
+// ── RECORD SEARCH MODAL ───────────────────────────────────────────────────────
+function RecordSearchModal({ environmentId, onSelect, onClose }) {
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(()=>{
+    if (q.length < 2) { setResults([]); return; }
+    const t = setTimeout(()=>{
+      setSearching(true);
+      api.get(`/api/records/search?q=${encodeURIComponent(q)}&environment_id=${environmentId||''}&limit=10`)
+        .then(d=>{ setResults(Array.isArray(d)?d:(d.results||[])); setSearching(false); })
+        .catch(()=>setSearching(false));
+    }, 250);
+    return ()=>clearTimeout(t);
+  },[q, environmentId]);
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center"}}
+      onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:"white",borderRadius:16,width:480,padding:20,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}} onMouseDown={e=>e.stopPropagation()}>
+        <div style={{fontSize:15,fontWeight:700,color:C.text1,marginBottom:12}}>Search for a person or record</div>
+        <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Name, email, job title…"
+          style={{width:"100%",padding:"10px 12px",borderRadius:8,border:`1.5px solid ${C.accent}`,fontSize:13,fontFamily:F,outline:"none",boxSizing:"border-box"}}/>
+        <div style={{marginTop:8,maxHeight:280,overflowY:"auto"}}>
+          {searching && <div style={{padding:"12px 4px",color:C.text3,fontSize:12}}>Searching…</div>}
+          {!searching && q.length>=2 && results.length===0 && <div style={{padding:"12px 4px",color:C.text3,fontSize:12}}>No records found</div>}
+          {results.map(r=>{
+            const d = r.data||{};
+            const name = [d.first_name,d.last_name].filter(Boolean).join(" ")||d.job_title||d.pool_name||d.name||r.display_name||"Unnamed";
+            const sub = d.email||d.department||d.category||r.object_name||"";
+            return (
+              <div key={r.id} onClick={()=>onSelect(r)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 8px",borderRadius:8,cursor:"pointer",transition:"background .1s"}}
+                onMouseEnter={e=>e.currentTarget.style.background="#F3F4F6"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div style={{width:32,height:32,borderRadius:8,background:`${r.object_color||C.accent}15`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:12,fontWeight:700,color:r.object_color||C.accent}}>
+                  {name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div style={{fontSize:13,fontWeight:600,color:C.text1}}>{name}</div>
+                  {sub&&<div style={{fontSize:11,color:C.text3}}>{sub} · {r.object_name||""}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={onClose} style={{marginTop:12,width:"100%",padding:"9px",borderRadius:8,border:`1.5px solid ${C.border}`,background:"white",cursor:"pointer",fontSize:13,fontFamily:F}}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 function AiAuditLog({ environmentId }) {
   const [runs, setRuns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [focusRecord, setFocusRecord] = useState(null); // { id, name, sub }
+  const [showRecordSearch, setShowRecordSearch] = useState(false);
+  const [expandedRun, setExpandedRun] = useState(null);
+  const [gdprAction, setGdprAction] = useState(null); // { type, record }
+  const [gdprLoading, setGdprLoading] = useState(false);
+  const [gdprResult, setGdprResult] = useState(null);
 
-  useEffect(()=>{
-    api.get(`/api/agents?environment_id=${environmentId||''}`).then(agents=>{
-      const agentList = Array.isArray(agents)?agents:[];
-      // Fetch all runs for all agents
-      Promise.all(agentList.slice(0,20).map(a=>api.get(`/api/agents/${a.id}/runs`)))
-        .then(allRuns=>{
-          const flat = allRuns.flat().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-          setRuns(flat);
-          setLoading(false);
-        });
-    }).catch(()=>setLoading(false));
-  },[environmentId]);
+  const loadRuns = useCallback(()=>{
+    setLoading(true);
+    const url = focusRecord
+      ? `/api/agents/runs/by-record/${focusRecord.id}`
+      : `/api/agents/runs/all?environment_id=${environmentId||''}`;
+    api.get(url).then(d=>{ setRuns(Array.isArray(d)?d:[]); setLoading(false); }).catch(()=>setLoading(false));
+  },[environmentId, focusRecord]);
 
-  const filtered = runs.filter(r=>!search||r.agent_name?.toLowerCase().includes(search.toLowerCase())||r.status?.includes(search));
+  useEffect(()=>{ loadRuns(); },[loadRuns]);
 
-  const exportCsv = () => {
-    const rows = [["Agent","Trigger","Status","Record ID","AI Output (preview)","Date"]];
-    filtered.forEach(r=>rows.push([r.agent_name||'',r.trigger||'',r.status||'',r.record_id||'',(r.ai_output||'').slice(0,100).replace(/\n/g,' '),r.created_at||'']));
+  const filtered = runs.filter(r=>{
+    if (statusFilter!=="all" && r.status!==statusFilter) return false;
+    if (!search) return true;
+    return r.agent_name?.toLowerCase().includes(search.toLowerCase())||
+           r.trigger?.includes(search)||r.status?.includes(search)||
+           r.record_id?.includes(search);
+  });
+
+
+  const exportCsv = (rows_in) => {
+    const target = rows_in || filtered;
+    const rows = [["Agent","Trigger","Status","Record ID","AI Output","Human Reviewed","Date"]];
+    target.forEach(r=>rows.push([
+      r.agent_name||'', r.trigger||'', r.status||'', r.record_id||'',
+      (r.ai_output||'').slice(0,200).replace(/\n/g,' '),
+      r.pending_actions?.some(a=>a.approved!==undefined)?'Yes':'No',
+      r.created_at||''
+    ]));
     const csv = rows.map(r=>r.map(v=>`"${v}"`).join(",")).join("\n");
     const a=document.createElement('a'); a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
-    a.download=`ai-audit-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+    a.download=`ai-audit-${focusRecord?focusRecord.id.slice(0,8)+'-':''}`+`${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
   };
+
+  const handleGdprErase = async () => {
+    if (!gdprAction?.record) return;
+    setGdprLoading(true);
+    const result = await api.del(`/api/agents/runs/by-record/${gdprAction.record.id}`);
+    setGdprResult(result);
+    setGdprLoading(false);
+    loadRuns();
+  };
+
+  const handleGdprExplain = async () => {
+    if (!gdprAction?.record) return;
+    setGdprLoading(true);
+    const report = await api.get(`/api/agents/runs/explanation/${gdprAction.record.id}`);
+    setGdprLoading(false);
+    // Export as JSON
+    const a=document.createElement('a');
+    a.href="data:application/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(report,null,2));
+    a.download=`ai-explanation-${gdprAction.record.id.slice(0,8)}-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    setGdprResult({ exported: true, total: report.total_ai_interactions });
+  };
+
+  const statusCounts = { all:runs.length };
+  runs.forEach(r=>{ statusCounts[r.status] = (statusCounts[r.status]||0)+1; });
 
   return (
     <div>
-      <div style={{display:"flex",gap:8,marginBottom:12}}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Filter by agent name or status…"
-          style={{flex:1,padding:"8px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F}}/>
-        <button onClick={exportCsv} style={{padding:"8px 14px",borderRadius:8,border:`1.5px solid ${C.border}`,background:"white",cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:6,fontFamily:F}}>
+      {/* Record focus banner */}
+      {focusRecord && (
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,background:`${C.purple}10`,border:`1.5px solid ${C.purple}30`,marginBottom:12}}>
+          <div style={{width:32,height:32,borderRadius:8,background:`${C.purple}20`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:C.purple}}>
+            {focusRecord.name?.charAt(0)||'?'}
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.text1}}>Showing AI activity for: <span style={{color:C.purple}}>{focusRecord.name}</span></div>
+            {focusRecord.sub&&<div style={{fontSize:11,color:C.text3}}>{focusRecord.sub}</div>}
+          </div>
+          <div style={{display:"flex",gap:6}}>
+            <button onClick={()=>setGdprAction({type:'explain',record:focusRecord})}
+              style={{padding:"5px 10px",borderRadius:7,border:`1.5px solid ${C.accent}`,background:"white",color:C.accent,cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:F,display:"flex",alignItems:"center",gap:4}}>
+              <Ic n="file" s={11} c={C.accent}/> Export Explanation
+            </button>
+            <button onClick={()=>setGdprAction({type:'erase',record:focusRecord})}
+              style={{padding:"5px 10px",borderRadius:7,border:`1.5px solid ${C.red}`,background:"white",color:C.red,cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:F,display:"flex",alignItems:"center",gap:4}}>
+              <Ic n="x" s={11} c={C.red}/> Erase AI Data
+            </button>
+            <button onClick={()=>{setFocusRecord(null);}} style={{padding:"5px 8px",borderRadius:7,border:`1.5px solid ${C.border}`,background:"white",cursor:"pointer"}}>
+              <Ic n="x" s={13} c={C.text3}/>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Toolbar */}
+      <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+        <button onClick={()=>setShowRecordSearch(true)}
+          style={{padding:"8px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,background:"white",cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:6,fontFamily:F,color:C.text2}}>
+          <Ic n="users" s={13} c={C.text3}/> {focusRecord?"Change person":"Search by person"}
+        </button>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Filter by agent, trigger, status…"
+          style={{flex:1,minWidth:160,padding:"8px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F}}/>
+        {/* Status filters */}
+        <div style={{display:"flex",gap:4}}>
+          {Object.entries(statusCounts).slice(0,5).map(([s,n])=>(
+            <button key={s} onClick={()=>setStatusFilter(s)} style={{padding:"5px 10px",borderRadius:7,border:`1.5px solid ${statusFilter===s?C.accent:C.border}`,background:statusFilter===s?C.accentLight:"white",cursor:"pointer",fontSize:11,fontWeight:statusFilter===s?700:500,color:statusFilter===s?C.accent:C.text3,fontFamily:F}}>
+              {s==="all"?"All":s} {n}
+            </button>
+          ))}
+        </div>
+        <button onClick={()=>exportCsv()} style={{padding:"8px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,background:"white",cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:6,fontFamily:F}}>
           <Ic n="download" s={13} c={C.text3}/> Export CSV
         </button>
       </div>
-      {loading?<div style={{color:C.text3,fontSize:13,padding:"20px 0"}}>Loading…</div>:filtered.length===0?(
-        <div style={{color:C.text3,fontSize:13,textAlign:"center",padding:"30px 0"}}>No AI activity logged yet</div>
-      ):(
-        <div style={{overflowX:"auto"}}>
+
+      {/* Table */}
+      {loading?<div style={{color:C.text3,fontSize:13,padding:"20px 0",textAlign:"center"}}>Loading…</div>
+      :filtered.length===0?<div style={{color:C.text3,fontSize:13,textAlign:"center",padding:"30px 0"}}>No AI activity found</div>
+      :(
+        <div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead>
               <tr style={{borderBottom:`2px solid ${C.border}`}}>
-                {["Agent","Trigger","Status","Record","AI Output","Date"].map(h=>(
-                  <th key={h} style={{textAlign:"left",padding:"6px 10px",color:C.text3,fontWeight:700,fontSize:11,textTransform:"uppercase",letterSpacing:".04em"}}>{h}</th>
+                {["Agent","Trigger","Status","Record","Human Review","AI Output","Date"].map(h=>(
+                  <th key={h} style={{textAlign:"left",padding:"6px 8px",color:C.text3,fontWeight:700,fontSize:11,textTransform:"uppercase",letterSpacing:".04em"}}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.slice(0,50).map(r=>(
-                <tr key={r.id} style={{borderBottom:`1px solid ${C.border}`}}>
-                  <td style={{padding:"8px 10px",fontWeight:600,color:C.text1}}>{r.agent_name||'—'}</td>
-                  <td style={{padding:"8px 10px"}}><span style={{fontSize:10,padding:"2px 6px",borderRadius:4,background:`${C.accent}12`,color:C.accent,fontWeight:700}}>{(r.trigger||'').replace(/_/g,' ')}</span></td>
-                  <td style={{padding:"8px 10px"}}><span style={{fontSize:10,padding:"2px 6px",borderRadius:4,background:r.status==='completed'?`${C.green}12`:r.status==='pending_approval'?`${C.amber}12`:`${C.red}12`,color:r.status==='completed'?C.green:r.status==='pending_approval'?C.amber:C.red,fontWeight:700}}>{r.status}</span></td>
-                  <td style={{padding:"8px 10px",color:C.text3,fontFamily:"monospace",fontSize:11}}>{r.record_id?.slice(0,8)||'—'}</td>
-                  <td style={{padding:"8px 10px",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:C.text2}}>{r.ai_output?.slice(0,80)||'—'}</td>
-                  <td style={{padding:"8px 10px",color:C.text3,whiteSpace:"nowrap"}}>{new Date(r.created_at).toLocaleString()}</td>
-                </tr>
+              {filtered.slice(0,100).map(r=>(
+                <>
+                  <tr key={r.id} onClick={()=>setExpandedRun(expandedRun===r.id?null:r.id)}
+                    style={{borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:expandedRun===r.id?`${C.accent}05`:"white"}}
+                    onMouseEnter={e=>{if(expandedRun!==r.id)e.currentTarget.style.background="#F9FAFB"}}
+                    onMouseLeave={e=>{if(expandedRun!==r.id)e.currentTarget.style.background="white"}}>
+                    <td style={{padding:"8px 8px",fontWeight:600,color:C.text1}}>{r.agent_name||'—'}</td>
+                    <td style={{padding:"8px 8px"}}><span style={{fontSize:10,padding:"2px 6px",borderRadius:4,background:`${C.accent}12`,color:C.accent,fontWeight:700}}>{(r.trigger||'').replace(/_/g,' ')}</span></td>
+                    <td style={{padding:"8px 8px"}}><span style={{fontSize:10,padding:"2px 6px",borderRadius:4,fontWeight:700,
+                      background:r.status==='completed'?`${C.green}12`:r.status==='pending_approval'?`${C.amber}12`:r.status==='skipped'?`${C.text3}12`:`${C.red}12`,
+                      color:r.status==='completed'?C.green:r.status==='pending_approval'?C.amber:r.status==='skipped'?C.text3:C.red}}>
+                      {r.status}
+                    </span></td>
+                    <td style={{padding:"8px 8px"}}>
+                      {r.record_id ? (
+                        <button onClick={e=>{e.stopPropagation();setFocusRecord({id:r.record_id,name:r.record_id.slice(0,8),sub:"Click to load details"});}}
+                          style={{fontSize:10,fontFamily:"monospace",color:C.accent,background:"transparent",border:"none",cursor:"pointer",textDecoration:"underline"}}>
+                          {r.record_id.slice(0,8)}…
+                        </button>
+                      ) : <span style={{color:C.text3}}>—</span>}
+                    </td>
+                    <td style={{padding:"8px 8px"}}>
+                      {r.pending_actions?.some(a=>a.approved!==undefined)
+                        ? <span style={{fontSize:10,color:C.green,fontWeight:700}}>✓ Reviewed</span>
+                        : r.pending_actions?.length>0
+                          ? <span style={{fontSize:10,color:C.amber,fontWeight:700}}>⏸ Pending</span>
+                          : <span style={{fontSize:10,color:C.text3}}>Auto</span>}
+                    </td>
+                    <td style={{padding:"8px 8px",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:C.text2}}>
+                      {r.ai_output?.slice(0,80)||'—'}
+                    </td>
+                    <td style={{padding:"8px 8px",color:C.text3,whiteSpace:"nowrap",fontSize:11}}>{new Date(r.created_at).toLocaleString()}</td>
+                  </tr>
+                  {expandedRun===r.id&&(
+                    <tr key={r.id+"-exp"}>
+                      <td colSpan={7} style={{padding:"12px 16px",background:`${C.accent}04`,borderBottom:`2px solid ${C.accent}20`}}>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+                          <div>
+                            <div style={{fontSize:11,fontWeight:700,color:C.text3,marginBottom:6,textTransform:"uppercase"}}>Steps</div>
+                            {(r.steps||[]).map((s,i)=><div key={i} style={{fontSize:11,color:C.text2,marginBottom:2}}>→ {s.step}</div>)}
+                          </div>
+                          {r.ai_output&&(
+                            <div>
+                              <div style={{fontSize:11,fontWeight:700,color:C.purple,marginBottom:6,textTransform:"uppercase",display:"flex",alignItems:"center",gap:4}}>
+                                <SparkleIcon size={10} color={C.purple}/> Full AI Output
+                              </div>
+                              <div style={{fontSize:11,color:C.text2,lineHeight:1.6,whiteSpace:"pre-wrap",maxHeight:120,overflowY:"auto",padding:"8px",background:"white",borderRadius:6,border:`1px solid ${C.border}`}}>
+                                {r.ai_output}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        {r.pending_actions?.filter(a=>a.modifier_note).length>0&&(
+                          <div style={{marginTop:10,fontSize:11,color:C.text2}}>
+                            <strong>Reviewer notes:</strong> {r.pending_actions.filter(a=>a.modifier_note).map(a=>a.modifier_note).join("; ")}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </>
               ))}
             </tbody>
           </table>
-          {filtered.length>50&&<div style={{fontSize:11,color:C.text3,padding:"8px 10px"}}>Showing 50 of {filtered.length} entries — export CSV for full log</div>}
+          {filtered.length>100&&<div style={{fontSize:11,color:C.text3,padding:"8px 0"}}>Showing 100 of {filtered.length} — export CSV for full log</div>}
+        </div>
+      )}
+
+      {/* Record search modal */}
+      {showRecordSearch&&<RecordSearchModal environmentId={environmentId} onClose={()=>setShowRecordSearch(false)}
+        onSelect={r=>{
+          const d=r.data||{};
+          const name=[d.first_name,d.last_name].filter(Boolean).join(" ")||d.job_title||d.pool_name||r.display_name||r.id.slice(0,8);
+          const sub=d.email||d.department||r.object_name||"";
+          setFocusRecord({id:r.id,name,sub});
+          setShowRecordSearch(false);
+        }}/>}
+
+      {/* GDPR action modal */}
+      {gdprAction&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{background:"white",borderRadius:16,width:440,padding:24,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}>
+            {gdprResult ? (
+              <div style={{textAlign:"center"}}>
+                <div style={{width:52,height:52,borderRadius:"50%",background:`${C.green}15`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}>
+                  <Ic n="check" s={24} c={C.green}/>
+                </div>
+                <div style={{fontSize:15,fontWeight:700,color:C.text1,marginBottom:8}}>
+                  {gdprAction.type==='erase'?"AI Data Erased":"Explanation Exported"}
+                </div>
+                <div style={{fontSize:13,color:C.text3,marginBottom:20,lineHeight:1.6}}>
+                  {gdprAction.type==='erase'
+                    ? `Purged ${gdprResult.purged_runs} AI run(s) and ${gdprResult.purged_notes} AI-generated note(s) for this record.`
+                    : `Exported explanation covering ${gdprResult.total} AI interaction(s). Check your downloads.`}
+                </div>
+                <button onClick={()=>{setGdprAction(null);setGdprResult(null);}} style={{padding:"10px 24px",borderRadius:10,border:"none",background:C.accent,color:"white",fontWeight:700,cursor:"pointer",fontFamily:F}}>Done</button>
+              </div>
+            ) : (
+              <>
+                <div style={{fontSize:15,fontWeight:700,color:C.text1,marginBottom:6}}>
+                  {gdprAction.type==='erase'?"GDPR: Right to Erasure":"GDPR: Right to Explanation"}
+                </div>
+                <div style={{fontSize:12,color:C.text3,marginBottom:16,lineHeight:1.6}}>
+                  {gdprAction.type==='erase'
+                    ? `This will permanently delete all AI agent run records and AI-generated notes for "${gdprAction.record.name}". This action cannot be undone. The person's main record is unaffected.`
+                    : `This will export a machine-readable JSON report of all AI decisions made about "${gdprAction.record.name}", including the input data, AI output, and whether a human reviewed each decision.`}
+                </div>
+                <div style={{padding:"10px 12px",borderRadius:8,background:gdprAction.type==='erase'?`${C.red}08`:`${C.accent}08`,border:`1px solid ${gdprAction.type==='erase'?C.red:C.accent}20`,fontSize:11,color:gdprAction.type==='erase'?C.red:C.accent,marginBottom:16}}>
+                  {gdprAction.type==='erase'
+                    ? "⚠ GDPR Art. 17 — Right to Erasure. Fulfil this request only upon verified identity."
+                    : "ℹ GDPR Art. 22 / EU AI Act Art. 86 — Right to explanation. Provide to data subject upon request."}
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>{setGdprAction(null);setGdprResult(null);}} style={{flex:1,padding:"10px",borderRadius:10,border:`1.5px solid ${C.border}`,background:"white",cursor:"pointer",fontFamily:F,fontSize:13}}>Cancel</button>
+                  <button onClick={gdprAction.type==='erase'?handleGdprErase:handleGdprExplain} disabled={gdprLoading}
+                    style={{flex:2,padding:"10px",borderRadius:10,border:"none",background:gdprAction.type==='erase'?C.red:C.accent,color:"white",fontWeight:700,cursor:"pointer",fontFamily:F,fontSize:13}}>
+                    {gdprLoading?"Processing…":gdprAction.type==='erase'?"Erase All AI Data":"Export Explanation Report"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>

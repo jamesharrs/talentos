@@ -414,7 +414,7 @@ function CommItem({ item, onClick }) {
       onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
       onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
       {/* Type badge */}
-      <div style={{ width:36, height:36, borderRadius:10, background:meta.bg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+      <div style={{ width:36, height:36, borderRadius:10, background:meta.bg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:16 }}>
         <TypeIcon type={item.type} size={18} color={meta.color}/>
       </div>
       <div style={{ flex:1, minWidth:0 }}>

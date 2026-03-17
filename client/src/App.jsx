@@ -1080,7 +1080,6 @@ function App() {
         { id: "calendar",   icon: "calendar-days", label: t("nav.calendar") || "Calendar" },
         { id: "offers",     icon: "dollar",       label: "Offers" },
         { id: "agents",     icon: "zap",          label: "Agents" },
-        { id: "matching",   icon: "zap",          label: t("nav.aiMatching") },
         { id: "reports",    icon: "bar-chart-2",  label: t("nav.reports") },
         { id: "search",     icon: "search",       label: t("nav.search") },
       ]
@@ -1334,8 +1333,6 @@ function App() {
           <InterviewDashboard environment={selectedEnv} session={session} onNavigate={(id) => setActiveNav(id)}/>
         ) : activeNav === "dashboard_offers" ? (
           <OfferDashboard environment={selectedEnv} session={session} onNavigate={(id) => setActiveNav(id)}/>
-        ) : activeNav === "matching" ? (
-          <MatchingEngine environment={selectedEnv} />
         ) : activeNav.startsWith("obj_") ? (
           <RecordsView
             object={navObjects.find(o => `obj_${o.id}` === activeNav)}

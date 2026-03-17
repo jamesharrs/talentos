@@ -3,6 +3,7 @@ import ReactDOM from "react-dom";
 import FileTypesSettings from "./settings/FileTypesSettings.jsx";
 import AiGovernance from "./settings/AiGovernance.jsx";
 import QuestionBankSettings from "./settings/QuestionBankSettings.jsx";
+import AiMatchingSettings from "./settings/AiMatchingSettings.jsx";
 import { FormsList } from "./Forms.jsx";
 
 import SuperAdminSection from "./SuperAdmin.jsx";
@@ -1444,6 +1445,7 @@ const NAV_GROUPS = [
     label: "AI",
     items: [
       { id:"ai_governance", icon:"sparkles", label:"AI governance" },
+      { id:"ai_matching",   icon:"zap",      label:"AI Matching" },
     ],
   },
   {
@@ -1547,6 +1549,7 @@ export default function SettingsPage({ currentUser, environment }) {
         {activeSection==="sessions"   && <SessionsSection/>}
         {activeSection==="audit"      && <AuditLogSection/>}
         {activeSection==="ai_governance" && <AiGovernance environment={environment}/>}
+        {activeSection==="ai_matching"  && <AiMatchingSettings/>}
         {activeSection==="file_types" && <FileTypesSettings environment={environment} objects={[]}/>}
         {activeSection==="forms"      && <FormsList environment={environment}/>}
         {activeSection==="appearance" && <AppearanceSection/>}

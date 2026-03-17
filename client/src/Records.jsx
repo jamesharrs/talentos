@@ -2107,13 +2107,75 @@ const CvParseModal = ({ result, fields, record, onApply, onClose }) => {
   );
 };
 
+// ── Notes Panel — defined OUTSIDE RecordDetail to prevent remount on every keystroke ──
+const NotesPanel = ({ record, notes, onNotesChange }) => {
+  const [newNote, setNewNote] = useState("");
+  const [saving, setSaving]   = useState(false);
+
+  const handleAdd = async () => {
+    if (!newNote.trim() || saving) return;
+    setSaving(true);
+    await api.post("/notes", { record_id: record.id, content: newNote, author: "Admin" });
+    setNewNote("");
+    setSaving(false);
+    onNotesChange(); // trigger parent reload
+  };
+
+  const handleDelete = async (id) => {
+    await api.del(`/notes/${id}`);
+    onNotesChange();
+  };
+
+  const handleKey = (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleAdd();
+  };
+
+  return (
+    <div>
+      <div style={{ display:"flex", flexDirection:"column", gap:4, marginBottom:14 }}>
+        <textarea
+          value={newNote}
+          onChange={e => setNewNote(e.target.value)}
+          onKeyDown={handleKey}
+          placeholder="Add a note… (Ctrl+Enter to save)"
+          rows={3}
+          style={{ padding:"10px 12px", borderRadius:10, border:`1px solid ${C.border}`, fontSize:13, fontFamily:F, outline:"none", color:C.text1, resize:"vertical", width:"100%", boxSizing:"border-box" }}
+        />
+        <div style={{ display:"flex", justifyContent:"flex-end" }}>
+          <Btn onClick={handleAdd} disabled={!newNote.trim() || saving} sz="sm">{saving ? "Saving…" : "Add Note"}</Btn>
+        </div>
+      </div>
+      {notes.length === 0
+        ? <div style={{ textAlign:"center", padding:"20px 0", color:C.text3, fontSize:13 }}>No notes yet</div>
+        : notes.map(note => (
+          <div key={note.id} style={{ background: isAiGenerated(note) ? "#F5F3FF" : "#f8f9fc", borderRadius:10, padding:"12px 14px", marginBottom:8, border:`1px solid ${isAiGenerated(note) ? "#7048E830" : C.border}` }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <Avatar name={note.author} size={22} color={isAiGenerated(note) ? "#7048E8" : C.accent}/>
+                <span style={{ fontSize:12, fontWeight:600, color:C.text2 }}>{note.author}</span>
+                {isAiGenerated(note) && <AiBadge/>}
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:11, color:C.text3 }}>{new Date(note.created_at).toLocaleDateString()}</span>
+                <button onClick={() => handleDelete(note.id)} style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:2, borderRadius:4 }}>
+                  <Ic n="trash" s={12} c={C.text3}/>
+                </button>
+              </div>
+            </div>
+            <div style={{ fontSize:13, color:C.text1, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{note.content}</div>
+          </div>
+        ))
+      }
+    </div>
+  );
+};
+
 export const RecordDetail = ({ record, fields, allObjects, environment, objectName, objectColor, onClose, fullPage, onToggleFullPage, onUpdate, onDelete, onNavigate }) => {
   const [tab, setTab]           = useState("fields");
   const [editing, setEditing]   = useState({});
   const [notes, setNotes]       = useState([]);
   const [attachments, setAttachments] = useState([]);
   const [activity, setActivity] = useState([]);
-  const [newNote, setNewNote]   = useState("");
   const [saving, setSaving]     = useState(false);
   const openPanelsKey = `talentos_openpanels_${objectName}`;
   const [openPanels, setOpenPanels] = useState(() => {
@@ -2259,11 +2321,6 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const handleSaveField = async (key, oldValue) => {
     if (!editing.hasOwnProperty(key)) return;
     await handleSaveFieldValue(key, oldValue, editing[key]);
-  };
-  const handleAddNote = async () => {
-    if (!newNote.trim()) return;
-    await api.post("/notes", { record_id:record.id, content:newNote, author:"Admin" });
-    setNewNote(""); load();
   };
   const handleDeleteNote = async (id) => { await api.del(`/notes/${id}`); load(); };
   const handleAddAttachment = async () => {
@@ -2528,34 +2585,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       <CommunicationsPanel record={record} environment={environment} externalCompose={composeType} onExternalComposeDone={()=>setComposeType(null)}/>
     );
     if (id==="notes") return (
-      <div>
-        <div style={{ display:"flex", flexDirection:"column", gap:4, marginBottom:14 }}>
-          <textarea value={newNote} onChange={e=>setNewNote(e.target.value)} placeholder="Add a note…" rows={3}
-            style={{ padding:"10px 12px", borderRadius:10, border:`1px solid ${C.border}`, fontSize:13, fontFamily:F, outline:"none", color:C.text1, resize:"vertical", width:"100%", boxSizing:"border-box" }}/>
-          <div style={{ display:"flex", justifyContent:"flex-end" }}>
-            <Btn onClick={handleAddNote} disabled={!newNote.trim()} sz="sm">Add Note</Btn>
-          </div>
-        </div>
-        {notes.length===0
-          ? <div style={{ textAlign:"center", padding:"20px 0", color:C.text3, fontSize:13 }}>No notes yet</div>
-          : notes.map(note=>(
-            <div key={note.id} style={{ background: isAiGenerated(note) ? "#F5F3FF" : "#f8f9fc", borderRadius:10, padding:"12px 14px", marginBottom:8, border:`1px solid ${isAiGenerated(note) ? "#7048E830" : C.border}` }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <Avatar name={note.author} size={22} color={isAiGenerated(note) ? "#7048E8" : C.accent}/>
-                  <span style={{ fontSize:12, fontWeight:600, color:C.text2 }}>{note.author}</span>
-                  {isAiGenerated(note) && <AiBadge label="AI generated" tooltip="This note was written by an AI agent"/>}
-                </div>
-                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                  <span style={{ fontSize:11, color:C.text3 }}>{new Date(note.created_at).toLocaleString()}</span>
-                  <button onClick={()=>handleDeleteNote(note.id)} style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:2, display:"flex" }}><Ic n="trash" s={12}/></button>
-                </div>
-              </div>
-              <p style={{ margin:0, fontSize:13, color:C.text1, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{note.content}</p>
-            </div>
-          ))
-        }
-      </div>
+      <NotesPanel record={record} notes={notes} onNotesChange={load}/>
     );
 
     if (id==="attachments") return (

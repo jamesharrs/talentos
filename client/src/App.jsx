@@ -22,6 +22,7 @@ import { AICopilot, MatchingEngine } from "./AI.jsx";
 import { ThemeProvider, useTheme, SCHEMES, FONTS, DENSITIES } from "./Theme.jsx";
 import { useI18n } from "./i18n/I18nContext.jsx";
 import LoginPage from "./LoginPage.jsx";
+import BotInterview from "./BotInterview.jsx";
 import { getSession, clearSession } from "./usePermissions.js";
 
 // ─── API Client ───────────────────────────────────────────────────────────────
@@ -969,6 +970,12 @@ function App() {
   // Super Admin route — completely separate from main app
   if (window.location.pathname === '/superadmin') {
     return <SuperAdminConsole />;
+  }
+
+  // Bot interview route — public, no login required
+  const botToken = window.location.pathname.match(/^\/bot\/(.+)$/)?.[1];
+  if (botToken) {
+    return <BotInterview token={botToken} />;
   }
 
   const { prefs, update } = useTheme();

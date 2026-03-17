@@ -590,11 +590,7 @@ const InterviewRow = ({ interview, onEdit, onDelete, envId }) => {
   }, [interview.id]);
 
   const copyBotLink = () => {
-    // Bot runs on portal renderer (5173 in dev, same origin in prod)
-    const base = window.location.hostname === 'localhost'
-      ? `http://localhost:5173`
-      : window.location.origin;
-    const url = `${base}/bot/${botToken}`;
+    const url = `${window.location.origin}/bot/${botToken}`;
     navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   };
 

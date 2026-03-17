@@ -1764,9 +1764,9 @@ const JobQuestionsPanel = ({ record, environment }) => {
   const load = useCallback(async () => {
     setLoading(true);
     const [a, b, t] = await Promise.all([
-      api.get(`/api/question-bank/jobs/${record.id}`),
-      api.get("/api/question-bank/questions"),
-      api.get("/api/question-bank/templates"),
+      api.get(`/question-bank/jobs/${record.id}`),
+      api.get("/question-bank/questions"),
+      api.get("/question-bank/templates"),
     ]);
     setAssigned(Array.isArray(a) ? a : []);
     setBankQs(Array.isArray(b) ? b : []);

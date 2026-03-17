@@ -8,7 +8,6 @@ const C = {
 };
 
 const sa = {
-const sa = {
   get:   p     => fetch(`/api/superadmin/clients${p}`).then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); }),
   post:  (p,b) => fetch(`/api/superadmin/clients${p}`,{method:'POST', headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
   patch: (p,b) => fetch(`/api/superadmin/clients${p}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),

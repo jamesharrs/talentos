@@ -39,3 +39,4 @@ server/Search.jsx
 # Logs
 *.log
 npm-debug.log*
+.vercel

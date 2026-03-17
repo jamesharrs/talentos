@@ -250,7 +250,7 @@ const SimplePeoplePicker = ({ value, onChange, envId, multi=true, placeholder="S
 
   return (
     <div ref={ref} style={{position:"relative"}}>
-      <div onClick={()=>setOpen(o=>!o)} style={{display:"flex",flexWrap:"wrap",gap:4,padding:"6px 10px",borderRadius:9,border:`1.5px solid ${open?C.accent:C.border}`,background:C.surface,cursor:"pointer",minHeight:38,alignItems:"center",gap:4}}>
+      <div onClick={()=>setOpen(o=>!o)} style={{display:"flex",flexWrap:"wrap",gap:4,padding:"6px 10px",borderRadius:9,border:`1.5px solid ${open?C.accent:C.border}`,background:C.surface,cursor:"pointer",minHeight:38,alignItems:"center"}}>
         {selected.map((s,i) => {
           const name = typeof s==="object"?s.name:s;
           const id   = typeof s==="object"?s.id:s;

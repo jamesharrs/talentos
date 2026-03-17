@@ -2527,9 +2527,9 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                   </div>
                   {isFieldChange && (
                     <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:6, padding:"7px 10px", background:"#f8f9fc", borderRadius:8, border:`1px solid ${C.border}`, fontSize:12, flexWrap:"wrap" }}>
-                      <span style={{ color:C.text3, padding:"2px 7px", borderRadius:6, background:"#fee2e2", color:"#b91c1c", fontWeight:500, maxWidth:180, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{formatVal(ch.old_value)}</span>
+                      <span style={{ padding:"2px 7px", borderRadius:6, background:"#fee2e2", color:"#b91c1c", fontWeight:500, maxWidth:180, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{formatVal(ch.old_value)}</span>
                       <span style={{ color:C.text3 }}>→</span>
-                      <span style={{ color:C.text3, padding:"2px 7px", borderRadius:6, background:"#dcfce7", color:"#15803d", fontWeight:500, maxWidth:180, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{formatVal(ch.new_value)}</span>
+                      <span style={{ padding:"2px 7px", borderRadius:6, background:"#dcfce7", color:"#15803d", fontWeight:500, maxWidth:180, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{formatVal(ch.new_value)}</span>
                     </div>
                   )}
                   {!isFieldChange && !isCreated && ch && Object.keys(ch).length>0 && (

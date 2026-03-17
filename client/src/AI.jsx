@@ -187,9 +187,11 @@ const MatchResultsList = ({ matches }) => {
                 {allTags.length>2 && <span style={{fontSize:10,color:C.text3}}>+{allTags.length-2}</span>}
               </div>
 
-              {/* Score ring */}
-              <div style={{padding:"0 8px",flexShrink:0,borderLeft:`1px solid ${C.border}`,height:"100%",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <ScoreRing score={m.score} size={28}/>
+              {/* Score pill */}
+              <div style={{padding:"0 12px",flexShrink:0,borderLeft:`1px solid ${C.border}`,height:"100%",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <div style={{minWidth:36,padding:"3px 7px",borderRadius:6,border:`1.5px solid ${scoreCol}`,background:`${scoreCol}10`,textAlign:"center"}}>
+                  <span style={{fontSize:13,fontWeight:800,color:scoreCol,lineHeight:1}}>{m.score}</span>
+                </div>
               </div>
             </div>
           );

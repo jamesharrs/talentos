@@ -2807,17 +2807,100 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const GroupCard = ({ ids }) => {
     const repId   = ids[0];
     const cardRef = useRef(null);
+    const tabStripRef = useRef(null);
     const isOver  = overSlot === repId;
     const zone    = isOver ? overZone : null;
     const groupOpenKey = `grp_${ids.join("_")}`;
     const isGroupOpen  = openPanels[groupOpenKey] !== false;
     const [activeTab, setActiveTab] = useState(ids[0]);
-    // If active tab was ejected, fall back to first remaining
     const safeActive = ids.includes(activeTab) ? activeTab : ids[0];
+
+    // ── In-group tab drag state ──────────────────────────────────────────────
+    const [draggingTab,    setDraggingTab]    = useState(null);  // id being dragged within group
+    const [tabInsertBefore, setTabInsertBefore] = useState(null); // id to insert before (null=end)
+    const draggingTabRef    = useRef(null);
+    const tabInsertRef      = useRef(null);
+
+    const startTabDrag = (id, e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      draggingTabRef.current  = id;
+      tabInsertRef.current    = null;
+      setDraggingTab(id);
+      setTabInsertBefore(null);
+
+      const onMove = (ev) => {
+        if (!draggingTabRef.current) return;
+        const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+
+        // If cursor drifts far outside the tab strip vertically → eject to card-level drag
+        if (tabStripRef.current) {
+          const stripRect = tabStripRef.current.getBoundingClientRect();
+          const outsideVertically = clientY < stripRect.top - 24 || clientY > stripRect.bottom + 24;
+          if (outsideVertically) {
+            // Promote to a card-level drag
+            const fromId = draggingTabRef.current;
+            draggingTabRef.current = null;
+            tabInsertRef.current   = null;
+            setDraggingTab(null);
+            setTabInsertBefore(null);
+            window.removeEventListener("mousemove", onMove);
+            window.removeEventListener("mouseup",   onUp);
+            startPanelDrag(fromId);
+            return;
+          }
+        }
+
+        // Find which tab the cursor is over and which half
+        if (!tabStripRef.current) return;
+        const tabEls = [...tabStripRef.current.querySelectorAll('[data-tab-id]')];
+        let newBefore = null;
+        for (const el of tabEls) {
+          const tid = el.dataset.tabId;
+          if (tid === draggingTabRef.current) continue;
+          const rect = el.getBoundingClientRect();
+          if (clientX < rect.left + rect.width / 2) { newBefore = tid; break; }
+        }
+        if (tabInsertRef.current !== newBefore) {
+          tabInsertRef.current = newBefore;
+          setTabInsertBefore(newBefore);
+        }
+      };
+
+      const onUp = () => {
+        const fromId = draggingTabRef.current;
+        const before = tabInsertRef.current;
+        draggingTabRef.current = null;
+        tabInsertRef.current   = null;
+        setDraggingTab(null);
+        setTabInsertBefore(null);
+
+        if (fromId && fromId !== before) {
+          const next = ids.filter(x => x !== fromId);
+          const idx  = before === null ? next.length : next.indexOf(before);
+          if (idx === -1) next.push(fromId);
+          else next.splice(idx, 0, fromId);
+          const newOrder = panelOrder.map(s =>
+            Array.isArray(s) && s[0] === repId ? next : s
+          );
+          savePanelOrder(newOrder);
+        }
+
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup",   onUp);
+        window.removeEventListener("touchmove", onMove);
+        window.removeEventListener("touchend",  onUp);
+      };
+
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup",   onUp);
+      window.addEventListener("touchmove", onMove, { passive: true });
+      window.addEventListener("touchend",  onUp);
+    };
 
     const ejectTab = (id, e) => {
       e.stopPropagation();
-      // Remove from group; becomes standalone at end
       savePanelOrder(removePanel(panelOrder, id));
     };
 
@@ -2866,33 +2949,44 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
           </div>
 
           {/* Tabs */}
-          <div style={{ display:"flex", flex:1, overflowX:"auto" }}>
+          <div ref={tabStripRef} style={{ display:"flex", flex:1, overflowX:"auto", userSelect:"none" }}>
             {ids.map(id => {
               const meta = PANEL_META[id];
               if (!meta) return null;
-              const isActive = id === safeActive;
-              const isDraggingThis = draggingPanel === id;
+              const isActive        = id === safeActive;
+              const isDraggingThis  = draggingTab === id;
+              const showInsertLine  = tabInsertBefore === id && draggingTab && draggingTab !== id;
               return (
-                <div key={id} style={{ display:"flex", alignItems:"center", gap:6,
+                <div key={id} data-tab-id={id} style={{ display:"flex", alignItems:"center", gap:6,
                   padding:"10px 12px", cursor:"pointer", flexShrink:0, position:"relative",
                   borderRight:`1px solid ${C.border}`,
                   background: isActive ? C.surface : "transparent",
                   borderBottom: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
-                  opacity: isDraggingThis ? 0.4 : 1,
-                  transition:"background .1s, opacity .15s" }}>
-                  {/* Tab grip — drag to eject */}
-                  <div title="Drag to move out of group"
-                    onMouseDown={e => { e.preventDefault(); startPanelDrag(id); }}
+                  opacity: isDraggingThis ? 0.35 : 1,
+                  transition:"background .1s, opacity .12s" }}>
+
+                  {/* Vertical insert indicator — left edge of tab */}
+                  {showInsertLine && (
+                    <div style={{ position:"absolute", left:0, top:4, bottom:4, width:2.5,
+                      background:C.accent, borderRadius:2, boxShadow:`0 0 6px ${C.accent}80`, zIndex:10 }}/>
+                  )}
+
+                  {/* Tab grip — drag to reorder within group */}
+                  <div
+                    title="Drag to reorder tabs"
+                    onMouseDown={e => startTabDrag(id, e)}
                     onClick={e => e.stopPropagation()}
                     style={{ color: isActive ? C.accent : C.text3, cursor:"grab",
-                      display:"flex", opacity:0.5, transition:"opacity .12s" }}
-                    onMouseEnter={e=>e.currentTarget.style.opacity="1"}
-                    onMouseLeave={e=>e.currentTarget.style.opacity="0.5"}>
+                      display:"flex", opacity:0.5, transition:"opacity .12s, color .12s",
+                      flexShrink:0 }}
+                    onMouseEnter={e=>{ e.currentTarget.style.opacity="1"; e.currentTarget.style.color=C.accent; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.opacity="0.5"; e.currentTarget.style.color=isActive?C.accent:C.text3; }}>
                     <svg width="8" height="12" viewBox="0 0 8 12" fill="none">
                       {[2,6,10].flatMap(y=>[1,5].map(x=><circle key={`${x}${y}`} cx={x} cy={y} r="1.1" fill="currentColor"/>))}
                     </svg>
                   </div>
-                  {/* Tab label */}
+
+                  {/* Tab label — click to activate */}
                   <div onClick={() => setActiveTab(id)}
                     style={{ display:"flex", alignItems:"center", gap:5 }}>
                     <Ic n={meta.icon} s={13} c={isActive ? C.accent : C.text3}/>
@@ -2901,6 +2995,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                       {meta.label}
                     </span>
                   </div>
+
                   {/* Eject × */}
                   <button onClick={e => ejectTab(id, e)} title="Remove from group"
                     style={{ background:"none", border:"none", cursor:"pointer", padding:"0 0 0 2px",
@@ -2913,6 +3008,11 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                 </div>
               );
             })}
+            {/* Insert-at-end indicator */}
+            {draggingTab && tabInsertBefore === null && (
+              <div style={{ width:2.5, alignSelf:"stretch", margin:"4px 0",
+                background:C.accent, borderRadius:2, boxShadow:`0 0 6px ${C.accent}80` }}/>
+            )}
           </div>
 
           {/* Collapse toggle for the whole group */}

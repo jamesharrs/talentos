@@ -47,6 +47,8 @@ const Ic = ({ n, s = 16, c = C.text3 }) => {
 
 const TRIGGER_ICONS = { record_created:"plus", record_updated:"edit", stage_changed:"chevR", form_submitted:"check", schedule_daily:"clock", schedule_weekly:"calendar", manual:"play" };
 const TRIGGER_COLORS = { record_created:"#4361EE", record_updated:"#F08C00", stage_changed:"#7048E8", form_submitted:"#0CA678", schedule_daily:"#E03131", schedule_weekly:"#E03131", manual:"#374151" };
+// Whether a trigger fires automatically (vs manually)
+const AUTO_TRIGGERS = new Set(["record_created","record_updated","stage_changed","form_submitted","schedule_daily","schedule_weekly"]);
 const ACTION_ICONS = { ai_analyse:"sparkles", ai_draft_email:"sparkles", ai_summarise:"sparkles", ai_score:"sparkles", send_email:"mail", update_field:"edit", add_note:"edit", add_to_pool:"users", create_task:"check", notify_user:"alert", webhook:"zap", human_review:"eye" };
 const ACTION_COLORS = { ai_analyse:"#7048E8", ai_draft_email:"#7048E8", ai_summarise:"#7048E8", ai_score:"#7048E8", send_email:"#4361EE", update_field:"#F08C00", add_note:"#0CA678", add_to_pool:"#0CA678", create_task:"#F08C00", notify_user:"#E03131", webhook:"#374151", human_review:"#E67700" };
 
@@ -72,6 +74,12 @@ function AgentCard({ agent, onEdit, onDelete, onRun, onSelect, selected }) {
             <div style={{fontSize:14,fontWeight:700,color:C.text1,marginBottom:2}}>{agent.name}</div>
             {agent.description&&<div style={{fontSize:12,color:C.text3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{agent.description}</div>}
           </div>
+          {/* Auto/Manual badge */}
+          {AUTO_TRIGGERS.has(agent.trigger_type) ? (
+            <div style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:`${C.green}15`,color:C.green,fontWeight:700,flexShrink:0}}>AUTO</div>
+          ) : (
+            <div style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:"#F3F4F6",color:C.text3,fontWeight:700,flexShrink:0}}>MANUAL</div>
+          )}
           <div onClick={async e=>{e.stopPropagation();await api.patch(`/api/agents/${agent.id}`,{is_active:agent.is_active?0:1});onEdit(agent);}}
             style={{width:34,height:20,borderRadius:10,background:agent.is_active?C.green:"#D1D5DB",cursor:"pointer",position:"relative",flexShrink:0,transition:"background .2s"}}>
             <div style={{width:16,height:16,borderRadius:"50%",background:"white",position:"absolute",top:2,left:agent.is_active?16:2,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
@@ -459,6 +467,9 @@ function AgentDetail({ agent, onEdit, onClose }) {
                 <div onClick={()=>setExpanded(expanded===r.id?null:r.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",cursor:"pointer",background:"white"}}>
                   <div style={{width:8,height:8,borderRadius:"50%",background:statusColor(r.status),flexShrink:0}}/>
                   <span style={{flex:1,fontSize:12,color:C.text2,fontWeight:600,textTransform:"capitalize"}}>{r.status.replace(/_/g,' ')}</span>
+                  {r.trigger && r.trigger !== 'manual' && (
+                    <span style={{fontSize:10,padding:"1px 6px",borderRadius:4,background:`${C.green}15`,color:C.green,fontWeight:700}}>{r.trigger.replace(/_/g,' ')}</span>
+                  )}
                   <span style={{fontSize:11,color:C.text3}}>{relTime(r.created_at)}</span>
                   <Ic n={expanded===r.id?"chevD":"chevR"} s={12} c={C.text3}/>
                 </div>
@@ -506,6 +517,12 @@ export default function AgentsModule({ environment }) {
   }, [environment?.id]);
 
   useEffect(()=>{load();},[load]);
+
+  // Auto-refresh every 30s to catch agents fired by server-side triggers
+  useEffect(()=>{
+    const t = setInterval(load, 30000);
+    return () => clearInterval(t);
+  },[load]);
 
   const handleDelete = async (id) => {
     if(!window.confirm('Delete this agent?')) return;

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import ReactDOM from "react-dom";
 import FileTypesSettings from "./settings/FileTypesSettings.jsx";
 import AiGovernance from "./settings/AiGovernance.jsx";
+import QuestionBankSettings from "./settings/QuestionBankSettings.jsx";
 import { FormsList } from "./Forms.jsx";
 
 import SuperAdminSection from "./SuperAdmin.jsx";
@@ -117,6 +118,7 @@ const PATHS = {
   chevronDown:"M6 9l6 6 6-6",
   search:"M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0",
   "help-circle":"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01",
+  search:"M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0",
 };
 const Ic = ({n,s=16,c="currentColor"}) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -1393,72 +1395,146 @@ function LanguageSection() {
   );
 }
 
-const USER_ADMIN_SECTIONS = [
-  { id:"appearance",  icon:"sun",      label:"Appearance" },
-  { id:"language",    icon:"globe",    label:"Language" },
-];
-
-const SECTIONS = [];
-
-const SUPER_ADMIN_SECTIONS = [
-  { id:"ai_governance",icon:"sparkles", label:"AI Governance" },
-  { id:"audit",       icon:"key",      label:"Audit Log" },
-  { id:"datamodel",   icon:"database", label:"Data Model" },
-  { id:"file_types",  icon:"paperclip",label:"File Types" },
-  { id:"forms",       icon:"form",     label:"Forms" },
-  { id:"superadmin",  icon:"zap",      label:"Integrations" },
-  { id:"config",      icon:"refresh",  label:"Import / Export" },
-  { id:"org",         icon:"layers",   label:"Org Structure" },
-  { id:"portals",     icon:"globe",    label:"Portals" },
-  { id:"roles",       icon:"shield",   label:"Roles & Permissions" },
-  { id:"security",    icon:"lock",     label:"Security" },
-  { id:"sessions",    icon:"activity", label:"Active Sessions" },
-  { id:"users",       icon:"users",    label:"Users" },
-  { id:"workflows",   icon:"workflow", label:"Workflows" },
+const NAV_GROUPS = [
+  {
+    id: "preferences",
+    label: "Your preferences",
+    items: [
+      { id:"appearance", icon:"sun",   label:"Appearance" },
+      { id:"language",   icon:"globe", label:"Language" },
+    ],
+  },
+  {
+    id: "people",
+    label: "People & access",
+    items: [
+      { id:"users",  icon:"users",  label:"Users" },
+      { id:"roles",  icon:"shield", label:"Roles & permissions" },
+      { id:"org",    icon:"layers", label:"Org structure" },
+    ],
+  },
+  {
+    id: "security",
+    label: "Security",
+    items: [
+      { id:"security", icon:"lock",     label:"Security" },
+      { id:"sessions", icon:"activity", label:"Active sessions" },
+      { id:"audit",    icon:"key",      label:"Audit log" },
+    ],
+  },
+  {
+    id: "schema",
+    label: "Data & schema",
+    items: [
+      { id:"datamodel",  icon:"database",    label:"Data model" },
+      { id:"file_types", icon:"paperclip",   label:"File types" },
+      { id:"forms",      icon:"form",        label:"Forms" },
+      { id:"questions",  icon:"help-circle", label:"Question bank" },
+    ],
+  },
+  {
+    id: "processes",
+    label: "Processes",
+    items: [
+      { id:"workflows", icon:"workflow", label:"Workflows" },
+      { id:"portals",   icon:"globe",    label:"Portals" },
+    ],
+  },
+  {
+    id: "ai",
+    label: "AI",
+    items: [
+      { id:"ai_governance", icon:"sparkles", label:"AI governance" },
+    ],
+  },
+  {
+    id: "system",
+    label: "System",
+    items: [
+      { id:"superadmin", icon:"zap",     label:"Integrations" },
+      { id:"config",     icon:"refresh", label:"Import / Export" },
+    ],
+  },
 ];
 
 export default function SettingsPage({ currentUser, environment }) {
   const [activeSection, setActiveSection] = useState("appearance");
+  const [search, setSearch]               = useState("");
+  const [collapsed, setCollapsed]         = useState({});
+  const toggleGroup = (id) => setCollapsed(p => ({ ...p, [id]: !p[id] }));
 
-  // Super admin check — currentUser prop from App, fallback to localStorage
-  const user = currentUser || (() => { try { return JSON.parse(localStorage.getItem("talentos_user")||"{}"); } catch { return {}; } })();
-  const isSuperAdmin = user?.role_name === "super_admin" || user?.role_name === "Super Admin" || user?.is_super_admin;
+  const q = search.trim().toLowerCase();
+  const filteredGroups = NAV_GROUPS.map(g => ({
+    ...g,
+    items: q ? g.items.filter(i => i.label.toLowerCase().includes(q)) : g.items,
+  })).filter(g => g.items.length > 0);
 
   return (
     <div style={{display:"flex",gap:0,minHeight:"100%"}}>
       {/* Settings sidebar */}
-      <div style={{width:200,flexShrink:0,paddingRight:24}}>
-        <h1 style={{margin:"0 0 20px",fontSize:20,fontWeight:800,color:C.text1}}>Settings</h1>
-        <div style={{display:"flex",flexDirection:"column",gap:2}}>
+      <div style={{width:210,flexShrink:0,paddingRight:20,display:"flex",flexDirection:"column"}}>
+        <h1 style={{margin:"0 0 14px",fontSize:18,fontWeight:800,color:C.text1}}>Settings</h1>
 
-          {/* User Admin */}
-          <div style={{marginBottom:10}}>
-            <div style={{fontSize:10,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.08em",padding:"0 10px 6px"}}>User Admin</div>
-            {USER_ADMIN_SECTIONS.map(s=>(
-              <button key={s.id} onClick={()=>setActiveSection(s.id)}
-                style={{display:"flex",alignItems:"center",gap:9,padding:"8px 10px",borderRadius:8,border:"none",cursor:"pointer",width:"100%",
-                  background:activeSection===s.id?C.accentLight:"transparent",
-                  color:activeSection===s.id?C.accent:C.text2,
-                  fontSize:13,fontWeight:activeSection===s.id?700:500,fontFamily:F,textAlign:"left",transition:"all .12s"}}>
-                <Ic n={s.icon} s={15}/>{s.label}
-              </button>
-            ))}
-          </div>
+        {/* Search */}
+        <div style={{position:"relative",marginBottom:12}}>
+          <Ic n="search" s={13} c={C.text3}
+            style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}}/>
+          <input value={search} onChange={e=>{setSearch(e.target.value);if(e.target.value)setCollapsed({});}}
+            placeholder="Find a setting…"
+            style={{width:"100%",boxSizing:"border-box",padding:"7px 28px 7px 28px",borderRadius:8,
+              border:`1px solid ${C.border}`,fontSize:12,fontFamily:F,outline:"none",
+              color:C.text1,background:C.surface}}/>
+          {search && (
+            <button onClick={()=>setSearch("")} style={{position:"absolute",right:7,top:"50%",
+              transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",
+              padding:0,display:"flex",color:C.text3}}>
+              <Ic n="x" s={12}/>
+            </button>
+          )}
+        </div>
 
-          {/* System Admin */}
-          <div>
-            <div style={{fontSize:10,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.08em",padding:"0 10px 6px"}}>System Admin</div>
-            {SUPER_ADMIN_SECTIONS.map(s=>(
-              <button key={s.id} onClick={()=>setActiveSection(s.id)}
-                style={{display:"flex",alignItems:"center",gap:9,padding:"8px 10px",borderRadius:8,border:"none",cursor:"pointer",width:"100%",
-                  background:activeSection===s.id?C.accentLight:"transparent",
-                  color:activeSection===s.id?C.accent:C.text2,
-                  fontSize:13,fontWeight:activeSection===s.id?700:500,fontFamily:F,textAlign:"left",transition:"all .12s"}}>
-                <Ic n={s.icon} s={15}/>{s.label}
-              </button>
-            ))}
-          </div>
-
+        {/* Groups */}
+        <div style={{display:"flex",flexDirection:"column",gap:2,overflowY:"auto",flex:1}}>
+          {filteredGroups.length === 0 && (
+            <div style={{padding:"20px 8px",textAlign:"center",color:C.text3,fontSize:12}}>
+              No settings matching "{search}"
+            </div>
+          )}
+          {filteredGroups.map(group => {
+            const isOpen = q ? true : (collapsed[group.id] === undefined ? true : !collapsed[group.id]);
+            return (
+              <div key={group.id} style={{marginBottom:4}}>
+                <button onClick={()=>!q&&toggleGroup(group.id)}
+                  style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",
+                    padding:"5px 6px 4px",background:"none",border:"none",
+                    cursor:q?"default":"pointer",borderRadius:6}}>
+                  <span style={{fontSize:10,fontWeight:700,letterSpacing:"0.07em",
+                    textTransform:"uppercase",color:C.text3}}>{group.label}</span>
+                  {!q && (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                      stroke={C.text3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                      style={{transform:isOpen?"rotate(0deg)":"rotate(-90deg)",transition:"transform .15s",flexShrink:0}}>
+                      <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                  )}
+                </button>
+                {isOpen && group.items.map(s => (
+                  <button key={s.id} onClick={()=>setActiveSection(s.id)}
+                    style={{display:"flex",alignItems:"center",gap:9,padding:"7px 10px",borderRadius:8,
+                      border:"none",cursor:"pointer",width:"100%",marginBottom:1,
+                      background:activeSection===s.id?C.accentLight:"transparent",
+                      color:activeSection===s.id?C.accent:C.text2,
+                      fontSize:13,fontWeight:activeSection===s.id?600:400,
+                      fontFamily:F,textAlign:"left",transition:"all .1s"}}
+                    onMouseEnter={e=>{if(activeSection!==s.id)e.currentTarget.style.background=C.bg;}}
+                    onMouseLeave={e=>{if(activeSection!==s.id)e.currentTarget.style.background="transparent";}}>
+                    <Ic n={s.icon} s={14} c={activeSection===s.id?C.accent:C.text3}/>
+                    <span style={{lineHeight:1.4}}>{s.label}</span>
+                  </button>
+                ))}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -1478,6 +1554,7 @@ export default function SettingsPage({ currentUser, environment }) {
         {activeSection==="language"   && <LanguageSection/>}
         {activeSection==="workflows"  && <WorkflowsPage environment={environment}/>}
         {activeSection==="portals"    && <PortalsPage environment={environment}/>}
+        {activeSection==="questions"  && <QuestionBankSettings/>}
         {activeSection==="superadmin" && <SuperAdminSection/>}
         {activeSection==="config"     && <ConfigSection environment={environment}/>}
       </div>

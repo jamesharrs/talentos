@@ -64,6 +64,7 @@ app.use('/api/cv-parse',           require('./routes/cv_parse'));
 app.use('/api/doc-extract',        require('./routes/doc_extract'));
 app.use('/api/forms',              require('./routes/forms'));
 app.use('/api/agents',             require('./routes/agents'));
+app.use('/api/notifications',   require('./routes/notifications'));
 app.use('/api/offers',             require('./routes/offers'));
 app.use('/api/question-bank',      require('./routes/question_bank'));
 app.use('/api/comms',            require('./routes/communications'));
@@ -114,6 +115,19 @@ initDB().then(() => {
     dirty = true;
   }
   if (!store.job_questions) { store.job_questions = []; dirty = true; }
+  if (!store.notifications) {
+    const now = new Date();
+    const ago = (mins) => new Date(now - mins*60000).toISOString();
+    store.notifications = [
+      { id:'n1', type:'message_reply',    title:'Reply from Ahmed Al-Rashidi', body:'Thanks for reaching out – I am available for a call this week.',         record_id:null, object_slug:'people',  user_id:null, environment_id:null, action_url:null, read_at:null, created_at:ago(15)  },
+      { id:'n2', type:'interview_today',  title:'Interview in 2 hours',         body:'Technical Interview with Sara Khalil for Senior Engineer role.',         record_id:null, object_slug:'jobs',    user_id:null, environment_id:null, action_url:null, read_at:null, created_at:ago(30)  },
+      { id:'n3', type:'agent_review',     title:'Agent needs your review',       body:'Pre-screen summary for 3 candidates requires human verification.',       record_id:null, object_slug:'people',  user_id:null, environment_id:null, action_url:null, read_at:null, created_at:ago(60)  },
+      { id:'n4', type:'task_reminder',    title:'Follow-up overdue',             body:'Call log reminder: follow up with Marcus Webb – 2 days overdue.',        record_id:null, object_slug:'people',  user_id:null, environment_id:null, action_url:null, read_at:null, created_at:ago(120) },
+      { id:'n5', type:'offer_action',     title:'Offer awaiting approval',       body:'Offer for David Chen (Product Manager) is pending your approval.',      record_id:null, object_slug:'jobs',    user_id:null, environment_id:null, action_url:null, read_at:null, created_at:ago(200) },
+      { id:'n6', type:'application_new',  title:'3 new applications',            body:'Senior React Developer role received 3 new applications overnight.',     record_id:null, object_slug:'jobs',    user_id:null, environment_id:null, action_url:null, read_at:null, created_at:ago(360), read_at: ago(5) },
+    ];
+    dirty = true;
+  }
   if (dirty) fs.writeFileSync(path.join(__dirname, '../data/talentos.json'), JSON.stringify(store, null, 2));
   // Apply saved integration credentials to process.env
   for (const fields of Object.values(store.integrations || {})) {

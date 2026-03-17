@@ -697,10 +697,16 @@ const EnvironmentBadge = ({ env, selected, onClick }) => (
 );
 
 // ─── Global Search Bar ────────────────────────────────────────────────────────
-const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateToRecord, onCreateRecord }) => {
+const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateToRecord, onCreateRecord, onNavigateToCalendar }) => {
   const [query,       setQuery]       = useState("");
   const [results,     setResults]     = useState([]);
   const [open,        setOpen]        = useState(false);
+  // Notifications
+  const [notifs,      setNotifs]      = useState([]);
+  const [unread,      setUnread]      = useState(0);
+  const [bellOpen,    setBellOpen]    = useState(false);
+  const bellRef  = useRef(null);
+  const bellTimer = useRef(null);
   const [loading,     setLoading]     = useState(false);
   const [showCreate,  setShowCreate]  = useState(false);
   const ref       = useRef(null);
@@ -719,6 +725,58 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // Load notifications
+  const loadNotifs = async () => {
+    try {
+      const envParam = selectedEnv ? `&environment_id=${selectedEnv.id}` : "";
+      const d = await fetch(`/api/notifications?limit=30${envParam}`).then(r => r.json());
+      setNotifs(Array.isArray(d.notifications) ? d.notifications : []);
+      setUnread(d.unread || 0);
+    } catch {}
+  };
+  useEffect(() => { loadNotifs(); bellTimer.current = setInterval(loadNotifs, 30000); return () => clearInterval(bellTimer.current); }, [selectedEnv?.id]);
+  useEffect(() => { const h = e => { if (bellRef.current && !bellRef.current.contains(e.target)) setBellOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
+
+  const markRead = async (id) => {
+    await fetch(`/api/notifications/${id}/read`, { method:"PATCH" });
+    setNotifs(prev => prev.map(n => n.id === id ? {...n, read_at: new Date().toISOString()} : n));
+    setUnread(prev => Math.max(0, prev - 1));
+  };
+  const markAllRead = async () => {
+    await fetch("/api/notifications/read-all", { method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ environment_id: selectedEnv?.id }) });
+    setNotifs(prev => prev.map(n => ({...n, read_at: n.read_at || new Date().toISOString()})));
+    setUnread(0);
+  };
+  const deleteNotif = async (id, e) => {
+    e.stopPropagation();
+    await fetch(`/api/notifications/${id}`, { method:"DELETE" });
+    setNotifs(prev => prev.filter(n => n.id !== id));
+    setUnread(prev => notifs.find(n=>n.id===id && !n.read_at) ? Math.max(0,prev-1) : prev);
+  };
+
+  const NOTIF_ICONS = {
+    message_reply:    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>,
+    interview_today:  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+    agent_review:     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.937 15.5A2 2 0 008.5 14.063l-6.135-1.582a.5.5 0 010-.962L8.5 9.936A2 2 0 009.937 8.5l1.582-6.135a.5.5 0 01.963 0L14.063 8.5A2 2 0 0015.5 9.937l6.135 1.581a.5.5 0 010 .964L15.5 14.063a2 2 0 00-1.437 1.437l-1.582 6.135a.5.5 0 01-.963 0L9.937 15.5z"/></svg>,
+    task_reminder:    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>,
+    offer_action:     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>,
+    application_new:  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+    workflow_blocked: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+    mention:          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="4"/><path d="M16 12v1a3 3 0 006 0v-1a10 10 0 10-3.92 7.94"/></svg>,
+  };
+  const NOTIF_COLORS = {
+    message_reply:"#3b82f6", interview_today:"#0ca678", agent_review:"#8b5cf6",
+    task_reminder:"#f59e0b", offer_action:"#10b981", application_new:"#6366f1",
+    workflow_blocked:"#ef4444", mention:"#ec4899",
+  };
+  const relTime = (iso) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    if (diff < 60000)   return "just now";
+    if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+    return `${Math.floor(diff/86400000)}d ago`;
+  };
 
   const search = async (q) => {
     if (!q.trim() || !selectedEnv) { setResults([]); return; }
@@ -747,7 +805,13 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
   const OBJECT_COLORS = { people: "#3b5bdb", jobs: "#0ca678", "talent-pools": "#7c3aed" };
 
   return (
-    <div ref={ref} style={{ position: "sticky", top: 0, zIndex: 600, background: "var(--t-surface)", borderBottom: "1px solid var(--t-border)", padding: "10px 32px", display: "flex", alignItems: "center", gap: 12 }}>
+    <div ref={ref} style={{ position: "sticky", top: 0, zIndex: 600, background: "var(--t-surface)", borderBottom: "1px solid var(--t-border)", padding: "8px 20px", display: "flex", alignItems: "center", gap: 10 }}>
+      {/* Calendar icon */}
+      <button onClick={() => onNavigateToCalendar?.()} title="Calendar" style={{ width:34, height:34, borderRadius:9, border:"1px solid var(--t-border)", background:"var(--t-surface2)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0, transition:"background .12s" }}
+        onMouseEnter={e=>e.currentTarget.style.background="var(--t-accent-light,#eef2ff)"}
+        onMouseLeave={e=>e.currentTarget.style.background="var(--t-surface2)"}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--t-accent)" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </button>
       <div style={{ position: "relative", flex: 1, maxWidth: 480 }}>
         {/* Input */}
         <input
@@ -845,6 +909,73 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Notification Bell ── */}
+      <div ref={bellRef} style={{ position:"relative", flexShrink:0 }}>
+        <button onClick={() => setBellOpen(o => !o)} title="Notifications"
+          style={{ width:34, height:34, borderRadius:9, border:"1px solid var(--t-border)", background: bellOpen ? "var(--t-accent-light,#eef2ff)" : "var(--t-surface2)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0, position:"relative", transition:"background .12s" }}
+          onMouseEnter={e=>e.currentTarget.style.background="var(--t-accent-light,#eef2ff)"}
+          onMouseLeave={e=>{ if(!bellOpen) e.currentTarget.style.background="var(--t-surface2)"; }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--t-accent)" strokeWidth="2" strokeLinecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          {unread > 0 && (
+            <span style={{ position:"absolute", top:-3, right:-3, minWidth:16, height:16, borderRadius:99, background:"#ef4444", color:"white", fontSize:9, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 4px", border:"2px solid var(--t-surface)", lineHeight:1 }}>
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
+        </button>
+
+        {/* Bell dropdown panel */}
+        {bellOpen && (
+          <div style={{ position:"absolute", top:"calc(100% + 8px)", right:0, width:360, maxHeight:480, background:"var(--t-surface)", border:"1px solid var(--t-border)", borderRadius:14, boxShadow:"0 12px 40px rgba(0,0,0,.15)", zIndex:500, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+            {/* Header */}
+            <div style={{ padding:"12px 14px 10px", borderBottom:"1px solid var(--t-border)", display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ fontSize:13, fontWeight:700, color:"var(--t-text1)", flex:1 }}>Notifications</span>
+              {unread > 0 && <span style={{ fontSize:11, color:"var(--t-text3)" }}>{unread} unread</span>}
+              {unread > 0 && (
+                <button onClick={markAllRead} style={{ fontSize:11, color:"var(--t-accent)", fontWeight:600, background:"none", border:"none", cursor:"pointer", padding:"2px 6px", borderRadius:5 }}>Mark all read</button>
+              )}
+            </div>
+            {/* List */}
+            <div style={{ overflowY:"auto", flex:1 }}>
+              {notifs.length === 0 && (
+                <div style={{ padding:"32px 16px", textAlign:"center", color:"var(--t-text3)", fontSize:12 }}>
+                  <div style={{ fontSize:24, marginBottom:8 }}>🔔</div>
+                  <div>All caught up!</div>
+                </div>
+              )}
+              {notifs.map(n => {
+                const color = NOTIF_COLORS[n.type] || "#6b7280";
+                const icon  = NOTIF_ICONS[n.type]  || null;
+                const isUnread = !n.read_at;
+                return (
+                  <div key={n.id} onClick={() => { if(isUnread) markRead(n.id); }}
+                    style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"10px 14px", borderBottom:"1px solid var(--t-border2,#f3f4f6)", cursor: isUnread ? "pointer" : "default", background: isUnread ? `${color}08` : "transparent", transition:"background .1s" }}
+                    onMouseEnter={e=>{ if(isUnread) e.currentTarget.style.background=`${color}14`; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.background = isUnread ? `${color}08` : "transparent"; }}>
+                    {/* Icon */}
+                    <div style={{ width:28, height:28, borderRadius:8, background:`${color}18`, color, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
+                      {icon}
+                    </div>
+                    {/* Content */}
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                        <span style={{ fontSize:12, fontWeight: isUnread ? 700 : 500, color:"var(--t-text1)", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{n.title}</span>
+                        {isUnread && <span style={{ width:6, height:6, borderRadius:"50%", background:color, flexShrink:0 }}/>}
+                      </div>
+                      <div style={{ fontSize:11, color:"var(--t-text3)", lineHeight:1.4, marginBottom:3, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{n.body}</div>
+                      <div style={{ fontSize:10, color:"var(--t-text3)" }}>{relTime(n.created_at)}</div>
+                    </div>
+                    {/* Delete */}
+                    <button onClick={e => deleteNotif(n.id, e)} style={{ background:"none", border:"none", cursor:"pointer", padding:"2px 4px", color:"var(--t-text3)", borderRadius:4, opacity:0, transition:"opacity .1s", fontSize:14, lineHeight:1 }}
+                      onMouseEnter={e=>{e.currentTarget.style.opacity="1"; e.currentTarget.style.color="#ef4444";}}
+                      onMouseLeave={e=>{e.currentTarget.style.opacity="0"; e.currentTarget.style.color="var(--t-text3)";}}>×</button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -1313,7 +1444,8 @@ function App() {
              // Navigate to the object list and trigger new record modal
              setActiveNav(`obj_${obj.id}`);
              setCreateTarget(obj);
-           }} />
+           }}
+           onNavigateToCalendar={() => setActiveNav("calendar")} />
         {/* Page content */}
         <div style={{ flex: 1, padding: activeNav.startsWith("record_") ? 0 : "28px 32px", overflow: "auto" }}>
         {loading ? (

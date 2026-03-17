@@ -288,108 +288,83 @@ export const MatchingEngine = ({ environment, initialObject, initialRecord }) =>
   const poolsObj   = objects.find(o=>o.slug==="talent-pools");
 
   return (
-    <div style={{fontFamily:F, padding:24}}>
-      {/* Header */}
-      <div style={{marginBottom:20,display:"flex",alignItems:"center",gap:12}}>
-        <div style={{flex:1}}>
-          <h2 style={{margin:"0 0 2px",fontSize:18,fontWeight:800,color:C.text1}}>
-            {mode==="job" ? "Candidate Matching" : "Job & Pool Matching"}
-          </h2>
-          <p style={{margin:0,fontSize:12,color:C.text3}}>
-            {mode==="job"
-              ? `Ranking candidates against: ${personName}`
-              : `Finding the best matches for: ${personName}`}
-          </p>
+    <div style={{fontFamily:F, padding:"16px 20px"}}>
+
+      {/* ── Top toolbar: profile chip + filters + toggle ── */}
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+
+        {/* Profile chip */}
+        <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 12px 6px 6px",borderRadius:99,border:`1px solid ${C.border}`,background:C.surface,flexShrink:0}}>
+          <div style={{width:26,height:26,borderRadius:"50%",background:mode==="job"?(jobsObj?.color||C.ai):(peopleObj?.color||C.accent),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <Ic n={mode==="job"?"briefcase":"user"} s={12} c="white"/>
+          </div>
+          <div style={{lineHeight:1.2}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text1}}>{personName}</div>
+            <div style={{fontSize:10,color:C.text3}}>{mode==="job"?(lockedRecord?.data?.department||"Job"):(lockedRecord?.data?.current_title||"Candidate")}</div>
+          </div>
         </div>
-        {/* Person mode: toggle between jobs and pools */}
+
+        {/* Attribute pills */}
+        {mode==="person" && lockedRecord?.data?.years_experience && (
+          <span style={{fontSize:11,padding:"4px 10px",borderRadius:99,background:"#f1f5f9",color:C.text2,flexShrink:0}}>
+            {lockedRecord.data.years_experience}y exp
+          </span>
+        )}
+        {mode==="person" && lockedRecord?.data?.location && (
+          <span style={{fontSize:11,padding:"4px 10px",borderRadius:99,background:"#f1f5f9",color:C.text2,flexShrink:0}}>
+            📍 {lockedRecord.data.location}
+          </span>
+        )}
+        {mode==="job" && lockedRecord?.data?.location && (
+          <span style={{fontSize:11,padding:"4px 10px",borderRadius:99,background:"#f1f5f9",color:C.text2,flexShrink:0}}>
+            📍 {lockedRecord.data.location}
+          </span>
+        )}
+
+        {/* Spacer */}
+        <div style={{flex:1}}/>
+
+        {/* Min score inline */}
+        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+          <span style={{fontSize:11,fontWeight:600,color:C.text3,whiteSpace:"nowrap"}}>Min score</span>
+          <input type="range" min={0} max={90} step={5} value={minScore} onChange={e=>setMinScore(Number(e.target.value))}
+            style={{width:80,accentColor:C.ai}}/>
+          <span style={{fontSize:12,fontWeight:700,color:C.ai,minWidth:28,textAlign:"right"}}>{minScore}+</span>
+        </div>
+
+        {/* Jobs/Pools toggle (person mode) */}
         {mode==="person" && (
-          <div style={{display:"flex",border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-            {[{id:"jobs",icon:"briefcase",label:"Jobs"},{id:"pools",icon:"layers",label:"Talent Pools"}].map(t=>(
+          <div style={{display:"flex",border:`1px solid ${C.border}`,borderRadius:7,overflow:"hidden",flexShrink:0}}>
+            {[{id:"jobs",icon:"briefcase",label:"Jobs"},{id:"pools",icon:"layers",label:"Pools"}].map(t=>(
               <button key={t.id} onClick={()=>setMatchTarget(t.id)}
-                style={{display:"flex",alignItems:"center",gap:5,padding:"7px 13px",border:"none",cursor:"pointer",fontFamily:F,fontSize:12,fontWeight:600,
+                style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",border:"none",cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,
                   background:matchTarget===t.id?C.accentLight:"transparent",
                   color:matchTarget===t.id?C.accent:C.text3,transition:"all .12s"}}>
-                <Ic n={t.icon} s={12}/>{t.label}
+                <Ic n={t.icon} s={11}/>{t.label}
               </button>
             ))}
           </div>
         )}
       </div>
 
-      <div style={{display:"flex",gap:20,alignItems:"flex-start"}}>
-        {/* Left panel: locked record profile */}
-        <div style={{width:240,flexShrink:0}}>
-          <div style={{background:C.surface,borderRadius:12,border:`1px solid ${C.border}`,padding:"16px",marginBottom:12}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-              <div style={{width:40,height:40,borderRadius:"50%",background:mode==="job"?(jobsObj?.color||C.ai):( peopleObj?.color||C.accent),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                <Ic n={mode==="job"?"briefcase":"user"} s={18} c="white"/>
-              </div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:700,color:C.text1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{personName}</div>
-                <div style={{fontSize:11,color:C.text3}}>{mode==="job" ? (lockedRecord?.data?.department||lockedRecord?.data?.work_type||"Job") : (lockedRecord?.data?.current_title||"Candidate")}</div>
-              </div>
-            </div>
-            {/* Key attributes */}
-            {mode==="job" ? (<>
-              {lockedRecord?.data?.location&&<div style={{fontSize:11,color:C.text3,marginBottom:4}}>📍 {lockedRecord.data.location}</div>}
-              {lockedRecord?.data?.work_type&&<div style={{fontSize:11,color:C.text3,marginBottom:4}}>💼 {lockedRecord.data.work_type}</div>}
-              {lockedRecord?.data?.required_skills?.length>0&&<div style={{marginTop:8}}>
-                <div style={{fontSize:11,fontWeight:600,color:C.text2,marginBottom:4}}>Required Skills</div>
-                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-                  {(Array.isArray(lockedRecord.data.required_skills)?lockedRecord.data.required_skills:String(lockedRecord.data.required_skills).split(",")).slice(0,6).map((s,i)=>(
-                    <span key={i} style={{fontSize:10,background:C.accentLight,color:C.accent,padding:"2px 7px",borderRadius:99}}>{s.trim()}</span>
-                  ))}
-                </div>
-              </div>}
-            </>) : (<>
-              {lockedRecord?.data?.location&&<div style={{fontSize:11,color:C.text3,marginBottom:4}}>📍 {lockedRecord.data.location}</div>}
-              {lockedRecord?.data?.years_experience&&<div style={{fontSize:11,color:C.text3,marginBottom:4}}>🗓 {lockedRecord.data.years_experience}y experience</div>}
-              {lockedRecord?.data?.skills?.length>0&&<div style={{marginTop:8}}>
-                <div style={{fontSize:11,fontWeight:600,color:C.text2,marginBottom:4}}>Skills</div>
-                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-                  {(Array.isArray(lockedRecord.data.skills)?lockedRecord.data.skills:String(lockedRecord.data.skills).split(",")).slice(0,6).map((s,i)=>(
-                    <span key={i} style={{fontSize:10,background:C.accentLight,color:C.accent,padding:"2px 7px",borderRadius:99}}>{s.trim()}</span>
-                  ))}
-                </div>
-              </div>}
-            </>)}
-          </div>
-
-          {/* Min score slider */}
-          <div style={{background:C.surface,borderRadius:12,border:`1px solid ${C.border}`,padding:"14px 16px"}}>
-            <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:10}}>Min. Score</div>
-            <input type="range" min={0} max={90} step={5} value={minScore} onChange={e=>setMinScore(Number(e.target.value))} style={{width:"100%",accentColor:C.ai}}/>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.text3,marginTop:4}}>
-              <span>0</span><span style={{fontWeight:700,color:C.ai}}>{minScore}+</span><span>90</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right panel: ranked matches */}
-        <div style={{flex:1,minWidth:0}}>
-          {/* Summary bar */}
-          <div style={{background:`linear-gradient(135deg,${C.ai}10,${C.accentLight})`,borderRadius:12,border:`1px solid ${C.ai}20`,padding:"12px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
-            <Ic n="sparkles" s={18} c={C.ai}/>
-            <div style={{flex:1}}>
-              <span style={{fontSize:13,fontWeight:700,color:C.text1}}>{filtered.length} match{filtered.length!==1?"es":""}</span>
-              <span style={{fontSize:12,color:C.text3,marginLeft:8}}>scoring {minScore}+ out of {matches.length} total</span>
-            </div>
-          </div>
-
-          {loading
-            ? <div style={{textAlign:"center",padding:"40px 0",color:C.text3}}>
-                <div style={{animation:"spin 1s linear infinite",display:"inline-flex",marginBottom:8}}><Ic n="loader" s={24} c={C.ai}/></div>
-                <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-                <div style={{fontSize:13}}>Scoring…</div>
-              </div>
-            : filtered.length===0
-              ? <div style={{textAlign:"center",padding:"40px 0",color:C.text3}}>
-                  <div style={{fontSize:13,fontWeight:600,color:C.text2}}>No matches above {minScore}</div>
-                </div>
-              : <MatchResultsList matches={filtered} />
-          }
-        </div>
+      {/* ── Summary bar ── */}
+      <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",borderRadius:8,background:`${C.ai}08`,border:`1px solid ${C.ai}18`,marginBottom:12}}>
+        <Ic n="sparkles" s={14} c={C.ai}/>
+        <span style={{fontSize:12,fontWeight:700,color:C.text1}}>{filtered.length} match{filtered.length!==1?"es":""}</span>
+        <span style={{fontSize:11,color:C.text3}}>scoring {minScore}+ out of {matches.length} total</span>
       </div>
+
+      {/* ── Results: full width ── */}
+      {loading
+        ? <div style={{textAlign:"center",padding:"40px 0",color:C.text3}}>
+            <div style={{animation:"spin 1s linear infinite",display:"inline-flex",marginBottom:8}}><Ic n="loader" s={22} c={C.ai}/></div>
+            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+            <div style={{fontSize:12}}>Scoring…</div>
+          </div>
+        : filtered.length===0
+          ? <div style={{textAlign:"center",padding:"32px 0",color:C.text3,fontSize:13}}>No matches above {minScore}</div>
+          : <MatchResultsList matches={filtered} />
+      }
     </div>
   );
 };

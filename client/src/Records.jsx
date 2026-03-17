@@ -1744,8 +1744,235 @@ const mergePanel   = (order, targetRepId, newId) =>
     return Array.isArray(s) ? [...s, newId] : [s, newId];
   });
 
+// ─── Job Questions Panel ──────────────────────────────────────────────────────
+const TYPE_COLORS_Q = { knockout:"#dc2626", competency:"#2563eb", technical:"#7c3aed", culture:"#059669" };
+const TYPE_LABELS_Q = { knockout:"Eligibility / Knockout", competency:"Competency / Behavioural", technical:"Technical", culture:"Culture Fit" };
+
+const JobQuestionsPanel = ({ record, environment }) => {
+  const [view, setView]           = useState("assigned"); // "assigned" | "bank" | "templates"
+  const [assigned, setAssigned]   = useState([]);
+  const [bankQs, setBankQs]       = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [selected, setSelected]   = useState(new Set());
+  const [loading, setLoading]     = useState(true);
+  const [saving, setSaving]       = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [genCount, setGenCount]   = useState(8);
+  const [search, setSearch]       = useState("");
+  const [filterType, setFilterType] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [a, b, t] = await Promise.all([
+      api.get(`/api/question-bank/jobs/${record.id}`),
+      api.get("/api/question-bank/questions"),
+      api.get("/api/question-bank/templates"),
+    ]);
+    setAssigned(Array.isArray(a) ? a : []);
+    setBankQs(Array.isArray(b) ? b : []);
+    setTemplates(Array.isArray(t) ? t : []);
+    setSelected(new Set((Array.isArray(a) ? a : []).map(q => q.id)));
+    setLoading(false);
+  }, [record.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async (ids) => {
+    setSaving(true);
+    await fetch(`/api/question-bank/jobs/${record.id}`, {
+      method:"PUT", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ question_ids: ids }),
+    });
+    setSaving(false);
+    load();
+  };
+
+  const toggle = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const applyTemplate = async (tplId) => {
+    const tpl = templates.find(t => t.id === tplId);
+    if (!tpl) return;
+    const merged = [...new Set([...assigned.map(q=>q.id), ...(tpl.question_ids||[])])];
+    await save(merged);
+  };
+
+  const generate = async () => {
+    const d = record.data || {};
+    setGenerating(true);
+    try {
+      const res = await fetch(`/api/question-bank/jobs/${record.id}/generate`, {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ job_title: d.job_title||d.name, department: d.department, description: d.description, skills: d.skills, count: genCount }),
+      });
+      const generated = await res.json();
+      if (Array.isArray(generated) && generated.length) {
+        // save them to the question bank first, then assign
+        const saved = await Promise.all(generated.map(q =>
+          fetch("/api/question-bank/questions", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(q) }).then(r=>r.json())
+        ));
+        const ids = [...assigned.map(q=>q.id), ...saved.map(q=>q.id)];
+        await save(ids);
+      }
+    } catch(e) { console.error(e); }
+    setGenerating(false);
+  };
+
+  const saveSelection = () => save([...selected]);
+
+  const filteredBank = bankQs.filter(q => {
+    if (filterType && q.type !== filterType) return false;
+    if (search) { const s=search.toLowerCase(); return q.text.toLowerCase().includes(s)||(q.competency||"").toLowerCase().includes(s); }
+    return true;
+  });
+  const groupedBank = ["knockout","competency","technical","culture"].reduce((a,t)=>({...a,[t]:filteredBank.filter(q=>q.type===t)}),{});
+
+  const tabSt = (active) => ({ padding:"6px 14px", borderRadius:7, border:"none", background:active?C.accent:"transparent", color:active?"#fff":C.text2, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", transition:"all .12s" });
+
+  if (loading) return <div style={{padding:24,textAlign:"center",color:C.text3}}>Loading…</div>;
+
+  return (
+    <div style={{fontFamily:"'DM Sans',sans-serif"}}>
+      {/* Tabs */}
+      <div style={{display:"flex",gap:4,marginBottom:16,background:"#f1f5f9",borderRadius:9,padding:4}}>
+        {[["assigned",`Assigned (${assigned.length})`],["bank","Question Bank"],["templates","Templates"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setView(v)} style={tabSt(view===v)}>{l}</button>
+        ))}
+      </div>
+
+      {/* ── Assigned Questions ─────────────────────────────── */}
+      {view==="assigned" && (
+        <div>
+          {assigned.length === 0
+            ? <div style={{padding:"32px 16px",textAlign:"center",color:C.text3}}>
+                <div style={{fontSize:24,marginBottom:8}}>📋</div>
+                <div style={{fontSize:13,fontWeight:600,color:C.text2,marginBottom:4}}>No questions assigned</div>
+                <div style={{fontSize:12,marginBottom:16}}>Pick from the Question Bank, apply a template, or let AI generate questions for this role.</div>
+                <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
+                  <button onClick={()=>setView("bank")} style={{padding:"7px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:"white",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",color:C.text2}}>Browse Bank</button>
+                  <button onClick={()=>setView("templates")} style={{padding:"7px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:"white",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",color:C.text2}}>Use Template</button>
+                  <button onClick={generate} disabled={generating} style={{padding:"7px 14px",borderRadius:8,border:"none",background:C.purple,color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",opacity:generating?0.6:1}}>
+                    {generating?"Generating…":"✨ AI Generate"}
+                  </button>
+                </div>
+              </div>
+            : <div>
+                {/* AI Generate strip */}
+                <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:10,background:"#f5f3ff",border:"1px solid #ede9fe",marginBottom:14}}>
+                  <span style={{fontSize:12,color:C.text2,flex:1}}>Need more questions? Let AI generate role-specific ones.</span>
+                  <select value={genCount} onChange={e=>setGenCount(Number(e.target.value))} style={{padding:"4px 8px",borderRadius:7,border:`1px solid ${C.border}`,fontSize:12,background:"white",color:C.text1}}>
+                    {[4,6,8,10,12].map(n=><option key={n} value={n}>{n} questions</option>)}
+                  </select>
+                  <button onClick={generate} disabled={generating} style={{padding:"6px 14px",borderRadius:8,border:"none",background:C.purple,color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:5,opacity:generating?0.6:1}}>
+                    {generating?<>Generating…</>:<><svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M9.937 15.5A2 2 0 008.5 14.063l-6.135-1.582a.5.5 0 010-.962L8.5 9.936A2 2 0 009.937 8.5l1.582-6.135a.5.5 0 01.963 0L14.063 8.5A2 2 0 0015.5 9.937l6.135 1.581a.5.5 0 010 .964L15.5 14.063a2 2 0 00-1.437 1.437l-1.582 6.135a.5.5 0 01-.963 0L9.937 15.5z"/></svg>Generate</>}
+                  </button>
+                </div>
+                {/* Group by type */}
+                {["knockout","competency","technical","culture"].map(type=>{
+                  const qs = assigned.filter(q=>q.type===type);
+                  if (!qs.length) return null;
+                  return (
+                    <div key={type} style={{marginBottom:16}}>
+                      <div style={{fontSize:10,fontWeight:700,color:TYPE_COLORS_Q[type],textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>{TYPE_LABELS_Q[type]}</div>
+                      {qs.map(q=>(
+                        <div key={q.id} style={{display:"flex",gap:10,padding:"10px 12px",borderRadius:9,border:`1px solid ${C.border}`,background:C.surface,marginBottom:5}}>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:12,color:C.text1,lineHeight:1.5}}>{q.text}</div>
+                            <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
+                              <span style={{fontSize:10,fontWeight:600,padding:"1px 6px",borderRadius:99,background:`${TYPE_COLORS_Q[q.type]}14`,color:TYPE_COLORS_Q[q.type]}}>{TYPE_LABELS_Q[q.type]}</span>
+                              <span style={{fontSize:10,color:C.text3}}>{q.weight} pts</span>
+                              {q.options&&<span style={{fontSize:10,color:C.text3}}>Options: {q.options.join(", ")}</span>}
+                            </div>
+                          </div>
+                          <button onClick={()=>{ const ids=assigned.filter(a=>a.id!==q.id).map(a=>a.id); save(ids); }} title="Remove" style={{background:"none",border:"none",cursor:"pointer",color:C.text3,padding:4,borderRadius:6,flexShrink:0}}><svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+          }
+        </div>
+      )}
+
+      {/* ── Question Bank picker ───────────────────────────── */}
+      {view==="bank" && (
+        <div>
+          <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+            <div style={{position:"relative",flex:1}}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.text3} strokeWidth="2" style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)"}}><circle cx="11" cy="11" r="8"/><path d="M21 21l-6-6"/></svg>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search questions…" style={{width:"100%",padding:"7px 9px 7px 28px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+            </div>
+            {["","knockout","competency","technical","culture"].map(t=>(
+              <button key={t} onClick={()=>setFilterType(t)} style={{padding:"5px 10px",borderRadius:7,border:`1.5px solid ${filterType===t?(TYPE_COLORS_Q[t]||C.accent):C.border}`,background:filterType===t?(TYPE_COLORS_Q[t]||C.accent):"transparent",color:filterType===t?"#fff":C.text2,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                {t||"All"}
+              </button>
+            ))}
+          </div>
+          {Object.entries(groupedBank).map(([type,qs])=> qs.length===0 ? null : (
+            <div key={type} style={{marginBottom:16}}>
+              <div style={{fontSize:10,fontWeight:700,color:TYPE_COLORS_Q[type],textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>{TYPE_LABELS_Q[type]}</div>
+              {qs.map(q=>{
+                const isSel = selected.has(q.id);
+                return (
+                  <div key={q.id} onClick={()=>toggle(q.id)} style={{display:"flex",gap:10,padding:"10px 12px",borderRadius:9,border:`1.5px solid ${isSel?TYPE_COLORS_Q[q.type]:C.border}`,background:isSel?`${TYPE_COLORS_Q[q.type]}08`:C.surface,marginBottom:5,cursor:"pointer",transition:"all .1s"}}>
+                    <div style={{width:16,height:16,borderRadius:4,border:`2px solid ${isSel?TYPE_COLORS_Q[q.type]:C.border}`,background:isSel?TYPE_COLORS_Q[q.type]:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:2,transition:"all .1s"}}>
+                      {isSel&&<svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>}
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:12,color:C.text1,lineHeight:1.5}}>{q.text}</div>
+                      <div style={{display:"flex",gap:5,marginTop:3,flexWrap:"wrap"}}>
+                        <span style={{fontSize:10,color:C.text3}}>{q.weight} pts</span>
+                        {(q.tags||[]).slice(0,3).map(t=><span key={t} style={{fontSize:10,color:C.text3}}>#{t}</span>)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+          <div style={{position:"sticky",bottom:0,background:"white",paddingTop:10,borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:12,color:C.text3}}>{selected.size} selected</span>
+            <button onClick={saveSelection} disabled={saving} style={{padding:"8px 18px",borderRadius:9,border:"none",background:C.accent,color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",opacity:saving?0.6:1}}>
+              {saving?"Saving…":"Save Selection"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Templates ─────────────────────────────────────── */}
+      {view==="templates" && (
+        <div>
+          {templates.length === 0
+            ? <div style={{padding:32,textAlign:"center",color:C.text3,fontSize:13}}>No templates in the Question Bank yet. Go to Settings → Question Bank to create some.</div>
+            : templates.map(t => {
+                const hasQs = (t.question_ids||[]).length > 0;
+                return (
+                  <div key={t.id} style={{padding:"14px 16px",borderRadius:10,border:`1.5px solid ${C.border}`,background:C.surface,marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:700,color:C.text1}}>{t.name}</div>
+                      <div style={{fontSize:11,color:C.text3,marginTop:2}}>{t.description||"No description"} · {(t.question_ids||[]).length} questions</div>
+                    </div>
+                    {t.is_system && <span style={{fontSize:10,fontWeight:700,color:"#64748b",background:"#f1f5f9",padding:"1px 6px",borderRadius:99}}>system</span>}
+                    <button onClick={()=>applyTemplate(t.id)} disabled={!hasQs||saving} style={{padding:"7px 14px",borderRadius:8,border:"none",background:hasQs?C.accent:"#e5e7eb",color:hasQs?"white":"#9ca3af",fontSize:12,fontWeight:700,cursor:hasQs?"pointer":"not-allowed",fontFamily:"inherit",opacity:saving?0.6:1}}>
+                      {saving?"…":"Apply"}
+                    </button>
+                  </div>
+                );
+              })
+          }
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const PANEL_META = {
-  tasks:       { icon:"checkSquare",   label:"Tasks & Events", defaultOpen:true  },
   comms:       { icon:"mail",          label:"Communications", defaultOpen:true  },
   notes:       { icon:"messageSquare", label:"Notes",     defaultOpen:true  },
   attachments: { icon:"paperclip",     label:"Files",     defaultOpen:true  },
@@ -1757,6 +1984,7 @@ export const PANEL_META = {
   reporting:   { icon:"gitBranch",     label:"Reporting", defaultOpen:true  },
   user:        { icon:"user",          label:"Platform User",  defaultOpen:true },
   scorecard:   { icon:"clipboard",     label:"Scorecards",     defaultOpen:false },
+  questions:   { icon:"help-circle",   label:"Interview Questions", defaultOpen:false },
 };
 
 export const getDefaultPanelOrder = (objectName) => {
@@ -1764,6 +1992,7 @@ export const getDefaultPanelOrder = (objectName) => {
   if (objectName === "Person") base.splice(1, 0, "linked", "reporting");
   if (["Person","Job"].includes(objectName)) base.push("match");
   if (objectName === "Person") base.push("scorecard");
+  if (objectName === "Job") base.push("questions");
   return base;
 };
 
@@ -2754,6 +2983,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     if (id==="reporting") return <ReportingPanel record={record} environment={environment}/>;
     if (id==="user") return <UserPanel record={record}/>;
     if (id==="scorecard") return <ScorecardPanel record={record} environment={environment}/>;
+    if (id==="questions") return <JobQuestionsPanel record={record} environment={environment}/>;
 
     if (id==="match") return (
       <div style={{ margin:"-16px" }}>

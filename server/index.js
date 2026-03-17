@@ -65,6 +65,7 @@ app.use('/api/doc-extract',        require('./routes/doc_extract'));
 app.use('/api/forms',              require('./routes/forms'));
 app.use('/api/agents',             require('./routes/agents'));
 app.use('/api/offers',             require('./routes/offers'));
+app.use('/api/question-bank',      require('./routes/question_bank'));
 app.use('/api/comms',            require('./routes/communications'));
 app.use('/api/email-templates',  require('./routes/email-templates'));
 app.use('/api/integrations',     require('./routes/integrations'));
@@ -84,6 +85,35 @@ initDB().then(() => {
   if (!store.communications)   { store.communications = [];   dirty = true; }
   if (!store.email_templates)  { store.email_templates = [];  dirty = true; }
   if (!store.integrations)     { store.integrations = {};     dirty = true; }
+  // Question bank v2 (standalone, separate from bot.js question_bank)
+  if (!store.question_bank_v2) {
+    const DEFAULT_QUESTIONS = [
+      { id:'kq1', type:'knockout', competency:'eligibility', text:'Are you currently eligible to work in the country where this role is based?', options:['Yes','No'], pass_value:'Yes', weight:10, tags:['right-to-work'], is_system:true, created_at:new Date().toISOString() },
+      { id:'kq2', type:'knockout', competency:'availability', text:'Can you start within the timeframe required for this role?', options:['Yes','No','Negotiable'], pass_value:null, weight:5, tags:['availability'], is_system:true, created_at:new Date().toISOString() },
+      { id:'bq1', type:'competency', competency:'leadership', text:'Tell me about a time you led a team through a challenging project. What was your approach and what was the outcome?', weight:15, tags:['leadership','management'], is_system:true, created_at:new Date().toISOString() },
+      { id:'bq2', type:'competency', competency:'problem_solving', text:'Describe a complex problem you encountered at work. How did you break it down and what steps did you take to resolve it?', weight:15, tags:['problem-solving'], is_system:true, created_at:new Date().toISOString() },
+      { id:'bq3', type:'competency', competency:'communication', text:'Give an example of a time you had to communicate difficult news to a stakeholder. How did you approach it?', weight:10, tags:['communication'], is_system:true, created_at:new Date().toISOString() },
+      { id:'bq4', type:'competency', competency:'adaptability', text:'Tell me about a time when priorities changed unexpectedly. How did you respond and what was the result?', weight:10, tags:['adaptability'], is_system:true, created_at:new Date().toISOString() },
+      { id:'bq5', type:'competency', competency:'collaboration', text:'Describe a situation where you had to work closely with someone whose working style differed significantly from yours.', weight:10, tags:['teamwork'], is_system:true, created_at:new Date().toISOString() },
+      { id:'tq1', type:'technical', competency:'technical_depth', text:'Walk me through your approach to a recent technical challenge in your current or most recent role.', weight:20, tags:['technical'], is_system:true, created_at:new Date().toISOString() },
+      { id:'tq2', type:'technical', competency:'technical_breadth', text:'What technologies or tools do you consider yourself most proficient in, and how have you applied them recently?', weight:15, tags:['technical','skills'], is_system:true, created_at:new Date().toISOString() },
+      { id:'cq1', type:'culture', competency:'values', text:'What type of working environment helps you do your best work?', weight:10, tags:['culture','fit'], is_system:true, created_at:new Date().toISOString() },
+      { id:'cq2', type:'culture', competency:'motivation', text:'What excites you most about this opportunity, and where do you see yourself in three years?', weight:10, tags:['motivation'], is_system:true, created_at:new Date().toISOString() },
+      { id:'cq3', type:'culture', competency:'feedback', text:'How do you prefer to give and receive feedback in a professional setting?', weight:10, tags:['feedback'], is_system:true, created_at:new Date().toISOString() },
+    ];
+    store.question_bank_v2 = DEFAULT_QUESTIONS;
+    dirty = true;
+  }
+  if (!store.question_templates) {
+    store.question_templates = [
+      { id:'tpl_standard', name:'Standard Interview', description:'Balanced set covering knockout, competency, and culture', category:'General', question_ids:['kq1','kq2','bq1','bq2','cq1','cq2'], is_system:true, created_at:new Date().toISOString() },
+      { id:'tpl_technical', name:'Technical Role', description:'Eligibility + deep technical + problem solving', category:'Technology', question_ids:['kq1','kq2','tq1','tq2','bq2','bq5'], is_system:true, created_at:new Date().toISOString() },
+      { id:'tpl_leadership', name:'Leadership Role', description:'Leadership, communication and collaboration focus', category:'Management', question_ids:['kq1','bq1','bq3','bq5','cq2','cq3'], is_system:true, created_at:new Date().toISOString() },
+      { id:'tpl_culture', name:'Culture & Values', description:'Values alignment and working style fit', category:'Culture', question_ids:['bq4','bq5','cq1','cq2','cq3'], is_system:true, created_at:new Date().toISOString() },
+    ];
+    dirty = true;
+  }
+  if (!store.job_questions) { store.job_questions = []; dirty = true; }
   if (dirty) fs.writeFileSync(path.join(__dirname, '../data/talentos.json'), JSON.stringify(store, null, 2));
   // Apply saved integration credentials to process.env
   for (const fields of Object.values(store.integrations || {})) {

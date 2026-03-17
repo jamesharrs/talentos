@@ -788,7 +788,7 @@ export default function Interviews({ environment }) {
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           {/* View toggle */}
           <div style={{display:"flex",borderRadius:9,border:`1px solid ${C.border}`,overflow:"hidden",background:C.surface}}>
-            {[["types","Types","list"],["scheduled","Scheduled","calendar"],["questions","Question Bank","help-circle"]].map(([v,l,icon])=>(
+            {[["types","Types","list"],["scheduled","Scheduled","calendar"]].map(([v,l,icon])=>(
               <button key={v} onClick={()=>setView(v)} style={{padding:"7px 14px",border:"none",background:view===v?C.accent:"transparent",color:view===v?"#fff":C.text2,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,transition:"all .12s",display:"flex",alignItems:"center",gap:5}}>
                 <Ic n={icon} s={12} c={view===v?"#fff":C.text2}/>{l}
               </button>
@@ -796,7 +796,6 @@ export default function Interviews({ environment }) {
           </div>
           {view==="types" && <Btn v="primary" icon="plus" onClick={()=>{setEditType(null);setShowForm(true);}}>New interview type</Btn>}
           {view==="scheduled" && <Btn v="primary" icon="calendar" onClick={()=>setScheduleFor(types[0]||null)} disabled={types.length===0}>Schedule interview</Btn>}
-          {view==="questions" && <Btn v="primary" icon="plus" onClick={()=>setShowAddQuestion(true)}>Add question</Btn>}
         </div>
       </div>
 
@@ -857,11 +856,6 @@ export default function Interviews({ environment }) {
         onSave={handleUpdateScheduled}
         onClose={()=>setEditScheduled(null)}
       />}
-
-      {/* Question Bank View */}
-      {!loading && view==="questions" && (
-        <QuestionBankView questions={questions} onAdd={()=>setShowAddQuestion(true)} onDelete={async (id)=>{ await api.del(`/bot/questions/${id}`); load(); }} showAdd={showAddQuestion} onSaveAdd={async (form)=>{ await api.post(`/bot/questions`,form); setShowAddQuestion(false); load(); }} onCloseAdd={()=>setShowAddQuestion(false)}/>
-      )}
     </div>
   );
 }

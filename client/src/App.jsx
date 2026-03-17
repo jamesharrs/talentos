@@ -1000,7 +1000,12 @@ function App() {
     api.get("/environments").then(data => {
       const envs = Array.isArray(data) ? data : [];
       setEnvironments(envs);
-      const def = envs.find(e => e.is_default) || envs[0];
+      // If the logged-in user belongs to a specific environment, use that.
+      // Otherwise fall back to the default or first environment.
+      const userEnvId = session?.user?.environment_id;
+      const def = (userEnvId && envs.find(e => e.id === userEnvId))
+               || envs.find(e => e.is_default)
+               || envs[0];
       if (def) setSelectedEnv(def);
       setLoading(false);
     }).catch(() => setLoading(false));

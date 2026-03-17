@@ -1,7 +1,10 @@
 const express = require('express');
 const router  = express.Router();
 const { v4: uuidv4 } = require('uuid');
+const crypto  = require('crypto');
 const { getStore, saveStore } = require('../db/init');
+
+const hashPassword = (pw) => crypto.createHash('sha256').update(pw + 'talentos_salt').digest('hex');
 
 function ensureCollections() {
   const s = getStore();
@@ -223,12 +226,16 @@ async function provisionClient(clientData, envData, adminUser, templateKey) {
 
   if (!s.users) s.users = [];
   const superAdminRole = createdRoles.find(r=>r.name==='Super Admin')||createdRoles[0];
+  const plainPassword = adminUser.password || 'Admin1234!';
   const user = {
     id: uuidv4(), environment_id: environment.id, client_id: client.id,
     first_name: adminUser.first_name||'Admin', last_name: adminUser.last_name||'User',
-    email: adminUser.email, password: adminUser.password||'Admin1234!',
+    email: adminUser.email,
+    password_hash: hashPassword(plainPassword),
     role_id: superAdminRole?.id||null, role_name: superAdminRole?.name||'Super Admin',
     status: 'active', is_super_admin: true,
+    must_change_password: 0, mfa_enabled: 0,
+    last_login: null, login_count: 0,
     created_at: now, updated_at: now, deleted_at: null,
   };
   s.users.push(user);
@@ -247,7 +254,7 @@ async function provisionClient(clientData, envData, adminUser, templateKey) {
     admin_user: { ...user, password: '[hidden]' },
     objects: createdObjects.map(o=>({id:o.id,slug:o.slug,name:o.name})),
     roles: createdRoles.map(r=>({id:r.id,name:r.name})),
-    credentials: { url:'/', email: adminUser.email, password: adminUser.password||'Admin1234!' }
+    credentials: { url:'/', email: adminUser.email, password: plainPassword }
   };
 }
 

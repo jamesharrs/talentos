@@ -726,20 +726,22 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Load notifications — runs on mount and whenever env changes
+  // Load notifications
   useEffect(() => {
     const load = async () => {
       try {
-        const envParam = selectedEnv ? `&environment_id=${selectedEnv.id}` : "";
-        const d = await fetch(`/api/notifications?limit=30${envParam}`).then(r => r.json());
-        setNotifs(Array.isArray(d.notifications) ? d.notifications : []);
-        setUnread(d.unread || 0);
-      } catch {}
+        // Fetch all notifications — no env filter so we always get results
+        const d = await fetch(`/api/notifications?limit=30`).then(r => r.json());
+        if (d && Array.isArray(d.notifications)) {
+          setNotifs(d.notifications);
+          setUnread(d.unread || 0);
+        }
+      } catch(e) { console.error("notif fetch failed", e); }
     };
     load();
     const timer = setInterval(load, 30000);
     return () => clearInterval(timer);
-  }, [selectedEnv?.id]);
+  }, []);
 
   useEffect(() => { const h = e => { if (bellRef.current && !bellRef.current.contains(e.target)) setBellOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
 
@@ -811,8 +813,8 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
 
   return (
     <div ref={ref} style={{ position: "sticky", top: 0, zIndex: 600, background: "var(--t-surface)", borderBottom: "1px solid var(--t-border)", padding: "8px 20px", display: "flex", alignItems: "center", gap: 10 }}>
-      {/* Search — takes available space */}
-      <div style={{ position: "relative", flex: 1 }}>
+      {/* Search — capped width */}
+      <div style={{ position: "relative", flex: 1, maxWidth: 400 }}>
         {/* Input */}
         <input
           value={query}

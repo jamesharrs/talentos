@@ -84,4 +84,16 @@ router.get('/system', (req, res) => {
   });
 });
 
+// POST /api/superadmin/restore — replace entire data store
+router.post("/restore", (req, res) => {
+  const { saveStore } = require("../db/init");
+  const incoming = req.body.data;
+  if (!incoming || typeof incoming !== "object") return res.status(400).json({ error: "No data provided" });
+  const store = require("../db/init").getStore();
+  Object.assign(store, incoming);
+  saveStore();
+  const counts = Object.fromEntries(Object.entries(incoming).map(([k,v]) => [k, Array.isArray(v) ? v.length : 0]));
+  res.json({ ok: true, counts });
+});
+
 module.exports = router;

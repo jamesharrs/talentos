@@ -278,7 +278,7 @@ const NAV_ITEMS = [
 
 export default function SuperAdminConsole() {
   const [authed,  setAuthed]  = useState(() => !!sessionStorage.getItem('sa_token'));
-  const [section, setSection] = useState('env');
+  const [section, setSection] = useState('clients');
   const [clientView,       setClientView]       = useState('list');
   const [selectedClientId, setSelectedClientId] = useState(null);
 

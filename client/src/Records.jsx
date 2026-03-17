@@ -1863,13 +1863,14 @@ const JobQuestionsPanel = ({ record, environment }) => {
               </div>
             : <div>
                 {/* AI Generate strip */}
-                <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:10,background:"#f5f3ff",border:"1px solid #ede9fe",marginBottom:14}}>
-                  <span style={{fontSize:12,color:C.text2,flex:1}}>Need more questions? Let AI generate role-specific ones.</span>
-                  <select value={genCount} onChange={e=>setGenCount(Number(e.target.value))} style={{padding:"4px 8px",borderRadius:7,border:`1px solid ${C.border}`,fontSize:12,background:"white",color:C.text1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 12px",borderRadius:10,background:"#1e1b4b",marginBottom:14}}>
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" strokeWidth="2" style={{flexShrink:0}}><path d="M9.937 15.5A2 2 0 008.5 14.063l-6.135-1.582a.5.5 0 010-.962L8.5 9.936A2 2 0 009.937 8.5l1.582-6.135a.5.5 0 01.963 0L14.063 8.5A2 2 0 0015.5 9.937l6.135 1.581a.5.5 0 010 .964L15.5 14.063a2 2 0 00-1.437 1.437l-1.582 6.135a.5.5 0 01-.963 0L9.937 15.5z"/></svg>
+                  <span style={{fontSize:12,color:"#e0e7ff",flex:1,fontWeight:500}}>AI-generate role-specific questions</span>
+                  <select value={genCount} onChange={e=>setGenCount(Number(e.target.value))} style={{padding:"4px 8px",borderRadius:7,border:"1px solid #4338ca",fontSize:12,background:"#312e81",color:"#e0e7ff",cursor:"pointer",outline:"none"}}>
                     {[4,6,8,10,12].map(n=><option key={n} value={n}>{n} questions</option>)}
                   </select>
-                  <button onClick={generate} disabled={generating} style={{padding:"6px 14px",borderRadius:8,border:"none",background:C.purple,color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:5,opacity:generating?0.6:1}}>
-                    {generating?<>Generating…</>:<><svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M9.937 15.5A2 2 0 008.5 14.063l-6.135-1.582a.5.5 0 010-.962L8.5 9.936A2 2 0 009.937 8.5l1.582-6.135a.5.5 0 01.963 0L14.063 8.5A2 2 0 0015.5 9.937l6.135 1.581a.5.5 0 010 .964L15.5 14.063a2 2 0 00-1.437 1.437l-1.582 6.135a.5.5 0 01-.963 0L9.937 15.5z"/></svg>Generate</>}
+                  <button onClick={generate} disabled={generating} style={{padding:"5px 12px",borderRadius:7,border:"none",background:"#6366f1",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4,opacity:generating?0.6:1,whiteSpace:"nowrap"}}>
+                    {generating?"Generating…":"✦ Generate"}
                   </button>
                 </div>
                 {/* Group by type */}

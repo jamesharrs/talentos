@@ -1748,6 +1748,74 @@ const mergePanel   = (order, targetRepId, newId) =>
 const TYPE_COLORS_Q = { knockout:"#dc2626", competency:"#2563eb", technical:"#7c3aed", culture:"#059669" };
 const TYPE_LABELS_Q = { knockout:"Eligibility / Knockout", competency:"Competency / Behavioural", technical:"Technical", culture:"Culture Fit" };
 
+// ── Generate Preview Modal ────────────────────────────────────────────────────
+const TYPE_BADGE_COLORS = { knockout:"#ef4444", competency:"#3b82f6", technical:"#8b5cf6", culture:"#10b981" };
+
+const GeneratePreviewModal = ({ preview, onConfirm, onClose, saving }) => {
+  const [qs, setQs] = useState(preview.questions);
+  const allSelected = qs.every(q => q._selected);
+  const selectedCount = qs.filter(q => q._selected).length;
+
+  const toggleQ = (i) => setQs(prev => prev.map((q,idx) => idx===i ? {...q, _selected:!q._selected} : q));
+  const toggleAll = () => setQs(prev => prev.map(q => ({...q, _selected:!allSelected})));
+
+  return ReactDOM.createPortal(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{background:"white",borderRadius:16,width:"100%",maxWidth:640,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
+        {/* Header */}
+        <div style={{padding:"18px 20px 14px",borderBottom:"1px solid #f0f0f0",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+            <div style={{width:32,height:32,borderRadius:9,background:"#1e1b4b",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" strokeWidth="2"><path d="M9.937 15.5A2 2 0 008.5 14.063l-6.135-1.582a.5.5 0 010-.962L8.5 9.936A2 2 0 009.937 8.5l1.582-6.135a.5.5 0 01.963 0L14.063 8.5A2 2 0 0015.5 9.937l6.135 1.581a.5.5 0 010 .964L15.5 14.063a2 2 0 00-1.437 1.437l-1.582 6.135a.5.5 0 01-.963 0L9.937 15.5z"/></svg>
+            </div>
+            <div>
+              <div style={{fontSize:14,fontWeight:700,color:"#111827"}}>Review Generated Questions</div>
+              <div style={{fontSize:11,color:"#6b7280"}}>
+                {qs.length} questions generated
+                {preview.filtered_count > 0 && <span style={{color:"#f59e0b",fontWeight:600}}> · {preview.filtered_count} duplicates filtered out</span>}
+              </div>
+            </div>
+            <button onClick={onClose} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",padding:4,color:"#6b7280",fontSize:18,lineHeight:1}}>×</button>
+          </div>
+          {/* Select all + info */}
+          <div style={{display:"flex",alignItems:"center",gap:10,marginTop:8,padding:"6px 10px",background:"#f8fafc",borderRadius:8}}>
+            <input type="checkbox" checked={allSelected} onChange={toggleAll} style={{cursor:"pointer"}} />
+            <span style={{fontSize:12,color:"#374151",fontWeight:500}}>Select all ({selectedCount}/{qs.length} selected)</span>
+            <span style={{marginLeft:"auto",fontSize:11,color:"#9ca3af"}}>Uncheck any you don't want added to the library</span>
+          </div>
+        </div>
+
+        {/* Question list */}
+        <div style={{overflowY:"auto",flex:1,padding:"8px 20px"}}>
+          {qs.map((q, i) => (
+            <div key={i} onClick={() => toggleQ(i)} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 8px",borderRadius:8,cursor:"pointer",borderBottom:"1px solid #f9fafb",opacity:q._selected?1:0.45,transition:"opacity .15s"}}>
+              <input type="checkbox" checked={q._selected} onChange={() => toggleQ(i)} onClick={e=>e.stopPropagation()} style={{marginTop:2,cursor:"pointer",flexShrink:0}} />
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,color:"#111827",lineHeight:1.45,marginBottom:4}}>{q.text}</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  <span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:99,background:`${TYPE_BADGE_COLORS[q.type]||"#6b7280"}18`,color:TYPE_BADGE_COLORS[q.type]||"#6b7280",textTransform:"uppercase",letterSpacing:"0.04em"}}>{q.type}</span>
+                  {q.competency && <span style={{fontSize:10,color:"#6b7280",padding:"2px 6px",borderRadius:99,background:"#f3f4f6"}}>{q.competency}</span>}
+                  {(q.tags||[]).map(t => <span key={t} style={{fontSize:10,color:"#6b7280",padding:"2px 6px",borderRadius:99,background:"#f3f4f6"}}>#{t}</span>)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{padding:"14px 20px",borderTop:"1px solid #f0f0f0",display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+          <span style={{fontSize:12,color:"#6b7280",flex:1}}>{selectedCount} question{selectedCount!==1?"s":""} will be added to the library and assigned</span>
+          <button onClick={onClose} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #e5e7eb",background:"white",fontSize:13,fontWeight:600,cursor:"pointer",color:"#374151"}}>Cancel</button>
+          <button onClick={() => onConfirm(qs.filter(q=>q._selected))} disabled={saving||!selectedCount} style={{padding:"8px 16px",borderRadius:8,border:"none",background: selectedCount?"#1e1b4b":"#e5e7eb",color:selectedCount?"#e0e7ff":"#9ca3af",fontSize:13,fontWeight:700,cursor:selectedCount?"pointer":"not-allowed",display:"flex",alignItems:"center",gap:6}}>
+            {saving?"Saving…":`Add ${selectedCount} Question${selectedCount!==1?"s":""}`}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 const JobQuestionsPanel = ({ record, environment }) => {
   const [view, setView]           = useState("assigned"); // "assigned" | "bank" | "templates"
   const [assigned, setAssigned]   = useState([]);
@@ -1755,11 +1823,12 @@ const JobQuestionsPanel = ({ record, environment }) => {
   const [templates, setTemplates] = useState([]);
   const [selected, setSelected]   = useState(new Set());
   const [loading, setLoading]     = useState(true);
-  const [saving, setSaving]       = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [genCount, setGenCount]   = useState(8);
-  const [search, setSearch]       = useState("");
-  const [filterType, setFilterType] = useState("");
+  const [saving, setSaving]           = useState(false);
+  const [generating, setGenerating]   = useState(false);
+  const [genCount, setGenCount]       = useState(8);
+  const [search, setSearch]           = useState("");
+  const [filterType, setFilterType]   = useState("");
+  const [genPreview, setGenPreview]   = useState(null); // { questions, filtered_count }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1810,17 +1879,27 @@ const JobQuestionsPanel = ({ record, environment }) => {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ job_title: d.job_title||d.name, department: d.department, description: d.description, skills: d.skills, count: genCount }),
       });
-      const generated = await res.json();
-      if (Array.isArray(generated) && generated.length) {
-        // save them to the question bank first, then assign
-        const saved = await Promise.all(generated.map(q =>
-          fetch("/api/question-bank/questions", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(q) }).then(r=>r.json())
-        ));
-        const ids = [...assigned.map(q=>q.id), ...saved.map(q=>q.id)];
-        await save(ids);
+      const data = await res.json();
+      // New: server returns { preview, filtered_count } — show review modal
+      if (data.preview && Array.isArray(data.preview)) {
+        setGenPreview({ questions: data.preview.map(q => ({...q, _selected: true})), filtered_count: data.filtered_count||0 });
       }
     } catch(e) { console.error(e); }
     setGenerating(false);
+  };
+
+  const confirmGenerated = async (selectedQs) => {
+    if (!selectedQs.length) { setGenPreview(null); return; }
+    setSaving(true);
+    try {
+      const saved = await Promise.all(selectedQs.map(q =>
+        fetch("/api/question-bank/questions", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(q) }).then(r=>r.json())
+      ));
+      const ids = [...assigned.map(q=>q.id), ...saved.map(q=>q.id)];
+      await save(ids);
+    } catch(e) { console.error(e); }
+    setGenPreview(null);
+    setSaving(false);
   };
 
   const saveSelection = () => save([...selected]);
@@ -1970,6 +2049,9 @@ const JobQuestionsPanel = ({ record, environment }) => {
           }
         </div>
       )}
+
+      {/* Generate Preview Modal */}
+      {genPreview && <GeneratePreviewModal preview={genPreview} onConfirm={confirmGenerated} onClose={()=>setGenPreview(null)} saving={saving}/>}
     </div>
   );
 };

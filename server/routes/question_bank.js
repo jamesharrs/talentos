@@ -115,15 +115,45 @@ router.put('/jobs/:job_id', (req, res) => {
 
 // AI-generate questions for a job
 router.post('/jobs/:job_id/generate', async (req, res) => {
+  const { job_id } = req.params;
   const { job_title, department, description, skills, count=8 } = req.body;
   if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({error:'AI not configured'});
-  const prompt = `You are an expert recruiter creating interview questions for a ${job_title||'role'} role${department?` in ${department}`:''}.\n${description?`Job description: ${description}\n`:''}${skills?`Required skills: ${Array.isArray(skills)?skills.join(', '):skills}\n`:''}\nGenerate ${count} high-quality interview questions covering:\n- 1-2 knockout/eligibility checks (type: "knockout")\n- 2-3 competency/behavioural questions specific to this role (type: "competency")\n- 1-2 technical questions about the required skills (type: "technical")\n- 1-2 culture fit questions (type: "culture")\n\nRespond with valid JSON array only:\n[{"text":"...","type":"knockout|competency|technical|culture","competency":"...","weight":10,"tags":["..."],"options":null,"pass_value":null}]\nFor knockout questions add options like ["Yes","No"] and pass_value. Make questions specific to this role.`;
+
+  // Fetch existing questions so Claude avoids duplicates
+  const { query } = require('../db/init');
+  const existing = query('question_bank_questions', () => true);
+  const existingTexts = existing.map(q => q.text).join('\n- ');
+
+  // Also fetch already-assigned questions for this job
+  const assignments = query('question_bank_job_assignments', r => r.job_id === job_id);
+  const assignedIds = new Set(assignments.map(a => a.question_id));
+  const assignedTexts = existing.filter(q => assignedIds.has(q.id)).map(q => q.text).join('\n- ');
+
+  const prompt = `You are an expert recruiter creating interview questions for a ${job_title||'role'} role${department?` in ${department}`:''}.\n${description?`Job description: ${description}\n`:''}${skills?`Required skills: ${Array.isArray(skills)?skills.join(', '):skills}\n`:''}\n\nGenerate exactly ${count} high-quality, ROLE-SPECIFIC interview questions. Aim for:\n- 1-2 knockout/eligibility checks (type: "knockout")\n- 2-3 competency/behavioural questions specific to this role (type: "competency")\n- 1-2 technical questions about the required skills (type: "technical")\n- 1-2 culture fit questions (type: "culture")\n\n${existingTexts ? `IMPORTANT - The following questions already exist in the library. Do NOT generate anything similar or overlapping:\n- ${existingTexts}\n\n` : ''}${assignedTexts ? `These questions are already assigned to this job - do not repeat them:\n- ${assignedTexts}\n\n` : ''}Make every question specific to the role, not generic. Avoid generic questions like "Tell me about yourself" or "What are your strengths".\n\nRespond with valid JSON array only:\n[{"text":"...","type":"knockout|competency|technical|culture","competency":"...","weight":10,"tags":["..."],"options":null,"pass_value":null}]\nFor knockout questions add options like ["Yes","No"] and pass_value.`;
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':process.env.ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:prompt}]})});
     const data = await response.json();
     const raw = data.content?.[0]?.text||'[]';
     const cleaned = raw.replace(/```json\n?|\n?```/g,'').trim();
-    res.json(JSON.parse(cleaned));
+    const generated = JSON.parse(cleaned);
+
+    // Similarity dedup — filter out any question too similar to existing ones
+    const normalize = s => s.toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
+    const existingNorm = existing.map(q => normalize(q.text));
+    const deduped = generated.filter(q => {
+      const n = normalize(q.text);
+      // Reject if >50% word overlap with any existing question
+      const words = new Set(n.split(' ').filter(w => w.length > 4));
+      return !existingNorm.some(en => {
+        const enWords = en.split(' ').filter(w => w.length > 4);
+        if (!enWords.length || !words.size) return false;
+        const overlap = enWords.filter(w => words.has(w)).length;
+        return overlap / Math.min(words.size, enWords.length) > 0.5;
+      });
+    });
+
+    // Return as preview — don't save yet, let the client decide which to keep
+    res.json({ preview: deduped, filtered_count: generated.length - deduped.length });
   } catch(err) { console.error('AI gen error:',err); res.status(500).json({error:'Failed to generate questions'}); }
 });
 

@@ -563,11 +563,11 @@ Step 4: Output EXACTLY this format (nothing else after it):
 </SCHEDULE_INTERVIEW>
 
 SCHEDULING RULES:
-- candidate_id: use the current record's id if viewing a record, otherwise null
+- candidate_id: use the current record's id if viewing a record, otherwise null (the server will look it up by name)
 - interview_type_id: use the id from the available interview types list if matched, otherwise null
 - interviewers: array of names (strings), can be empty []
 - notes: optional string, can be empty ""
-- Always confirm date/time with the user before outputting the block
+- When the user confirms ("yes", "go ahead", "schedule it", "looks good", "correct") — output the SCHEDULE_INTERVIEW block immediately. Do NOT ask again.
 - Be helpful and suggest sensible defaults
 
 FORM CREATION INSTRUCTIONS:

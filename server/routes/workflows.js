@@ -446,14 +446,103 @@ router.post('/people-links', (req, res) => {
   res.json({ ...link, person_data: person?.data || {} });
 });
 
-// PATCH /api/workflows/people-links/:id  — update stage
-router.patch('/people-links/:id', (req, res) => {
+// PATCH /api/workflows/people-links/:id  — update stage + auto-run step actions
+router.patch('/people-links/:id', async (req, res) => {
   ensureTables();
   const { stage_id, stage_name } = req.body;
   const link = update('people_links', l => l.id === req.params.id, { stage_id, stage_name, updated_at: new Date().toISOString() });
   if (!link) return res.status(404).json({ error: 'Not found' });
+
   const person = findOne('records', r => r.id === link.person_record_id);
-  res.json({ ...link, person_data: person?.data || {} });
+
+  // Auto-execute actions on the step they just moved into
+  let stepRunLog = [];
+  if (stage_id && person) {
+    const step = findOne('workflow_steps', s => s.id === stage_id);
+    if (step) {
+      const actions = stepActions(step);
+      if (actions.length > 0) {
+        // Find the workflow to get environment_id
+        const wf = findOne('workflows', w => w.id === step.workflow_id);
+        const environment_id = wf?.environment_id || person.environment_id;
+
+        for (const action of actions) {
+          const cfg = action.config || {};
+          let actionOutput = '';
+          let actionStatus = 'done';
+          try {
+            if (action.type === 'run_agent') {
+              const agentId = cfg.agent_id;
+              if (!agentId) { actionOutput = '⚠ No agent selected'; actionStatus = 'warning'; }
+              else {
+                const agent = findOne('agents', a => a.id === agentId && !a.deleted_at);
+                if (!agent) { actionOutput = `⚠ Agent not found`; actionStatus = 'warning'; }
+                else {
+                  const agentResults = await executeAgentActions(agent, person.id, person, environment_id);
+                  actionOutput = agentResults.map(r => r.step).join(' | ');
+                  actionStatus = agentResults.some(r => r.step?.startsWith('⚠')) ? 'warning' : 'done';
+                }
+              }
+            } else if (action.type === 'send_email') {
+              const s = getStore();
+              const resolved = resolveRecipient(cfg, person, s);
+              if (resolved.error) { actionOutput = `⚠ ${resolved.error}`; actionStatus = 'warning'; }
+              else {
+                const toList = resolved.emails.map(r => r.email).join(', ');
+                const subject = (cfg.subject || '').replace(/\{\{(\w+)\}\}/g, (_, k) => person.data?.[k] ?? `{{${k}}}`);
+                const body    = (cfg.body    || '').replace(/\{\{(\w+)\}\}/g, (_, k) => person.data?.[k] ?? `{{${k}}}`);
+                try { const msg = require('../services/messaging'); for (const r of resolved.emails) await msg.sendEmail({ to: r.email, subject, text: body, html: body.replace(/\n/g,'<br>') }); actionOutput = `Email → ${toList}`; }
+                catch(e) { actionOutput = `[Demo] Email → ${toList}: "${subject}"`; }
+              }
+            } else if (action.type === 'send_invitation_email') {
+              const s = getStore();
+              const token = (s.agent_tokens || []).filter(t => t.candidate_id === person.id && t.status === 'pending').sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+              const interviewUrl = token ? `${process.env.APP_URL || 'http://localhost:3000'}/interview/${token.token}` : null;
+              if (!token) { actionOutput = `⚠ No pending interview link — run Run Agent first`; actionStatus = 'warning'; }
+              else {
+                const resolved = resolveRecipient(cfg, person, s);
+                if (resolved.error) { actionOutput = `⚠ ${resolved.error}`; actionStatus = 'warning'; }
+                else {
+                  const toList = resolved.emails.map(r => r.email).join(', ');
+                  const subject = cfg.subject || `Your AI Interview invitation`;
+                  const body = (cfg.body || `Hi {{first_name}},\n\nYour interview link: {{interview_link}}\n\nGood luck!`)
+                    .replace(/\{\{(\w+)\}\}/g, (_, k) => person.data?.[k] ?? `{{${k}}}`)
+                    .replace(/\{\{interview_link\}\}/g, interviewUrl);
+                  try {
+                    const msg = require('../services/messaging');
+                    for (const r of resolved.emails) { const res2 = await msg.sendEmail({ to: r.email, subject, text: body, html: body.replace(/\n/g,'<br>') }); actionOutput = res2.simulated ? `[Sim] Invitation → ${toList}` : `Invitation sent → ${toList}`; }
+                  } catch(e) { actionOutput = `[Demo] Invitation → ${toList}`; }
+                  if (!s.communications) s.communications = [];
+                  s.communications.push({ id: uuidv4(), record_id: person.id, type:'email', direction:'outbound', subject, body, status:'sent', created_by:'workflow-auto', created_at: new Date().toISOString() });
+                  require('../db/init').saveStore();
+                }
+              }
+            } else if (action.type === 'stage_change') {
+              const newData = { ...person.data, status: cfg.to_stage };
+              update('records', r => r.id === person.id, { data: newData });
+              person.data = newData;
+              actionOutput = `Stage → ${cfg.to_stage}`;
+            } else if (action.type === 'update_field') {
+              const newData = { ...person.data, [cfg.field_key]: cfg.field_value };
+              update('records', r => r.id === person.id, { data: newData });
+              person.data = newData;
+              actionOutput = `Field ${cfg.field_key} → ${cfg.field_value}`;
+            } else if (action.type === 'ai_prompt') {
+              actionOutput = `[AI prompt queued]`;
+            } else {
+              actionOutput = `Action: ${action.type}`;
+            }
+          } catch (err) {
+            actionOutput = `Error: ${err.message}`;
+            actionStatus = 'error';
+          }
+          stepRunLog.push({ action_type: action.type, status: actionStatus, output: actionOutput });
+        }
+      }
+    }
+  }
+
+  res.json({ ...link, person_data: person?.data || {}, step_run_log: stepRunLog });
 });
 
 // DELETE /api/workflows/people-links/:id

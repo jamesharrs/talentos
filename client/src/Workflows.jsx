@@ -593,7 +593,7 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
   }, [objectId]);
 
   const addStep = () => {
-    setSteps(s => [...s, { id: `new_${Date.now()}`, name: "", automation_type: null, config: {} }]);
+    setSteps(s => [...s, { id: `new_${Date.now()}`, name: "", automation_type: null, config: {}, actions: [] }]);
   };
 
   const updateStep = (i, updated) => setSteps(s => s.map((st, idx) => idx === i ? updated : st));
@@ -619,7 +619,7 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
         wf = await api.post("/workflows", { name, object_id: objectId, description: desc, environment_id: environment.id, workflow_type: wfType });
       }
       if (!wf?.id) throw new Error("Server did not return a workflow ID");
-      await api.put(`/workflows/${wf.id}/steps`, { steps });
+      await api.put(`/workflows/${wf.id}/steps`, { steps: steps.map(migrateStep) });
       onSave({ ...wf, steps });
     } catch (err) {
       alert("Save failed: " + err.message);
@@ -1211,8 +1211,14 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
   };
 
   const moveStage = async (linkId, step) => {
-    await api.patch(`/workflows/people-links/${linkId}`, { stage_id: step.id, stage_name: step.name });
+    const res = await api.patch(`/workflows/people-links/${linkId}`, { stage_id: step.id, stage_name: step.name });
     setPeopleLinks(ls => ls.map(l => l.id === linkId ? { ...l, stage_id: step.id, stage_name: step.name } : l));
+    // Show run log if actions fired
+    if (res?.step_run_log?.length) {
+      const msgs = res.step_run_log.map(r => `${r.action_type}: ${r.output}`).join("\n");
+      const hasWarning = res.step_run_log.some(r => r.status === 'warning' || r.status === 'error');
+      if (hasWarning) alert(`⚠ Stage actions ran with issues:\n\n${msgs}`);
+    }
   };
 
   const removeLink = async (linkId) => {
@@ -1626,8 +1632,15 @@ export function LinkedRecordsPanel({ record, environment, onNavigate }) {
   };
 
   const moveStage = async (linkId, step) => {
-    await api.patch(`/workflows/people-links/${linkId}`, { stage_id: step.id, stage_name: step.name });
+    const res = await api.patch(`/workflows/people-links/${linkId}`, { stage_id: step.id, stage_name: step.name });
     setLinks(ls => ls.map(l => l.id === linkId ? { ...l, stage_id: step.id, stage_name: step.name } : l));
+    if (res?.step_run_log?.length) {
+      const hasWarning = res.step_run_log.some(r => r.status === 'warning' || r.status === 'error');
+      if (hasWarning) {
+        const msgs = res.step_run_log.map(r => `${r.action_type}: ${r.output}`).join("\n");
+        alert(`⚠ Stage actions ran with issues:\n\n${msgs}`);
+      }
+    }
   };
 
   const removeLink = async (linkId) => {

@@ -54,6 +54,7 @@ app.use('/api/saved-views',      require('./routes/saved_views'));
 app.use('/api/config',           require('./routes/config'));
 app.use('/api/bot',              require('./routes/bot'));
 app.use('/api/interview-types',  require('./routes/interview_types'));
+app.use('/api/interview-coordinator', require('./routes/interview_coordinator'));
 app.use('/api/interviews',       require('./routes/interviews'));
 app.use('/api/calendar',         require('./routes/calendar'));
 app.use('/api/translate',          require('./routes/translate'));

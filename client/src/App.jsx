@@ -1149,6 +1149,12 @@ function App() {
     return <SuperAdminConsole />;
   }
 
+  // Availability picker — public route for interview coordination
+  if (window.location.pathname.startsWith('/availability/')) {
+    const AvailabilityPicker = lazy(() => import("./AvailabilityPicker.jsx"));
+    return <Suspense fallback={<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"sans-serif",color:"#9ca3af"}}>Loading…</div>}><AvailabilityPicker/></Suspense>;
+  }
+
   // Bot interview route — public, no login required
   const botToken = window.location.pathname.match(/^\/bot\/(.+)$/)?.[1];
   if (botToken) {

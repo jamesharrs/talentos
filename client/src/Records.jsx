@@ -2427,23 +2427,109 @@ const JobQuestionsPanel = ({ record, environment }) => {
   );
 };
 
+// ─── Interview Coordination Panel ────────────────────────────────────────────
+const STATUS_COORD = {
+  collecting_availability: { label:"Collecting availability", color:"#f59e0b", bg:"#fef3c7" },
+  confirmed:   { label:"Interview confirmed", color:"#0ca678", bg:"#d1fae5" },
+  no_overlap:  { label:"No overlap — action needed", color:"#ef4444", bg:"#fee2e2" },
+  cancelled:   { label:"Cancelled", color:"#6b7280", bg:"#f3f4f6" },
+};
+const CoordinationPanel = ({ record, environment }) => {
+  const [runs,     setRuns]     = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [starting, setStarting] = useState(false);
+  const appUrl = window.location.origin;
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { const r = await fetch(`/api/interview-coordinator/runs?candidate_id=${record.id}`).then(r=>r.json()); setRuns(Array.isArray(r)?r:[]); } catch(e){}
+    setLoading(false);
+  }, [record.id]);
+  useEffect(() => { load(); }, [load]);
+  const startNew = async () => {
+    setStarting(true);
+    try {
+      const r = await fetch("/api/interview-coordinator/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({candidate_id:record.id,environment_id:environment?.id})}).then(r=>r.json());
+      if (r.ok) await load(); else alert(r.error||"Failed");
+    } catch(e){alert(e.message);}
+    setStarting(false);
+  };
+  if (loading) return <div style={{padding:"20px 0",textAlign:"center",color:C.text3,fontSize:13}}>Loading…</div>;
+  return (
+    <div>
+      <div style={{marginBottom:14,display:"flex",justifyContent:"flex-end"}}>
+        <button onClick={startNew} disabled={starting}
+          style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:8,
+            border:`1.5px solid ${C.accent}`,background:C.accentLight,color:C.accent,
+            fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,opacity:starting?0.6:1}}>
+          <Ic n="plus" s={13}/>{starting?"Starting…":"Start Coordination"}
+        </button>
+      </div>
+      {!runs.length && (
+        <div style={{textAlign:"center",padding:"28px 16px",color:C.text3}}>
+          <div style={{width:40,height:40,borderRadius:10,background:C.accentLight,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 10px"}}><Ic n="calendar" s={20} c={C.accent}/></div>
+          <div style={{fontSize:13,fontWeight:600,color:C.text2,marginBottom:4}}>No coordination runs yet</div>
+          <div style={{fontSize:12,lineHeight:1.5}}>Automatically collect availability from both the hiring manager and candidate, find mutual slots and confirm the interview.</div>
+        </div>
+      )}
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {runs.map(run => {
+          const st = STATUS_COORD[run.status] || STATUS_COORD.collecting_availability;
+          const hmR = run.hm_request; const cR = run.cand_request;
+          return (
+            <div key={run.id} style={{background:"#f9fafb",borderRadius:12,border:"1px solid #e5e7eb",overflow:"hidden"}}>
+              <div style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:10,background:"white",borderBottom:"1px solid #f3f4f6"}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:700,color:C.text1}}>{run.job_title||"Interview"}</div>
+                  <div style={{fontSize:11,color:C.text3}}>with {run.hiring_manager_name||"Hiring Manager"} · {run.duration_minutes||45} min</div>
+                </div>
+                <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:99,background:st.bg,color:st.color,whiteSpace:"nowrap"}}>{st.label}</span>
+              </div>
+              <div style={{padding:"10px 14px",display:"flex",gap:10}}>
+                {[{label:"Hiring Manager",req:hmR},{label:"Candidate",req:cR}].map(({label,req:r})=>(
+                  <div key={label} style={{flex:1,background:"white",borderRadius:8,border:"1px solid #e5e7eb",padding:"8px 10px"}}>
+                    <div style={{fontSize:9,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:3}}>{label}</div>
+                    {!r ? <span style={{fontSize:11,color:C.text3}}>—</span>
+                      : r.status==="responded"
+                        ? <span style={{fontSize:11,fontWeight:700,color:"#0ca678"}}>✓ Responded ({(r.selected_slots||[]).length} slots)</span>
+                        : <div>
+                            <span style={{fontSize:11,color:"#92400e",fontWeight:600}}>⏳ Pending</span>
+                            {r.token && <button onClick={()=>navigator.clipboard.writeText(`${appUrl}/availability/${r.token}`).then(()=>alert("Link copied!"))}
+                              style={{display:"block",fontSize:10,color:C.accent,background:"none",border:"none",cursor:"pointer",padding:"2px 0",fontFamily:F,textDecoration:"underline"}}>Copy link</button>}
+                          </div>}
+                  </div>
+                ))}
+              </div>
+              {run.confirmed_slot && (
+                <div style={{padding:"8px 14px",background:"#d1fae5",borderTop:"1px solid #a7f3d0",fontSize:12,fontWeight:700,color:"#065f46"}}>
+                  ✓ Confirmed: {new Date(run.confirmed_slot).toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 export const PANEL_META = {
-  comms:       { icon:"mail",          label:"Communications", defaultOpen:true  },
-  notes:       { icon:"messageSquare", label:"Notes",     defaultOpen:true  },
-  attachments: { icon:"paperclip",     label:"Files",     defaultOpen:true  },
-  forms:       { icon:"clipboard",     label:"Forms",     defaultOpen:false },
-  activity:    { icon:"activity",      label:"Activity",  defaultOpen:false },
-  workflows:   { icon:"layers",        label:"Pipeline",  defaultOpen:false },
-  linked:      { icon:"link",          label:"Linked Records", defaultOpen:true },
-  match:       { icon:"sparkles",      label:"AI Match",  defaultOpen:false },
-  reporting:   { icon:"gitBranch",     label:"Reporting", defaultOpen:true  },
-  user:        { icon:"user",          label:"Platform User",  defaultOpen:true },
-  scorecard:   { icon:"clipboard",     label:"Scorecards",     defaultOpen:false },
-  questions:   { icon:"help-circle",   label:"Interview Questions", defaultOpen:false },
+  comms:        { icon:"mail",          label:"Communications",      defaultOpen:true  },
+  coordination: { icon:"calendar",      label:"Interview Coordination", defaultOpen:false },
+  notes:        { icon:"messageSquare", label:"Notes",               defaultOpen:true  },
+  attachments:  { icon:"paperclip",     label:"Files",               defaultOpen:true  },
+  forms:        { icon:"clipboard",     label:"Forms",               defaultOpen:false },
+  activity:     { icon:"activity",      label:"Activity",            defaultOpen:false },
+  workflows:    { icon:"layers",        label:"Pipeline",            defaultOpen:false },
+  linked:       { icon:"link",          label:"Linked Records",      defaultOpen:true  },
+  match:        { icon:"sparkles",      label:"AI Match",            defaultOpen:false },
+  reporting:    { icon:"gitBranch",     label:"Reporting",           defaultOpen:true  },
+  user:         { icon:"user",          label:"Platform User",       defaultOpen:true  },
+  scorecard:    { icon:"clipboard",     label:"Scorecards",          defaultOpen:false },
+  questions:    { icon:"help-circle",   label:"Interview Questions", defaultOpen:false },
 };
 
 export const getDefaultPanelOrder = (objectName) => {
-  const base = ["tasks","comms","notes","attachments","forms","activity","workflows"];
+  const base = ["tasks","comms","coordination","notes","attachments","forms","activity","workflows"];
   if (objectName === "Person") base.splice(1, 0, "linked", "reporting");
   if (["Person","Job"].includes(objectName)) base.push("match");
   if (objectName === "Person") base.push("scorecard");
@@ -3281,6 +3367,9 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const PanelContent = useCallback(({ id }) => {
     if (id==="comms") return (
       <CommunicationsPanel record={record} environment={environment} externalCompose={composeType} onExternalComposeDone={()=>setComposeType(null)}/>
+    );
+    if (id==="coordination") return (
+      <CoordinationPanel record={record} environment={environment}/>
     );
     if (id==="notes") return (
       <NotesPanel record={record} notes={notes} onNotesChange={load}/>

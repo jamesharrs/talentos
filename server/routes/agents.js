@@ -33,6 +33,7 @@ const ACTION_TYPES = {
   webhook:          { label: 'Call Webhook',      description: 'POST record data to an external URL' },
   human_review:      { label: 'Request Approval',   description: 'Pause and wait for a human to approve before continuing' },
   ai_interview:      { label: 'AI Interview',          description: 'Send the candidate a link to an AI-powered voice interview' },
+  interview_coordinator: { label: 'Interview Coordinator', description: 'Automatically collect availability from the hiring manager and candidate, find mutual slots, and confirm the interview' },
 };
 
 // GET all agents
@@ -527,6 +528,20 @@ async function executeAction(action, record_id, environment_id, aiOutput, modifi
         step: `✓ AI Interview link generated — ${scorecardQuestions.length} questions from ${sourceLabel}. Link: /interview/${token}`,
         timestamp: new Date().toISOString(),
       });
+      break;
+    }
+    case 'interview_coordinator': {
+      try {
+        const { startCoordination } = require('./interview_coordinator');
+        const rec = (getStore().records || []).find(r => r.id === record_id);
+        const result = await startCoordination({
+          candidate_id: record_id,
+          environment_id,
+          config: action.config || {},
+          agent_id: null,
+        });
+        output = result.logs?.join(' | ') || '✓ Interview coordination started';
+      } catch(e) { output = `⚠ Coordinator error: ${e.message}`; }
       break;
     }
   }

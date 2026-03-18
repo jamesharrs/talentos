@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { matchCandidateToJob } from "./AI.jsx";
 
 const F = "'DM Sans', -apple-system, sans-serif";
@@ -91,36 +92,56 @@ function stepAutomationSummary(step) {
 // Floating tooltip for automation actions
 function AutoTooltip({ step, children }) {
   const [show, setShow] = useState(false);
+  const [pos, setPos]   = useState({ top: 0, left: 0 });
+  const triggerRef = useRef(null);
   const summary = stepAutomationSummary(step);
+
+  const updatePos = () => {
+    if (!triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    setPos({
+      top:  r.top + window.scrollY - 8,   // above the trigger
+      left: r.left + r.width / 2 + window.scrollX,
+    });
+  };
+
   if (!summary?.length) return children;
+
+  const tooltip = show && createPortal(
+    <div style={{
+      position:"absolute", top: pos.top, left: pos.left,
+      transform:"translate(-50%, -100%)",
+      background:"#1a1a2e", borderRadius:10, padding:"10px 12px",
+      zIndex:9999, minWidth:210, maxWidth:290,
+      boxShadow:"0 8px 28px rgba(0,0,0,.3)", pointerEvents:"none",
+    }}>
+      {/* Arrow */}
+      <div style={{ position:"absolute", bottom:-5, left:"50%", transform:"translateX(-50%) rotate(45deg)",
+        width:10, height:10, background:"#1a1a2e" }}/>
+      <div style={{ fontSize:10, fontWeight:700, color:"#9ca3af", textTransform:"uppercase",
+        letterSpacing:"0.07em", marginBottom:7 }}>⚡ When moved to this stage</div>
+      {summary.map((a, i) => (
+        <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:8, marginBottom: i<summary.length-1?6:0 }}>
+          <div style={{ width:18, height:18, borderRadius:5, background:a.color+"22",
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
+            <Ic n={a.icon} s={10} c={a.color}/>
+          </div>
+          <div>
+            <div style={{ fontSize:11, fontWeight:700, color:"white" }}>{a.label}</div>
+            <div style={{ fontSize:10, color:"#9ca3af", lineHeight:1.4 }}>{a.detail}</div>
+          </div>
+        </div>
+      ))}
+    </div>,
+    document.body
+  );
+
   return (
-    <div style={{ position:"relative", display:"inline-flex" }}
-      onMouseEnter={() => setShow(true)}
+    <div ref={triggerRef} style={{ display:"inline-flex" }}
+      onMouseEnter={() => { updatePos(); setShow(true); }}
       onMouseLeave={() => setShow(false)}>
       {children}
-      {show && (
-        <div style={{ position:"absolute", bottom:"calc(100% + 8px)", left:"50%", transform:"translateX(-50%)",
-          background:"#1a1a2e", borderRadius:10, padding:"10px 12px", zIndex:500,
-          minWidth:200, maxWidth:280, boxShadow:"0 8px 24px rgba(0,0,0,.25)", pointerEvents:"none" }}>
-          {/* Arrow */}
-          <div style={{ position:"absolute", bottom:-5, left:"50%", transform:"translateX(-50%)",
-            width:10, height:10, background:"#1a1a2e", rotate:"45deg" }}/>
-          <div style={{ fontSize:10, fontWeight:700, color:"#9ca3af", textTransform:"uppercase",
-            letterSpacing:"0.07em", marginBottom:7 }}>⚡ When moved to this stage</div>
-          {summary.map((a, i) => (
-            <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:8, marginBottom: i<summary.length-1?6:0 }}>
-              <div style={{ width:18, height:18, borderRadius:5, background:a.color+"22",
-                display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
-                <Ic n={a.icon} s={10} c={a.color}/>
-              </div>
-              <div>
-                <div style={{ fontSize:11, fontWeight:700, color:"white" }}>{a.label}</div>
-                <div style={{ fontSize:10, color:"#9ca3af", lineHeight:1.4 }}>{a.detail}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      {tooltip}
     </div>
   );
 }

@@ -95,7 +95,8 @@ const StepCard = ({ step, index, total, onChange, onDelete, onMoveUp, onMoveDown
     }
   }, [step.automation_type, envId]);
 
-  const setConfig   = (key, val) => onChange({ ...step, config: { ...cfg, [key]: val } });
+  const setConfig   = (key, val) => onChange({ ...step, config: { ...(step.config||{}), [key]: val } });
+  const setConfigs  = (patch)    => onChange({ ...step, config: { ...(step.config||{}), ...patch } });
   const setName     = (name)     => onChange({ ...step, name });
   const setAuto     = (type)     => { onChange({ ...step, automation_type: type, config: {} }); setShowAutomationPicker(false); };
   const removeAuto  = ()         => onChange({ ...step, automation_type: null, config: {} });
@@ -230,10 +231,12 @@ const StepCard = ({ step, index, total, onChange, onDelete, onMoveUp, onMoveDown
                   <div style={{ fontSize:11, fontWeight:700, color:"#0891b2", textTransform:"uppercase", letterSpacing:".5px", marginBottom:5 }}>Interview Type</div>
                   <select value={cfg.interview_type_id||""} onChange={e=>{
                     const t = interviewTypes.find(t=>t.id===e.target.value);
-                    setConfig("interview_type_id", e.target.value);
-                    setConfig("interview_type_name", t?.name||"");
-                    setConfig("interview_duration", t?.duration||30);
-                    setConfig("interview_format", t?.format||"");
+                    setConfigs({
+                      interview_type_id:   e.target.value,
+                      interview_type_name: t?.name||"",
+                      interview_duration:  t?.duration||30,
+                      interview_format:    t?.format||"",
+                    });
                   }}
                     style={{ width:"100%", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
                     <option value="">Select interview type…</option>
@@ -298,8 +301,7 @@ const StepCard = ({ step, index, total, onChange, onDelete, onMoveUp, onMoveDown
                   <div style={{ fontSize:11, fontWeight:700, color:"#7048e8", textTransform:"uppercase", letterSpacing:".5px", marginBottom:5 }}>Select Agent</div>
                   <select value={cfg.agent_id||""} onChange={e=>{
                     const a = agents.find(x=>x.id===e.target.value);
-                    setConfig("agent_id", e.target.value);
-                    setConfig("agent_name", a?.name||"");
+                    setConfigs({ agent_id: e.target.value, agent_name: a?.name||"" });
                   }} style={{ width:"100%", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
                     <option value="">— Choose an agent —</option>
                     {agents.map(a => (

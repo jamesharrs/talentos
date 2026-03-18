@@ -74,7 +74,7 @@ app.use('/api/comms',            require('./routes/communications'));
 app.use('/api/email-templates',  require('./routes/email-templates'));
 app.use('/api/integrations',     require('./routes/integrations'));
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '1.1.0' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '1.2.0', build: 'stage-actions-fix' }));
 
 const PORT = process.env.PORT || 3001;
 

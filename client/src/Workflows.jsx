@@ -70,6 +70,63 @@ const STEP_TYPES = AUTOMATION_TYPES;
 const automationDef = (type) => AUTOMATION_TYPES.find(s => s.type === type);
 const stepDef = (type) => automationDef(type) || { type:"placeholder", label:"Stage", icon:"chevRight", color:"#9ca3af", desc:"Process stage" };
 
+// ─── RecipientPicker ──────────────────────────────────────────────────────────
+// Shown above the email body in send_email and send_invitation_email actions.
+function RecipientPicker({ cfg, fields, onChange }) {
+  const mode = cfg.recipient_mode || 'linked_person';
+
+  // People-type fields on the object (for the "field variable" mode)
+  const peopleFields = fields.filter(f => f.field_type === 'people' || f.field_type === 'lookup');
+
+  const setMode = (m) => onChange({ ...cfg, recipient_mode: m });
+
+  return (
+    <div style={{ marginBottom:10 }}>
+      <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:".05em", marginBottom:7 }}>Send to</div>
+      <div style={{ display:"flex", gap:6, marginBottom: mode !== 'linked_person' ? 8 : 0 }}>
+        {[
+          { val:"linked_person", label:"Linked person",   desc:"The candidate / person this workflow runs on" },
+          { val:"field_variable",label:"Field variable",  desc:"A People field on the record (e.g. Hiring Manager)" },
+          { val:"manual",        label:"Specific email",  desc:"Type an address or use a variable" },
+        ].map(opt => (
+          <button key={opt.val} type="button" onClick={() => setMode(opt.val)} title={opt.desc}
+            style={{ flex:1, padding:"6px 8px", borderRadius:8, border:`1.5px solid ${mode===opt.val?"#0891b2":"#e5e7eb"}`, background:mode===opt.val?"#ecfeff":"white", color:mode===opt.val?"#0891b2":"#6b7280", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:F, transition:"all .12s" }}>
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {mode === 'field_variable' && (
+        <div>
+          <select value={cfg.recipient_field||""} onChange={e => onChange({ ...cfg, recipient_field: e.target.value })}
+            style={{ width:"100%", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
+            <option value="">— Select a People field —</option>
+            {peopleFields.map(f => <option key={f.api_key} value={f.api_key}>{f.name}</option>)}
+            {/* Common role field names even if not typed as people */}
+            {!peopleFields.length && [
+              { api_key:"hiring_manager", name:"Hiring Manager" },
+              { api_key:"interviewer",    name:"Interviewer" },
+              { api_key:"recruiter",      name:"Recruiter" },
+            ].map(f => <option key={f.api_key} value={f.api_key}>{f.name}</option>)}
+          </select>
+          <div style={{ fontSize:10, color:C.text3, marginTop:4, lineHeight:1.5 }}>
+            The field must be a People-type field containing a person record with an email address.
+          </div>
+        </div>
+      )}
+
+      {mode === 'manual' && (
+        <div>
+          <input value={cfg.recipient_email||""} onChange={e => onChange({ ...cfg, recipient_email: e.target.value })}
+            placeholder="email@company.com or {{hiring_manager_email}}"
+            style={{ width:"100%", boxSizing:"border-box", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", color:C.text1 }}/>
+          <div style={{ fontSize:10, color:C.text3, marginTop:4 }}>Comma-separate multiple addresses. Supports <code style={{background:"#f3f4f6",padding:"1px 4px",borderRadius:3}}>{"{{variables}}"}</code>.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── EmailBodyEditor ──────────────────────────────────────────────────────────
 // Reusable subject + body editor with inline variable picker and live preview.
 const EMAIL_VARS = [
@@ -376,12 +433,16 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
                   )}
 
                   {(action.type === "send_email") && (
-                    <EmailBodyEditor
-                      subject={cfg.subject} body={cfg.body}
-                      onSubjectChange={v => setActionConfig(action.id,"subject",v)}
-                      onBodyChange={v => setActionConfig(action.id,"body",v)}
-                      extraVars={fields.map(f => ({ key: f.api_key, label: f.name }))}
-                    />
+                    <>
+                      <RecipientPicker cfg={cfg} fields={fields}
+                        onChange={patch => updateAction(action.id, { config: patch })}/>
+                      <EmailBodyEditor
+                        subject={cfg.subject} body={cfg.body}
+                        onSubjectChange={v => setActionConfig(action.id,"subject",v)}
+                        onBodyChange={v => setActionConfig(action.id,"body",v)}
+                        extraVars={fields.map(f => ({ key: f.api_key, label: f.name }))}
+                      />
+                    </>
                   )}
 
                   {action.type === "send_invitation_email" && (
@@ -389,6 +450,8 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
                       <div style={{ padding:"8px 12px", borderRadius:8, background:"#ecfeff", border:"1px solid #a5f3fc", fontSize:11, color:"#0e7490", lineHeight:1.5 }}>
                         Sends the candidate their AI interview link. Run a <strong>Run Agent</strong> action first to generate the link.
                       </div>
+                      <RecipientPicker cfg={cfg} fields={fields}
+                        onChange={patch => updateAction(action.id, { config: patch })}/>
                       <EmailBodyEditor
                         subject={cfg.subject} body={cfg.body}
                         onSubjectChange={v => setActionConfig(action.id,"subject",v)}

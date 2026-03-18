@@ -147,6 +147,51 @@ function stepActions(step) {
   return [];
 }
 
+// Helper: resolve recipient email(s) from action config + record context
+function resolveRecipient(cfg, record, store) {
+  const mode = cfg.recipient_mode || 'linked_person';
+
+  if (mode === 'linked_person') {
+    // The record itself (candidate / person the workflow runs against)
+    const email = record.data?.email;
+    if (!email) return { emails: [], error: 'No email address on record' };
+    const name = [record.data?.first_name, record.data?.last_name].filter(Boolean).join(' ') || 'Candidate';
+    return { emails: [{ email, name }] };
+  }
+
+  if (mode === 'field_variable') {
+    // A People-type field on the record (e.g. hiring_manager, interviewer)
+    const fieldKey = cfg.recipient_field;
+    if (!fieldKey) return { emails: [], error: 'No field selected for recipient' };
+    const fieldValue = record.data?.[fieldKey];
+    if (!fieldValue) return { emails: [], error: `Field "${fieldKey}" is empty on this record` };
+
+    // Field value may be a single record ID or array of record IDs (People field type)
+    const ids = Array.isArray(fieldValue) ? fieldValue.map(v => typeof v === 'object' ? v.id : v) : [typeof fieldValue === 'object' ? fieldValue.id : fieldValue];
+    const emails = ids.map(id => {
+      // Try to find as a platform user first
+      const user = (store.users || []).find(u => u.id === id);
+      if (user?.email) return { email: user.email, name: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email };
+      // Try as a person record
+      const rec = (store.records || []).find(r => r.id === id);
+      if (rec?.data?.email) return { email: rec.data.email, name: [rec.data.first_name, rec.data.last_name].filter(Boolean).join(' ') || rec.data.email };
+      return null;
+    }).filter(Boolean);
+    if (!emails.length) return { emails: [], error: `Could not resolve email from field "${fieldKey}"` };
+    return { emails };
+  }
+
+  if (mode === 'manual') {
+    const raw = cfg.recipient_email || '';
+    if (!raw.trim()) return { emails: [], error: 'No recipient email configured' };
+    // Could be comma-separated
+    const emails = raw.split(',').map(e => e.trim()).filter(Boolean).map(e => ({ email: e, name: e }));
+    return { emails };
+  }
+
+  return { emails: [], error: `Unknown recipient mode: ${mode}` };
+}
+
 // POST /api/workflows/:id/run  — run workflow against a record
 router.post('/:id/run', async (req, res) => {
   ensureTables();
@@ -207,7 +252,25 @@ router.post('/:id/run', async (req, res) => {
             actionOutput = aiOutput;
 
           } else if (action.type === 'send_email') {
-            actionOutput = `[Demo] Email → ${record.data?.email || 'unknown'}: "${cfg.subject}"`;
+            const s = getStore();
+            const resolved = resolveRecipient(cfg, record, s);
+            if (resolved.error) {
+              actionOutput = `⚠ ${resolved.error}`;
+              actionStatus = 'warning';
+            } else {
+              const toList = resolved.emails.map(r => r.email).join(', ');
+              const subject = (cfg.subject || 'Update on your application').replace(/\{\{(\w+)\}\}/g, (_, k) => record.data?.[k] ?? `{{${k}}}`);
+              const body = (cfg.body || '').replace(/\{\{(\w+)\}\}/g, (_, k) => record.data?.[k] ?? `{{${k}}}`);
+              try {
+                const msg = require('../services/messaging');
+                for (const r of resolved.emails) {
+                  await msg.sendEmail({ to: r.email, subject, text: body, html: body.replace(/\n/g, '<br>') });
+                }
+                actionOutput = `Email → ${toList}: "${subject}"`;
+              } catch(e) {
+                actionOutput = `[Demo] Email → ${toList}: "${subject}"`;
+              }
+            }
 
           } else if (action.type === 'webhook') {
             await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ record_id, environment_id: record.environment_id, timestamp: new Date().toISOString() }) }).catch(()=>{});
@@ -233,18 +296,29 @@ router.post('/:id/run', async (req, res) => {
           } else if (action.type === 'send_invitation_email') {
             const s = getStore();
             const token = (s.agent_tokens || []).filter(t => t.candidate_id === record_id && t.status === 'pending').sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
-            const candidateEmail = record.data?.email;
-            const candidateName = record.data ? [record.data.first_name, record.data.last_name].filter(Boolean).join(' ') || 'Candidate' : 'Candidate';
             const interviewUrl = token ? `${process.env.APP_URL || 'http://localhost:3000'}/interview/${token.token}` : null;
-            if (!candidateEmail) { actionOutput = `⚠ No email on record for ${candidateName}`; actionStatus = 'warning'; }
-            else if (!token) { actionOutput = `⚠ No pending interview link for ${candidateName} — run Run Agent first`; actionStatus = 'warning'; }
+            if (!token) { actionOutput = `⚠ No pending interview link — run Run Agent first`; actionStatus = 'warning'; }
             else {
-              const subject = cfg.subject || `Your AI Interview invitation`;
-              const body = (cfg.body || `Hi {{first_name}},\n\nYour interview link: {{interview_link}}\n\nGood luck!`).replace(/\{\{(\w+)\}\}/g, (_, k) => record.data?.[k] ?? `{{${k}}}`).replace('{{interview_link}}', interviewUrl);
-              try { const msg = require('../services/messaging'); const r = await msg.sendEmail({ to: candidateEmail, subject, text: body, html: body.replace(/\n/g,'<br>') }); actionOutput = r.simulated ? `[Sim] Invitation → ${candidateEmail}` : `Invitation sent → ${candidateEmail}`; } catch(e) { actionOutput = `[Demo] Invitation → ${candidateEmail}`; }
-              if (!s.communications) s.communications = [];
-              s.communications.push({ id: uuidv4(), record_id, type:'email', direction:'outbound', subject, body, status:'sent', created_by:'workflow', created_at: new Date().toISOString() });
-              require('../db/init').saveStore();
+              const resolved = resolveRecipient(cfg, record, s);
+              if (resolved.error) { actionOutput = `⚠ ${resolved.error}`; actionStatus = 'warning'; }
+              else {
+                const toList = resolved.emails.map(r => r.email).join(', ');
+                const subject = cfg.subject || `Your AI Interview invitation`;
+                const body = (cfg.body || `Hi {{first_name}},\n\nYour interview link: {{interview_link}}\n\nGood luck!`)
+                  .replace(/\{\{(\w+)\}\}/g, (_, k) => record.data?.[k] ?? `{{${k}}}`)
+                  .replace(/\{\{interview_link\}\}/g, interviewUrl);
+                try {
+                  const msg = require('../services/messaging');
+                  for (const r of resolved.emails) {
+                    const personalBody = body.replace(/\{\{first_name\}\}/g, r.name?.split(' ')[0] || 'there');
+                    const res = await msg.sendEmail({ to: r.email, subject, text: personalBody, html: personalBody.replace(/\n/g,'<br>') });
+                    actionOutput = res.simulated ? `[Sim] Invitation → ${toList}` : `Invitation sent → ${toList}`;
+                  }
+                } catch(e) { actionOutput = `[Demo] Invitation → ${toList}`; }
+                if (!s.communications) s.communications = [];
+                s.communications.push({ id: uuidv4(), record_id, type:'email', direction:'outbound', subject, body, status:'sent', created_by:'workflow', created_at: new Date().toISOString() });
+                require('../db/init').saveStore();
+              }
             }
 
           } else if (action.type === 'create_offer') {

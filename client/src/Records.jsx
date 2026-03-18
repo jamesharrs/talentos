@@ -1079,8 +1079,9 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
     ? visibleFieldIds.map(id => fields.find(f => f.id === id) || SYSTEM_COLS.find(s => s.id === id)).filter(Boolean)
     : fields.filter(f => f.show_in_list).slice(0, 6);
 
-  // Apply column order if provided
-  const orderedFields = visibleColOrder?.length
+  // Apply column order — only use saved order if it covers all visible fields
+  // If a new column was added, it won't be in visibleColOrder yet, so fall back to listFields order
+  const orderedFields = (visibleColOrder?.length && visibleColOrder.length >= listFields.length)
     ? visibleColOrder.map(id => listFields.find(f => f.id === id)).filter(Boolean)
     : listFields;
 
@@ -4273,6 +4274,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
 
   const handleColChange = (ids) => {
     setVisibleFieldIds(ids);
+    setVisibleColOrder(null); // reset order so new columns appear; user can re-drag after
     try { localStorage.setItem(colStorageKey, JSON.stringify(ids)); } catch {}
   };
 

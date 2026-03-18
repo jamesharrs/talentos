@@ -1076,12 +1076,14 @@ function getSystemValue(record, col, linkedJobs) {
 // ── Inline stage pill with dropdown — used in the list table ─────────────────
 function StagePill({ linkInfo, onStageChange }) {
   const [open, setOpen]     = useState(false);
+  const [pos,  setPos]      = useState({ top:0, left:0 });
   const [saving, setSaving] = useState(false);
-  const ref = useRef(null);
+  const btnRef = useRef(null);
 
+  // Close on outside click
   useEffect(() => {
     if (!open) return;
-    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = e => { if (btnRef.current && !btnRef.current.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [open]);
@@ -1090,6 +1092,16 @@ function StagePill({ linkInfo, onStageChange }) {
 
   const hasSteps = linkInfo.steps?.length > 0;
   const accent   = '#7c3aed';
+
+  const handleOpen = (e) => {
+    e.stopPropagation();
+    if (!hasSteps) return;
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + window.scrollY + 4, left: r.left + r.width / 2 + window.scrollX });
+    }
+    setOpen(v => !v);
+  };
 
   const handlePick = async (step) => {
     if (!linkInfo.link_id || saving) return;
@@ -1106,10 +1118,43 @@ function StagePill({ linkInfo, onStageChange }) {
     setSaving(false);
   };
 
+  const dropdown = open && ReactDOM.createPortal(
+    <div style={{
+      position:'absolute', top: pos.top, left: pos.left,
+      transform:'translateX(-50%)',
+      background:'white', border:'1px solid #e5e7eb', borderRadius:10,
+      boxShadow:'0 8px 24px rgba(0,0,0,.15)', zIndex:9999, minWidth:150, overflow:'hidden',
+    }}>
+      {linkInfo.steps.map(step => {
+        const isCurrent = step.id === linkInfo.stage_id;
+        const hasAuto   = (step.actions||[]).some(a => a.type);
+        return (
+          <button key={step.id}
+            onClick={e => { e.stopPropagation(); handlePick(step); }}
+            style={{
+              width:'100%', display:'flex', alignItems:'center', gap:8,
+              padding:'9px 12px', border:'none',
+              background: isCurrent ? '#f5f3ff' : 'white',
+              cursor:'pointer', fontFamily:'inherit', textAlign:'left',
+            }}
+            onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background='#faf5ff'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = isCurrent?'#f5f3ff':'white'; }}>
+            {isCurrent
+              ? <svg width="12" height="12" viewBox="0 0 12 12" style={{flexShrink:0}}><path d="M2 6l3 3 5-5" stroke={accent} strokeWidth="1.8" fill="none" strokeLinecap="round"/></svg>
+              : <span style={{ width:12, flexShrink:0 }}/>}
+            <span style={{ fontSize:12, fontWeight: isCurrent?700:400, color: isCurrent?accent:'#374151', flex:1 }}>{step.name}</span>
+            {hasAuto && <span style={{ fontSize:9, background:'#fef3c7', color:'#92400e', padding:'1px 5px', borderRadius:99, fontWeight:700 }}>⚡</span>}
+          </button>
+        );
+      })}
+    </div>,
+    document.body
+  );
+
   return (
-    <div ref={ref} style={{ position:'relative', display:'inline-flex' }}>
-      <button
-        onClick={e => { e.stopPropagation(); if (hasSteps) setOpen(v => !v); }}
+    <>
+      <button ref={btnRef}
+        onClick={handleOpen}
         disabled={saving}
         style={{
           display:'inline-flex', alignItems:'center', gap:5,
@@ -1127,37 +1172,8 @@ function StagePill({ linkInfo, onStageChange }) {
           </svg>
         )}
       </button>
-      {open && (
-        <div style={{
-          position:'absolute', top:'calc(100% + 4px)', left:'50%', transform:'translateX(-50%)',
-          background:'white', border:'1px solid #e5e7eb', borderRadius:10,
-          boxShadow:'0 6px 20px rgba(0,0,0,.12)', zIndex:200, minWidth:140, overflow:'hidden',
-        }}>
-          {linkInfo.steps.map(step => {
-            const isCurrent = step.id === linkInfo.stage_id;
-            const hasAuto   = (step.actions||[]).some(a => a.type);
-            return (
-              <button key={step.id}
-                onClick={e => { e.stopPropagation(); handlePick(step); }}
-                style={{
-                  width:'100%', display:'flex', alignItems:'center', gap:8,
-                  padding:'8px 12px', border:'none',
-                  background: isCurrent ? '#f5f3ff' : 'white',
-                  cursor:'pointer', fontFamily:'inherit', textAlign:'left',
-                }}
-                onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background='#faf5ff'; }}
-                onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background= isCurrent?'#f5f3ff':'white'; }}>
-                {isCurrent
-                  ? <svg width="12" height="12" viewBox="0 0 12 12" style={{flexShrink:0}}><path d="M2 6l3 3 5-5" stroke={accent} strokeWidth="1.8" fill="none" strokeLinecap="round"/></svg>
-                  : <span style={{ width:12, flexShrink:0 }}/>}
-                <span style={{ fontSize:12, fontWeight: isCurrent?700:400, color: isCurrent?accent:'#374151', flex:1 }}>{step.name}</span>
-                {hasAuto && <span style={{ fontSize:9, background:'#fef3c7', color:'#92400e', padding:'1px 5px', borderRadius:99, fontWeight:700 }}>⚡</span>}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
+      {dropdown}
+    </>
   );
 }
 

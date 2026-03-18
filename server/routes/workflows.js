@@ -33,10 +33,20 @@ async function executeAgentActions(agent, record_id, record, environment_id) {
     }
 
     const allQs = s.question_bank_v2 || [];
-    const scorecardQs = qIds.map(id => allQs.find(q => q.id === id)).filter(Boolean)
+    let scorecardQs = qIds.map(id => allQs.find(q => q.id === id)).filter(Boolean)
       .map(q => ({ id: q.id, text: q.text, type: q.type, competency: q.competency, weight: q.weight, follow_ups: q.follow_ups || [], good_answer_guidance: q.good_answer_guidance || '', red_flags: q.red_flags || '' }));
 
-    if (!scorecardQs.length) { logs.push({ step: '⚠ AI Interview skipped — questions could not be resolved', status: 'warning' }); continue; }
+    // Fallback: include any job-only questions (stored inline on the assignment)
+    if (scorecardQs.length < qIds.length) {
+      const jobAssignments = (s.job_questions || []).filter(a => a.job_id === linkedJobId);
+      jobAssignments.forEach(a => {
+        if (a.question_data && !scorecardQs.find(q => q.id === a.question_id)) {
+          scorecardQs.push({ id: a.question_id, ...a.question_data });
+        }
+      });
+    }
+
+    if (!scorecardQs.length) { logs.push({ step: `⚠ AI Interview skipped — questions could not be resolved (${qIds.length} assigned but none found in bank)`, status: 'warning' }); continue; }
 
     const token = require('crypto').randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();

@@ -130,18 +130,26 @@ router.get('/jobs/:job_id', (req, res) => {
   res.json(ordered);
 });
 
-router.put('/jobs/:job_id', (req, res) => {
+router.put('/jobs/:job_id', async (req, res) => {
   const { question_ids } = req.body;
   if (!Array.isArray(question_ids)) return res.status(400).json({error:'question_ids array required'});
   const store = getStore();
   if (!store.job_questions) store.job_questions=[];
-  // Keep job-only assignments (question_data set) — only replace library-linked ones
   const jobOnlyExisting = store.job_questions.filter(jq=>jq.job_id===req.params.job_id && jq.question_data);
   store.job_questions = store.job_questions.filter(jq=>jq.job_id!==req.params.job_id);
-  // Re-add job-only first, then library ones
   jobOnlyExisting.forEach(a=>store.job_questions.push(a));
   question_ids.forEach((qid,i)=>store.job_questions.push({id:uuidv4(),job_id:req.params.job_id,question_id:qid,order:jobOnlyExisting.length+i,created_at:new Date().toISOString()}));
   saveStore(store);
+  // Force-sync both job_questions AND question_bank_v2 to Postgres immediately
+  try {
+    const pg = require('../db/postgres');
+    const { getCurrentTenant } = require('../db/init');
+    if (pg.isEnabled()) {
+      const tenant = getCurrentTenant() || 'master';
+      await pg.saveCollection(tenant, 'job_questions', store.job_questions);
+      await pg.saveCollection(tenant, 'question_bank_v2', store.question_bank_v2 || []);
+    }
+  } catch(e) { console.error('PG sync job_questions:', e.message); }
   res.json({job_id:req.params.job_id,question_count:question_ids.length+jobOnlyExisting.length});
 });
 

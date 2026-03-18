@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ReactDOM from "react-dom";
 import { MatchingEngine } from "./AI.jsx";
 import CommunicationsPanel from "./Communications.jsx";
@@ -646,9 +646,11 @@ const ColumnPickerDropdown = ({ fields, visibleIds, onChange, onClose }) => {
     return () => document.removeEventListener("mousedown", h);
   }, [onClose]);
 
+  const allCols = [...fields, ...SYSTEM_COLS];
+
   const toggleField = (id) => {
     if (visibleIds.includes(id)) {
-      if (visibleIds.length <= 1) return; // always show at least 1
+      if (visibleIds.length <= 1) return;
       onChange(visibleIds.filter(x => x !== id));
     } else {
       onChange([...visibleIds, id]);
@@ -658,10 +660,11 @@ const ColumnPickerDropdown = ({ fields, visibleIds, onChange, onClose }) => {
   return (
     <div ref={ref} style={{ position:"absolute", top:"100%", right:0, zIndex:300, marginTop:4,
       background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, boxShadow:"0 8px 24px rgba(0,0,0,.12)",
-      minWidth:220, maxHeight:360, overflowY:"auto", padding:"8px 0" }}>
+      minWidth:220, maxHeight:400, overflowY:"auto", padding:"8px 0" }}>
       <div style={{ padding:"6px 14px 8px", fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.07em", borderBottom:`1px solid ${C.border}`, marginBottom:4 }}>
         Columns
       </div>
+      {/* Field columns */}
       {fields.map(f => {
         const on = visibleIds.includes(f.id);
         return (
@@ -675,6 +678,25 @@ const ColumnPickerDropdown = ({ fields, visibleIds, onChange, onClose }) => {
               {on && <Ic n="check" s={10} c="white"/>}
             </div>
             <span style={{ fontSize:13, fontWeight: on?600:400, color: on?C.accent:C.text1 }}>{f.name}</span>
+          </div>
+        );
+      })}
+      {/* System columns divider */}
+      <div style={{ padding:"6px 14px 6px", fontSize:10, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.07em", borderTop:`1px solid ${C.border}`, marginTop:4 }}>System</div>
+      {SYSTEM_COLS.map(f => {
+        const on = visibleIds.includes(f.id);
+        return (
+          <div key={f.id} onClick={() => toggleField(f.id)}
+            style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 14px", cursor:"pointer",
+              background: on ? C.accentLight : "transparent", transition:"background .1s" }}
+            onMouseEnter={e => !on && (e.currentTarget.style.background="#f8f9fc")}
+            onMouseLeave={e => !on && (e.currentTarget.style.background="transparent")}>
+            <div style={{ width:16, height:16, borderRadius:4, border:`2px solid ${on?C.accent:C.border}`,
+              background: on ? C.accent : "transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              {on && <Ic n="check" s={10} c="white"/>}
+            </div>
+            <span style={{ fontSize:13, fontWeight: on?600:400, color: on?C.accent:C.text1 }}>{f.name}</span>
+            <span style={{ marginLeft:"auto", fontSize:10, color:C.text3, background:"#f1f5f9", padding:"1px 5px", borderRadius:99 }}>system</span>
           </div>
         );
       })}
@@ -946,15 +968,68 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
 };
 
 /* ─── Table View ──────────────────────────────────────────────────────────── */
-const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, onEdit, onDelete, onProfile, selectedIds, onToggleSelect, onToggleAll }) => {
-  // Use visibleFieldIds if provided, otherwise fall back to show_in_list
+// ── System columns (not field-based) ──────────────────────────────────────────
+const SYSTEM_COLS = [
+  { id: '_created', name: 'Created', apiKey: '_created', isSystem: true },
+  { id: '_updated', name: 'Updated',  apiKey: '_updated', isSystem: true },
+  { id: '_linked_job', name: 'Linked Job', apiKey: '_linked_job', isSystem: true },
+  { id: '_stage',  name: 'Stage', apiKey: '_stage', isSystem: true },
+];
+
+function getSystemValue(record, col, linkedJobs) {
+  if (col === '_created') return record.created_at ? new Date(record.created_at).toLocaleDateString() : '—';
+  if (col === '_updated') return record.updated_at ? new Date(record.updated_at).toLocaleDateString() : '—';
+  if (col === '_linked_job') {
+    const job = linkedJobs?.[record.id];
+    return job ? (job.title || '—') : '—';
+  }
+  if (col === '_stage') {
+    const job = linkedJobs?.[record.id];
+    return job?.stage || '—';
+  }
+  return '—';
+}
+
+// ── Enhanced TableView ─────────────────────────────────────────────────────────
+const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, onEdit, onDelete, onProfile, selectedIds, onToggleSelect, onToggleAll, sortBy, sortDir, onSort, onColumnFilter, colWidths, onResizeCol, visibleColOrder, onReorderCols, linkedJobs }) => {
   const listFields = visibleFieldIds
-    ? visibleFieldIds.map(id => fields.find(f => f.id === id)).filter(Boolean)
+    ? visibleFieldIds.map(id => fields.find(f => f.id === id) || SYSTEM_COLS.find(s => s.id === id)).filter(Boolean)
     : fields.filter(f => f.show_in_list).slice(0, 6);
 
-  if (records.length===0) return (
+  // Apply column order if provided
+  const orderedFields = visibleColOrder?.length
+    ? visibleColOrder.map(id => listFields.find(f => f.id === id)).filter(Boolean)
+    : listFields;
+
+  // Drag-to-reorder state
+  const [dragColIdx, setDragColIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
+
+  // Resize state
+  const resizeRef = useRef(null);
+
+  const startResize = (e, fieldId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startW = colWidths?.[fieldId] || 150;
+    const onMove = (me) => { const w = Math.max(60, startW + me.clientX - startX); onResizeCol?.(fieldId, w); };
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  const handleColDrop = (toIdx) => {
+    if (dragColIdx === null || dragColIdx === toIdx) return;
+    const newOrder = orderedFields.map(f => f.id);
+    const [moved] = newOrder.splice(dragColIdx, 1);
+    newOrder.splice(toIdx, 0, moved);
+    onReorderCols?.(newOrder);
+    setDragColIdx(null); setDragOverIdx(null);
+  };
+
+  if (records.length === 0) return (
     <div style={{ textAlign:"center", padding:"80px 40px", color:C.text3 }}>
-      <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
       <div style={{ fontSize:15, fontWeight:600, color:C.text2, marginBottom:4 }}>No records yet</div>
       <div style={{ fontSize:13 }}>Create your first record to get started</div>
     </div>
@@ -965,6 +1040,7 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
       <table style={{ width:"100%", borderCollapse:"collapse", minWidth:600 }}>
         <thead>
           <tr style={{ background:"#f8f9fc", borderBottom:`2px solid ${C.border}` }}>
+            {/* Checkbox */}
             <th style={{ width:36, padding:"10px 12px" }}>
               <input type="checkbox"
                 checked={selectedIds?.size > 0 && selectedIds?.size === records.length}
@@ -972,11 +1048,50 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                 onChange={onToggleAll}
                 style={{ width:15, height:15, cursor:"pointer", accentColor:C.accent }}/>
             </th>
+            {/* Avatar */}
             <th style={{ width:36, padding:"10px 8px" }}/>
-            {listFields.map(f=>(
-              <th key={f.id} style={{ padding:"10px 14px", textAlign:"left", fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.06em", whiteSpace:"nowrap" }}>{f.name}</th>
-            ))}
-            <th style={{ padding:"10px 14px", textAlign:"right", fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.06em" }}>Actions</th>
+            {/* Field headers */}
+            {orderedFields.map((f, fi) => {
+              const isSorted = sortBy === (f.isSystem ? f.apiKey : f.api_key);
+              const w = colWidths?.[f.id] || null;
+              const isDragOver = dragOverIdx === fi;
+              return (
+                <th key={f.id}
+                  draggable
+                  onDragStart={() => setDragColIdx(fi)}
+                  onDragOver={e => { e.preventDefault(); setDragOverIdx(fi); }}
+                  onDragLeave={() => setDragOverIdx(null)}
+                  onDrop={() => handleColDrop(fi)}
+                  style={{ padding:"0", position:"relative", userSelect:"none",
+                    borderLeft: isDragOver ? `2px solid ${C.accent}` : "2px solid transparent",
+                    background: isDragOver ? `${C.accent}08` : undefined,
+                    ...(w ? { width:w, minWidth:w, maxWidth:w } : {}) }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:2, padding:"10px 12px 10px 14px", cursor:"pointer", whiteSpace:"nowrap" }}
+                    onClick={() => onSort?.(f.isSystem ? f.apiKey : f.api_key)}>
+                    <span style={{ fontSize:11, fontWeight:700, color: isSorted ? C.accent : C.text3, textTransform:"uppercase", letterSpacing:"0.06em" }}>{f.name}</span>
+                    {isSorted
+                      ? <Ic n={sortDir === 'asc' ? 'chevronUp' : 'chevronDown'} s={11} c={C.accent}/>
+                      : <Ic n="chevronDown" s={10} c="#d1d5db"/>}
+                    {/* Column filter button */}
+                    {!f.isSystem && <button
+                      onClick={e => { e.stopPropagation(); onColumnFilter?.(f); }}
+                      title={`Filter by ${f.name}`}
+                      style={{ background:"none", border:"none", cursor:"pointer", padding:"1px 3px", borderRadius:4, opacity:0.5, display:"flex", marginLeft:1 }}
+                      onMouseEnter={e => e.currentTarget.style.opacity="1"}
+                      onMouseLeave={e => e.currentTarget.style.opacity="0.5"}>
+                      <Ic n="filter" s={9} c={C.text3}/>
+                    </button>}
+                  </div>
+                  {/* Resize handle */}
+                  <div
+                    onMouseDown={e => startResize(e, f.id)}
+                    style={{ position:"absolute", right:0, top:0, bottom:0, width:4, cursor:"col-resize", background:"transparent" }}
+                    onMouseEnter={e => e.currentTarget.style.background=C.accent+"40"}
+                    onMouseLeave={e => e.currentTarget.style.background="transparent"}/>
+                </th>
+              );
+            })}
+            <th style={{ padding:"10px 14px", textAlign:"right", fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.06em", whiteSpace:"nowrap" }}>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -992,22 +1107,33 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                   <input type="checkbox" checked={!!isSelected} onChange={() => onToggleSelect(record.id)}
                     style={{ width:15, height:15, cursor:"pointer", accentColor:C.accent }}/>
                 </td>
-                <td style={{ padding:"12px 8px", cursor:"pointer", width:36 }} onClick={()=>onProfile(record)}>
+                <td style={{ padding:"12px 8px", cursor:"pointer", width:36 }} onClick={() => onProfile(record)}>
                   <Avatar name={title} color={objectColor} size={28}/>
                 </td>
-                {listFields.map((f,fi)=>(
-                  <td key={f.id} style={{ padding:"12px 14px", maxWidth:220, cursor: fi===0?"pointer":"default" }}
-                    onClick={fi===0 ? ()=>onProfile(record) : undefined}>
-                    {fi===0
-                      ? <span style={{ fontWeight:700, color:"#4361EE", textDecoration:"none" }}
-                          onMouseEnter={e=>e.currentTarget.style.textDecoration="underline"}
-                          onMouseLeave={e=>e.currentTarget.style.textDecoration="none"}>
-                          <FieldValue field={f} value={record.data?.[f.api_key]}/>
-                        </span>
-                      : <FieldValue field={f} value={record.data?.[f.api_key]}/>
-                    }
-                  </td>
-                ))}
+                {orderedFields.map((f, fi) => {
+                  const val = f.isSystem
+                    ? getSystemValue(record, f.apiKey, linkedJobs)
+                    : record.data?.[f.api_key];
+                  const w = colWidths?.[f.id] || null;
+                  return (
+                    <td key={f.id}
+                      style={{ padding:"12px 14px", cursor: fi===0 ? "pointer" : "default",
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                        ...(w ? { maxWidth:w, width:w } : { maxWidth:220 }) }}
+                      onClick={fi===0 ? () => onProfile(record) : undefined}>
+                      {fi === 0
+                        ? <span style={{ fontWeight:700, color:"#4361EE" }}
+                            onMouseEnter={e=>e.currentTarget.style.textDecoration="underline"}
+                            onMouseLeave={e=>e.currentTarget.style.textDecoration="none"}>
+                            {f.isSystem ? val : <FieldValue field={f} value={val}/>}
+                          </span>
+                        : f.isSystem
+                          ? <span style={{ fontSize:13, color: val === '—' ? C.text3 : C.text1 }}>{val}</span>
+                          : <FieldValue field={f} value={val}/>
+                      }
+                    </td>
+                  );
+                })}
                 <td style={{ padding:"12px 14px", textAlign:"right" }}>
                   <div style={{ display:"flex", gap:4, justifyContent:"flex-end" }}>
                     {onEdit   && <Btn v="ghost" sz="sm" icon="edit"   onClick={()=>onEdit(record)}/>}
@@ -3971,17 +4097,22 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   const [loading, setLoading]   = useState(true);
   const [view,    setView]      = useState("table");
   const [search,  setSearch]    = useState("");
-  const [filterChip, setFilterChip] = useState(initialFilter || null); // { fieldKey, fieldLabel, fieldValue }
-  // Column picker state — null means "use defaults"
+  const [filterChip, setFilterChip] = useState(initialFilter || null);
   const [visibleFieldIds, setVisibleFieldIds] = useState(null);
   const [showColPicker, setShowColPicker]     = useState(false);
-  // Advanced filters
   const [activeFilters, setActiveFilters]     = useState([]);
-  // Bulk selection
   const [selectedIds, setSelectedIds]         = useState(new Set());
-  // Saved views
   const [showViewsMenu, setShowViewsMenu]     = useState(false);
   const [showExport,    setShowExport]        = useState(false);
+  // Sort state
+  const [sortBy,  setSortBy]  = useState(null);
+  const [sortDir, setSortDir] = useState('asc');
+  // Column widths (persisted per object)
+  const [colWidths, setColWidths] = useState({});
+  // Column order (drag to reorder)
+  const [visibleColOrder, setVisibleColOrder] = useState(null);
+  // Linked jobs for system columns
+  const [linkedJobs, setLinkedJobs] = useState({});
   const exportRef = useRef(null);
   const userId = session?.user?.id || session?.id || "unknown";
 
@@ -4118,7 +4249,26 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   };
 
   // Apply advanced filters on top of the loaded records
-  const displayedRecords = applyFilters(records, activeFilters, fields);
+  const displayedRecords = useMemo(() => {
+    let recs = applyFilters(records, activeFilters, fields);
+    if (sortBy) {
+      recs = [...recs].sort((a, b) => {
+        let av, bv;
+        if (sortBy.startsWith('_')) {
+          // System column
+          if (sortBy === '_created') { av = a.created_at||''; bv = b.created_at||''; }
+          else if (sortBy === '_updated') { av = a.updated_at||''; bv = b.updated_at||''; }
+          else if (sortBy === '_linked_job') { av = linkedJobs[a.id]?.title||''; bv = linkedJobs[b.id]?.title||''; }
+          else if (sortBy === '_stage') { av = linkedJobs[a.id]?.stage||''; bv = linkedJobs[b.id]?.stage||''; }
+        } else {
+          av = a.data?.[sortBy] ?? ''; bv = b.data?.[sortBy] ?? '';
+        }
+        const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
+        return sortDir === 'asc' ? cmp : -cmp;
+      });
+    }
+    return recs;
+  }, [records, activeFilters, fields, sortBy, sortDir, linkedJobs]);
 
   const handleLoadView = (view) => {    if (view.filters)           setActiveFilters(view.filters);
     if (view.visible_field_ids?.length) { setVisibleFieldIds(view.visible_field_ids); try { localStorage.setItem(colStorageKey, JSON.stringify(view.visible_field_ids)); } catch {} }
@@ -4126,6 +4276,47 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
     setFilterChip(null);
     setPage(1);
   };
+
+  // Sort handler
+  const handleSort = (key) => {
+    if (sortBy === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(key); setSortDir('asc'); }
+  };
+
+  // Column filter handler — clicking the filter icon on a header adds a filter
+  const handleColumnFilter = (field) => {
+    const uniqueVals = [...new Set(records.map(r => r.data?.[field.api_key]).filter(v => v !== null && v !== undefined && v !== ''))];
+    if (!uniqueVals.length) return;
+    // If only one unique value, apply directly; otherwise use the filter bar
+    setActiveFilters(prev => {
+      const without = prev.filter(f => f.fieldKey !== field.api_key);
+      return [...without, { id: Date.now(), fieldKey: field.api_key, fieldLabel: field.name, op: 'not_empty', value: '' }];
+    });
+  };
+
+  // Column resize handler
+  const handleResizeCol = (fieldId, width) => {
+    setColWidths(prev => ({ ...prev, [fieldId]: width }));
+  };
+
+  // Load linked jobs for system columns (people_links)
+  useEffect(() => {
+    if (!object || !environment) return;
+    const isPersonObject = object.slug === 'people' || object.name?.toLowerCase() === 'person';
+    if (!isPersonObject) return;
+    api.get(`/workflows/people-links?environment_id=${environment.id}`)
+      .then(links => {
+        if (!Array.isArray(links)) return;
+        const map = {};
+        links.forEach(l => {
+          if (!map[l.person_record_id]) {
+            map[l.person_record_id] = { title: l.target_title || l.target_data?.job_title || '', stage: l.stage_name || '' };
+          }
+        });
+        setLinkedJobs(map);
+      }).catch(() => {});
+  }, [object?.id, environment?.id]);
+
 
   const handleExport = (format) => {
     setShowExport(false);

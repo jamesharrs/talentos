@@ -459,6 +459,61 @@ const OBJECTS = [{slug:"people",label:"People"},{slug:"jobs",label:"Jobs"},{slug
 const ACTIONS = ["view","create","edit","delete","export"];
 const ROLE_COLORS = ["#3b5bdb","#f59f00","#0ca678","#e03131","#7048e8","#e64980","#1098ad"];
 
+// Per-role bulk action warning threshold
+function RoleBulkThreshold({ role }) {
+  const storageKey = `${BULK_THRESHOLD_KEY}_${role.slug}`;
+  const [value, setValue] = useState(() => {
+    const v = localStorage.getItem(storageKey);
+    return v !== null ? parseInt(v, 10) : 20;
+  });
+  const [saved, setSaved] = useState(false);
+
+  const save = (raw) => {
+    const n = Math.max(1, Math.min(9999, parseInt(raw, 10) || 20));
+    setValue(n);
+    localStorage.setItem(storageKey, String(n));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1800);
+  };
+
+  return (
+    <div style={{ marginTop:28, paddingTop:20, borderTop:`1px solid ${C.border}` }}>
+      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:16 }}>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:C.text1, marginBottom:4 }}>
+            Bulk Action Warning Threshold
+          </div>
+          <div style={{ fontSize:12, color:C.text3, lineHeight:1.5 }}>
+            Users with the <strong>{role.name}</strong> role will see a confirmation
+            dialog when selecting more than this many records for a bulk action.
+            This explains what will happen and requires them to confirm before proceeding.
+          </div>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
+          <div style={{ display:"flex", alignItems:"center", border:`1.5px solid ${C.border}`,
+            borderRadius:9, overflow:"hidden", background:C.surface }}>
+            <button onClick={() => save(value - 1)} disabled={value <= 1}
+              style={{ width:32, height:34, border:"none", background:"transparent", fontSize:16,
+                color:value<=1?"#d1d5db":C.text2, cursor:value<=1?"default":"pointer", fontFamily:F }}>−</button>
+            <input type="number" value={value} min={1} max={9999}
+              onChange={e => setValue(e.target.value)}
+              onBlur={e => save(e.target.value)}
+              onKeyDown={e => e.key==="Enter" && save(value)}
+              style={{ width:52, height:34, border:"none", borderLeft:`1px solid ${C.border}`,
+                borderRight:`1px solid ${C.border}`, textAlign:"center", fontSize:14, fontWeight:700,
+                color:C.text1, background:C.surface, fontFamily:F, outline:"none" }}/>
+            <button onClick={() => save(value + 1)}
+              style={{ width:32, height:34, border:"none", background:"transparent", fontSize:16,
+                color:C.text2, cursor:"pointer", fontFamily:F }}>+</button>
+          </div>
+          <span style={{ fontSize:12, color:C.text3 }}>records</span>
+          {saved && <span style={{ fontSize:11, color:"#0ca678", fontWeight:700 }}>✓</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const RolesSection = () => {
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -576,6 +631,9 @@ const RolesSection = () => {
                 </tbody>
               </table>
               {selectedRole.is_system && <p style={{fontSize:11,color:C.text3,marginTop:12,fontStyle:"italic"}}>System role permissions cannot be modified.</p>}
+
+              {/* Bulk action warning threshold for this role */}
+              <RoleBulkThreshold role={selectedRole}/>
             </div>
           )}
         </div>
@@ -1262,54 +1320,13 @@ const ConfigSection = ({ environment }) => {
 
 // ─── Bulk Threshold Setting (sub-component used inside Appearance) ────────────
 const BULK_THRESHOLD_KEY = "talentos_bulk_threshold";
-export const getBulkThreshold = () => parseInt(localStorage.getItem(BULK_THRESHOLD_KEY) || "20", 10);
-
-function BulkThresholdSetting({ labelSt }) {
-  const [value, setValue] = useState(() => getBulkThreshold());
-  const [saved, setSaved] = useState(false);
-
-  const save = (v) => {
-    const n = Math.max(1, Math.min(1000, parseInt(v, 10) || 20));
-    setValue(n);
-    localStorage.setItem(BULK_THRESHOLD_KEY, String(n));
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1800);
-  };
-
-  return (
-    <div>
-      <div style={labelSt}>Bulk Action Warning</div>
-      <p style={{ fontSize:12, color:C.text3, margin:"0 0 12px", lineHeight:1.5 }}>
-        When selecting more than this many records for a bulk action, show a confirmation
-        dialog explaining what will happen before proceeding.
-      </p>
-      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:0, border:`1.5px solid ${C.border}`,
-          borderRadius:9, overflow:"hidden", background:C.surface }}>
-          <button onClick={() => save(value - 1)} disabled={value <= 1}
-            style={{ width:34, height:36, border:"none", background:"transparent", fontSize:16,
-              color:value<=1?"#d1d5db":C.text2, cursor:value<=1?"default":"pointer", fontFamily:F }}>−</button>
-          <input type="number" value={value} min={1} max={1000}
-            onChange={e => setValue(e.target.value)}
-            onBlur={e => save(e.target.value)}
-            onKeyDown={e => e.key==="Enter" && save(value)}
-            style={{ width:52, height:36, border:"none", borderLeft:`1px solid ${C.border}`,
-              borderRight:`1px solid ${C.border}`, textAlign:"center", fontSize:14, fontWeight:700,
-              color:C.text1, background:C.surface, fontFamily:F, outline:"none" }}/>
-          <button onClick={() => save(value + 1)}
-            style={{ width:34, height:36, border:"none", background:"transparent", fontSize:16,
-              color:C.text2, cursor:"pointer", fontFamily:F }}>+</button>
-        </div>
-        <span style={{ fontSize:12, color:C.text3 }}>records</span>
-        {saved && <span style={{ fontSize:11, color:"#0ca678", fontWeight:700 }}>✓ Saved</span>}
-      </div>
-      <p style={{ fontSize:11, color:C.text3, margin:"8px 0 0" }}>
-        Currently: warn when selecting more than <strong style={{ color:C.text1 }}>{value}</strong> records at once.
-        Set to 1 to always warn.
-      </p>
-    </div>
-  );
-}
+export const getBulkThreshold = (roleSlug) => {
+  if (roleSlug) {
+    const v = localStorage.getItem(`${BULK_THRESHOLD_KEY}_${roleSlug}`);
+    if (v !== null) return parseInt(v, 10);
+  }
+  return parseInt(localStorage.getItem(BULK_THRESHOLD_KEY) || "20", 10);
+};
 
 // ─── Appearance Section ───────────────────────────────────────────────────────
 function AppearanceSection() {
@@ -1395,8 +1412,7 @@ function AppearanceSection() {
           </div>
         </div>
 
-        {/* Bulk Action Warning */}
-        <BulkThresholdSetting labelSt={labelSt}/>
+        {/* Bulk Action Warning — now in Roles & Permissions */}
 
       </div>
     </div>

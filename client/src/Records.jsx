@@ -4313,7 +4313,16 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   // ── Bulk warning confirmation ────────────────────────────────────────────────
   const [bulkConfirm, setBulkConfirm] = useState(null); // { action:'delete'|'edit', fieldId, value }
 
-  const getBulkThreshold = () => parseInt(localStorage.getItem("talentos_bulk_threshold") || "20", 10);
+  const getBulkThreshold = () => {
+    // Try role-specific threshold first (set in Settings → Roles)
+    const session = JSON.parse(localStorage.getItem("talentos_session") || "{}");
+    const roleSlug = session?.user?.role?.slug;
+    if (roleSlug) {
+      const v = localStorage.getItem(`talentos_bulk_threshold_${roleSlug}`);
+      if (v !== null) return parseInt(v, 10);
+    }
+    return parseInt(localStorage.getItem("talentos_bulk_threshold") || "20", 10);
+  };
 
   const guardedBulkAction = (action, payload = {}) => {
     const threshold = getBulkThreshold();
@@ -4644,7 +4653,12 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
             onDelete={can("delete") ? handleDelete : null}
             selectedIds={selectedIds}
             onToggleSelect={id => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })}
-            onToggleAll={() => setSelectedIds(prev => prev.size === displayedRecords.length ? new Set() : new Set(displayedRecords.map(r => r.id)))}/>
+            onToggleAll={() => setSelectedIds(prev => prev.size === displayedRecords.length ? new Set() : new Set(displayedRecords.map(r => r.id)))}
+            sortBy={sortBy} sortDir={sortDir} onSort={handleSort}
+            onColumnFilter={handleColumnFilter}
+            colWidths={colWidths} onResizeCol={handleResizeCol}
+            visibleColOrder={visibleColOrder} onReorderCols={setVisibleColOrder}
+            linkedJobs={linkedJobs}/>
         )}
       </div>
 

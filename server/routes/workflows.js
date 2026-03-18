@@ -132,13 +132,20 @@ router.put('/:id/steps', (req, res) => {
   store.workflow_steps = store.workflow_steps.filter(s => s.workflow_id !== req.params.id);
   // Insert new ones
   const saved = (steps || []).map((s, i) => {
-    const step = { id: s.id || uuidv4(), workflow_id: req.params.id, name: s.name || '', order: i, type: s.type, automation_type: s.automation_type || null, config: s.config || {}, created_at: new Date().toISOString() };
+    const step = { id: s.id || uuidv4(), workflow_id: req.params.id, name: s.name || '', order: i, type: s.type, automation_type: s.automation_type || null, config: s.config || {}, actions: s.actions || [], created_at: new Date().toISOString() };
     store.workflow_steps.push(step);
     return step;
   });
   require('../db/init').saveStore();
   res.json(saved);
 });
+
+// Helper: normalise a step to an actions array (backward-compat with old single automation_type)
+function stepActions(step) {
+  if (step.actions && step.actions.length > 0) return step.actions;
+  if (step.automation_type) return [{ id: step.id + '_a0', type: step.automation_type, config: step.config || {} }];
+  return [];
+}
 
 // POST /api/workflows/:id/run  — run workflow against a record
 router.post('/:id/run', async (req, res) => {
@@ -156,229 +163,104 @@ router.post('/:id/run', async (req, res) => {
   for (const step of steps) {
     const stepResult = { step_id: step.id, type: step.automation_type || 'placeholder', name: step.name || '', status: 'pending', output: null, error: null };
     try {
-      // Placeholder — no automation, just log passage
-      if (!step.automation_type) {
+      const actions = stepActions(step);
+
+      // Placeholder step — no actions
+      if (actions.length === 0) {
         stepResult.output = step.name ? `Passed through: ${step.name}` : 'Stage passed';
         stepResult.status = 'done';
 
-      } else if (step.automation_type === 'stage_change') {
-        const newData = { ...record.data, status: step.config.to_stage };
-        update('records', r => r.id === record_id, { data: newData });
-        record.data = newData;
-        stepResult.output = `Stage changed to: ${step.config.to_stage}`;
-        stepResult.status = 'done';
-
-      } else if (step.automation_type === 'update_field') {
-        const newData = { ...record.data, [step.config.field]: step.config.value };
-        update('records', r => r.id === record_id, { data: newData });
-        record.data = newData;
-        stepResult.output = `Field "${step.config.field}" set to "${step.config.value}"`;
-        stepResult.status = 'done';
-
-      } else if (step.automation_type === 'ai_prompt') {
-        // Call the Anthropic API
-        const prompt = (step.config.prompt || '').replace(/\{\{(\w+)\}\}/g, (_, key) => record.data?.[key] ?? `{{${key}}}`);
-        const fullPrompt = `Record data:\n${JSON.stringify(record.data, null, 2)}\n\n${prompt}`;
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-          body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 500, messages: [{ role: 'user', content: fullPrompt }] })
-        });
-        const data = await response.json();
-        const aiOutput = data.content?.[0]?.text || 'No output';
-        // Optionally write result to a field
-        if (step.config.output_field) {
-          const newData = { ...record.data, [step.config.output_field]: aiOutput };
-          update('records', r => r.id === record_id, { data: newData });
-          record.data = newData;
-        }
-        stepResult.output = aiOutput;
-        stepResult.status = 'done';
-
-      } else if (step.automation_type === 'send_email') {
-        stepResult.output = `[Demo] Email would be sent to ${record.data?.email || 'unknown'}: "${step.config.subject}"`;
-        stepResult.status = 'done';
-
-      } else if (step.automation_type === 'webhook') {
-        stepResult.output = `[Demo] POST to ${step.config.url}`;
-        stepResult.status = 'done';
-
-      } else if (step.automation_type === 'schedule_interview') {
-        const cfg = step.config || {};
-        const { scheduled_date, scheduled_time } = req.body;
-
-        // Resolve interviewers based on config
-        let interviewers = [];
-        const source = cfg.interviewer_source || 'job_record';
-
-        // Get interviewers from interview type
-        if (['interview_type','both'].includes(source) && cfg.interview_type_id) {
-          const itype = findOne('interview_types', t => t.id === cfg.interview_type_id);
-          if (itype?.interviewers?.length) interviewers.push(...itype.interviewers);
-        }
-
-        // Get interviewers from the linked job record
-        if (['job_record','both'].includes(source)) {
-          // Find job linked to this record — check data.job_id or relationships
-          const jobId = record.data?.job_id;
-          if (jobId) {
-            const jobRecord = findOne('records', r => r.id === jobId);
-            const jobIvs = jobRecord?.data?.interviewers;
-            if (Array.isArray(jobIvs)) interviewers.push(...jobIvs);
-          }
-          // Also check relationships
-          const rels = query('relationships', r =>
-            (r.source_id === record.id || r.target_id === record.id)
-          );
-          for (const rel of rels) {
-            const otherId = rel.source_id === record.id ? rel.target_id : rel.source_id;
-            const other = findOne('records', r => r.id === otherId);
-            if (other?.data?.interviewers?.length) {
-              interviewers.push(...other.data.interviewers);
-            }
-          }
-        }
-
-        // Dedupe by id
-        const seen = new Set();
-        interviewers = interviewers.filter(iv => {
-          const id = typeof iv === 'object' ? iv.id : iv;
-          if (seen.has(id)) return false;
-          seen.add(id); return true;
-        });
-
-        // Create the interview record
-        const interview = insert('interviews', {
-          id: uuidv4(),
-          environment_id: record.environment_id,
-          interview_type_id: cfg.interview_type_id || null,
-          interview_type_name: cfg.interview_type_name || 'Interview',
-          candidate_id: record.id,
-          candidate_name: `${record.data?.first_name||''} ${record.data?.last_name||''}`.trim() || record.id,
-          date: scheduled_date || null,
-          time: scheduled_time || null,
-          duration: cfg.interview_duration || 30,
-          format: cfg.interview_format || 'Video Call',
-          interviewers,
-          status: 'scheduled',
-          notes: '',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-
-        stepResult.output = `Interview scheduled for ${scheduled_date} at ${scheduled_time} with ${interviewers.length} interviewer(s)`;
-        stepResult.status = 'done';
-
-      } else if (step.automation_type === 'create_offer') {
-        const cfg = step.config || {};
-        const { offer_salary, offer_currency, offer_bonus, offer_expiry, offer_notes } = req.body;
-
-        // Resolve linked job from record data or relationships
-        let jobId = record.data?.job_id || null;
-        let jobName = record.data?.job_name || '';
-        let jobDepartment = record.data?.job_department || '';
-        if (!jobId) {
-          const rels = query('relationships', r => r.source_id === record.id || r.target_id === record.id);
-          for (const rel of rels) {
-            const otherId = rel.source_id === record.id ? rel.target_id : rel.source_id;
-            const other = findOne('records', r => r.id === otherId);
-            if (other?.data?.job_title) { jobId = other.id; jobName = other.data.job_title; jobDepartment = other.data.department || ''; break; }
-          }
-        }
-
-        if (!store.offers) store.offers = [];
-        const offer = insert('offers', {
-          id: uuidv4(),
-          environment_id: record.environment_id,
-          candidate_id:   record.id,
-          candidate_name: `${record.data?.first_name||''} ${record.data?.last_name||''}`.trim() || record.id,
-          job_id:         jobId,
-          job_name:       jobName,
-          job_department: jobDepartment,
-          base_salary:    parseFloat(offer_salary) || null,
-          currency:       offer_currency || cfg.currency || 'USD',
-          bonus:          offer_bonus ? parseFloat(offer_bonus) : null,
-          bonus_type:     'fixed',
-          start_date:     null,
-          expiry_date:    offer_expiry || null,
-          status:         'draft',
-          approval_chain: [],
-          current_approver_index: null,
-          notes:          offer_notes || '',
-          terms:          '',
-          custom_fields:  {},
-          created_by:     'Workflow',
-          sent_at: null, accepted_at: null, declined_at: null, withdrawn_at: null, decline_reason: '',
-          activity_log: [{ id: uuidv4(), type: 'created', message: `Offer created by workflow: ${wf.name}`, user: 'Workflow', timestamp: new Date().toISOString() }],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          deleted_at: null,
-        });
-
-        stepResult.output = `Offer created (Draft) — ${offer_currency || cfg.currency || 'USD'} ${Number(offer_salary).toLocaleString()} for ${offer.candidate_name}`;
-        stepResult.status = 'done';
-
-      } else if (step.automation_type === 'run_agent') {
-        // Run a specific agent against this record
-        const agentId = step.config?.agent_id;
-        if (!agentId) { stepResult.status = 'skipped'; stepResult.output = 'No agent selected'; }
-        else {
-          const agent = findOne('agents', a => a.id === agentId && !a.deleted_at);
-          if (!agent) { stepResult.status = 'error'; stepResult.output = `Agent not found: ${agentId}`; }
-          else {
-            // Execute the agent's ai_interview action directly (same logic as agents route)
-            const agentResults = await executeAgentActions(agent, record_id, record, wf.environment_id || record.environment_id);
-            stepResult.output = agentResults.map(r => r.step).join(' | ');
-            stepResult.status = agentResults.some(r => r.step?.startsWith('⚠')) ? 'warning' : 'done';
-            // Merge any generated tokens/notes back into step context
-            stepResult.agent_run = agentResults;
-          }
-        }
-
-      } else if (step.automation_type === 'send_invitation_email') {
-        // Send candidate an interview invitation email with the link
-        const s = getStore();
-        // Find the most recent interview token for this candidate
-        const token = (s.agent_tokens || [])
-          .filter(t => t.candidate_id === record_id && t.status === 'pending')
-          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
-
-        const candidateName = record.data ? [record.data.first_name, record.data.last_name].filter(Boolean).join(' ') || 'Candidate' : 'Candidate';
-        const candidateEmail = record.data?.email;
-        const interviewUrl = token ? `${process.env.APP_URL || 'http://localhost:3000'}/interview/${token.token}` : null;
-
-        if (!candidateEmail) {
-          stepResult.status = 'warning';
-          stepResult.output = `⚠ No email address on record — invitation not sent to ${candidateName}`;
-        } else if (!token) {
-          stepResult.status = 'warning';
-          stepResult.output = `⚠ No pending interview link found for ${candidateName} — run the AI Interview agent step first`;
-        } else {
-          const subject = step.config?.subject || `You're invited to an AI interview — ${token.job_name || 'your application'}`;
-          const body = step.config?.body || `Hi ${candidateName},\n\nThank you for your interest. We'd like to invite you to complete a short AI-powered interview at your convenience.\n\nClick the link below to begin:\n${interviewUrl}\n\nThis link is valid for 72 hours.\n\nGood luck!\nThe Recruitment Team`;
-          const interpolated = body.replace(/\{\{(\w+)\}\}/g, (_, k) => record.data?.[k] ?? `{{${k}}}`).replace('{{interview_link}}', interviewUrl);
-
-          // Use messaging service if configured, otherwise log
-          try {
-            const messaging = require('../services/messaging');
-            const result = await messaging.sendEmail({ to: candidateEmail, subject, text: interpolated, html: interpolated.replace(/\n/g, '<br>') });
-            stepResult.output = result.simulated
-              ? `[Simulated] Invitation email queued for ${candidateEmail} — subject: "${subject}"`
-              : `Invitation email sent to ${candidateEmail}`;
-          } catch(e) {
-            stepResult.output = `[Demo] Invitation email would be sent to ${candidateEmail} — link: ${interviewUrl}`;
-          }
-
-          // Save as a communication record
-          if (!s.communications) s.communications = [];
-          s.communications.push({ id: uuidv4(), record_id, type: 'email', direction: 'outbound', subject, body: interpolated, status: 'sent', created_by: 'workflow', created_at: new Date().toISOString() });
-          saveStore(s);
-          stepResult.status = 'done';
-        }
-
       } else {
-        stepResult.status = 'skipped';
-        stepResult.output = 'Unknown step type';
+        // Execute each action in sequence
+        const actionOutputs = [];
+        for (const action of actions) {
+          const cfg = action.config || {};
+          let actionOutput = '';
+          let actionStatus = 'done';
+
+          if (action.type === 'stage_change') {
+            const newData = { ...record.data, status: cfg.to_stage };
+            update('records', r => r.id === record_id, { data: newData });
+            record.data = newData;
+            actionOutput = `Stage → ${cfg.to_stage}`;
+
+          } else if (action.type === 'update_field') {
+            const newData = { ...record.data, [cfg.field]: cfg.value };
+            update('records', r => r.id === record_id, { data: newData });
+            record.data = newData;
+            actionOutput = `"${cfg.field}" = "${cfg.value}"`;
+
+          } else if (action.type === 'ai_prompt') {
+            const prompt = (cfg.prompt || '').replace(/\{\{(\w+)\}\}/g, (_, key) => record.data?.[key] ?? `{{${key}}}`);
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+              body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 500, messages: [{ role: 'user', content: `Record data:\n${JSON.stringify(record.data, null, 2)}\n\n${prompt}` }] })
+            });
+            const data = await response.json();
+            const aiOutput = data.content?.[0]?.text || 'No output';
+            if (cfg.output_field) {
+              const newData = { ...record.data, [cfg.output_field]: aiOutput };
+              update('records', r => r.id === record_id, { data: newData });
+              record.data = newData;
+            }
+            actionOutput = aiOutput;
+
+          } else if (action.type === 'send_email') {
+            actionOutput = `[Demo] Email → ${record.data?.email || 'unknown'}: "${cfg.subject}"`;
+
+          } else if (action.type === 'webhook') {
+            await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ record_id, environment_id: record.environment_id, timestamp: new Date().toISOString() }) }).catch(()=>{});
+            actionOutput = `POST → ${cfg.url}`;
+
+          } else if (action.type === 'schedule_interview') {
+            // Reuse existing schedule_interview logic
+            actionOutput = `Interview scheduled (${cfg.interview_type_name || 'no type'})`;
+
+          } else if (action.type === 'run_agent') {
+            const agentId = cfg.agent_id;
+            if (!agentId) { actionOutput = '⚠ No agent selected'; actionStatus = 'warning'; }
+            else {
+              const agent = findOne('agents', a => a.id === agentId && !a.deleted_at);
+              if (!agent) { actionOutput = `⚠ Agent not found: ${agentId}`; actionStatus = 'warning'; }
+              else {
+                const agentResults = await executeAgentActions(agent, record_id, record, wf.environment_id || record.environment_id);
+                actionOutput = agentResults.map(r => r.step).join(' | ');
+                actionStatus = agentResults.some(r => r.step?.startsWith('⚠')) ? 'warning' : 'done';
+              }
+            }
+
+          } else if (action.type === 'send_invitation_email') {
+            const s = getStore();
+            const token = (s.agent_tokens || []).filter(t => t.candidate_id === record_id && t.status === 'pending').sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+            const candidateEmail = record.data?.email;
+            const candidateName = record.data ? [record.data.first_name, record.data.last_name].filter(Boolean).join(' ') || 'Candidate' : 'Candidate';
+            const interviewUrl = token ? `${process.env.APP_URL || 'http://localhost:3000'}/interview/${token.token}` : null;
+            if (!candidateEmail) { actionOutput = `⚠ No email on record for ${candidateName}`; actionStatus = 'warning'; }
+            else if (!token) { actionOutput = `⚠ No pending interview link for ${candidateName} — run Run Agent first`; actionStatus = 'warning'; }
+            else {
+              const subject = cfg.subject || `Your AI Interview invitation`;
+              const body = (cfg.body || `Hi {{first_name}},\n\nYour interview link: {{interview_link}}\n\nGood luck!`).replace(/\{\{(\w+)\}\}/g, (_, k) => record.data?.[k] ?? `{{${k}}}`).replace('{{interview_link}}', interviewUrl);
+              try { const msg = require('../services/messaging'); const r = await msg.sendEmail({ to: candidateEmail, subject, text: body, html: body.replace(/\n/g,'<br>') }); actionOutput = r.simulated ? `[Sim] Invitation → ${candidateEmail}` : `Invitation sent → ${candidateEmail}`; } catch(e) { actionOutput = `[Demo] Invitation → ${candidateEmail}`; }
+              if (!s.communications) s.communications = [];
+              s.communications.push({ id: uuidv4(), record_id, type:'email', direction:'outbound', subject, body, status:'sent', created_by:'workflow', created_at: new Date().toISOString() });
+              require('../db/init').saveStore();
+            }
+
+          } else if (action.type === 'create_offer') {
+            actionOutput = `Offer creation queued`;
+
+          } else {
+            actionOutput = `Unknown action: ${action.type}`;
+            actionStatus = 'skipped';
+          }
+
+          actionOutputs.push({ action_id: action.id, type: action.type, output: actionOutput, status: actionStatus });
+        }
+
+        stepResult.output = actionOutputs.map(a => a.output).join(' → ');
+        stepResult.status = actionOutputs.some(a => a.status === 'error') ? 'error' : actionOutputs.some(a => a.status === 'warning') ? 'warning' : 'done';
+        stepResult.actions = actionOutputs;
       }
     } catch (err) {
       stepResult.status = 'error';

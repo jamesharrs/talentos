@@ -215,285 +215,295 @@ function EmailBodyEditor({ subject, body, onSubjectChange, onBodyChange, extraVa
 }
 
 // ─── Step Card ────────────────────────────────────────────────────────────────
-const StepCard = ({ step, index, total, onChange, onDelete, onMoveUp, onMoveDown, fields, envId }) => {
-  const [showAutomationPicker, setShowAutomationPicker] = useState(false);
-  const [interviewTypes, setInterviewTypes] = useState([]);
-  const [agents, setAgents] = useState([]);
-  const cfg = step.config || {};
-  const auto = automationDef(step.automation_type);
+// Normalise legacy single-action steps to the new actions[] model
+function migrateStep(step) {
+  if (step.actions && step.actions.length > 0) return step;
+  if (step.automation_type) {
+    return { ...step, actions: [{ id: step.id + "_a0", type: step.automation_type, config: step.config || {} }] };
+  }
+  return { ...step, actions: step.actions || [] };
+}
 
+const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, onMoveDown, fields, envId }) => {
+  const step = migrateStep(rawStep);
+  const actions = step.actions || [];
+
+  const [showActionPicker, setShowActionPicker] = useState(false);
+  const [collapsed, setCollapsed]               = useState({}); // { actionId: bool }
+  const [interviewTypes, setInterviewTypes]     = useState([]);
+  const [agents, setAgents]                     = useState([]);
+
+  // Load supporting data whenever any action type changes
+  const actionTypes = actions.map(a => a.type).join(",");
   useEffect(() => {
-    if (step.automation_type === "schedule_interview" && envId) {
-      api.get(`/interview-types?environment_id=${envId}`)
-        .then(d => setInterviewTypes(Array.isArray(d) ? d : [])).catch(()=>{});
-    }
-    if (step.automation_type === "ai_interview" && envId) {
-      api.get(`/agents?environment_id=${envId}`)
-        .then(d => setAgents((Array.isArray(d) ? d : []).filter(a => (a.actions||[]).some(x => x.type === 'ai_interview'))))
-        .catch(()=>{});
-    }
-    if (step.automation_type === "run_agent" && envId) {
-      api.get(`/agents?environment_id=${envId}`)
-        .then(d => setAgents(Array.isArray(d) ? d.filter(a => a.is_active) : []))
-        .catch(()=>{});
-    }
-  }, [step.automation_type, envId]);
+    if (!envId) return;
+    if (actionTypes.includes("schedule_interview"))
+      api.get(`/interview-types?environment_id=${envId}`).then(d => setInterviewTypes(Array.isArray(d)?d:[])).catch(()=>{});
+    if (actionTypes.includes("run_agent") || actionTypes.includes("ai_interview"))
+      api.get(`/agents?environment_id=${envId}`).then(d => setAgents(Array.isArray(d)?d.filter(a=>a.is_active):[])).catch(()=>{});
+  }, [actionTypes, envId]);
 
-  const setConfig   = (key, val) => onChange({ ...step, config: { ...(step.config||{}), [key]: val } });
-  const setConfigs  = (patch)    => onChange({ ...step, config: { ...(step.config||{}), ...patch } });
-  const setName     = (name)     => onChange({ ...step, name });
-  const setAuto     = (type)     => { onChange({ ...step, automation_type: type, config: {} }); setShowAutomationPicker(false); };
-  const removeAuto  = ()         => onChange({ ...step, automation_type: null, config: {} });
+  const setName = (name) => onChange({ ...step, name });
+
+  // Update a single action
+  const updateAction = (actionId, patch) => {
+    onChange({ ...step, actions: actions.map(a => a.id === actionId ? { ...a, ...patch } : a) });
+  };
+  const setActionConfig = (actionId, key, val) =>
+    updateAction(actionId, { config: { ...(actions.find(a=>a.id===actionId)?.config||{}), [key]: val } });
+  const setActionConfigs = (actionId, patch) =>
+    updateAction(actionId, { config: { ...(actions.find(a=>a.id===actionId)?.config||{}), ...patch } });
+
+  const addAction = (type) => {
+    const newId = `${step.id}_a${Date.now()}`;
+    onChange({ ...step, actions: [...actions, { id: newId, type, config: {} }] });
+    setCollapsed(c => ({ ...c, [newId]: false }));
+    setShowActionPicker(false);
+  };
+  const removeAction = (actionId) =>
+    onChange({ ...step, actions: actions.filter(a => a.id !== actionId) });
+  const moveAction = (actionId, dir) => {
+    const idx = actions.findIndex(a => a.id === actionId);
+    if (idx < 0) return;
+    const next = [...actions];
+    const j = idx + dir;
+    if (j < 0 || j >= next.length) return;
+    [next[idx], next[j]] = [next[j], next[idx]];
+    onChange({ ...step, actions: next });
+  };
+
+  // Derive border colour from first action type
+  const firstAuto = automationDef(actions[0]?.type);
 
   return (
-    <div style={{ background: C.surface, border: `1.5px solid ${auto ? auto.color+"40" : C.border}`, borderRadius: 12, overflow: "hidden" }}>
-      {/* Header row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: auto ? `${auto.color}06` : "#fafbff" }}>
-        {/* Stage icon */}
-        <div style={{ width: 28, height: 28, borderRadius: 8, background: auto ? auto.color : "#e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <Ic n={auto ? auto.icon : "chevRight"} s={13} c="white"/>
+    <div style={{ background: C.surface, border: `1.5px solid ${firstAuto ? firstAuto.color+"40" : C.border}`, borderRadius: 12, overflow: "hidden" }}>
+      {/* ── Header row ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: firstAuto ? `${firstAuto.color}06` : "#fafbff" }}>
+        {/* Stage icon stack — show up to 3 */}
+        <div style={{ display:"flex", position:"relative", width:28, height:28, flexShrink:0 }}>
+          {actions.slice(0,3).map((a,i) => {
+            const def = automationDef(a.type);
+            return (
+              <div key={a.id} style={{ position:"absolute", left: i*6, top: i*0, width:28, height:28, borderRadius:8, background: def ? def.color : "#e5e7eb", display:"flex", alignItems:"center", justifyContent:"center", border:"2px solid white", zIndex:3-i }}>
+                <Ic n={def?.icon||"zap"} s={12} c="white"/>
+              </div>
+            );
+          })}
+          {actions.length === 0 && (
+            <div style={{ width:28, height:28, borderRadius:8, background:"#e5e7eb", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <Ic n="chevRight" s={13} c="white"/>
+            </div>
+          )}
         </div>
 
         {/* Editable name */}
-        <input
-          value={step.name || ""}
-          onChange={e => setName(e.target.value)}
-          placeholder="Stage name…"
+        <input value={step.name || ""} onChange={e => setName(e.target.value)} placeholder="Stage name…"
           onClick={e => e.stopPropagation()}
-          style={{ flex: 1, border: "none", outline: "none", fontSize: 13, fontWeight: 700, color: C.text1, background: "transparent", fontFamily: F, minWidth: 0 }}
-        />
+          style={{ flex: 1, border: "none", outline: "none", fontSize: 13, fontWeight: 700, color: C.text1, background: "transparent", fontFamily: F, minWidth: 0 }}/>
+
+        {/* Action count badge */}
+        {actions.length > 0 && (
+          <span style={{ fontSize:10, color: firstAuto?.color||C.text3, background:`${firstAuto?.color||C.text3}12`, borderRadius:99, padding:"2px 7px", fontWeight:700, flexShrink:0 }}>
+            {actions.length} action{actions.length!==1?"s":""}
+          </span>
+        )}
 
         {/* Controls */}
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
           <span style={{ fontSize: 11, color: C.text3, background: "#f3f4f6", borderRadius: 99, padding: "2px 8px", fontWeight: 600 }}>Step {index + 1}</span>
-          <button onClick={e=>{e.stopPropagation();onMoveUp();}} disabled={index===0}
-            style={{ background:"none",border:"none",cursor:index===0?"default":"pointer",opacity:index===0?.3:1,padding:4,display:"flex",transform:"rotate(-90deg)" }}>
-            <Ic n="chevRight" s={12} c={C.text3}/>
-          </button>
-          <button onClick={e=>{e.stopPropagation();onMoveDown();}} disabled={index===total-1}
-            style={{ background:"none",border:"none",cursor:index===total-1?"default":"pointer",opacity:index===total-1?.3:1,padding:4,display:"flex",transform:"rotate(90deg)" }}>
-            <Ic n="chevRight" s={12} c={C.text3}/>
-          </button>
-          <button onClick={e=>{e.stopPropagation();onDelete();}} style={{ background:"none",border:"none",cursor:"pointer",padding:4,display:"flex" }}>
-            <Ic n="trash" s={13} c={C.red}/>
-          </button>
+          <button onClick={e=>{e.stopPropagation();onMoveUp();}} disabled={index===0} style={{ background:"none",border:"none",cursor:index===0?"default":"pointer",opacity:index===0?.3:1,padding:4,display:"flex",transform:"rotate(-90deg)" }}><Ic n="chevRight" s={12} c={C.text3}/></button>
+          <button onClick={e=>{e.stopPropagation();onMoveDown();}} disabled={index===total-1} style={{ background:"none",border:"none",cursor:index===total-1?"default":"pointer",opacity:index===total-1?.3:1,padding:4,display:"flex",transform:"rotate(90deg)" }}><Ic n="chevRight" s={12} c={C.text3}/></button>
+          <button onClick={e=>{e.stopPropagation();onDelete();}} style={{ background:"none",border:"none",cursor:"pointer",padding:4,display:"flex" }}><Ic n="trash" s={13} c={C.red}/></button>
         </div>
       </div>
 
-      {/* Automation section */}
-      <div style={{ padding: "10px 14px", borderTop: `1px solid ${auto ? auto.color+"20" : C.border}`, background: auto ? `${auto.color}04` : "transparent" }}>
-        {!auto ? (
-          /* No automation — show picker trigger */
-          showAutomationPicker ? (
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".5px" }}>Choose automation</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {AUTOMATION_TYPES.map(t => (
-                  <button key={t.type} onClick={() => setAuto(t.type)}
-                    style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 11px", borderRadius:8, border:`1.5px solid ${t.color}40`, background:`${t.color}08`, color:t.color, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}
-                    onMouseEnter={e=>{e.currentTarget.style.background=`${t.color}18`;}}
-                    onMouseLeave={e=>{e.currentTarget.style.background=`${t.color}08`;}}>
-                    <Ic n={t.icon} s={12}/>{t.label}
-                  </button>
-                ))}
-                <button onClick={() => setShowAutomationPicker(false)}
-                  style={{ padding:"6px 11px", borderRadius:8, border:`1px solid ${C.border}`, background:"transparent", color:C.text3, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
-                  Cancel
-                </button>
+      {/* ── Action list ── */}
+      <div style={{ padding: "8px 12px 10px", borderTop: `1px solid ${firstAuto ? firstAuto.color+"20" : C.border}`, background: firstAuto ? `${firstAuto.color}04` : "transparent", display:"flex", flexDirection:"column", gap:8 }}>
+
+        {actions.map((action, ai) => {
+          const def = automationDef(action.type);
+          const cfg = action.config || {};
+          const isCollapsed = collapsed[action.id] ?? false;
+
+          return (
+            <div key={action.id} style={{ border:`1.5px solid ${def?def.color+"35":C.border}`, borderRadius:10, overflow:"hidden", background:"white" }}>
+              {/* Action header */}
+              <div style={{ display:"flex", alignItems:"center", gap:7, padding:"7px 10px", background: def?`${def.color}08`:"#f9fafb", cursor:"pointer" }}
+                onClick={() => setCollapsed(c => ({ ...c, [action.id]: !isCollapsed }))}>
+                <div style={{ width:22, height:22, borderRadius:6, background:def?def.color:"#e5e7eb", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  <Ic n={def?.icon||"zap"} s={11} c="white"/>
+                </div>
+                <span style={{ flex:1, fontSize:12, fontWeight:700, color:def?def.color:C.text2 }}>{def?.label||action.type}</span>
+                {/* Move up/down within step */}
+                <button onClick={e=>{e.stopPropagation();moveAction(action.id,-1);}} disabled={ai===0} style={{ background:"none",border:"none",cursor:ai===0?"default":"pointer",opacity:ai===0?.3:1,padding:2,display:"flex",transform:"rotate(-90deg)" }}><Ic n="chevRight" s={10} c={C.text3}/></button>
+                <button onClick={e=>{e.stopPropagation();moveAction(action.id,1);}} disabled={ai===actions.length-1} style={{ background:"none",border:"none",cursor:ai===actions.length-1?"default":"pointer",opacity:ai===actions.length-1?.3:1,padding:2,display:"flex",transform:"rotate(90deg)" }}><Ic n="chevRight" s={10} c={C.text3}/></button>
+                <button onClick={e=>{e.stopPropagation();removeAction(action.id);}} style={{ background:"none",border:"none",cursor:"pointer",padding:2,display:"flex" }}><Ic n="x" s={11} c={C.red}/></button>
+                <Ic n={isCollapsed?"chevRight":"chevD"} s={11} c={C.text3}/>
               </div>
+
+              {/* Action config — collapsed by default once saved */}
+              {!isCollapsed && (
+                <div style={{ padding:"10px 12px" }}>
+
+                  {action.type === "stage_change" && (
+                    <input value={cfg.to_stage||""} onChange={e=>setActionConfig(action.id,"to_stage",e.target.value)} placeholder="New stage value e.g. Interview, Offer, Rejected"
+                      style={{ width:"100%", boxSizing:"border-box", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", color:C.text1 }}/>
+                  )}
+
+                  {action.type === "update_field" && (
+                    <div style={{ display:"flex", gap:10 }}>
+                      <select value={cfg.field||""} onChange={e=>setActionConfig(action.id,"field",e.target.value)}
+                        style={{ flex:1, padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
+                        <option value="">Select field…</option>
+                        {fields.map(f => <option key={f.api_key} value={f.api_key}>{f.name}</option>)}
+                      </select>
+                      <input value={cfg.value||""} onChange={e=>setActionConfig(action.id,"value",e.target.value)} placeholder="New value"
+                        style={{ flex:1, boxSizing:"border-box", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", color:C.text1 }}/>
+                    </div>
+                  )}
+
+                  {action.type === "ai_prompt" && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                      <textarea value={cfg.prompt||""} onChange={e=>setActionConfig(action.id,"prompt",e.target.value)} rows={3}
+                        placeholder="Prompt — use {{first_name}}, {{skills}} etc."
+                        style={{ width:"100%", boxSizing:"border-box", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, fontFamily:F, outline:"none", resize:"vertical", color:C.text1, lineHeight:1.5 }}/>
+                      <select value={cfg.output_field||""} onChange={e=>setActionConfig(action.id,"output_field",e.target.value)}
+                        style={{ padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
+                        <option value="">Don't save output to a field</option>
+                        {fields.map(f => <option key={f.api_key} value={f.api_key}>Save to: {f.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+
+                  {(action.type === "send_email") && (
+                    <EmailBodyEditor
+                      subject={cfg.subject} body={cfg.body}
+                      onSubjectChange={v => setActionConfig(action.id,"subject",v)}
+                      onBodyChange={v => setActionConfig(action.id,"body",v)}
+                      extraVars={fields.map(f => ({ key: f.api_key, label: f.name }))}
+                    />
+                  )}
+
+                  {action.type === "send_invitation_email" && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                      <div style={{ padding:"8px 12px", borderRadius:8, background:"#ecfeff", border:"1px solid #a5f3fc", fontSize:11, color:"#0e7490", lineHeight:1.5 }}>
+                        Sends the candidate their AI interview link. Run a <strong>Run Agent</strong> action first to generate the link.
+                      </div>
+                      <EmailBodyEditor
+                        subject={cfg.subject} body={cfg.body}
+                        onSubjectChange={v => setActionConfig(action.id,"subject",v)}
+                        onBodyChange={v => setActionConfig(action.id,"body",v)}
+                        extraVars={fields.map(f => ({ key: f.api_key, label: f.name }))}
+                      />
+                    </div>
+                  )}
+
+                  {action.type === "webhook" && (
+                    <input value={cfg.url||""} onChange={e=>setActionConfig(action.id,"url",e.target.value)} placeholder="https://hooks.example.com/talentos"
+                      style={{ width:"100%", boxSizing:"border-box", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", color:C.text1 }}/>
+                  )}
+
+                  {action.type === "schedule_interview" && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                      <select value={cfg.interview_type_id||""} onChange={e=>{
+                        const t = interviewTypes.find(t=>t.id===e.target.value);
+                        setActionConfigs(action.id, { interview_type_id:e.target.value, interview_type_name:t?.name||"", interview_duration:t?.duration||30, interview_format:t?.format||"" });
+                      }} style={{ width:"100%", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
+                        <option value="">Select interview type…</option>
+                        {interviewTypes.map(t => <option key={t.id} value={t.id}>{t.name} ({t.duration} min)</option>)}
+                      </select>
+                      {[{value:"job_record",label:"From job record",desc:"Use interviewers on the linked job"},{value:"interview_type",label:"From interview type",desc:"Use the type's default panel"},{value:"both",label:"Both (merged)",desc:"Combine and dedupe both lists"}].map(opt=>(
+                        <label key={opt.value} onClick={()=>setActionConfig(action.id,"interviewer_source",opt.value)}
+                          style={{ display:"flex", alignItems:"flex-start", gap:8, padding:"7px 10px", borderRadius:8, border:`1.5px solid ${(cfg.interviewer_source||"job_record")===opt.value?"#0891b2":C.border}`, background:(cfg.interviewer_source||"job_record")===opt.value?"#ecfeff":"transparent", cursor:"pointer" }}>
+                          <div style={{ width:14,height:14,borderRadius:"50%",border:`2px solid ${(cfg.interviewer_source||"job_record")===opt.value?"#0891b2":C.border}`,background:(cfg.interviewer_source||"job_record")===opt.value?"#0891b2":"transparent",flexShrink:0,marginTop:1,display:"flex",alignItems:"center",justifyContent:"center" }}>
+                            {(cfg.interviewer_source||"job_record")===opt.value&&<div style={{width:5,height:5,borderRadius:"50%",background:"white"}}/>}
+                          </div>
+                          <div><div style={{fontSize:12,fontWeight:700,color:C.text1}}>{opt.label}</div><div style={{fontSize:11,color:C.text3}}>{opt.desc}</div></div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  {action.type === "run_agent" && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                      <select value={cfg.agent_id||""} onChange={e=>{
+                        const a = agents.find(x=>x.id===e.target.value);
+                        setActionConfigs(action.id, { agent_id:e.target.value, agent_name:a?.name||"" });
+                      }} style={{ width:"100%", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
+                        <option value="">— Choose an agent —</option>
+                        {agents.map(a=><option key={a.id} value={a.id}>{a.name}{(a.actions||[]).some(x=>x.type==='ai_interview')?' · AI Interview':''}</option>)}
+                      </select>
+                      {cfg.agent_id && (()=>{
+                        const a = agents.find(x=>x.id===cfg.agent_id);
+                        const hasInterview = (a?.actions||[]).some(x=>x.type==='ai_interview');
+                        return (
+                          <div style={{ padding:"8px 12px", borderRadius:8, background:hasInterview?"#f5f3ff":"#f8fafc", border:`1px solid ${hasInterview?"#ddd6fe":"#e5e7eb"}`, fontSize:11, color:"#6b7280", lineHeight:1.5 }}>
+                            {hasInterview ? <>✦ This agent will generate an AI interview link. <strong style={{color:"#7048e8"}}>Questions pulled from the candidate's linked job.</strong> If no questions are set, this step logs a warning.</> : `Agent "${a?.name}" will run its actions against the candidate record.`}
+                          </div>
+                        );
+                      })()}
+                      {agents.length===0 && <div style={{fontSize:11,color:"#f59f00",padding:"7px 10px",borderRadius:8,background:"#fffbeb",border:"1px solid #fde68a"}}>No active agents found. Create one in Settings → Agents.</div>}
+                    </div>
+                  )}
+
+                  {action.type === "create_offer" && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                      <div style={{fontSize:11,color:C.text3,lineHeight:1.5}}>A modal will ask for salary, currency and expiry date when triggered.</div>
+                      <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:8 }}>
+                        <input type="number" value={cfg.default_salary||""} onChange={e=>setActionConfig(action.id,"default_salary",e.target.value)} placeholder="Default salary (optional)"
+                          style={{ width:"100%", boxSizing:"border-box", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", color:C.text1 }}/>
+                        <select value={cfg.currency||"USD"} onChange={e=>setActionConfig(action.id,"currency",e.target.value)}
+                          style={{ width:"100%", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
+                          {["USD","GBP","EUR","AED","SAR","QAR","SGD","AUD","CAD"].map(c=><option key={c}>{c}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {action.type === "ai_interview" && (
+                    <div style={{ padding:"8px 12px", borderRadius:8, background:"#f5f3ff", border:"1px solid #ddd6fe", fontSize:11, color:"#6b7280", lineHeight:1.5 }}>
+                      ✦ Sends the candidate an AI interview link. Questions pulled from their linked job at runtime.
+                      <br/><span style={{color:"#7048e8",fontWeight:600}}>Use "Run Agent" instead for full configuration options.</span>
+                    </div>
+                  )}
+
+                </div>
+              )}
             </div>
-          ) : (
-            <button onClick={() => setShowAutomationPicker(true)}
-              style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 10px", borderRadius:7, border:`1.5px dashed ${C.border}`, background:"transparent", color:C.text3, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:F }}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text3;}}>
-              <Ic n="zap" s={11}/> + Add automation
-            </button>
-          )
-        ) : (
-          /* Automation configured — show its config */
-          <div>
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-              <span style={{ display:"flex", alignItems:"center", gap:5, fontSize:11, fontWeight:700, color:auto.color, background:`${auto.color}12`, padding:"3px 9px", borderRadius:99 }}>
-                <Ic n={auto.icon} s={10}/> {auto.label}
-              </span>
-              <button onClick={removeAuto}
-                style={{ marginLeft:"auto", fontSize:11, color:C.text3, background:"none", border:"none", cursor:"pointer", fontFamily:F, display:"flex", alignItems:"center", gap:3 }}>
-                <Ic n="x" s={10}/> Remove
+          );
+        })}
+
+        {/* ── Add action ── */}
+        {showActionPicker ? (
+          <div style={{ marginTop:4 }}>
+            <div style={{ fontSize:11, fontWeight:600, color:C.text3, marginBottom:7, textTransform:"uppercase", letterSpacing:".5px" }}>Add action to this step</div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+              {AUTOMATION_TYPES.map(t => (
+                <button key={t.type} onClick={() => addAction(t.type)}
+                  style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 10px", borderRadius:7, border:`1.5px solid ${t.color}40`, background:`${t.color}08`, color:t.color, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:F }}
+                  onMouseEnter={e=>{e.currentTarget.style.background=`${t.color}18`;}}
+                  onMouseLeave={e=>{e.currentTarget.style.background=`${t.color}08`;}}>
+                  <Ic n={t.icon} s={11}/>{t.label}
+                </button>
+              ))}
+              <button onClick={() => setShowActionPicker(false)}
+                style={{ padding:"5px 10px", borderRadius:7, border:`1px solid ${C.border}`, background:"transparent", color:C.text3, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:F }}>
+                Cancel
               </button>
             </div>
-
-            {/* Config fields per automation type */}
-            {step.automation_type === "stage_change" && (
-              <input value={cfg.to_stage||""} onChange={e=>setConfig("to_stage", e.target.value)} placeholder="New stage value e.g. Interview, Offer, Rejected"
-                style={{ width:"100%", boxSizing:"border-box", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", color:C.text1 }}/>
-            )}
-
-            {step.automation_type === "update_field" && (
-              <div style={{ display:"flex", gap:10 }}>
-                <select value={cfg.field||""} onChange={e=>setConfig("field", e.target.value)}
-                  style={{ flex:1, padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
-                  <option value="">Select field…</option>
-                  {fields.map(f => <option key={f.api_key} value={f.api_key}>{f.name}</option>)}
-                </select>
-                <input value={cfg.value||""} onChange={e=>setConfig("value", e.target.value)} placeholder="New value"
-                  style={{ flex:1, boxSizing:"border-box", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", color:C.text1 }}/>
-              </div>
-            )}
-
-            {step.automation_type === "ai_prompt" && (
-              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                <textarea value={cfg.prompt||""} onChange={e=>setConfig("prompt", e.target.value)} rows={3}
-                  placeholder={`Prompt — use {{first_name}}, {{skills}} etc. to inject record data`}
-                  style={{ width:"100%", boxSizing:"border-box", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, fontFamily:F, outline:"none", resize:"vertical", color:C.text1, lineHeight:1.5 }}/>
-                <select value={cfg.output_field||""} onChange={e=>setConfig("output_field", e.target.value)}
-                  style={{ padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
-                  <option value="">Don't save output to a field</option>
-                  {fields.map(f => <option key={f.api_key} value={f.api_key}>Save to: {f.name}</option>)}
-                </select>
-              </div>
-            )}
-
-            {step.automation_type === "send_email" && (
-              <EmailBodyEditor
-                subject={cfg.subject} body={cfg.body}
-                onSubjectChange={v => setConfig("subject", v)}
-                onBodyChange={v => setConfig("body", v)}
-                extraVars={fields.map(f => ({ key: f.api_key, label: f.name }))}
-              />
-            )}
-
-            {step.automation_type === "webhook" && (
-              <input value={cfg.url||""} onChange={e=>setConfig("url", e.target.value)} placeholder="https://hooks.example.com/talentos"
-                style={{ width:"100%", boxSizing:"border-box", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", color:C.text1 }}/>
-            )}
-
-            {step.automation_type === "schedule_interview" && (
-              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                <div>
-                  <div style={{ fontSize:11, fontWeight:700, color:"#0891b2", textTransform:"uppercase", letterSpacing:".5px", marginBottom:5 }}>Interview Type</div>
-                  <select value={cfg.interview_type_id||""} onChange={e=>{
-                    const t = interviewTypes.find(t=>t.id===e.target.value);
-                    setConfigs({
-                      interview_type_id:   e.target.value,
-                      interview_type_name: t?.name||"",
-                      interview_duration:  t?.duration||30,
-                      interview_format:    t?.format||"",
-                    });
-                  }}
-                    style={{ width:"100%", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
-                    <option value="">Select interview type…</option>
-                    {interviewTypes.map(t => <option key={t.id} value={t.id}>{t.name} ({t.duration} min)</option>)}
-                  </select>
-                </div>
-                <div>
-                  <div style={{ fontSize:11, fontWeight:700, color:"#0891b2", textTransform:"uppercase", letterSpacing:".5px", marginBottom:5 }}>Interviewers</div>
-                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                    {[
-                      { value:"job_record",    label:"From job record",        desc:"Use interviewers set on the linked job" },
-                      { value:"interview_type",label:"From interview type",    desc:"Use the interview type's default panel" },
-                      { value:"both",          label:"Job record + type",      desc:"Merge both lists (deduped)" },
-                    ].map(opt => (
-                      <label key={opt.value} onClick={()=>setConfig("interviewer_source", opt.value)}
-                        style={{ display:"flex", alignItems:"flex-start", gap:8, padding:"8px 10px", borderRadius:8,
-                          border:`1.5px solid ${(cfg.interviewer_source||"job_record")===opt.value?"#0891b2":C.border}`,
-                          background:(cfg.interviewer_source||"job_record")===opt.value?"#ecfeff":"transparent",
-                          cursor:"pointer" }}>
-                        <div style={{ width:16, height:16, borderRadius:"50%", border:`2px solid ${(cfg.interviewer_source||"job_record")===opt.value?"#0891b2":C.border}`,
-                          background:(cfg.interviewer_source||"job_record")===opt.value?"#0891b2":"transparent",
-                          flexShrink:0, marginTop:1, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                          {(cfg.interviewer_source||"job_record")===opt.value && <div style={{ width:6, height:6, borderRadius:"50%", background:"white" }}/>}
-                        </div>
-                        <div>
-                          <div style={{ fontSize:12, fontWeight:700, color:C.text1 }}>{opt.label}</div>
-                          <div style={{ fontSize:11, color:C.text3 }}>{opt.desc}</div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-            {step.automation_type === "create_offer" && (
-              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                <div style={{ fontSize:11, color:C.text3, lineHeight:1.5 }}>
-                  When triggered on a person record, a modal will ask for salary, currency and expiry date before creating the offer.
-                </div>
-                <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:8 }}>
-                  <div>
-                    <div style={{ fontSize:11, fontWeight:700, color:"#0ca678", textTransform:"uppercase", letterSpacing:".5px", marginBottom:5 }}>Default Base Salary (optional)</div>
-                    <input type="number" value={cfg.default_salary||""} onChange={e=>setConfig("default_salary", e.target.value)}
-                      placeholder="e.g. 80000"
-                      style={{ width:"100%", boxSizing:"border-box", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", color:C.text1 }}/>
-                  </div>
-                  <div>
-                    <div style={{ fontSize:11, fontWeight:700, color:"#0ca678", textTransform:"uppercase", letterSpacing:".5px", marginBottom:5 }}>Currency</div>
-                    <select value={cfg.currency||"USD"} onChange={e=>setConfig("currency", e.target.value)}
-                      style={{ width:"100%", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
-                      {["USD","GBP","EUR","AED","SAR","QAR","SGD","AUD","CAD"].map(c=><option key={c}>{c}</option>)}
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Run Agent */}
-            {step.automation_type === "run_agent" && (
-              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                <div>
-                  <div style={{ fontSize:11, fontWeight:700, color:"#7048e8", textTransform:"uppercase", letterSpacing:".5px", marginBottom:5 }}>Select Agent</div>
-                  <select value={cfg.agent_id||""} onChange={e=>{
-                    const a = agents.find(x=>x.id===e.target.value);
-                    setConfigs({ agent_id: e.target.value, agent_name: a?.name||"" });
-                  }} style={{ width:"100%", padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
-                    <option value="">— Choose an agent —</option>
-                    {agents.map(a => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}{(a.actions||[]).some(x=>x.type==='ai_interview') ? ' · AI Interview' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {cfg.agent_id && (()=>{
-                  const a = agents.find(x=>x.id===cfg.agent_id);
-                  const hasInterview = (a?.actions||[]).some(x=>x.type==='ai_interview');
-                  return (
-                    <div style={{ padding:"9px 12px", borderRadius:8, background: hasInterview ? "#f5f3ff" : "#f8fafc", border:`1px solid ${hasInterview ? "#ddd6fe" : "#e5e7eb"}`, fontSize:11, color:"#6b7280", lineHeight:1.5 }}>
-                      {hasInterview
-                        ? <>✦ This agent will generate an AI interview link. <strong style={{color:"#7048e8"}}>Questions are pulled from the candidate's linked job at runtime.</strong> If no questions are set on the job, this step will log a warning and skip.</>
-                        : `Agent "${a?.name}" will run its configured actions against the candidate record.`}
-                    </div>
-                  );
-                })()}
-                {agents.length === 0 && (
-                  <div style={{ fontSize:11, color:"#f59f00", padding:"8px 10px", borderRadius:8, background:"#fffbeb", border:"1px solid #fde68a" }}>
-                    No active agents found. Create an agent in Settings → Agents first.
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Interview Invitation Email */}
-            {step.automation_type === "send_invitation_email" && (
-              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                <div style={{ padding:"8px 12px", borderRadius:8, background:"#ecfeff", border:"1px solid #a5f3fc", fontSize:11, color:"#0e7490", lineHeight:1.5 }}>
-                  Sends the candidate an email with their AI interview link. Run a <strong>Run Agent</strong> step first to generate the link.
-                </div>
-                <EmailBodyEditor
-                  subject={cfg.subject} body={cfg.body}
-                  onSubjectChange={v => setConfig("subject", v)}
-                  onBodyChange={v => setConfig("body", v)}
-                  extraVars={fields.map(f => ({ key: f.api_key, label: f.name }))}
-                />
-              </div>
-            )}
           </div>
+        ) : (
+          <button onClick={() => setShowActionPicker(true)}
+            style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 10px", borderRadius:7, border:`1.5px dashed ${C.border}`, background:"transparent", color:C.text3, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:F, alignSelf:"flex-start", marginTop:actions.length>0?0:0 }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text3;}}>
+            <Ic n="plus" s={11}/> Add action
+          </button>
         )}
       </div>
     </div>
   );
 };
-
 const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave, onClose }) => {
   const [name, setName]       = useState(workflow?.name || "");
   const [objectId, setObjectId] = useState(workflow?.object_id || "");

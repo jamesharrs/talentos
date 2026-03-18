@@ -6,6 +6,25 @@ const { getStore, saveStore } = require('../db/init');
 
 // Seeding is handled in server/index.js initDB block
 
+// ─── CATEGORIES (uses the same type taxonomy) ─────────────────────────────────
+router.get('/categories', (req, res) => {
+  res.json([
+    { id:'c1', name:'Behavioural',   color:'#6366f1' }, { id:'c2', name:'Technical',   color:'#0891b2' },
+    { id:'c3', name:'Situational',   color:'#059669' }, { id:'c4', name:'Motivational', color:'#d97706' },
+    { id:'c5', name:'Culture Fit',   color:'#7c3aed' }, { id:'c6', name:'Role Specific',color:'#db2777' },
+    { id:'c7', name:'Opening',       color:'#65a30d' }, { id:'c8', name:'Closing',      color:'#ea580c' },
+    { id:'c9', name:'Eligibility',   color:'#dc2626' },
+  ]);
+});
+
+// ─── BULK (get multiple by IDs) ───────────────────────────────────────────────
+router.post('/bulk', (req, res) => {
+  const { ids = [] } = req.body;
+  const store = getStore();
+  const qs = (store.question_bank_v2 || []).filter(q => ids.includes(q.id));
+  res.json(qs);
+});
+
 // ─── QUESTIONS ───────────────────────────────────────────────────────────────
 router.get('/questions', (req, res) => {
   const { type, search } = req.query;

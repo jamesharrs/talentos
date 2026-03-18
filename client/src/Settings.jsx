@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import ReactDOM from "react-dom";
 import FileTypesSettings from "./settings/FileTypesSettings.jsx";
+import AgentsSettings from "./settings/AgentsSettings.jsx";
 import AiGovernance from "./settings/AiGovernance.jsx";
 import QuestionBankSettings from "./settings/QuestionBankSettings.jsx";
 import AiMatchingSettings from "./settings/AiMatchingSettings.jsx";
@@ -119,6 +120,7 @@ const PATHS = {
   chevronDown:"M6 9l6 6 6-6",
   search:"M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0",
   "help-circle":"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01",
+  bot:"M12 2a2 2 0 0 1 2 2v1h3a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-1v1a7 7 0 0 1-14 0V9H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3V4a2 2 0 0 1 2-2h2zm-2 9a1 1 0 1 0 2 0 1 1 0 0 0-2 0zm4 0a1 1 0 1 0 2 0 1 1 0 0 0-2 0zm-4 4h4",
 };
 const Ic = ({n,s=16,c="currentColor"}) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -1430,6 +1432,7 @@ const NAV_GROUPS = [
       { id:"file_types", icon:"paperclip",   label:"File types" },
       { id:"forms",      icon:"form",        label:"Forms" },
       { id:"questions",  icon:"help-circle", label:"Question bank" },
+      { id:"agents",     icon:"bot",         label:"Agents" },
     ],
   },
   {
@@ -1557,6 +1560,7 @@ export default function SettingsPage({ currentUser, environment }) {
         {activeSection==="workflows"  && <WorkflowsPage environment={environment}/>}
         {activeSection==="portals"    && <PortalsPage environment={environment}/>}
         {activeSection==="questions"  && <QuestionBankSettings/>}
+        {activeSection==="agents"     && <AgentsSettings environment={environment}/>}
         {activeSection==="superadmin" && <SuperAdminSection/>}
         {activeSection==="config"     && <ConfigSection environment={environment}/>}
       </div>

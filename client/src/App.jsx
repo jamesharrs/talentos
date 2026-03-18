@@ -9,6 +9,7 @@ const InterviewDashboard = lazy(() => import("./InterviewDashboard.jsx"));
 const OfferDashboard     = lazy(() => import("./OfferDashboard.jsx"));
 const ObjectApp       = lazy(() => import("./ObjectApp.jsx"));
 import PortalApp from "./PortalApp.jsx";
+import InterviewSession from "./InterviewSession.jsx";
 const WorkflowsPage   = lazy(() => import("./Workflows.jsx"));
 const PortalsPage     = lazy(() => import("./Portals.jsx"));
 const ReportsPage     = lazy(() => import("./Reports.jsx"));
@@ -1556,6 +1557,10 @@ class ErrorBoundary extends Component {
 
 // ─── Root export wrapped in ThemeProvider ─────────────────────────────────────
 export default function AppRoot() {
+  // Public interview page — no auth needed
+  if (window.location.pathname.startsWith('/interview/')) {
+    return <InterviewSession />;
+  }
   return (
     <ErrorBoundary>
       <ThemeProvider>

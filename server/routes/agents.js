@@ -349,4 +349,65 @@ async function executeAction(action, record_id, environment_id, aiOutput, modifi
   }
 }
 
+
+// ─── Interview Agent: generate token ─────────────────────────────────────────
+// POST /api/agents/:id/generate-token
+router.post('/:id/generate-token', (req, res) => {
+  const agent = query('agents', a => a.id === req.params.id && !a.deleted_at)[0];
+  if (!agent) return res.status(404).json({ error: 'Agent not found' });
+
+  const { candidate_id, job_id, environment_id, expires_hours = 72 } = req.body;
+  const s = getStore();
+  if (!s.agent_tokens) s.agent_tokens = [];
+
+  // Build candidate context
+  let candidateName = 'Candidate';
+  let candidateEmail = null;
+  if (candidate_id) {
+    const rec = (s.records || []).find(r => r.id === candidate_id);
+    if (rec?.data) {
+      const d = rec.data;
+      candidateName = [d.first_name, d.last_name].filter(Boolean).join(' ') || d.email || 'Candidate';
+      candidateEmail = d.email || null;
+    }
+  }
+
+  // Build job context
+  let jobTitle = 'the role', jobDept = '';
+  if (job_id) {
+    const job = (s.records || []).find(r => r.id === job_id);
+    if (job?.data) { jobTitle = job.data.job_title || job.data.title || 'the role'; jobDept = job.data.department || ''; }
+  }
+
+  // Resolve question bank questions for this agent
+  const questionIds = agent.question_ids || [];
+  const scorecardQuestions = questionIds
+    .map(id => (s.question_bank_v2 || []).find(q => q.id === id))
+    .filter(Boolean)
+    .map(q => ({ id: q.id, text: q.text, type: q.type, competency: q.competency, weight: q.weight, follow_ups: q.follow_ups || [], good_answer_guidance: q.good_answer_guidance || '', red_flags: q.red_flags || '' }));
+
+  const token = uuidv4().replace(/-/g, '') + uuidv4().replace(/-/g, '');
+  const expiresAt = new Date(Date.now() + expires_hours * 60 * 60 * 1000).toISOString();
+
+  const tokenRecord = {
+    id: uuidv4(), token, agent_id: agent.id,
+    candidate_id: candidate_id || null, candidate_name: candidateName, candidate_email: candidateEmail,
+    job_id: job_id || null, job_title: jobTitle, job_department: jobDept,
+    environment_id: environment_id || agent.environment_id,
+    scorecard_questions: scorecardQuestions,
+    status: 'pending',
+    created_at: new Date().toISOString(), expires_at: expiresAt,
+    started_at: null, completed_at: null,
+  };
+
+  s.agent_tokens.push(tokenRecord);
+  saveStore();
+
+  res.json({
+    token, interview_url: `/interview/${token}`,
+    expires_at: expiresAt, candidate_name: candidateName, candidate_email: candidateEmail,
+  });
+});
+
 module.exports = router;
+

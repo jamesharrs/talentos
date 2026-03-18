@@ -195,8 +195,9 @@ export default function QuestionBankSettings() {
           {/* Filters */}
           <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
             <div style={{position:"relative",flex:1,maxWidth:280}}>
-              <Ic n="search" s={13} c={C.text3} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}}/>
-              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search questions…" style={{width:"100%",padding:"8px 10px 8px 32px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:13,fontFamily:F,outline:"none",boxSizing:"border-box"}}/>
+              <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",display:"flex"}}>
+                <Ic n="search" s={13} c={C.text3}/>
+              </span>              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search questions…" style={{width:"100%",padding:"8px 10px 8px 32px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:13,fontFamily:F,outline:"none",boxSizing:"border-box"}}/>
             </div>
             {["","knockout","competency","technical","culture"].map(t=>(
               <button key={t} onClick={()=>setFilterType(t)} style={{padding:"6px 12px",borderRadius:8,border:`1.5px solid ${filterType===t?(TYPE_COLORS[t]||C.accent):C.border}`,background:filterType===t?(TYPE_COLORS[t]||C.accent):"transparent",color:filterType===t?"#fff":C.text2,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>

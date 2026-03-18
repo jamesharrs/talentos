@@ -317,7 +317,9 @@ const OrgUnitCell = ({ userId, orgUnitId, orgUnits, onChanged }) => {
           {/* Search */}
           <div style={{ padding:"8px 10px", borderBottom:`1px solid ${C.border}` }}>
             <div style={{ position:"relative" }}>
-              <Ic n="search" s={12} c={C.text3} style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)" }}/>
+              <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",display:"flex"}}>
+                <Ic n="search" s={12} c={C.text3}/>
+              </span>
               <input autoFocus value={search} onChange={e=>setSearch(e.target.value)}
                 placeholder="Search org units…"
                 style={{ width:"100%", boxSizing:"border-box", padding:"5px 8px 5px 26px",
@@ -1481,8 +1483,9 @@ export default function SettingsPage({ currentUser, environment }) {
 
         {/* Search */}
         <div style={{position:"relative",marginBottom:12}}>
-          <Ic n="search" s={13} c={C.text3}
-            style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}}/>
+          <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",display:"flex"}}>
+            <Ic n="search" s={13} c={C.text3}/>
+          </span>
           <input value={search} onChange={e=>{setSearch(e.target.value);if(e.target.value)setCollapsed({});}}
             placeholder="Find a setting…"
             style={{width:"100%",boxSizing:"border-box",padding:"7px 28px 7px 28px",borderRadius:8,

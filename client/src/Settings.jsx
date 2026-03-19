@@ -614,38 +614,40 @@ const RolesSection = ({ environment }) => {
                   </button>
                 ))}
               </div>
-              {roleTab==="field_visibility" ? <FieldVisibilityPanel role={selectedRole} environment={environment}/> : <table style={{width:"100%",borderCollapse:"collapse"}}>
-                <thead>
-                  <tr style={{background:"#f8f9fc"}}>
-                    <th style={{padding:"8px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.05em",borderRadius:"8px 0 0 8px"}}>Object</th>
-                    {ACTIONS.map(a=>(
-                      <th key={a} style={{padding:"8px 14px",textAlign:"center",fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.05em"}}>{a}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {OBJECTS.map((obj,i)=>(
-                    <tr key={obj.slug} style={{borderBottom:`1px solid ${C.border}`}}>
-                      <td style={{padding:"12px 14px",fontSize:13,fontWeight:600,color:C.text1}}>{obj.label}</td>
-                      {ACTIONS.map(action=>{
-                        const allowed = getPerm(obj.slug,action);
-                        return (
-                          <td key={action} style={{padding:"12px 14px",textAlign:"center"}}>
-                            <button onClick={()=>!selectedRole.is_system&&togglePerm(obj.slug,action)} style={{width:24,height:24,borderRadius:6,border:`2px solid ${allowed?selectedRole.color||C.accent:C.border}`,background:allowed?selectedRole.color||C.accent:"transparent",cursor:selectedRole.is_system?"not-allowed":"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",transition:"all .12s"}}>
-                              {allowed&&<Ic n="check" s={12} c="white"/>}
-                            </button>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {roleTab==="permissions" && selectedRole.is_system && <p style={{fontSize:11,color:C.text3,marginTop:12,fontStyle:"italic"}}>System role permissions cannot be modified.</p>}
-
-              {/* Bulk action warning threshold for this role */}
-              <RoleBulkThreshold role={selectedRole}/>
-              )}
+              {roleTab==="field_visibility"
+                ? <FieldVisibilityPanel role={selectedRole} environment={environment}/>
+                : <>
+                    <table style={{width:"100%",borderCollapse:"collapse"}}>
+                      <thead>
+                        <tr style={{background:"#f8f9fc"}}>
+                          <th style={{padding:"8px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.05em",borderRadius:"8px 0 0 8px"}}>Object</th>
+                          {ACTIONS.map(a=>(
+                            <th key={a} style={{padding:"8px 14px",textAlign:"center",fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.05em"}}>{a}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {OBJECTS.map((obj,i)=>(
+                          <tr key={obj.slug} style={{borderBottom:`1px solid ${C.border}`}}>
+                            <td style={{padding:"12px 14px",fontSize:13,fontWeight:600,color:C.text1}}>{obj.label}</td>
+                            {ACTIONS.map(action=>{
+                              const allowed = getPerm(obj.slug,action);
+                              return (
+                                <td key={action} style={{padding:"12px 14px",textAlign:"center"}}>
+                                  <button onClick={()=>!selectedRole.is_system&&togglePerm(obj.slug,action)} style={{width:24,height:24,borderRadius:6,border:`2px solid ${allowed?selectedRole.color||C.accent:C.border}`,background:allowed?selectedRole.color||C.accent:"transparent",cursor:selectedRole.is_system?"not-allowed":"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",transition:"all .12s"}}>
+                                    {allowed&&<Ic n="check" s={12} c="white"/>}
+                                  </button>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {selectedRole.is_system && <p style={{fontSize:11,color:C.text3,marginTop:12,fontStyle:"italic"}}>System role permissions cannot be modified.</p>}
+                    <RoleBulkThreshold role={selectedRole}/>
+                  </>
+              }
             </div>
           )}
         </div>

@@ -89,7 +89,7 @@ require('./routes/enterprise_settings').migrate();
 require('./routes/skills_intelligence').migrate();
 require('./routes/datasets').migrate();
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '1.2.0', build: 'stage-actions-fix' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '1.3.0', build: 'fix-auth-passwords' }));
 
 const PORT = process.env.PORT || 3001;
 
@@ -154,6 +154,20 @@ initDB().then(() => {
       if (v && !v.startsWith('YOUR_')) process.env[k] = v;
     }
   }
+  // ── Migration: ensure all users have a password_hash ──────────────────────
+  const crypto = require('crypto');
+  const hashPw  = pw => crypto.createHash('sha256').update(pw + 'talentos_salt').digest('hex');
+  const DEFAULT_HASH = hashPw('Admin1234!');
+  let pwFixed = 0;
+  (store.users || []).forEach(u => {
+    if (!u.password_hash) { u.password_hash = DEFAULT_HASH; pwFixed++; }
+  });
+  if (pwFixed > 0) {
+    fs.writeFileSync(path.join(__dirname, '../data/talentos.json'), JSON.stringify(store, null, 2));
+    console.log(`[migration] Fixed missing password_hash on ${pwFixed} user(s) → default: Admin1234!`);
+  }
+  // ───────────────────────────────────────────────────────────────────────────
+
   app.listen(PORT, () => {
     console.log(`TalentOS API → http://localhost:${PORT}`);
     // Start agent scheduler

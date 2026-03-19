@@ -978,6 +978,8 @@ const SessionsSection = () => {
 
 // ── Data Model Section ────────────────────────────────────────────────────────
 const FIELD_TYPES_DM = [
+  // Layout
+  {value:"section_separator", label:"Section",      icon:"━",  group:"Layout"},
   // Text
   {value:"text",         label:"Text",         icon:"T",  group:"Text"},
   {value:"textarea",     label:"Long Text",    icon:"¶",  group:"Text"},
@@ -1157,6 +1159,7 @@ const DataModelSection = () => {
       is_required: field?.is_required||false, show_in_list: field?.show_in_list!==undefined?!!field.show_in_list:true,
       options: field?.options ? (Array.isArray(field.options)?field.options.join(", "):field.options) : "",
       placeholder: field?.placeholder||"", help_text: field?.help_text||"",
+      section_label: field?.section_label||"",
       related_object_slug: field?.related_object_slug||"people",
       people_multi: field?.people_multi!==undefined ? !!field.people_multi : true,
       dataset_id: field?.dataset_id||"",
@@ -1196,6 +1199,7 @@ const DataModelSection = () => {
         date_range_end_label: form.field_type === "date_range" ? form.date_range_end_label : undefined,
         social_platform: form.field_type === "social" ? (form.social_platform||"linkedin") : undefined,
         address_fields: form.field_type === "address" ? (form.address_fields||["street","city","country","postal_code"]) : undefined,
+        section_label: form.field_type === "section_separator" ? (form.section_label||form.name) : undefined,
       }, field?.id);
       setSaving(false);
     };
@@ -1215,6 +1219,33 @@ const DataModelSection = () => {
             <Inp label="API Key" value={form.api_key} onChange={v=>{set("api_key",v);setAutoKey(false);}} disabled={isEdit&&field?.is_system}/>
           </div>
           {["select","multi_select","status"].includes(form.field_type) && <div style={{marginBottom:12}}><Inp label="Options (comma-separated)" value={form.options} onChange={v=>set("options",v)} placeholder="Option A, Option B"/></div>}
+
+          {/* ── Section separator config ── */}
+          {form.field_type==="section_separator" && (
+            <div style={{marginBottom:12,padding:"14px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
+              <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:10}}>━ Section Separator</div>
+              <div style={{fontSize:11,color:C.text3,marginBottom:10,lineHeight:1.5}}>
+                Creates a collapsible section header in the record detail. Fields below this separator
+                (until the next separator) can be collapsed by clicking the header.
+              </div>
+              <label style={{display:"block",fontSize:11,fontWeight:600,color:C.text3,marginBottom:4}}>SECTION LABEL</label>
+              <input value={form.section_label||form.name||""} onChange={e=>set("section_label",e.target.value)}
+                placeholder="e.g. Employment Details"
+                style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #e8eaed",
+                  fontSize:13,fontFamily:F,background:"white",color:C.text1,boxSizing:"border-box"}}/>
+              <div style={{marginTop:10,padding:"10px 12px",background:"white",borderRadius:8,border:"1px solid #e8eaed"}}>
+                <div style={{fontSize:11,fontWeight:700,color:C.text3,marginBottom:4}}>PREVIEW</div>
+                <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"2px solid #e8eaed"}}>
+                  <span style={{fontSize:11,fontWeight:800,color:"#374151",textTransform:"uppercase",letterSpacing:"0.07em"}}>
+                    {form.section_label||form.name||"Section Name"}
+                  </span>
+                  <span style={{fontSize:10,color:"#9ca3af",marginLeft:"auto"}}>▼ collapse</span>
+                </div>
+                <div style={{height:24,background:"#f3f4f6",borderRadius:4,marginTop:8,opacity:0.5}}/>
+                <div style={{height:24,background:"#f3f4f6",borderRadius:4,marginTop:6,opacity:0.5}}/>
+              </div>
+            </div>
+          )}
 
           {/* ── Formula config ── */}
           {form.field_type==="formula" && <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
@@ -1352,7 +1383,7 @@ const DataModelSection = () => {
             <Inp label="Help Text" value={form.help_text} onChange={v=>set("help_text",v)}/>
           </div>
           <div style={{display:"flex",gap:16,marginBottom:16}}>
-            {[{k:"is_required",l:"Required"},{k:"show_in_list",l:"Show in list"}].map(({k,l})=>(
+            {form.field_type !== "section_separator" && [{k:"is_required",l:"Required"},{k:"show_in_list",l:"Show in list"}].map(({k,l})=>(
               <label key={k} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,fontWeight:600,color:C.text2}}>
                 <input type="checkbox" checked={!!form[k]} onChange={e=>set(k,e.target.checked)}/>{l}
               </label>
@@ -1463,6 +1494,22 @@ const DataModelSection = () => {
               )}
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
                 {fields.map(f=>(
+                f.field_type === "section_separator" ? (
+                  <div key={f.id} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 14px",
+                    background:"#f0f4ff",borderRadius:10,border:`1.5px dashed #93c5fd`}}>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{fontSize:12,fontWeight:800,color:"#374151",textTransform:"uppercase",letterSpacing:"0.07em"}}>━ {f.section_label||f.name}</span>
+                        <span style={{fontSize:10,padding:"1px 6px",borderRadius:99,background:"#dbeafe",color:"#3b82f6",fontWeight:600}}>section</span>
+                      </div>
+                      <div style={{fontSize:11,color:C.text3,marginTop:1}}>Fields below collapse under this header</div>
+                    </div>
+                    <div style={{display:"flex",gap:4}}>
+                      <Btn v="ghost" sz="sm" icon="edit" onClick={()=>setEditField(f)}/>
+                      {!f.is_system&&<Btn v="ghost" sz="sm" icon="trash" onClick={()=>deleteField(f)} style={{color:"#ef4444"}}/>}
+                    </div>
+                  </div>
+                ) : (
                 <div key={f.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"#fff",borderRadius:10,border:`1px solid ${C.border}`}}>
                   <div style={{flex:1}}>
                     <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -1477,6 +1524,7 @@ const DataModelSection = () => {
                     {!f.is_system&&<Btn v="ghost" sz="sm" icon="trash" onClick={()=>deleteField(f)} style={{color:"#ef4444"}}/>}
                   </div>
                 </div>
+                )
               ))}
             </div>
             </>

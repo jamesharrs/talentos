@@ -3412,6 +3412,17 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   });
   const [composeType, setComposeType] = useState(null);   // drives compose modal in CommunicationsPanel
   const [showCommMenu, setShowCommMenu] = useState(false);
+  // Track which custom sections are collapsed (by separatorId)
+  const [collapsedSections, setCollapsedSections] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(`talentos_collapsed_${objectName}`)) || {}; } catch { return {}; }
+  });
+  const toggleSection = (id) => {
+    setCollapsedSections(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      localStorage.setItem(`talentos_collapsed_${objectName}`, JSON.stringify(next));
+      return next;
+    });
+  };
   // ── Record search ──────────────────────────────────────────────────────────
   const [recordSearch, setRecordSearch] = useState("");
   const [recordSearchOpen, setRecordSearchOpen] = useState(false);
@@ -3741,10 +3752,23 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     return String(recordVal || '').toLowerCase() === String(f.condition_value).toLowerCase();
   });
 
-  const fieldSections = [
-    { label:"Core",       fs: visibleFields.filter((_,i)=>i<7) },
-    { label:"Additional", fs: visibleFields.filter((_,i)=>i>=7) },
-  ].filter(s=>s.fs.length);
+  // Build sections dynamically from section_separator fields.
+  // Fields before the first separator go into an implicit "Details" section.
+  // Each separator starts a new named section containing all fields until the next separator.
+  const fieldSections = useMemo(() => {
+    const sections = [];
+    let current = { label: "Details", fs: [], collapsible: false };
+    for (const f of visibleFields) {
+      if (f.field_type === "section_separator") {
+        if (current.fs.length) sections.push(current);
+        current = { label: f.section_label || f.name, fs: [], collapsible: true, separatorId: f.id };
+      } else {
+        current.fs.push(f);
+      }
+    }
+    if (current.fs.length) sections.push(current);
+    return sections;
+  }, [visibleFields]);
 
 
   // ── Shared field panel (used in both slide-out tab and full-page left col) ──
@@ -3752,53 +3776,104 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   // boundary here — critical for inline editing state to survive re-renders
   const fieldsPanelJSX = (
     <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
-      {fieldSections.map(section => (        <div key={section.label} style={{ marginBottom:20 }}>
-          <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>{section.label}</div>
-          <div style={{ background:"#f8f9fc", borderRadius:12, border:`1px solid ${C.border}` }}>
-            {section.fs.map((field,i) => {
-              const isEditing = editing.hasOwnProperty(field.api_key);
-              const originalVal = record.data?.[field.api_key];
-              const val = isEditing ? editing[field.api_key] : originalVal;
-              const READONLY_KEYS = ["id","created_at","updated_at"];
-              const isReadonly = READONLY_KEYS.includes(field.api_key);
-              const isPickerField = ["multi_lookup","lookup","people"].includes(field.field_type);
-              const isClickSave = CLICK_SAVE_TYPES.includes(field.field_type);
-              return (
-                <div key={field.id}
-                  style={{ display:"flex", alignItems:isEditing?"flex-start":"center", gap:12, padding:"11px 14px", borderBottom:i<section.fs.length-1?`1px solid ${C.border}`:"none", background:isEditing?"#fafbff":"transparent", transition:"background .1s" }}
-                  onMouseEnter={e=>{ if(!isEditing&&!isReadonly) { e.currentTarget.style.background="#f0f4ff"; const btn=e.currentTarget.querySelector(".edit-hint"); if(btn) btn.style.opacity=1; }}}
-                  onMouseLeave={e=>{ e.currentTarget.style.background=isEditing?"#fafbff":"transparent"; const btn=e.currentTarget.querySelector(".edit-hint"); if(btn) btn.style.opacity=0; }}>
-                  <div style={{ width:130, fontSize:12, fontWeight:600, color:C.text3, flexShrink:0 }}>{field.name}</div>
-                  <div style={{ flex:1, minWidth:0 }}
-                    onBlur={e=>{ if(isEditing && !isClickSave && !e.currentTarget.contains(e.relatedTarget)) handleSaveField(field.api_key, originalVal); }}
-                    onKeyDown={e=>{ if(isEditing && !isClickSave){ if(e.key==="Enter"&&field.field_type!=="textarea"&&field.field_type!=="rich_text") handleSaveField(field.api_key, originalVal); if(e.key==="Escape") setEditing(prev=>{const n={...prev};delete n[field.api_key];return n;}); }}}>
-                    {isPickerField
-                      ? <PeoplePicker field={field} value={originalVal} onChange={v=>handleFieldEdit(field.api_key, v, field.field_type)}/>
-                      : isEditing
-                      ? <FieldEditor field={field} value={val} onChange={v=>handleFieldEdit(field.api_key, v, field.field_type)} autoFocus={!isClickSave}/>
-                      : <div onClick={()=>!isReadonly&&setEditing(e=>({...e,[field.api_key]:originalVal}))} style={{ cursor:isReadonly?"default":"text", minHeight:22 }}>
-                          <FieldValue field={field} value={val} allFieldValues={record?.data}/>
-                        </div>
-                    }
-                  </div>
-                  {!isPickerField && (isEditing ? (
-                    <button onClick={()=>{ setEditing(e=>{const n={...e};delete n[field.api_key];return n;}); }}
-                      style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:"3px 4px", display:"flex", alignItems:"center", borderRadius:5, flexShrink:0, fontFamily:F }}
-                      title="Cancel (Esc)">
-                      <Ic n="x" s={12} c={C.text3}/>
-                    </button>
-                  ) : !isReadonly && (
-                    <button className="edit-hint" onClick={()=>setEditing(e=>({...e,[field.api_key]:originalVal}))}
-                      style={{ background:"none", border:"none", cursor:"pointer", color:C.accent, opacity:0, padding:"3px 6px", display:"flex", alignItems:"center", gap:4, fontSize:11, fontWeight:600, borderRadius:6, transition:"opacity .1s", flexShrink:0, fontFamily:F }}>
-                      <Ic n="edit" s={12} c={C.accent}/> Edit
-                    </button>
-                  ))}
-                </div>
-              );
-            })}
+      {fieldSections.map(section => {
+        const isCollapsed = section.collapsible && !!collapsedSections[section.separatorId];
+        return (
+          <div key={section.separatorId || section.label} style={{ marginBottom: section.collapsible ? 0 : 20 }}>
+            {/* Section header — plain label for implicit first section, collapsible divider for named sections */}
+            {section.collapsible ? (
+              <button
+                onClick={() => toggleSection(section.separatorId)}
+                style={{
+                  width:"100%", display:"flex", alignItems:"center", gap:8,
+                  background:"transparent", border:"none", cursor:"pointer",
+                  padding:"14px 2px 8px", textAlign:"left", fontFamily:F,
+                  marginTop:4,
+                }}
+              >
+                <div style={{ flex:1, borderTop:`2px solid ${C.border}`, marginTop:1 }}/>
+                <span style={{ fontSize:11, fontWeight:800, color:C.text2,
+                  textTransform:"uppercase", letterSpacing:"0.08em",
+                  whiteSpace:"nowrap", padding:"0 8px",
+                  background: "white" /* lifts label off the rule */ }}>
+                  {section.label}
+                </span>
+                <div style={{ flex:1, borderTop:`2px solid ${C.border}`, marginTop:1 }}/>
+                <span style={{
+                  fontSize:10, color:C.text3, marginLeft:4,
+                  transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
+                  transition:"transform .2s", display:"inline-block", flexShrink:0
+                }}>▼</span>
+              </button>
+            ) : (
+              <div style={{ fontSize:11, fontWeight:700, color:C.text3,
+                textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>
+                {section.label}
+              </div>
+            )}
+
+            {/* Fields — hidden when collapsed */}
+            {!isCollapsed && (
+              <div style={{ background:"#f8f9fc", borderRadius:12, border:`1px solid ${C.border}`,
+                marginBottom: section.collapsible ? 8 : 0,
+                overflow:"hidden" }}>
+                {section.fs.map((field, i) => {
+                  const isEditing = editing.hasOwnProperty(field.api_key);
+                  const originalVal = record.data?.[field.api_key];
+                  const val = isEditing ? editing[field.api_key] : originalVal;
+                  const READONLY_KEYS = ["id","created_at","updated_at"];
+                  const isReadonly = READONLY_KEYS.includes(field.api_key);
+                  const isPickerField = ["multi_lookup","lookup","people"].includes(field.field_type);
+                  const isClickSave = CLICK_SAVE_TYPES.includes(field.field_type);
+                  return (
+                    <div key={field.id}
+                      style={{ display:"flex", alignItems:isEditing?"flex-start":"center", gap:12,
+                        padding:"11px 14px",
+                        borderBottom: i < section.fs.length-1 ? `1px solid ${C.border}` : "none",
+                        background:isEditing?"#fafbff":"transparent", transition:"background .1s" }}
+                      onMouseEnter={e=>{ if(!isEditing&&!isReadonly){e.currentTarget.style.background="#f0f4ff";const btn=e.currentTarget.querySelector(".edit-hint");if(btn)btn.style.opacity=1;}}}
+                      onMouseLeave={e=>{ e.currentTarget.style.background=isEditing?"#fafbff":"transparent";const btn=e.currentTarget.querySelector(".edit-hint");if(btn)btn.style.opacity=0;}}>
+                      <div style={{ width:130, fontSize:12, fontWeight:600, color:C.text3, flexShrink:0 }}>{field.name}</div>
+                      <div style={{ flex:1, minWidth:0 }}
+                        onBlur={e=>{ if(isEditing&&!isClickSave&&!e.currentTarget.contains(e.relatedTarget)) handleSaveField(field.api_key, originalVal); }}
+                        onKeyDown={e=>{ if(isEditing&&!isClickSave){ if(e.key==="Enter"&&field.field_type!=="textarea"&&field.field_type!=="rich_text") handleSaveField(field.api_key, originalVal); if(e.key==="Escape") setEditing(prev=>{const n={...prev};delete n[field.api_key];return n;}); }}}>
+                        {isPickerField
+                          ? <PeoplePicker field={field} value={originalVal} onChange={v=>handleFieldEdit(field.api_key, v, field.field_type)}/>
+                          : isEditing
+                          ? <FieldEditor field={field} value={val} onChange={v=>handleFieldEdit(field.api_key, v, field.field_type)} autoFocus={!isClickSave}/>
+                          : <div onClick={()=>!isReadonly&&setEditing(e=>({...e,[field.api_key]:originalVal}))} style={{ cursor:isReadonly?"default":"text", minHeight:22 }}>
+                              <FieldValue field={field} value={val} allFieldValues={record?.data}/>
+                            </div>
+                        }
+                      </div>
+                      {!isPickerField && (isEditing ? (
+                        <button onClick={()=>{ setEditing(e=>{const n={...e};delete n[field.api_key];return n;}); }}
+                          style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:"3px 4px", display:"flex", alignItems:"center", borderRadius:5, flexShrink:0, fontFamily:F }}
+                          title="Cancel (Esc)">
+                          <Ic n="x" s={12} c={C.text3}/>
+                        </button>
+                      ) : !isReadonly && (
+                        <button className="edit-hint" onClick={()=>setEditing(e=>({...e,[field.api_key]:originalVal}))}
+                          style={{ background:"none", border:"none", cursor:"pointer", color:C.accent, opacity:0, padding:"3px 6px", display:"flex", alignItems:"center", gap:4, fontSize:11, fontWeight:600, borderRadius:6, transition:"opacity .1s", flexShrink:0, fontFamily:F }}>
+                          <Ic n="edit" s={12} c={C.accent}/> Edit
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Collapsed summary pill */}
+            {isCollapsed && (
+              <div style={{ fontSize:11, color:C.text3, padding:"2px 4px 10px",
+                fontStyle:"italic" }}>
+                {section.fs.length} field{section.fs.length!==1?"s":""} hidden
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
       {objectName === "Person" && <PlatformUserSection record={record}/>}
     </div>
   );

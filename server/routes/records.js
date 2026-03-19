@@ -132,6 +132,25 @@ router.get('/', (req, res) => {
   res.json({records:visibleRecords,pagination:{total,page:parseInt(page),limit:parseInt(limit),pages:Math.ceil(total/parseInt(limit))}});
 });
 
+// Global activity feed for dashboard — must be before /:id
+router.get('/activity/feed', (req, res) => {
+  const { environment_id, limit=20 } = req.query;
+  if (!environment_id) return res.status(400).json({ error: 'environment_id required' });
+  const feed = query('activity', a => a.environment_id === environment_id)
+    .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, Number(limit));
+  res.json(feed);
+});
+
+// People-links for Client Hub — must be before /:id
+router.get('/people-links', (req, res) => {
+  const { environment_id } = req.query;
+  const links = query('people_links', l =>
+    !environment_id || l.environment_id === environment_id
+  );
+  res.json(links);
+});
+
 router.get('/:id', (req, res) => {
   const r = findOne('records', r=>r.id===req.params.id&&!r.deleted_at);
   if (!r) return res.status(404).json({error:'Not found'});
@@ -192,16 +211,6 @@ router.delete('/:id', (req, res) => {
 
 router.get('/:id/activity', (req, res) => {
   res.json(query('activity', a=>a.record_id===req.params.id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,50));
-});
-
-// Global activity feed for dashboard
-router.get('/activity/feed', (req, res) => {
-  const { environment_id, limit=20 } = req.query;
-  if (!environment_id) return res.status(400).json({ error: 'environment_id required' });
-  const feed = query('activity', a => a.environment_id === environment_id)
-    .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, Number(limit));
-  res.json(feed);
 });
 
 module.exports = router;

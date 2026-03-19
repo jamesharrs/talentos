@@ -26,6 +26,7 @@ import { useI18n } from "./i18n/I18nContext.jsx";
 import LoginPage from "./LoginPage.jsx";
 import CalendarModule from "./Calendar.jsx";
 import BotInterview from "./BotInterview.jsx";
+import ClientHub from "./ClientHub.jsx";
 import { getSession, clearSession } from "./usePermissions.js";
 import { PermissionProvider, usePermissions, Gate } from "./PermissionContext.jsx";
 
@@ -140,6 +141,7 @@ const Icon = ({ name, size = 16, color = "currentColor" }) => {
     compass: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM16.24 7.76l-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z",
     workflow: "M22 12h-4l-3 9L9 3l-3 9H2",
     home: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10",
+    building: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10",
     mail: "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6",
     user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
     "bar-chart-2": "M18 20V10M12 20V4M6 20v-6",
@@ -1262,13 +1264,14 @@ function App() {
     {
       label: t("nav.tools"),
       items: [
-        { id: "orgchart",   icon: "git-branch",  label: t("nav.orgChart") },
-        { id: "agents",     icon: "zap",          label: "Agents" },
-        { id: "interviews", icon: "calendar",     label: t("nav.interviews") },
-        { id: "calendar",   icon: "calendar-days", label: t("nav.calendar") },
-        { id: "offers",     icon: "dollar",       label: t("nav.offers") || "Offers" },
-        { id: "reports",    icon: "bar-chart-2",  label: t("nav.reports") },
-        { id: "search",     icon: "search",       label: t("nav.search") },
+        { id: "orgchart",    icon: "git-branch",  label: t("nav.orgChart") },
+        { id: "agents",      icon: "zap",          label: "Agents" },
+        { id: "interviews",  icon: "calendar",     label: t("nav.interviews") },
+        { id: "calendar",    icon: "calendar-days", label: t("nav.calendar") },
+        { id: "offers",      icon: "dollar",       label: t("nav.offers") || "Offers" },
+        { id: "client-hub",  icon: "building",     label: "Client Hub" },
+        { id: "reports",     icon: "bar-chart-2",  label: t("nav.reports") },
+        { id: "search",      icon: "search",       label: t("nav.search") },
       ]
     },
     {
@@ -1582,6 +1585,8 @@ function App() {
           <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
             <OffersModule environment={selectedEnv} />
           </div>
+        ) : activeNav === "client-hub" ? (
+          <ClientHub environment={selectedEnv} onNavigate={openRecord} />
         ) : activeNav === "agents" ? (
           <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column", padding:"0 32px" }}>
             <AgentsModule environment={selectedEnv} />

@@ -111,6 +111,63 @@ const TEMPLATES = {
       }
     ]
   },
+  rpo_provider: {
+    label: 'RPO Provider',
+    description: 'Full RPO template with Client Companies, SLA tracking and Placements',
+    icon: 'briefcase',
+    extends: 'core_recruitment',
+    extra_objects: [
+      {
+        slug: 'client_companies', name: 'Client Company', plural_name: 'Client Companies', icon: 'building', color: '#EF4444', is_system: false,
+        fields: [
+          { name: 'Company Name',    api_key: 'company_name',    field_type: 'text',     is_required: true,  show_in_list: true  },
+          { name: 'Industry',        api_key: 'industry',        field_type: 'select',   is_required: false, show_in_list: true,
+            options: ['Technology','Finance','Healthcare','Retail','Manufacturing','Professional Services','Government','Other'] },
+          { name: 'Account Status',  api_key: 'account_status',  field_type: 'select',   is_required: false, show_in_list: true,
+            options: ['Prospect','Active','On Hold','Former'] },
+          { name: 'Account Manager', api_key: 'account_manager', field_type: 'text',     is_required: false, show_in_list: true  },
+          { name: 'Contract Start',  api_key: 'contract_start',  field_type: 'date',     is_required: false, show_in_list: false },
+          { name: 'Contract End',    api_key: 'contract_end',    field_type: 'date',     is_required: false, show_in_list: false },
+          { name: 'Default SLA Days',api_key: 'default_sla_days',field_type: 'number',   is_required: false, show_in_list: true  },
+          { name: 'Fee Structure',   api_key: 'fee_structure',   field_type: 'select',   is_required: false, show_in_list: false,
+            options: ['Retained','Contingency','Hybrid','Management Fee'] },
+          { name: 'Website',         api_key: 'website',         field_type: 'url',      is_required: false, show_in_list: false },
+          { name: 'Notes',           api_key: 'notes_text',      field_type: 'textarea', is_required: false, show_in_list: false },
+        ]
+      },
+      {
+        slug: 'placements', name: 'Placement', plural_name: 'Placements', icon: 'check-circle', color: '#0CAF77', is_system: false,
+        fields: [
+          { name: 'Candidate Name',  api_key: 'candidate_name',  field_type: 'text',     is_required: true,  show_in_list: true  },
+          { name: 'Job Title',       api_key: 'job_title',       field_type: 'text',     is_required: false, show_in_list: true  },
+          { name: 'Client Company',  api_key: 'client_company',  field_type: 'text',     is_required: false, show_in_list: true  },
+          { name: 'Start Date',      api_key: 'start_date',      field_type: 'date',     is_required: false, show_in_list: true  },
+          { name: 'Salary',          api_key: 'salary',          field_type: 'currency', is_required: false, show_in_list: false },
+          { name: 'Placement Fee',   api_key: 'placement_fee',   field_type: 'currency', is_required: false, show_in_list: true  },
+          { name: 'Guarantee Period',api_key: 'guarantee_period',field_type: 'number',   is_required: false, show_in_list: false },
+          { name: 'Guarantee Expiry',api_key: 'guarantee_expiry',field_type: 'date',     is_required: false, show_in_list: false },
+          { name: 'Status',          api_key: 'status',          field_type: 'select',   is_required: false, show_in_list: true,
+            options: ['Placed','In Guarantee','Guarantee Expired','Cancelled'] },
+        ]
+      },
+    ],
+    jobs_extra_fields: [
+      { name: 'Client Company',   api_key: 'client_company',   field_type: 'text',   is_required: false, show_in_list: true  },
+      { name: 'Hiring Manager',   api_key: 'hiring_manager',   field_type: 'text',   is_required: false, show_in_list: false },
+      { name: 'Priority',         api_key: 'priority',         field_type: 'select', is_required: false, show_in_list: true,
+        options: ['Low','Medium','High','Critical'] },
+      { name: 'SLA Target Days',  api_key: 'sla_target_days',  field_type: 'number', is_required: false, show_in_list: true  },
+      { name: 'Date Opened',      api_key: 'date_opened',      field_type: 'date',   is_required: false, show_in_list: true  },
+      { name: 'Brief Status',     api_key: 'brief_status',     field_type: 'select', is_required: false, show_in_list: false,
+        options: ['Brief Received','Approved','Sourcing','Shortlisted','Interviewing','Offer Stage','Filled','Cancelled'] },
+    ],
+    default_roles: [
+      { name: 'Super Admin',    permissions: { create:true,  read:true,  edit:true,  delete:true,  admin:true  }, color: '#7C3AED' },
+      { name: 'Account Manager',permissions: { create:true,  read:true,  edit:true,  delete:false, admin:false }, color: '#EF4444' },
+      { name: 'Recruiter',      permissions: { create:true,  read:true,  edit:true,  delete:false, admin:false }, color: '#4361EE' },
+      { name: 'Viewer',         permissions: { create:false, read:true,  edit:false, delete:false, admin:false }, color: '#9DA8C7' },
+    ]
+  },
   hr_platform: {
     label: 'HR Platform',
     description: 'Employees, Departments and Leave on top of Core Recruitment',
@@ -155,7 +212,14 @@ function buildTemplate(key) {
   let objects = [...(tpl.objects || [])];
   if (tpl.extends) {
     const base = TEMPLATES[tpl.extends];
-    objects = [...(base.objects || []), ...(tpl.extra_objects || [])];
+    // Deep-clone base objects so we don't mutate them
+    objects = JSON.parse(JSON.stringify([...(base.objects || [])]));
+    // Inject jobs_extra_fields into the jobs object
+    if (tpl.jobs_extra_fields && tpl.jobs_extra_fields.length) {
+      const jobsObj = objects.find(o => o.slug === 'jobs');
+      if (jobsObj) jobsObj.fields = [...(jobsObj.fields || []), ...tpl.jobs_extra_fields];
+    }
+    objects = [...objects, ...(tpl.extra_objects || [])];
   }
   return { objects, roles: tpl.default_roles || TEMPLATES.core_recruitment.default_roles };
 }

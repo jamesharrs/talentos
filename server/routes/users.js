@@ -1,4 +1,15 @@
 const express = require('express');
+const { hasGlobalAction } = require('../middleware/rbac');
+
+function checkGlobal(req, res, action) {
+  const user = req.currentUser;
+  if (!user) return null;
+  if (!hasGlobalAction(user, action)) {
+    res.status(403).json({ error: 'Permission denied', code: 'FORBIDDEN', required: { action } });
+    return false;
+  }
+  return null;
+}
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
@@ -8,6 +19,7 @@ const hashPassword = (pw) => crypto.createHash('sha256').update(pw + 'talentos_s
 
 // GET all users
 router.get('/', (req, res) => {
+  if (checkGlobal(req, res, 'manage_users') === false) return;
   const users = query('users').map(u => {
     const role = findOne('roles', r => r.id === u.role_id);
     return { ...u, password_hash: undefined, role };
@@ -25,6 +37,7 @@ router.get('/:id', (req, res) => {
 
 // POST invite/create user
 router.post('/', (req, res) => {
+  if (checkGlobal(req, res, 'manage_users') === false) return;
   const { email, first_name, last_name, role_id, auth_provider = 'local' } = req.body;
   if (!email || !first_name || !last_name || !role_id) return res.status(400).json({ error: 'email, first_name, last_name, role_id required' });
   if (findOne('users', u => u.email === email)) return res.status(409).json({ error: 'Email already exists' });
@@ -44,6 +57,7 @@ router.post('/', (req, res) => {
 
 // PATCH update user
 router.patch('/:id', (req, res) => {
+  if (checkGlobal(req, res, 'manage_users') === false) return;
   const { first_name, last_name, role_id, status, mfa_enabled, org_unit_id } = req.body;
   const updates = {};
   if (first_name   !== undefined) updates.first_name   = first_name;
@@ -69,6 +83,7 @@ router.post('/:id/reset-password', (req, res) => {
 
 // DELETE (deactivate) user
 router.delete('/:id', (req, res) => {
+  if (checkGlobal(req, res, 'manage_users') === false) return;
   const u = findOne('users', x => x.id === req.params.id);
   if (!u) return res.status(404).json({ error: 'Not found' });
   update('users', x => x.id === req.params.id, { status: 'deactivated' });

@@ -1,3 +1,5 @@
+const { hasGlobalAction } = require("../middleware/rbac");
+function checkGlobal(req,res,action){const u=req.currentUser;if(!u)return null;if(!hasGlobalAction(u,action)){res.status(403).json({error:"Permission denied",code:"FORBIDDEN",required:{action}});return false;}return null;}
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
@@ -24,6 +26,7 @@ router.get('/:id', (req, res) => {
 
 // POST create custom role
 router.post('/', (req, res) => {
+  if (checkGlobal(req, res, 'manage_roles') === false) return;
   const { name, description, color, clone_from_role_id } = req.body;
   if (!name) return res.status(400).json({ error: 'name required' });
   const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
@@ -42,6 +45,7 @@ router.post('/', (req, res) => {
 
 // PATCH update role
 router.patch('/:id', (req, res) => {
+  if (checkGlobal(req, res, 'manage_roles') === false) return;
   const role = findOne('roles', r => r.id === req.params.id);
   if (!role) return res.status(404).json({ error: 'Not found' });
   if (role.is_system) return res.status(403).json({ error: 'Cannot modify system roles' });
@@ -51,6 +55,7 @@ router.patch('/:id', (req, res) => {
 
 // DELETE role (custom only)
 router.delete('/:id', (req, res) => {
+  if (checkGlobal(req, res, 'manage_roles') === false) return;
   const role = findOne('roles', r => r.id === req.params.id);
   if (!role) return res.status(404).json({ error: 'Not found' });
   if (role.is_system) return res.status(403).json({ error: 'Cannot delete system roles' });
@@ -66,6 +71,7 @@ router.get('/:id/permissions', (req, res) => {
 
 // PUT update permissions for a role (bulk replace)
 router.put('/:id/permissions', (req, res) => {
+  if (checkGlobal(req, res, 'manage_roles') === false) return;
   const { permissions } = req.body; // [{ object_slug, action, allowed }]
   if (!Array.isArray(permissions)) return res.status(400).json({ error: 'permissions array required' });
   for (const perm of permissions) {

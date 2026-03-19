@@ -1,3 +1,5 @@
+const { hasGlobalAction } = require("../middleware/rbac");
+function checkGlobal(req,res,action){const u=req.currentUser;if(!u)return null;if(!hasGlobalAction(u,action)){res.status(403).json({error:"Permission denied",code:"FORBIDDEN",required:{action}});return false;}return null;}
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
@@ -23,6 +25,7 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', (req, res) => {
+  if (checkGlobal(req, res, 'manage_settings') === false) return;
   const { environment_id, name, plural_name, slug, icon, color, description } = req.body;
   if (!environment_id||!name||!slug) return res.status(400).json({error:'environment_id, name, slug required'});
   if (findOne('objects', o=>o.environment_id===environment_id&&o.slug===slug)) return res.status(409).json({error:'Slug exists'});
@@ -30,9 +33,11 @@ router.post('/', (req, res) => {
   res.status(201).json(insert('objects', {id:uuidv4(),environment_id,name,plural_name:plural_name||name+'s',slug,icon:icon||'circle',color:color||'#3b5bdb',description:description||null,is_system:0,sort_order:maxOrder+1,created_at:new Date().toISOString(),updated_at:new Date().toISOString()}));
 });
 
-router.patch('/:id', (req, res) => { const o = update('objects', x=>x.id===req.params.id, req.body); o ? res.json(o) : res.status(404).json({error:'Not found'}); });
+router.patch('/:id', (req, res) => {
+  if (checkGlobal(req, res, 'manage_settings') === false) return; const o = update('objects', x=>x.id===req.params.id, req.body); o ? res.json(o) : res.status(404).json({error:'Not found'}); });
 
 router.delete('/:id', (req, res) => {
+  if (checkGlobal(req, res, 'manage_settings') === false) return;
   const obj = findOne('objects', o=>o.id===req.params.id);
   if (!obj) return res.status(404).json({error:'Not found'});
   if (obj.is_system) return res.status(403).json({error:'Cannot delete system objects'});

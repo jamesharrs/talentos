@@ -1,9 +1,12 @@
+const { hasGlobalAction } = require("../middleware/rbac");
+function checkGlobal(req,res,action){const u=req.currentUser;if(!u)return null;if(!hasGlobalAction(u,action)){res.status(403).json({error:"Permission denied",code:"FORBIDDEN",required:{action}});return false;}return null;}
 const express = require('express');
 const router = express.Router();
 const { getStore, insert, update } = require('../db/init');
 
 // ── Export CSV ────────────────────────────────────────────────────────────────
 router.get('/export', (req, res) => {
+  if (checkGlobal(req, res, "export_data") === false) return;
   const { object_id, environment_id } = req.query;
   if (!object_id || !environment_id) return res.status(400).json({ error: 'object_id and environment_id required' });
 
@@ -37,6 +40,7 @@ router.get('/export', (req, res) => {
 
 // ── Import CSV ────────────────────────────────────────────────────────────────
 router.post('/import', express.text({ type: 'text/csv', limit: '5mb' }), (req, res) => {
+  if (checkGlobal(req, res, "export_data") === false) return;
   const { object_id, environment_id, mode = 'create' } = req.query; // mode: create | upsert
   if (!object_id || !environment_id) return res.status(400).json({ error: 'object_id and environment_id required' });
 
@@ -108,6 +112,7 @@ router.post('/import', express.text({ type: 'text/csv', limit: '5mb' }), (req, r
 
 // ── Template download ─────────────────────────────────────────────────────────
 router.get('/template', (req, res) => {
+  if (checkGlobal(req, res, "export_data") === false) return;
   const { object_id } = req.query;
   if (!object_id) return res.status(400).json({ error: 'object_id required' });
 

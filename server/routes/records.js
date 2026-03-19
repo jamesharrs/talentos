@@ -2,10 +2,42 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { query, findOne, insert, update, remove } = require('../db/init');
+const { hasPermission, hasGlobalAction } = require('../middleware/rbac');
 
 // Lazy-load agent engine to avoid circular deps at startup
 let agentEngine = null;
 const getEngine = () => { if (!agentEngine) agentEngine = require('../agent-engine'); return agentEngine; };
+
+
+// Resolve object slug for permission checks
+function getObjectSlug(objectId) {
+  if (!objectId) return null;
+  const obj = findOne('objects', o => o.id === objectId);
+  return obj ? obj.slug : null;
+}
+
+// Permission gate — returns 403 if user lacks permission, null if OK
+function checkPerm(req, res, objectId, action) {
+  const user = req.currentUser;
+  if (!user) return null; // no auth = allow (backward compat until full auth wired)
+  const slug = getObjectSlug(objectId);
+  if (!slug) return null; // unknown object = allow
+  if (!hasPermission(user, slug, action)) {
+    res.status(403).json({ error: 'Permission denied', code: 'FORBIDDEN', required: { object: slug, action } });
+    return false;
+  }
+  return null;
+}
+
+function checkGlobal(req, res, action) {
+  const user = req.currentUser;
+  if (!user) return null;
+  if (!hasGlobalAction(user, action)) {
+    res.status(403).json({ error: 'Permission denied', code: 'FORBIDDEN', required: { action } });
+    return false;
+  }
+  return null;
+}
 
 // Cross-object quick search — used by the global search bar
 router.get('/search', (req, res) => {
@@ -48,6 +80,7 @@ router.get('/search', (req, res) => {
 router.get('/', (req, res) => {
   const { object_id, environment_id, page=1, limit=50, search, sort_dir='desc', filter_key, filter_value, user_id } = req.query;
   if (!object_id||!environment_id) return res.status(400).json({error:'object_id and environment_id required'});
+  if (checkPerm(req, res, object_id, 'view') === false) return;
   let records = query('records', r=>r.object_id===object_id&&r.environment_id===environment_id&&!r.deleted_at);
 
   // Org scoping: filter to user's visible subtree if user_id provided and user has an org unit
@@ -79,12 +112,15 @@ router.get('/', (req, res) => {
 
 router.get('/:id', (req, res) => {
   const r = findOne('records', r=>r.id===req.params.id&&!r.deleted_at);
-  r ? res.json(r) : res.status(404).json({error:'Not found'});
+  if (!r) return res.status(404).json({error:'Not found'});
+  if (checkPerm(req, res, r.object_id, 'view') === false) return;
+  res.json(r);
 });
 
 router.post('/', (req, res) => {
   const { object_id, environment_id, data={}, created_by, user_id } = req.body;
   if (!object_id||!environment_id) return res.status(400).json({error:'object_id and environment_id required'});
+  if (checkPerm(req, res, object_id, 'create') === false) return;
   const required = query('fields', f=>f.object_id===object_id&&f.is_required);
   const missing = required.filter(f=>!data[f.api_key]&&data[f.api_key]!==0);
   if (missing.length) return res.status(400).json({error:'Missing required fields',missing:missing.map(f=>f.api_key)});
@@ -101,6 +137,7 @@ router.post('/', (req, res) => {
 router.patch('/:id', (req, res) => {
   const record = findOne('records', r=>r.id===req.params.id&&!r.deleted_at);
   if (!record) return res.status(404).json({error:'Not found'});
+  if (checkPerm(req, res, record.object_id, 'edit') === false) return;
   const { data, updated_by, field_changes } = req.body;
   const updated = update('records', r=>r.id===req.params.id, {data:{...record.data,...data},updated_at:new Date().toISOString()});
   // If frontend sends rich field_changes array, log one event per field; otherwise log a generic updated event
@@ -122,6 +159,9 @@ router.patch('/:id', (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
+  const delRec = findOne('records', r=>r.id===req.params.id&&!r.deleted_at);
+  if (!delRec) return res.status(404).json({error:'Not found'});
+  if (checkPerm(req, res, delRec.object_id, 'delete') === false) return;
   update('records', r=>r.id===req.params.id, {deleted_at:new Date().toISOString()});
   res.json({deleted:true});
 });

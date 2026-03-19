@@ -4,6 +4,10 @@
  */
 import { useState, useEffect, useRef } from 'react';
 
+// Railway URL — SSE streams don't work through Vercel's edge proxy (it buffers responses)
+const RAILWAY_URL = 'https://talentos-production-4045.up.railway.app';
+const apiUrl = (path) => `${RAILWAY_URL}/api${path}`;
+
 const S = {
   page:  { fontFamily:"'DM Sans',-apple-system,sans-serif", color:'#e2e8f0', padding:32, maxWidth:860 },
   h1:    { fontSize:22, fontWeight:800, color:'#f8fafc', marginBottom:4 },
@@ -53,7 +57,7 @@ export default function DemoDataManager() {
   const logRef = useRef(null);
 
   useEffect(() => {
-    fetch('/api/superadmin/demo/environments')
+    fetch(apiUrl('/superadmin/demo/environments'))
       .then(r => r.json())
       .then(data => {
         if (!Array.isArray(data)) return;
@@ -67,7 +71,7 @@ export default function DemoDataManager() {
   useEffect(() => {
     if (!envId) return;
     setStatus(null);
-    fetch(`/api/superadmin/demo/status?environment_id=${envId}`)
+    fetch(apiUrl(`/superadmin/demo/status?environment_id=${envId}`))
       .then(r => r.json()).then(setStatus).catch(() => {});
   }, [envId]);
 
@@ -85,7 +89,7 @@ export default function DemoDataManager() {
     setSeeding(true); setResults(null); setError(null); setPct(0); setLog([]);
     addLog('Starting demo data generation…', 'dim');
     try {
-      const res     = await fetch('/api/superadmin/demo/seed', {
+      const res = await fetch(apiUrl('/superadmin/demo/seed'), {
         method:'POST', headers:{'Content-Type':'application/json'},
         body:JSON.stringify({ environment_id:envId, clear_first:clearFirst }),
       });
@@ -106,7 +110,7 @@ export default function DemoDataManager() {
             if (evt.step === 'complete') {
               setResults(evt.results);
               addLog(`✓ Done! ${evt.results.candidates} candidates, ${evt.results.jobs} jobs`, 'success');
-              fetch(`/api/superadmin/demo/status?environment_id=${envId}`).then(r=>r.json()).then(setStatus);
+              fetch(apiUrl(`/superadmin/demo/status?environment_id=${envId}`)).then(r=>r.json()).then(setStatus);
             }
             if (evt.step === 'error') setError(evt.message);
           } catch {}
@@ -121,7 +125,7 @@ export default function DemoDataManager() {
     if (!window.confirm('Remove all demo data from this environment?')) return;
     setClearing(true); addLog('Clearing demo data…', 'dim');
     try {
-      const res  = await fetch('/api/superadmin/demo/clear', {
+      const res = await fetch(apiUrl('/superadmin/demo/clear'), {
         method:'DELETE', headers:{'Content-Type':'application/json'},
         body:JSON.stringify({ environment_id:envId }),
       });

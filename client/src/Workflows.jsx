@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { matchCandidateToJob } from "./AI.jsx";
 import SharePicker from "./SharePicker.jsx";
+import api from './apiClient.js';
 
 const F = "'DM Sans', -apple-system, sans-serif";
 const C = {
@@ -13,8 +14,6 @@ const C = {
   orange: "#f59f00", orangeLight: "#fffbeb",
   red: "#e03131", redLight: "#fef2f2",
 };
-
-import api from './apiClient.js';
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const PATHS = {

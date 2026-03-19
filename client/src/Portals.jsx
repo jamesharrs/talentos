@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-
+import api from './apiClient.js';
 const F = "'DM Sans', -apple-system, sans-serif";
 const C = {
   bg:"#F3F4F8", surface:"#FFFFFF", surface2:"#F8F9FC",
@@ -78,7 +78,6 @@ const PALETTES = [
   { name:"Forest",   primary:"#16A34A", secondary:"#15803D", bg:"#F0FDF4", text:"#14532D" },
 ];
 
-import api from './apiClient.js';
 
 
 

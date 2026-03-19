@@ -69,7 +69,6 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     search:"M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z",
     chevR:"M9 18l6-6-6-6", chevL:"M15 18l-6-6 6-6", chevD:"M6 9l6 6 6-6", chevU:"M18 15l-6-6-6 6",
     chevronDown:"M6 9l6 6 6-6", chevronUp:"M18 15l-6-6-6 6",
-    filter:"M22 3H2l8 9.46V19l4 2V12.46z",
     edit:"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",
     trash:"M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6",
     expand:"M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7",
@@ -435,7 +434,6 @@ const FieldEditor = ({ field, value, onChange, autoFocus }) => {
     case "people": {
       return <PeoplePicker field={field} value={value} onChange={onChange}/>;
     }
-    case "lookup":
     case "multi_lookup": {
       return <PeoplePicker field={field} value={value} onChange={onChange}/>;
     }

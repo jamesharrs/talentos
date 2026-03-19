@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 
 const F = "'DM Sans', -apple-system, sans-serif";
 const C = {
@@ -208,7 +208,7 @@ const MatchResultsList = ({ matches }) => {
   );
 };
 
-export const MatchingEngine = ({ environment, initialObject, initialRecord }) => {
+export const MatchingEngine = memo(({ environment, initialObject, initialRecord }) => {
   const mode = initialObject?.slug === "jobs" ? "job" : "person"; // "job" = rank candidates, "person" = rank jobs
   const [objects,setObjects]   = useState([]);
   const [fields,setFields]     = useState({});
@@ -370,7 +370,11 @@ export const MatchingEngine = ({ environment, initialObject, initialRecord }) =>
       }
     </div>
   );
-};
+}, (prev, next) =>
+  prev.environment?.id === next.environment?.id &&
+  prev.initialRecord?.id === next.initialRecord?.id &&
+  prev.initialObject?.slug === next.initialObject?.slug
+);
 
 /* ─── Search Result Cards ────────────────────────────────────────────────── */
 const SearchResultCards = ({ results, onNavigate }) => {

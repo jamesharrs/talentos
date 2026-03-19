@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from "react";
 import { usePermissions as usePermCtx } from "./PermissionContext.jsx";
 import ReactDOM from "react-dom";
 import RichTextEditor from "./RichTextEditor.jsx";
@@ -3395,6 +3395,22 @@ const NotesPanel = ({ record, notes, onNotesChange }) => {
   );
 };
 
+// Stable wrapper so MatchingEngine never remounts due to PanelContent's wide dep array.
+// Only re-renders when the actual record id or object type changes.
+const StableMatchPanel = memo(({ recordId, objectName, environment, record }) => (
+  <div style={{ margin:"-16px" }}>
+    <MatchingEngine
+      environment={environment}
+      initialRecord={record}
+      initialObject={{ name:objectName, slug: objectName==="Person" ? "people" : "jobs" }}
+    />
+  </div>
+), (prev, next) =>
+  prev.recordId === next.recordId &&
+  prev.objectName === next.objectName &&
+  prev.environment?.id === next.environment?.id
+);
+
 export const RecordDetail = ({ record, fields, allObjects, environment, objectName, objectColor, onClose, fullPage, onToggleFullPage, onUpdate, onDelete, onNavigate }) => {
   const [tab, setTab]           = useState("fields");
   const [editing, setEditing]   = useState({});
@@ -4046,9 +4062,12 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     if (id==="questions") return <JobQuestionsPanel record={record} environment={environment}/>;
 
     if (id==="match") return (
-      <div style={{ margin:"-16px" }}>
-        <MatchingEngine environment={environment} initialRecord={record} initialObject={{ name:objectName, slug:objectName==="Person"?"people":"jobs" }}/>
-      </div>
+      <StableMatchPanel
+        recordId={record.id}
+        objectName={objectName}
+        environment={environment}
+        record={record}
+      />
     );
 
     return null;

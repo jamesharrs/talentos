@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const { initDB, getStore } = require('./db/init');
 const tenantMiddleware = require('./middleware/tenant');
+const { attachUser, seedDefaultPermissions } = require('./middleware/rbac');
 
 const app = express();
 
@@ -33,7 +34,9 @@ app.use(express.json({ limit: '10mb' }));
 // returns the correct tenant's isolated data store for each request.
 // Tenant is resolved from: X-Tenant-Slug header → subdomain → master (default)
 app.use(tenantMiddleware);
+app.use(attachUser); // attach current user to every request (non-blocking)
 
+app.use('/api/auth',        require('./routes/auth'));
 app.use('/api/environments', require('./routes/environments'));
 app.use('/api/objects',      require('./routes/objects'));
 app.use('/api/fields',       require('./routes/fields'));
@@ -119,6 +122,7 @@ initDB().then(() => {
     dirty = true;
   }
   if (!store.job_questions) { store.job_questions = []; dirty = true; }
+  seedDefaultPermissions(store);
   if (!store.notifications) {
     const now = new Date();
     const ago = (mins) => new Date(now - mins*60000).toISOString();

@@ -26,6 +26,7 @@ import LoginPage from "./LoginPage.jsx";
 import CalendarModule from "./Calendar.jsx";
 import BotInterview from "./BotInterview.jsx";
 import { getSession, clearSession } from "./usePermissions.js";
+import { PermissionProvider, usePermissions, Gate } from "./PermissionContext.jsx";
 
 // ─── API Client ───────────────────────────────────────────────────────────────
 // Derive tenant slug — session takes priority, then URL param, then subdomain
@@ -1164,6 +1165,8 @@ function App() {
   const { prefs, update } = useTheme();
   const { t, isRTL } = useI18n();
   const [session, setSession]   = useState(() => getSession()); // { user, role, permissions }
+  const userId = session?.user?.id || null;
+  const { can, canGlobal } = usePermissions();
   const [environments, setEnvironments] = useState([]);
   const [selectedEnv, setSelectedEnv] = useState(null);
   const [selectedObject, setSelectedObject] = useState(null);
@@ -1237,6 +1240,16 @@ function App() {
       ]
     }
   ];
+
+  // Filter nav items the user cannot access
+  const filteredNavSections = navSections.map(section => ({
+    ...section,
+    items: section.items.filter(item => {
+      if (item.id === 'settings') return canGlobal('manage_settings');
+      if (item.id === 'reports')  return canGlobal('run_reports');
+      return true;
+    })
+  })).filter(section => section.items.length > 0);
 
   // When on a record page, extract the parent object id for nav highlighting
   const activeObjectId = activeNav.startsWith("record_") ? activeNav.split("_")[2] : null;
@@ -1348,6 +1361,7 @@ function App() {
   }
 
   return (
+    <PermissionProvider userId={userId}>
     <div style={{ minHeight: "100vh", background: "var(--t-bg)", fontFamily: "var(--t-font)", display: "flex" }}>
       {/* Theme Panel */}
       {showTheme && <ThemePanel onClose={() => setShowTheme(false)} />}
@@ -1368,7 +1382,7 @@ function App() {
 
         {/* Nav */}
         <div style={{ padding: "8px 12px", flex: 1, overflowY: "auto", minHeight: 0 }}>
-          {navSections.map(section => (
+          {filteredNavSections.map(section => (
             <div key={section.label} style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: "var(--t-text3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6, paddingLeft: 4 }}>{section.label}</div>
               {section.items.map(item => {
@@ -1549,6 +1563,7 @@ function App() {
         openRecord(record.id, obj.id);
       }} />
     </div>
+    </PermissionProvider>
   );
 }
 

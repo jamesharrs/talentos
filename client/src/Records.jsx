@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { usePermissions as usePermCtx } from "./PermissionContext.jsx";
 import ReactDOM from "react-dom";
 import { MatchingEngine } from "./AI.jsx";
 import CommunicationsPanel from "./Communications.jsx";
@@ -4408,11 +4409,14 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  // Permission helper — Super Admin always passes; no session → deny
+  // Permission helper — prefers PermissionContext (server-side), falls back to session
+  let _permCtx = null;
+  try { _permCtx = usePermCtx(); } catch {} // null if not inside PermissionProvider
   const can = (action) => {
-    if (!session) return true; // graceful fallback if no auth
+    if (_permCtx) return _permCtx.can(object?.slug, action);
+    if (!session) return true;
     const { role, permissions } = session;
-    if (role?.slug === "super_admin" || role?.slug === "admin") return true;
+    if (role?.slug === 'super_admin' || role?.slug === 'admin') return true;
     return (permissions || []).some(
       p => p.object_slug === object.slug && p.action === action && p.allowed
     );
@@ -4528,12 +4532,25 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   };
 
   const guardedBulkAction = (action, payload = {}) => {
+    // Check global bulk_actions permission
+    if (_permCtx && !_permCtx.canGlobal('bulk_actions')) {
+      alert('You do not have permission to perform bulk actions.');
+      return;
+    }
+    if (action === 'delete' && !can('delete')) {
+      alert('You do not have permission to delete records.');
+      return;
+    }
+    if (action === 'edit' && !can('edit')) {
+      alert('You do not have permission to edit records.');
+      return;
+    }
     const threshold = getBulkThreshold();
     if (selectedIds.size > threshold) {
       setBulkConfirm({ action, ...payload });
     } else {
-      if (action === "delete") handleBulkDelete();
-      if (action === "edit")   handleBulkEdit(payload.fieldId, payload.value);
+      if (action === 'delete') handleBulkDelete();
+      if (action === 'edit')   handleBulkEdit(payload.fieldId, payload.value);
     }
   };
 

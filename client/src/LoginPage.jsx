@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { loadMyPermissions } from "./api.js";
 import { setSession } from "./usePermissions.js";
 
 const api = {
@@ -24,6 +25,8 @@ export default function LoginPage({ onLogin }) {
       const { role, permissions, tenant_slug, ...user } = data;
       // Store tenant_slug in session so every API call can send the right header
       setSession({ user, role, permissions, tenant_slug });
+      // Pre-warm permission cache from server
+      loadMyPermissions().catch(() => {});
       onLogin({ user, role, permissions, tenant_slug });
     } catch (e) {
       setError(e.message || "Invalid credentials");

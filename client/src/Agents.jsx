@@ -40,24 +40,6 @@ const Ic = ({ n, s = 16, c = C.text3 }) => {
     calendar: "M3 4h18v18H3V4zM16 2v4M8 2v4M3 10h18",
     settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
   };
-  const handleUseTemplate = (tpl) => {
-    setShowLibrary(false);
-    // Pre-fill the new agent form with template data
-    setForm({
-      name: tpl.name,
-      description: tpl.description,
-      trigger_type: tpl.recommended_trigger || 'manual',
-      trigger_config: {},
-      conditions: [],
-      actions: tpl.actions.map(a => ({ ...a, id: Date.now() + Math.random() })),
-      is_active: true,
-      schedule_time: '09:00',
-    });
-    setEditingAgent(null);
-    setActiveTab('actions');
-    setShowForm(true);
-  };
-
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
       <path d={paths[n] || paths.zap} />
@@ -662,6 +644,22 @@ export default function AgentsModule({ environment }) {
   useEffect(()=>{load();},[load]);
   useEffect(()=>{ const t=setInterval(load,30000); return ()=>clearInterval(t); },[load]);
 
+  const handleUseTemplate = (tpl) => {
+    setShowLibrary(false);
+    // Build a skeleton agent from the template and open the builder pre-populated
+    setEditAgent({
+      name: tpl.name,
+      description: tpl.description,
+      trigger_type: tpl.recommended_trigger || 'manual',
+      trigger_config: {},
+      conditions: [],
+      actions: tpl.actions.map(a => ({ ...a })),
+      is_active: 1,
+      schedule_time: '09:00',
+    });
+    setShowBuilder(true);
+  };
+
   const handleDelete = async (id) => {
     if(!window.confirm('Delete this agent?')) return;
     await api.del(`/api/agents/${id}`);
@@ -701,6 +699,12 @@ export default function AgentsModule({ environment }) {
         </div>
         <div style={{flex:1}}/>
         <button onClick={load} style={{padding:"8px",borderRadius:10,border:`1.5px solid ${C.border}`,background:"white",cursor:"pointer"}}><Ic n="refresh" s={15} c={C.text3}/></button>
+        <button onClick={()=>setShowLibrary(true)}
+          style={{display:"flex",alignItems:"center",gap:7,padding:"10px 18px",borderRadius:10,
+            border:`1.5px solid ${C.accent}`,background:C.accentLight,
+            color:C.accent,fontWeight:700,cursor:"pointer",fontSize:13,fontFamily:F}}>
+          📚 Browse Library
+        </button>
         <button onClick={()=>{setEditAgent(null);setShowBuilder(true);}}
           style={{display:"flex",alignItems:"center",gap:8,padding:"10px 20px",borderRadius:10,border:"none",background:C.accent,color:"white",fontWeight:700,cursor:"pointer",fontSize:13,fontFamily:F}}>
           <Ic n="plus" s={15} c="white"/> New Agent
@@ -863,6 +867,21 @@ export default function AgentsModule({ environment }) {
         <AgentBuilderModal agent={editAgent} environment={environment} objects={objects}
           onClose={()=>{setShowBuilder(false);setEditAgent(null);}}
           onSave={()=>{setShowBuilder(false);setEditAgent(null);load();}}/>
+      )}
+
+      {/* ── Agent Library slide-over ── */}
+      {showLibrary&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",zIndex:1500,display:"flex",alignItems:"stretch",justifyContent:"flex-end"}}
+          onClick={e=>{if(e.target===e.currentTarget)setShowLibrary(false);}}>
+          <div style={{width:"min(900px,95vw)",background:"#f4f5f8",display:"flex",
+            flexDirection:"column",padding:"32px 32px 24px",overflowY:"auto",
+            boxShadow:"-8px 0 40px rgba(0,0,0,.15)"}}>
+            <AgentLibrary
+              onUseTemplate={handleUseTemplate}
+              onClose={()=>setShowLibrary(false)}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

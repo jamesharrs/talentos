@@ -15,11 +15,11 @@ module.exports = [
     recommended_trigger: 'record_created',
     use_case: 'Run on every new candidate to triage your pipeline without manual effort.',
     actions: [
-      { type: 'ai_score',   prompt: 'Score this candidate out of 100 against the following criteria: relevant experience, skills match, location, career progression. Output a JSON object with keys: score (0-100), summary (2 sentences), strengths (array), gaps (array).' },
+      { type: 'ai_score',     prompt: 'Score this candidate out of 100 against the following criteria: relevant experience, skills match, location, career progression. Output a JSON object with keys: score (0-100), summary (2 sentences), strengths (array), gaps (array).' },
       { type: 'update_field', field_key: 'ai_score',   field_value: '{{ai_output.score}}' },
       { type: 'update_field', field_key: 'ai_summary', field_value: '{{ai_output.summary}}' },
-      { type: 'add_note',   note_template: 'AI Screen: {{ai_output.score}}/100 — {{ai_output.summary}}\n\nStrengths: {{ai_output.strengths}}\nGaps: {{ai_output.gaps}}' },
-      { type: 'add_to_pool',  pool_name: 'Shortlist',   condition: 'ai_output.score >= 70' },
+      { type: 'add_note',     note_template: 'AI Screen: {{ai_output.score}}/100 — {{ai_output.summary}}\n\nStrengths: {{ai_output.strengths}}\nGaps: {{ai_output.gaps}}' },
+      { type: 'add_to_pool',  pool_name: 'Shortlist',  condition: 'ai_output.score >= 70' },
       { type: 'notify_user',  message: 'New candidate screened: {{first_name}} {{last_name}} scored {{ai_output.score}}/100' },
     ],
   },
@@ -36,7 +36,7 @@ module.exports = [
     use_case: 'Give every recruiter an instant briefing before they open the record.',
     actions: [
       { type: 'ai_summarise', prompt: 'Write a concise 2-3 sentence professional profile of this candidate for a recruiter. Focus on their current role, key experience, and what makes them notable. Do not include personal opinions.' },
-      { type: 'ai_score',    prompt: 'Score this candidate\'s overall profile quality and completeness 0-100. Consider: completeness of information, career trajectory, skills relevance.' },
+      { type: 'ai_score',     prompt: 'Score this candidate\'s overall profile quality and completeness 0-100. Consider: completeness of information, career trajectory, skills relevance.' },
       { type: 'update_field', field_key: 'profile_summary', field_value: '{{ai_summarise_output}}' },
       { type: 'update_field', field_key: 'profile_score',   field_value: '{{ai_score_output}}' },
     ],
@@ -55,8 +55,8 @@ module.exports = [
     use_case: 'Replace manual phone screens for high-volume roles. Get consistent scored answers at scale.',
     actions: [
       { type: 'ai_interview', persona_name: 'Alex', persona_description: 'A friendly and professional recruiter conducting an initial screening call.' },
-      { type: 'add_note',    note_template: 'AI Screening Interview sent to {{email}} — awaiting completion.' },
-      { type: 'send_email',  subject: 'Next step: {{job_title}} — quick online interview', body: 'Hi {{first_name}},\n\nThank you for your interest in the {{job_title}} role. As the next step, we\'d like you to complete a short AI-powered interview at your convenience.\n\nThis takes around 15-20 minutes and allows you to tell us more about your experience.\n\n{{interview_link}}\n\nBest of luck!' },
+      { type: 'add_note',     note_template: 'AI Screening Interview sent to {{email}} — awaiting completion.' },
+      { type: 'send_email',   subject: 'Next step: {{job_title}} — quick online interview', body: 'Hi {{first_name}},\n\nThank you for your interest in the {{job_title}} role. As the next step, we\'d like you to complete a short AI-powered interview at your convenience.\n\n{{interview_link}}\n\nBest of luck!' },
     ],
   },
 
@@ -71,9 +71,9 @@ module.exports = [
     recommended_trigger: 'manual',
     use_case: 'Use for structured assessment of candidates against role-specific competencies before shortlisting.',
     actions: [
-      { type: 'ai_analyse', prompt: 'Assess this candidate against these competencies: Leadership, Communication, Problem Solving, Technical Skills, Collaboration. For each, rate them 1-5 and provide a one-sentence justification. Return as JSON.' },
+      { type: 'ai_analyse',   prompt: 'Assess this candidate against these competencies: Leadership, Communication, Problem Solving, Technical Skills, Collaboration. For each, rate them 1-5 and provide a one-sentence justification. Return as JSON.' },
       { type: 'update_field', field_key: 'competency_assessment', field_value: '{{ai_output}}' },
-      { type: 'add_note',   note_template: 'Competency assessment completed:\n{{ai_output}}' },
+      { type: 'add_note',     note_template: 'Competency assessment completed:\n{{ai_output}}' },
     ],
   },
 
@@ -90,7 +90,7 @@ module.exports = [
     use_case: 'For passive candidate sourcing — makes every outreach feel personal, not templated.',
     actions: [
       { type: 'ai_analyse',    prompt: 'Analyse this person\'s career background. Identify: their key achievement, their likely career motivation, and what would appeal to them about a new opportunity.' },
-      { type: 'ai_draft_email', purpose: 'Personalised outreach to a passive candidate. Reference their specific background. Be warm, concise, and human. Do not use generic phrases like "I came across your profile". Ask if they\'d be open to a conversation — do not oversell.', tone: 'warm and conversational' },
+      { type: 'ai_draft_email', email_purpose: 'Personalised outreach to a passive candidate. Reference their specific background. Be warm, concise, and human. Do not use generic phrases. Ask if they\'d be open to a conversation.', tone: 'warm and conversational' },
       { type: 'human_review' },
     ],
   },
@@ -107,9 +107,9 @@ module.exports = [
     use_case: 'Keep your pipeline warm. Run weekly on talent pool members not contacted in 60+ days.',
     actions: [
       { type: 'ai_analyse',    prompt: 'Review this person\'s history in our system. Draft talking points for a warm re-engagement message that feels relevant to where they are in their career.' },
-      { type: 'ai_draft_email', purpose: 'A warm check-in with a candidate we haven\'t spoken to in a while. Reference something relevant about them. Ask if they\'d be open to a quick catch-up. Keep it to 3-4 sentences.', tone: 'warm and friendly' },
+      { type: 'ai_draft_email', email_purpose: 'A warm check-in with a candidate we haven\'t spoken to in a while. Reference something relevant about them. Ask if they\'d be open to a quick catch-up. Keep it to 3-4 sentences.', tone: 'warm and friendly' },
       { type: 'send_email' },
-      { type: 'add_note',      note_template: 'Re-engagement email sent automatically.' },
+      { type: 'add_note',       note_template: 'Re-engagement email sent automatically.' },
     ],
   },
 
@@ -123,9 +123,9 @@ module.exports = [
     description: 'Sends a thoughtful, role-specific rejection that keeps the door open and automatically adds the candidate to a future pipeline pool.',
     recommended_trigger: 'stage_changed',
     recommended_stage: 'Rejected',
-    use_case: 'Turn every rejection into a brand moment. No generic "we\'ve decided to move forward with other candidates" emails.',
+    use_case: 'Turn every rejection into a brand moment. No generic emails.',
     actions: [
-      { type: 'ai_draft_email', purpose: 'A warm, genuine rejection email. Reference the specific role they applied for. Be empathetic and specific — avoid generic phrases. Encourage them to apply for future roles. Leave them feeling positive about the company.', tone: 'empathetic and warm' },
+      { type: 'ai_draft_email', email_purpose: 'A warm, genuine rejection email. Reference the specific role they applied for. Be empathetic and specific. Encourage them to apply for future roles. Leave them feeling positive.', tone: 'empathetic and warm' },
       { type: 'send_email' },
       { type: 'update_field',   field_key: 'status', field_value: 'Rejected' },
       { type: 'add_to_pool',    pool_name: 'Future Pipeline' },
@@ -145,7 +145,7 @@ module.exports = [
     recommended_stage: 'Offer',
     use_case: 'Speed up time-to-offer. Keeps the HM in the loop with a simple approve/reject step.',
     actions: [
-      { type: 'ai_draft_email', purpose: 'A formal but warm offer letter email. Include the role title, salary if available, start date if available, and next steps. Express genuine excitement about them joining.', tone: 'professional and warm' },
+      { type: 'ai_draft_email', email_purpose: 'A formal but warm offer letter email. Include the role title, salary if available, start date if available, and next steps. Express genuine excitement about them joining.', tone: 'professional and warm' },
       { type: 'human_review' },
       { type: 'send_email' },
       { type: 'update_field',   field_key: 'status', field_value: 'Offered' },
@@ -167,7 +167,7 @@ module.exports = [
     use_case: 'Better prepared candidates = better interviews. Reduces no-shows and improves candidate experience.',
     actions: [
       { type: 'ai_analyse',    prompt: 'Review this candidate\'s background. Suggest 3 specific preparation tips that would be most relevant for them given their experience level and gaps.' },
-      { type: 'ai_draft_email', purpose: 'An interview preparation email for a candidate. Include: what to expect in the interview format, 3 personalised preparation tips, a reminder of the role they\'re interviewing for, and an encouraging sign-off.', tone: 'encouraging and professional' },
+      { type: 'ai_draft_email', email_purpose: 'An interview preparation email. Include: what to expect in the interview format, 3 personalised preparation tips, a reminder of the role they\'re interviewing for, and an encouraging sign-off.', tone: 'encouraging and professional' },
       { type: 'send_email' },
       { type: 'add_note',       note_template: 'Interview prep pack sent to candidate.' },
     ],
@@ -180,7 +180,7 @@ module.exports = [
     category_color: '#0ca678',
     category_icon: 'briefcase',
     name: 'Post-Interview Feedback Chase',
-    description: 'Automatically prompts the hiring manager to submit scorecard feedback after an interview, with a task escalation if no response in 24 hours.',
+    description: 'Automatically prompts the hiring manager to submit scorecard feedback after an interview, with a task escalation if no response.',
     recommended_trigger: 'stage_changed',
     recommended_stage: 'Interview',
     use_case: 'The thing that always falls through the cracks. Keeps your process moving without manual chasing.',
@@ -220,7 +220,7 @@ module.exports = [
     use_case: 'Turn your talent pool into an active pipeline. Every relevant opening gets filled from within before it goes external.',
     actions: [
       { type: 'ai_analyse',    prompt: 'Review this candidate\'s skills, experience and career preferences. Identify which of our current open roles would be the best match and why.' },
-      { type: 'ai_draft_email', purpose: 'A personalised email suggesting a specific open role to a talent pool candidate. Reference why you think this role is a good fit for them specifically. Keep it conversational and brief.', tone: 'warm and personalised' },
+      { type: 'ai_draft_email', email_purpose: 'A personalised email suggesting a specific open role to a talent pool candidate. Reference why you think this role is a good fit for them specifically. Keep it conversational and brief.', tone: 'warm and personalised' },
       { type: 'human_review' },
       { type: 'add_note',      note_template: 'Pool match email drafted and sent to recruiter for approval.' },
     ],
@@ -260,7 +260,7 @@ module.exports = [
     actions: [
       { type: 'ai_summarise', prompt: 'Write a brief recruiter summary of this candidate for a hiring manager. Include: current role, years of experience, key strengths, any concerns, and an overall recommendation. Keep it to 4-5 bullet points.' },
       { type: 'update_field', field_key: 'hm_summary', field_value: '{{ai_output}}' },
-      { type: 'ai_draft_email', purpose: 'A shortlist briefing email to a hiring manager summarising a candidate who has made the shortlist. Include their profile summary, key strengths, and a clear recommendation for next steps.', tone: 'professional and concise' },
+      { type: 'ai_draft_email', email_purpose: 'A shortlist briefing email to a hiring manager summarising a candidate. Include their profile summary, key strengths, and a clear recommendation for next steps.', tone: 'professional and concise' },
       { type: 'human_review' },
       { type: 'send_email' },
     ],
@@ -273,17 +273,17 @@ module.exports = [
     category_color: '#e03131',
     category_icon: 'fileText',
     name: 'Onboarding Initiator',
-    description: 'Triggered on offer acceptance — sends a welcome email, moves the candidate to onboarding pipeline, and creates IT setup tasks.',
+    description: 'Triggered on offer acceptance — sends a welcome email, moves the candidate to onboarding pipeline, and creates setup tasks.',
     recommended_trigger: 'stage_changed',
     recommended_stage: 'Hired',
     use_case: 'Start day-one experience the moment they say yes. No more delayed onboarding kickoffs.',
     actions: [
       { type: 'update_field', field_key: 'status', field_value: 'Hired' },
       { type: 'add_to_pool',  pool_name: 'Onboarding' },
-      { type: 'send_email',   subject: 'Welcome to the team, {{first_name}}!', body: 'Hi {{first_name}},\n\nWe\'re absolutely delighted to welcome you to the team!\n\nYour start date is confirmed and we\'ll be in touch shortly with everything you need to know before day one.\n\nIn the meantime, if you have any questions at all, don\'t hesitate to reach out.\n\nWe can\'t wait to have you on board!\n\nWarm regards' },
+      { type: 'send_email',   subject: 'Welcome to the team, {{first_name}}!', body: 'Hi {{first_name}},\n\nWe\'re absolutely delighted to welcome you to the team!\n\nYour start date is confirmed and we\'ll be in touch shortly with everything you need to know before day one.\n\nWe can\'t wait to have you on board!' },
       { type: 'create_task',  task_title: 'IT setup for new hire: {{first_name}} {{last_name}} — starting {{start_date}}', due_days: -3 },
       { type: 'create_task',  task_title: 'Send pre-boarding pack to {{first_name}} {{last_name}}', due_days: -7 },
-      { type: 'notify_user',  message: '🎉 {{first_name}} {{last_name}} has accepted the offer! Onboarding initiated.' },
+      { type: 'notify_user',  message: '{{first_name}} {{last_name}} has accepted the offer! Onboarding initiated.' },
     ],
   },
 ];

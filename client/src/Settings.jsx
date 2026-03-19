@@ -973,6 +973,7 @@ const FIELD_TYPES_DM = [
   {value:"date",label:"Date",icon:"📅"},{value:"boolean",label:"Boolean",icon:"◉"},{value:"select",label:"Select",icon:"▾"},
   {value:"multi_select",label:"Multi Select",icon:"☑"},{value:"currency",label:"Currency",icon:"$"},{value:"rating",label:"Rating",icon:"★"},
   {value:"people",label:"People",icon:"👤"},
+  {value:"dataset",label:"Data Set",icon:"≡"},{value:"skills",label:"Skills",icon:"⚡"},
 ];
 const COLORS_DM = ["#6366f1","#f59e0b","#10b981","#ef4444","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f97316","#64748b"];
 
@@ -1114,9 +1115,22 @@ const DataModelSection = () => {
       placeholder: field?.placeholder||"", help_text: field?.help_text||"",
       related_object_slug: field?.related_object_slug||"people",
       people_multi: field?.people_multi!==undefined ? !!field.people_multi : true,
+      dataset_id: field?.dataset_id||"",
+      dataset_multi: field?.dataset_multi!==undefined ? !!field.dataset_multi : false,
+      skills_multi: field?.skills_multi!==undefined ? !!field.skills_multi : true,
+      skills_categories: field?.skills_categories||[],
     });
     const [autoKey, setAutoKey] = useState(!isEdit);
     const [saving, setSaving] = useState(false);
+    const [datasets, setDatasets] = useState([]);
+    const [skillsCats, setSkillsCats] = useState([]);
+    // Load datasets + skill categories when modal opens
+    useEffect(() => {
+      if (selEnv?.id) {
+        fetch(`/api/datasets?environment_id=${selEnv.id}`).then(r=>r.json()).then(d=>setDatasets(Array.isArray(d)?d:[]));
+        fetch(`/api/enterprise/skills/categories?environment_id=${selEnv.id}`).then(r=>r.json()).then(d=>setSkillsCats(Array.isArray(d)?d.map(c=>c.category):[]));
+      }
+    }, [selEnv?.id]);
     const set = (k,v) => setForm(f=>({...f,[k]:v}));
     const handleName = v => { set("name",v); if(autoKey) set("api_key", v.toLowerCase().replace(/[^a-z0-9]/g,"_").replace(/__+/g,"_").replace(/^_|_$/g,"")); };
     const handle = async () => {
@@ -1125,6 +1139,10 @@ const DataModelSection = () => {
         options: ["select","multi_select"].includes(form.field_type) ? form.options.split(",").map(s=>s.trim()).filter(Boolean) : undefined,
         related_object_slug: form.field_type === "people" ? form.related_object_slug : undefined,
         people_multi: form.field_type === "people" ? form.people_multi : undefined,
+        dataset_id: form.field_type === "dataset" ? form.dataset_id : undefined,
+        dataset_multi: form.field_type === "dataset" ? form.dataset_multi : undefined,
+        skills_multi: form.field_type === "skills" ? form.skills_multi : undefined,
+        skills_categories: form.field_type === "skills" ? form.skills_categories : undefined,
       }, field?.id);
       setSaving(false);
     };
@@ -1144,6 +1162,52 @@ const DataModelSection = () => {
             <Inp label="API Key" value={form.api_key} onChange={v=>{set("api_key",v);setAutoKey(false);}} disabled={isEdit&&field?.is_system}/>
           </div>
           {["select","multi_select"].includes(form.field_type) && <div style={{marginBottom:12}}><Inp label="Options (comma-separated)" value={form.options} onChange={v=>set("options",v)} placeholder="Option A, Option B"/></div>}
+          {form.field_type === "dataset" && (
+            <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
+              <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>≡ Data Set Field</div>
+              <div style={{marginBottom:8}}>
+                <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>SELECT DATA SET</label>
+                <select value={form.dataset_id} onChange={e=>set("dataset_id",e.target.value)}
+                  style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid #e8eaed",fontSize:13,fontFamily:F,outline:"none",background:"white",color:C.text1}}>
+                  <option value="">— choose a data set —</option>
+                  {datasets.map(d=><option key={d.id} value={d.id}>{d.name} ({d.options?.length||0} options)</option>)}
+                </select>
+                {datasets.length===0&&<div style={{fontSize:11,color:C.text3,marginTop:4}}>No data sets yet — create them in Settings → Data Sets</div>}
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                {[{v:false,l:"Single select"},{v:true,l:"Multi select"}].map(({v,l})=>(
+                  <button key={String(v)} onClick={()=>set("dataset_multi",v)}
+                    style={{flex:1,padding:"6px",borderRadius:8,border:`2px solid ${form.dataset_multi===v?"#3b5bdb":"#e8eaed"}`,background:form.dataset_multi===v?"#3b5bdb":"#fff",color:form.dataset_multi===v?"#fff":"#6b7280",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:F}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {form.field_type === "skills" && (
+            <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
+              <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>⚡ Skills Field</div>
+              <div style={{marginBottom:8}}>
+                <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>FILTER BY CATEGORY (optional)</label>
+                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                  {(skillsCats.length>0?skillsCats:['Technology','Business','Design','Soft Skills','Languages','Certifications']).map(cat=>{
+                    const active=(form.skills_categories||[]).includes(cat);
+                    return <button key={cat} onClick={()=>set("skills_categories",active?(form.skills_categories||[]).filter(c=>c!==cat):[...(form.skills_categories||[]),cat])}
+                      style={{padding:"3px 10px",borderRadius:99,border:`1.5px solid ${active?"#3b5bdb":"#e8eaed"}`,background:active?"#3b5bdb":"white",color:active?"white":"#6b7280",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F}}>{cat}</button>;
+                  })}
+                </div>
+                <div style={{fontSize:10,color:C.text3,marginTop:4}}>Leave blank to show all skill categories</div>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                {[{v:true,l:"Multi select (recommended)"},{v:false,l:"Single select"}].map(({v,l})=>(
+                  <button key={String(v)} onClick={()=>set("skills_multi",v)}
+                    style={{flex:1,padding:"6px",borderRadius:8,border:`2px solid ${form.skills_multi===v?"#3b5bdb":"#e8eaed"}`,background:form.skills_multi===v?"#3b5bdb":"#fff",color:form.skills_multi===v?"#fff":"#6b7280",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:F}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {form.field_type === "people" && (
             <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
               <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>People Field Settings</div>

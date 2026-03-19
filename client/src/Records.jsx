@@ -217,6 +217,21 @@ const FieldValue = ({ field, value }) => {
     }
     case "currency": return <span style={{fontSize:13,color:C.text1,fontWeight:600}}>${Number(value).toLocaleString()}</span>;
     case "date":    return <span style={{fontSize:13}}>{new Date(value).toLocaleDateString()}</span>;
+    case "dataset": {
+      // Dataset values stored as string or array of strings
+      const arr = Array.isArray(value) ? value : (value ? [value] : []);
+      if (!arr.length) return <span style={{color:C.text3,fontSize:12}}>—</span>;
+      return <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+        {arr.map(v=><FilterPill key={v} label={v} color={C.accent}/>)}
+      </div>;
+    }
+    case "skills": {
+      const arr = Array.isArray(value) ? value : (value ? [value] : []);
+      if (!arr.length) return <span style={{color:C.text3,fontSize:12}}>—</span>;
+      return <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+        {arr.map(v=><span key={v} style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:99,background:"#F59F0018",border:"1px solid #F59F0028",fontSize:11,fontWeight:600,color:"#F59F00"}}>⚡ {v}</span>)}
+      </div>;
+    }
     default:        return <span style={{fontSize:13,color:C.text1,lineHeight:1.5}}>{String(value)}</span>;
   }
 };
@@ -276,6 +291,10 @@ const FieldEditor = ({ field, value, onChange, autoFocus }) => {
     case "multi_lookup": {
       return <PeoplePicker field={field} value={value} onChange={onChange}/>;
     }
+    case "dataset":
+      return <DatasetPicker field={field} value={value} onChange={onChange}/>;
+    case "skills":
+      return <SkillsPicker field={field} value={value} onChange={onChange}/>;
     case "url":
       return <Inp type="url" value={value} onChange={onChange} placeholder="https://…" autoFocus={autoFocus}/>;
     default:
@@ -289,6 +308,9 @@ let _currentEnvId = null;
 
 // Module-level cache so PeoplePicker doesn't re-fetch on every open
 const _pickerCache = {};
+// Module-level cache for dataset options and skills
+const _datasetCache = {};
+const _skillsCache = {};
 
 const PeoplePicker = ({ field, value, onChange }) => {
   const [search, setSearch] = useState("");
@@ -421,6 +443,193 @@ const PeoplePicker = ({ field, value, onChange }) => {
   );
 };
 
+// ── DatasetPicker ─────────────────────────────────────────────────────────────
+// Renders a searchable dropdown for a field whose options come from a Data Set.
+const DatasetPicker = ({ field, value, onChange }) => {
+  const [search, setSearch] = useState("");
+  const [options, setOptions] = useState([]);
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const isMulti = field.dataset_multi !== false && field.dataset_multi !== "false";
+  const selected = Array.isArray(value) ? value : (value ? [value] : []);
+
+  useEffect(() => {
+    if (!field.dataset_id) return;
+    const cacheKey = field.dataset_id;
+    if (_datasetCache[cacheKey]) { setOptions(_datasetCache[cacheKey]); return; }
+    fetch(`/api/datasets/${cacheKey}`).then(r=>r.json()).then(d => {
+      const opts = (d.options||[]).filter(o=>o.is_active!==false).map(o=>({ id: o.id, label: o.label, color: o.color }));
+      _datasetCache[cacheKey] = opts;
+      setOptions(opts);
+    });
+  }, [field.dataset_id]);
+
+  useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = options.filter(o => !search || o.label.toLowerCase().includes(search.toLowerCase()));
+  const toggle = (label) => {
+    if (isMulti) {
+      onChange(selected.includes(label) ? selected.filter(s=>s!==label) : [...selected, label]);
+    } else {
+      onChange(label === selected[0] ? "" : label);
+      setOpen(false);
+    }
+  };
+  const remove = (label, e) => { e.stopPropagation(); onChange(isMulti ? selected.filter(s=>s!==label) : ""); };
+
+  if (!field.dataset_id) {
+    return <div style={{fontSize:12,color:C.text3,padding:"4px 0"}}>No data set configured for this field</div>;
+  }
+
+  return (
+    <div ref={ref} style={{position:"relative"}}>
+      {/* Selected pills + input trigger */}
+      <div onClick={()=>setOpen(o=>!o)} style={{display:"flex",flexWrap:"wrap",gap:4,padding:"6px 8px",borderRadius:8,border:`1.5px solid ${open?C.accent:C.border}`,background:"white",cursor:"pointer",minHeight:36,alignItems:"center"}}>
+        {selected.map(s => {
+          const opt = options.find(o=>o.label===s);
+          return (
+            <span key={s} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"2px 8px",borderRadius:99,background:opt?.color?`${opt.color}18`:`${C.accent}12`,border:`1px solid ${opt?.color||C.accent}28`,fontSize:12,fontWeight:600,color:opt?.color||C.accent}}>
+              {opt?.color && <div style={{width:7,height:7,borderRadius:"50%",background:opt.color,flexShrink:0}}/>}
+              {s}
+              <span onClick={e=>remove(s,e)} style={{cursor:"pointer",opacity:0.6,fontSize:13,lineHeight:1}}>×</span>
+            </span>
+          );
+        })}
+        {selected.length===0 && <span style={{fontSize:13,color:C.text3,userSelect:"none"}}>{field.placeholder||`Choose ${field.name}…`}</span>}
+      </div>
+      {/* Dropdown */}
+      {open && (
+        <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,zIndex:200,background:"white",borderRadius:10,border:`1.5px solid ${C.border}`,boxShadow:"0 8px 24px rgba(0,0,0,0.12)",maxHeight:240,display:"flex",flexDirection:"column"}}>
+          <div style={{padding:"6px 8px",borderBottom:`1px solid ${C.border}`}}>
+            <input autoFocus value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search…"
+              style={{width:"100%",border:"none",outline:"none",fontSize:13,fontFamily:F,color:C.text1,background:"transparent"}}/>
+          </div>
+          <div style={{overflowY:"auto",flex:1}}>
+            {filtered.map(opt => {
+              const active = selected.includes(opt.label);
+              return (
+                <div key={opt.id} onClick={()=>toggle(opt.label)}
+                  style={{padding:"8px 12px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",background:active?`${C.accent}08`:"white"}}>
+                  {opt.color && <div style={{width:10,height:10,borderRadius:"50%",background:opt.color,flexShrink:0}}/>}
+                  <span style={{flex:1,fontSize:13,color:C.text1,fontWeight:active?600:400}}>{opt.label}</span>
+                  {active && <span style={{color:C.accent,fontSize:16}}>✓</span>}
+                </div>
+              );
+            })}
+            {filtered.length===0 && <div style={{padding:"12px",textAlign:"center",fontSize:12,color:C.text3}}>No options found</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── SkillsPicker ──────────────────────────────────────────────────────────────
+// Searchable skills picker that pulls from the Skills Ontology.
+const SkillsPicker = ({ field, value, onChange, environment }) => {
+  const [search, setSearch] = useState("");
+  const [skills, setSkills] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [filterCat, setFilterCat] = useState("");
+  const ref = useRef(null);
+  const isMulti = field.skills_multi !== false && field.skills_multi !== "false";
+  const selected = Array.isArray(value) ? value : (value ? [value] : []);
+  const allowedCats = field.skills_categories?.length > 0 ? field.skills_categories : null;
+
+  useEffect(() => {
+    const envId = environment?.id || window._currentEnvId;
+    if (!envId) return;
+    const cacheKey = `skills_${envId}_${(allowedCats||[]).join(",")}`;
+    if (_skillsCache[cacheKey]) { setSkills(_skillsCache[cacheKey]); return; }
+    fetch(`/api/enterprise/skills?environment_id=${envId}`).then(r=>r.json()).then(d => {
+      let all = Array.isArray(d) ? d.filter(s=>s.is_active!==false) : [];
+      if (allowedCats) all = all.filter(s => allowedCats.includes(s.category));
+      _skillsCache[cacheKey] = all;
+      setSkills(all);
+    });
+  }, [environment?.id, (field.skills_categories||[]).join(",")]);
+
+  useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const cats = [...new Set(skills.map(s=>s.category))].sort();
+  const filtered = skills.filter(s => {
+    if (filterCat && s.category !== filterCat) return false;
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return s.name.toLowerCase().includes(q) || (s.aliases||[]).some(a=>a.toLowerCase().includes(q));
+  });
+
+  const CAT_COLORS = { Technology:"#4361EE", Business:"#0CA678", Design:"#7C3AED", "Soft Skills":"#F59F00", Languages:"#E03131", Certifications:"#1098AD" };
+
+  const toggle = (name) => {
+    if (isMulti) {
+      onChange(selected.includes(name) ? selected.filter(s=>s!==name) : [...selected, name]);
+    } else {
+      onChange(name === selected[0] ? "" : name);
+      setOpen(false);
+    }
+  };
+  const remove = (name, e) => { e.stopPropagation(); onChange(isMulti ? selected.filter(s=>s!==name) : ""); };
+
+  return (
+    <div ref={ref} style={{position:"relative"}}>
+      <div onClick={()=>setOpen(o=>!o)} style={{display:"flex",flexWrap:"wrap",gap:4,padding:"6px 8px",borderRadius:8,border:`1.5px solid ${open?C.accent:C.border}`,background:"white",cursor:"pointer",minHeight:36,alignItems:"center"}}>
+        {selected.map(s => (
+          <span key={s} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"2px 8px",borderRadius:99,background:`${C.accent}12`,border:`1px solid ${C.accent}28`,fontSize:12,fontWeight:600,color:C.accent}}>
+            ⚡ {s}
+            <span onClick={e=>remove(s,e)} style={{cursor:"pointer",opacity:0.6,fontSize:13,lineHeight:1}}>×</span>
+          </span>
+        ))}
+        {selected.length===0 && <span style={{fontSize:13,color:C.text3,userSelect:"none"}}>{field.placeholder||`Add skills…`}</span>}
+      </div>
+      {open && (
+        <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,zIndex:200,background:"white",borderRadius:10,border:`1.5px solid ${C.border}`,boxShadow:"0 8px 24px rgba(0,0,0,0.12)",maxHeight:320,display:"flex",flexDirection:"column",minWidth:280}}>
+          <div style={{padding:"6px 8px",borderBottom:`1px solid ${C.border}`,display:"flex",gap:6,alignItems:"center"}}>
+            <input autoFocus value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search skills or aliases…"
+              style={{flex:1,border:"none",outline:"none",fontSize:13,fontFamily:F,color:C.text1,background:"transparent"}}/>
+            {cats.length > 1 && (
+              <select value={filterCat} onChange={e=>setFilterCat(e.target.value)}
+                style={{fontSize:11,border:`1px solid ${C.border}`,borderRadius:6,padding:"2px 6px",fontFamily:F,color:C.text2,background:"white",outline:"none"}}>
+                <option value="">All</option>
+                {cats.map(c=><option key={c} value={c}>{c}</option>)}
+              </select>
+            )}
+          </div>
+          <div style={{overflowY:"auto",flex:1}}>
+            {filtered.length === 0 && (
+              <div style={{padding:"16px",textAlign:"center",fontSize:12,color:C.text3}}>
+                {skills.length===0 ? "No skills in ontology yet — add them in Settings → Enterprise Settings" : "No matching skills"}
+              </div>
+            )}
+            {filtered.map(s => {
+              const active = selected.includes(s.name);
+              const color = CAT_COLORS[s.category] || C.accent;
+              return (
+                <div key={s.id} onClick={()=>toggle(s.name)}
+                  style={{padding:"8px 12px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",background:active?`${C.accent}08`:"white",borderBottom:`1px solid ${C.border}50`}}>
+                  <div style={{width:8,height:8,borderRadius:"50%",background:color,flexShrink:0}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,color:C.text1,fontWeight:active?600:400}}>{s.name}</div>
+                    {s.subcategory && <div style={{fontSize:10,color:C.text3}}>{s.category} · {s.subcategory}</div>}
+                  </div>
+                  {active && <span style={{color:C.accent,fontSize:16,flexShrink:0}}>✓</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const recordTitle = (record, fields) => {
   const nameField = fields.find(f=>["first_name","name","job_title","pool_name","title"].includes(f.api_key));
@@ -730,6 +939,8 @@ const getOpsForField = (f) => {
   if (!f) return FILTER_OPS.text;
   if (f.field_type === "select") return FILTER_OPS.select;
   if (f.field_type === "multi_select") return FILTER_OPS.multi_select;
+  if (f.field_type === "dataset") return FILTER_OPS.multi_select;
+  if (f.field_type === "skills")  return FILTER_OPS.multi_select;
   if (f.field_type === "boolean") return FILTER_OPS.boolean;
   if (["number","currency","rating"].includes(f.field_type)) return FILTER_OPS.number;
   if (f.field_type === "date") return FILTER_OPS.date;

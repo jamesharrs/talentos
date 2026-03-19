@@ -4410,8 +4410,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   }, []);
 
   // Permission helper — prefers PermissionContext (server-side), falls back to session
-  let _permCtx = null;
-  try { _permCtx = usePermCtx(); } catch {} // null if not inside PermissionProvider
+  const _permCtx = usePermCtx(); // safe — returns defaults if outside PermissionProvider
   const can = (action) => {
     if (_permCtx) return _permCtx.can(object?.slug, action);
     if (!session) return true;

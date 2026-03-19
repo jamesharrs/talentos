@@ -1166,7 +1166,19 @@ function App() {
   const { t, isRTL } = useI18n();
   const [session, setSession]   = useState(() => getSession()); // { user, role, permissions }
   const userId = session?.user?.id || null;
-  const { can, canGlobal } = usePermissions();
+  // Permission helpers using session (App renders PermissionProvider so cannot consume it directly)
+  const _sessionRole = session?.role?.slug;
+  const _sessionPerms = session?.permissions || [];
+  const canGlobal = (action) => {
+    if (!session) return false;
+    if (_sessionRole === "super_admin" || _sessionRole === "admin") return true;
+    return _sessionPerms.some(p => p.object_slug === "__global__" && p.action === action && p.allowed);
+  };
+  const can = (objectSlug, action) => {
+    if (!session) return false;
+    if (_sessionRole === "super_admin" || _sessionRole === "admin") return true;
+    return _sessionPerms.some(p => p.object_slug === objectSlug && p.action === action && p.allowed);
+  };
   const [environments, setEnvironments] = useState([]);
   const [selectedEnv, setSelectedEnv] = useState(null);
   const [selectedObject, setSelectedObject] = useState(null);

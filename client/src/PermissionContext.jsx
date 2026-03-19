@@ -44,10 +44,16 @@ export function PermissionProvider({ userId, children }) {
 }
 
 /** Hook to consume permissions anywhere in the tree. */
+const DEFAULT_PERMS = {
+  permissions: null, loading: false,
+  refresh: () => {},
+  can: () => true,        // optimistic — no provider means no restriction
+  canGlobal: () => true,
+};
+
 export function usePermissions() {
   const ctx = useContext(PermissionContext);
-  if (!ctx) throw new Error('usePermissions must be used inside <PermissionProvider>');
-  return ctx;
+  return ctx || DEFAULT_PERMS;  // safe fallback instead of throwing
 }
 
 /**

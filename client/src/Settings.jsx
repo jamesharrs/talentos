@@ -1089,6 +1089,143 @@ const PersonTypeConfig = ({ object, onUpdate }) => {
   );
 };
 
+// ─── FieldList — drag-to-reorder + order-number input ────────────────────────
+const FieldList = ({ fields, onReorder, onEdit, onDelete }) => {
+  const [dragIdx,    setDragIdx]    = useState(null);
+  const [overIdx,    setOverIdx]    = useState(null);
+  const [orderInputs, setOrderInputs] = useState({}); // fieldId -> string while editing
+
+  // Commit a numeric order input: supports decimals like "2.5"
+  const commitOrder = (f, raw) => {
+    const num = parseFloat(raw);
+    if (isNaN(num)) { setOrderInputs(p => { const n={...p}; delete n[f.id]; return n; }); return; }
+    // Insert field at the new position by sorting
+    const others = fields.filter(x => x.id !== f.id);
+    // Find insertion point
+    let insertAt = others.length;
+    for (let i = 0; i < others.length; i++) {
+      const pos = i + 1; // 1-based current position of this "other" field
+      if (num <= pos) { insertAt = i; break; }
+    }
+    const reordered = [...others.slice(0, insertAt), f, ...others.slice(insertAt)];
+    setOrderInputs(p => { const n={...p}; delete n[f.id]; return n; });
+    onReorder(reordered);
+  };
+
+  const handleDragStart = (e, idx) => {
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", idx);
+  };
+  const handleDragOver = (e, idx) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setOverIdx(idx);
+  };
+  const handleDrop = (e, idx) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) { setDragIdx(null); setOverIdx(null); return; }
+    const reordered = [...fields];
+    const [moved] = reordered.splice(dragIdx, 1);
+    reordered.splice(idx, 0, moved);
+    setDragIdx(null); setOverIdx(null);
+    onReorder(reordered);
+  };
+  const handleDragEnd = () => { setDragIdx(null); setOverIdx(null); };
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+      {fields.map((f, idx) => {
+        const isSep = f.field_type === "section_separator";
+        const isOver = overIdx === idx && dragIdx !== idx;
+        const isDragging = dragIdx === idx;
+        const orderVal = orderInputs.hasOwnProperty(f.id) ? orderInputs[f.id] : String(idx + 1);
+
+        return (
+          <div
+            key={f.id}
+            draggable
+            onDragStart={e => handleDragStart(e, idx)}
+            onDragOver={e => handleDragOver(e, idx)}
+            onDrop={e => handleDrop(e, idx)}
+            onDragEnd={handleDragEnd}
+            style={{
+              display:"flex", alignItems:"center", gap:8,
+              padding: isSep ? "8px 12px" : "9px 12px",
+              borderRadius:10,
+              border: isOver
+                ? `2px solid ${C.accent}`
+                : isSep
+                ? "1.5px dashed #93c5fd"
+                : `1px solid ${C.border}`,
+              background: isDragging ? "#f0f4ff" : isSep ? "#f0f4ff" : "#fff",
+              opacity: isDragging ? 0.5 : 1,
+              transition: "border .1s, background .1s",
+              cursor: "grab",
+            }}
+          >
+            {/* Drag handle */}
+            <div title="Drag to reorder" style={{
+              display:"flex", flexDirection:"column", gap:2,
+              padding:"2px 4px", cursor:"grab", flexShrink:0, color:C.text3,
+              opacity: 0.5,
+            }}>
+              {[0,1,2].map(i => (
+                <div key={i} style={{width:12,height:2,borderRadius:1,background:"currentColor"}}/>
+              ))}
+            </div>
+
+            {/* Order number input */}
+            <input
+              type="text"
+              value={orderVal}
+              title="Order number (decimals like 2.5 allowed)"
+              onChange={e => setOrderInputs(p => ({...p, [f.id]: e.target.value}))}
+              onBlur={e => commitOrder(f, e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") { e.target.blur(); } if (e.key === "Escape") { setOrderInputs(p => { const n={...p}; delete n[f.id]; return n; }); } }}
+              style={{
+                width:34, textAlign:"center", padding:"3px 4px",
+                border:`1px solid ${C.border}`, borderRadius:6,
+                fontSize:11, fontWeight:700, color:C.text2,
+                background:"#f8f9fc", fontFamily:F,
+                flexShrink:0,
+              }}
+            />
+
+            {/* Content */}
+            {isSep ? (
+              <div style={{flex:1, minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:12,fontWeight:800,color:"#374151",textTransform:"uppercase",letterSpacing:"0.07em"}}>━ {f.section_label||f.name}</span>
+                  <span style={{fontSize:10,padding:"1px 6px",borderRadius:99,background:"#dbeafe",color:"#3b82f6",fontWeight:600}}>section</span>
+                </div>
+                <div style={{fontSize:11,color:C.text3,marginTop:1}}>Fields below collapse under this header</div>
+              </div>
+            ) : (
+              <div style={{flex:1, minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:13,fontWeight:600,color:C.text1}}>{f.name}</span>
+                  {f.is_system&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:99,background:"#f1f5f9",color:"#64748b",fontWeight:600}}>system</span>}
+                  {!!f.is_required&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:99,background:"#fef2f2",color:"#ef4444",fontWeight:600}}>required</span>}
+                </div>
+                <div style={{fontSize:11,color:C.text3,marginTop:2}}>
+                  <code style={{fontFamily:"monospace"}}>{f.api_key}</code> · {f.field_type}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div style={{display:"flex",gap:4,flexShrink:0}}>
+              <Btn v="ghost" sz="sm" icon="edit" onClick={()=>onEdit(f)}/>
+              {!f.is_system && <Btn v="ghost" sz="sm" icon="trash" onClick={()=>onDelete(f)} style={{color:"#ef4444"}}/>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const DataModelSection = () => {
   const [envs,       setEnvs]       = useState([]);
   const [selEnv,     setSelEnv]     = useState(null);
@@ -1492,41 +1629,17 @@ const DataModelSection = () => {
               {selObj.slug === "people" && (
                 <PersonTypeConfig object={selObj} onUpdate={updated => { setSelObj(updated); reloadObjects(); }}/>
               )}
-              <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                {fields.map(f=>(
-                f.field_type === "section_separator" ? (
-                  <div key={f.id} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 14px",
-                    background:"#f0f4ff",borderRadius:10,border:`1.5px dashed #93c5fd`}}>
-                    <div style={{flex:1}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <span style={{fontSize:12,fontWeight:800,color:"#374151",textTransform:"uppercase",letterSpacing:"0.07em"}}>━ {f.section_label||f.name}</span>
-                        <span style={{fontSize:10,padding:"1px 6px",borderRadius:99,background:"#dbeafe",color:"#3b82f6",fontWeight:600}}>section</span>
-                      </div>
-                      <div style={{fontSize:11,color:C.text3,marginTop:1}}>Fields below collapse under this header</div>
-                    </div>
-                    <div style={{display:"flex",gap:4}}>
-                      <Btn v="ghost" sz="sm" icon="edit" onClick={()=>setEditField(f)}/>
-                      {!f.is_system&&<Btn v="ghost" sz="sm" icon="trash" onClick={()=>deleteField(f)} style={{color:"#ef4444"}}/>}
-                    </div>
-                  </div>
-                ) : (
-                <div key={f.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"#fff",borderRadius:10,border:`1px solid ${C.border}`}}>
-                  <div style={{flex:1}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <span style={{fontSize:13,fontWeight:600,color:C.text1}}>{f.name}</span>
-                      {f.is_system&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:99,background:"#f1f5f9",color:"#64748b",fontWeight:600}}>system</span>}
-                      {!!f.is_required&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:99,background:"#fef2f2",color:"#ef4444",fontWeight:600}}>required</span>}
-                    </div>
-                    <div style={{fontSize:11,color:C.text3,marginTop:2}}><code style={{fontFamily:"monospace"}}>{f.api_key}</code> · {f.field_type}</div>
-                  </div>
-                  <div style={{display:"flex",gap:4}}>
-                    <Btn v="ghost" sz="sm" icon="edit" onClick={()=>setEditField(f)}/>
-                    {!f.is_system&&<Btn v="ghost" sz="sm" icon="trash" onClick={()=>deleteField(f)} style={{color:"#ef4444"}}/>}
-                  </div>
-                </div>
-                )
-              ))}
-            </div>
+              <FieldList
+                fields={fields}
+                onReorder={async (reordered) => {
+                  setFields(reordered);
+                  await api.post("/fields/reorder", {
+                    field_orders: reordered.map((f, i) => ({ id: f.id, sort_order: i + 1 }))
+                  });
+                }}
+                onEdit={f => setEditField(f)}
+                onDelete={deleteField}
+              />
             </>
           )}
         </div>

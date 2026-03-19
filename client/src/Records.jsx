@@ -3,6 +3,7 @@ import { usePermissions as usePermCtx } from "./PermissionContext.jsx";
 import ReactDOM from "react-dom";
 import { MatchingEngine } from "./AI.jsx";
 import CommunicationsPanel from "./Communications.jsx";
+import SharePicker from "./SharePicker.jsx";
 import { RecordPipelinePanel, PeoplePipelineWidget, LinkedRecordsPanel } from "./Workflows.jsx";
 import { RecordFormPanel } from "./Forms.jsx";
 import { TasksEventsPanel } from "./TasksEventsPanel.jsx";
@@ -507,7 +508,7 @@ const SavedViewsDropdown = ({ objectId, environmentId, userId, currentFilters, c
   const [saving, setSaving]     = useState(false);
   const [showSave, setShowSave] = useState(false);
   const [saveName, setSaveName] = useState("");
-  const [saveShared, setSaveShared] = useState(false);
+  const [saveSharing, setSaveSharing] = useState({ visibility: "private", user_ids: [], group_ids: [] });
   const [deleting, setDeleting] = useState(null);
   const ref = useRef(null);
 
@@ -532,14 +533,15 @@ const SavedViewsDropdown = ({ objectId, environmentId, userId, currentFilters, c
       object_id: objectId,
       environment_id: environmentId,
       created_by: userId || "unknown",
-      is_shared: saveShared,
+      is_shared: saveSharing.visibility === "everyone",
+      sharing: saveSharing,
       filters: currentFilters,
       visible_field_ids: currentVisibleFieldIds || [],
       view_mode: currentViewMode,
     });
     setSaving(false);
     setSaveName("");
-    setSaveShared(false);
+    setSaveSharing({ visibility: "private", user_ids: [], group_ids: [] });
     setShowSave(false);
     load();
   };
@@ -552,7 +554,12 @@ const SavedViewsDropdown = ({ objectId, environmentId, userId, currentFilters, c
   };
 
   const handleToggleShare = async (view) => {
-    await api.patch(`/saved-views/${view.id}`, { is_shared: !view.is_shared });
+    const current = view.sharing?.visibility || (view.is_shared ? "everyone" : "private");
+    const next = current === "private" ? "everyone" : "private";
+    await api.patch(`/saved-views/${view.id}`, {
+      is_shared: next === "everyone",
+      sharing: { visibility: next, user_ids: view.sharing?.user_ids||[], group_ids: view.sharing?.group_ids||[] },
+    });
     load();
   };
 
@@ -578,13 +585,7 @@ const SavedViewsDropdown = ({ objectId, environmentId, userId, currentFilters, c
         <div style={{ padding:"10px 14px", borderBottom:`1px solid ${C.border}`, display:"flex", flexDirection:"column", gap:8, background:"#f8f9fc" }}>
           <input value={saveName} onChange={e => setSaveName(e.target.value)} placeholder="View name…" style={ibs} autoFocus
             onKeyDown={e => e.key === "Enter" && handleSave()}/>
-          <label style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", fontSize:12, color:C.text2, userSelect:"none" }}>
-            <div onClick={() => setSaveShared(s => !s)}
-              style={{ width:32, height:18, borderRadius:9, background: saveShared ? C.accent : "#d1d5db", position:"relative", transition:"background .2s", cursor:"pointer", flexShrink:0 }}>
-              <div style={{ position:"absolute", top:2, left: saveShared ? 16 : 2, width:14, height:14, borderRadius:"50%", background:"white", transition:"left .2s", boxShadow:"0 1px 3px rgba(0,0,0,.2)" }}/>
-            </div>
-            <span>Share with all users</span>
-          </label>
+          <SharePicker value={saveSharing} onChange={setSaveSharing} environmentId={environmentId} compact={false}/>
           <div style={{ display:"flex", gap:6 }}>
             <button onClick={() => { setShowSave(false); setSaveName(""); }} style={{ flex:1, padding:"5px", borderRadius:7, border:`1px solid ${C.border}`, background:"transparent", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F, color:C.text2 }}>Cancel</button>
             <button onClick={handleSave} disabled={saving || !saveName.trim()} style={{ flex:2, padding:"5px", borderRadius:7, border:"none", background:C.accent, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:F, opacity:(!saveName.trim()||saving)?0.5:1 }}>
@@ -609,8 +610,16 @@ const SavedViewsDropdown = ({ objectId, environmentId, userId, currentFilters, c
               <div style={{ fontSize:10, color:C.text3, marginTop:1, display:"flex", alignItems:"center", gap:6 }}>
                 <span>Table</span>
                 {view.filters?.length > 0 && <span>· {view.filters.length} filter{view.filters.length !== 1 ? "s" : ""}</span>}
-                {view.is_shared && <span style={{ color:"#0ca678", fontWeight:600 }}>· Shared</span>}
-                {!view.is_shared && <span style={{ color:C.text3 }}>· Private</span>}
+                {(() => {
+                  const sh = view.sharing;
+                  if (!sh) return view.is_shared ? <span style={{ color:"#0ca678", fontWeight:600 }}>· Everyone</span> : <span style={{ color:C.text3 }}>· Private</span>;
+                  if (sh.visibility === "everyone") return <span style={{ color:"#0ca678", fontWeight:600 }}>· Everyone</span>;
+                  if (sh.visibility === "specific") {
+                    const u = (sh.user_ids||[]).length, g = (sh.group_ids||[]).length;
+                    return <span style={{ color:C.accent, fontWeight:600 }}>· {[u&&`${u}u`,g&&`${g}g`].filter(Boolean).join(", ") || "Specific"}</span>;
+                  }
+                  return <span style={{ color:C.text3 }}>· Private</span>;
+                })()}
               </div>
             </div>
             {/* Actions */}

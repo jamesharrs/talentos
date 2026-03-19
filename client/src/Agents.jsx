@@ -1,5 +1,6 @@
 // client/src/Agents.jsx
 import AgentLibrary from "./AgentLibrary.jsx";
+import SharePicker from "./SharePicker.jsx";
 import { useState, useEffect, useCallback } from "react";
 import AiBadge from "./AiBadge.jsx";
 
@@ -137,6 +138,7 @@ function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
     trigger_config: agent?.trigger_config||{}, target_object_id: agent?.target_object_id||'',
     conditions: agent?.conditions||[], actions: agent?.actions||[],
     is_active: agent?.is_active!==undefined?agent.is_active:1, schedule_time: agent?.schedule_time||'09:00',
+    sharing: agent?.sharing || { visibility: 'private', user_ids: [], group_ids: [] },
   });
 
   useEffect(()=>{ api.get('/api/agents/meta').then(setMeta).catch(()=>{}); },[]);
@@ -447,10 +449,17 @@ function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
 
           {/* SETTINGS TAB */}
           {tab==='settings'&&(
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:`1px solid ${C.border}`}}>
-              <div><div style={{fontSize:13,fontWeight:600,color:C.text1}}>Active</div><div style={{fontSize:11,color:C.text3}}>Enable or disable this agent</div></div>
-              <div onClick={()=>set('is_active',form.is_active?0:1)} style={{width:40,height:24,borderRadius:12,background:form.is_active?C.green:"#D1D5DB",cursor:"pointer",position:"relative",transition:"background .2s"}}>
-                <div style={{width:18,height:18,borderRadius:"50%",background:"white",position:"absolute",top:3,left:form.is_active?19:3,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:`1px solid ${C.border}`}}>
+                <div><div style={{fontSize:13,fontWeight:600,color:C.text1}}>Active</div><div style={{fontSize:11,color:C.text3}}>Enable or disable this agent</div></div>
+                <div onClick={()=>set('is_active',form.is_active?0:1)} style={{width:40,height:24,borderRadius:12,background:form.is_active?C.green:"#D1D5DB",cursor:"pointer",position:"relative",transition:"background .2s"}}>
+                  <div style={{width:18,height:18,borderRadius:"50%",background:"white",position:"absolute",top:3,left:form.is_active?19:3,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+                </div>
+              </div>
+              <div style={{paddingTop:4}}>
+                <div style={{fontSize:13,fontWeight:600,color:C.text1,marginBottom:3}}>Sharing</div>
+                <div style={{fontSize:11,color:C.text3,marginBottom:10}}>Choose who can see and use this agent</div>
+                <SharePicker value={form.sharing} onChange={v=>set('sharing',v)} environmentId={environment?.id}/>
               </div>
             </div>
           )}

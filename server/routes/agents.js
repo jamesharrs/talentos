@@ -225,6 +225,8 @@ router.post('/', (req, res) => {
     trigger_config: trigger_config || {}, conditions: conditions || [], actions: actions || [],
     target_object_id: target_object_id || null, schedule_time: schedule_time || '09:00',
     is_active: is_active !== false ? 1 : 0, run_count: 0,
+    sharing: req.body.sharing || { visibility: 'private', user_ids: [], group_ids: [] },
+    created_by: req.body.created_by || null,
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   });
   res.status(201).json(agent);

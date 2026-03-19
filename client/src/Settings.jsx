@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { usePermissions, Gate } from "./PermissionContext.jsx";
 import ReactDOM from "react-dom";
 import FileTypesSettings from "./settings/FileTypesSettings.jsx";
+import GroupsSection from "./settings/GroupsSection.jsx";
 import AgentsSettings from "./settings/AgentsSettings.jsx";
 import AiGovernance from "./settings/AiGovernance.jsx";
 import QuestionBankSettings from "./settings/QuestionBankSettings.jsx";
@@ -1596,6 +1597,7 @@ const NAV_GROUPS = [
     label: "People & access",
     items: [
       { id:"users",  icon:"users",  label:"Users" },
+      { id:"groups", icon:"layers", label:"Groups" },
       { id:"roles",  icon:"shield", label:"Roles & permissions" },
       { id:"org",    icon:"layers", label:"Org structure" },
     ],
@@ -1732,6 +1734,7 @@ export default function SettingsPage({ currentUser, environment }) {
       <div style={{flex:1,minWidth:0}}>
         {activeSection==="datamodel"  && <DataModelSection/>}
         {activeSection==="users"      && <UsersSection/>}
+        {activeSection==="groups"     && <GroupsSection environment={environment}/>}
         {activeSection==="roles"      && <RolesSection environment={environment}/>}
         {activeSection==="org"        && <OrgChart environment={environment}/>}
         {activeSection==="security"   && <SecuritySection/>}

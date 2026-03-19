@@ -14,11 +14,18 @@ router.get('/', (req, res) => {
   ensureTable();
   const { object_id, environment_id, user_id } = req.query;
   if (!object_id || !environment_id) return res.status(400).json({ error: 'object_id and environment_id required' });
-  const views = query('saved_views', v =>
-    v.object_id === object_id &&
-    v.environment_id === environment_id &&
-    (v.is_shared || v.created_by === user_id)
-  ).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const views = query('saved_views', v => {
+    if (v.object_id !== object_id || v.environment_id !== environment_id) return false;
+    if (v.created_by === user_id) return true;
+    const sh = v.sharing;
+    if (!sh) return !!v.is_shared; // legacy
+    if (sh.visibility === 'everyone') return true;
+    if (sh.visibility === 'specific') {
+      if ((sh.user_ids || []).includes(user_id)) return true;
+      // group check done client-side for simplicity
+    }
+    return false;
+  }).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   res.json(views);
 });
 
@@ -30,7 +37,8 @@ router.post('/', (req, res) => {
   const view = insert('saved_views', {
     id: uuidv4(), name, object_id, environment_id,
     created_by: created_by || 'unknown',
-    is_shared: !!is_shared,
+    is_shared: !!is_shared, // legacy compat
+    sharing: req.body.sharing || { visibility: is_shared ? 'everyone' : 'private', user_ids: [], group_ids: [] },
     filters: filters || [],
     visible_field_ids: visible_field_ids || [],
     view_mode: view_mode || 'table',

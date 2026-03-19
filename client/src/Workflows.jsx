@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { matchCandidateToJob } from "./AI.jsx";
+import SharePicker from "./SharePicker.jsx";
 
 const F = "'DM Sans', -apple-system, sans-serif";
 const C = {
@@ -648,6 +649,7 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
   const [objectId, setObjectId] = useState(workflow?.object_id || "");
   const [desc, setDesc]       = useState(workflow?.description || "");
   const [wfType, setWfType]   = useState(workflow?.workflow_type || "automation");
+  const [sharing, setSharing] = useState(workflow?.sharing || { visibility: "private", user_ids: [], group_ids: [] });
   const [steps, setSteps]     = useState(workflow?.steps || []);
   const [saving, setSaving]   = useState(false);
   const [fields, setFields]   = useState([]);
@@ -690,9 +692,9 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
     try {
       let wf;
       if (workflow?.id) {
-        wf = await api.patch(`/workflows/${workflow.id}`, { name, object_id: objectId, description: desc, workflow_type: wfType });
+        wf = await api.patch(`/workflows/${workflow.id}`, { name, object_id: objectId, description: desc, workflow_type: wfType, sharing });
       } else {
-        wf = await api.post("/workflows", { name, object_id: objectId, description: desc, environment_id: environment.id, workflow_type: wfType });
+        wf = await api.post("/workflows", { name, object_id: objectId, description: desc, environment_id: environment.id, workflow_type: wfType, sharing });
       }
       if (!wf?.id) throw new Error("Server did not return a workflow ID");
       await api.put(`/workflows/${wf.id}/steps`, { steps: steps.map(migrateStep) });
@@ -765,6 +767,11 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
                   </button>
                 ))}
               </div>
+            </div>
+            {/* Sharing */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.text2, marginBottom: 8 }}>Sharing</div>
+              <SharePicker value={sharing} onChange={setSharing} environmentId={environment?.id}/>
             </div>
           </div>
 

@@ -54,6 +54,7 @@ app.use('/api/csv',          require('./routes/csv'));
 app.use('/api/workflows',    require('./routes/workflows'));
 app.use('/api/portals',      require('./routes/portals'));
 app.use('/api/reports',      require('./routes/reports'));
+app.use('/api/groups',       require('./routes/groups'));
 app.use('/api/saved-views',      require('./routes/saved_views'));
 app.use('/api/config',           require('./routes/config'));
 app.use('/api/bot',              require('./routes/bot'));

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { ClientList, ClientDetail, ProvisionWizard, Performance } from './superadmin/ClientManager.jsx';
+import DemoDataManager from './superadmin/DemoDataManager';
 
 const F = "'DM Sans', -apple-system, sans-serif";
 const C = {
@@ -274,6 +275,7 @@ const NAV_ITEMS = [
   { id:'clients',  label:'Clients',      icon:'clients', desc:'Manage client organisations' },
   { id:'provision',label:'Provision',    icon:'provision',desc:'Provision a new client environment' },
   { id:'perf',     label:'Performance',  icon:'perf',    desc:'Platform-wide stats & usage' },
+  { id:'demo',     label:'Demo Data',    icon:'provision', desc:'Generate realistic demo data' },
 ];
 
 export default function SuperAdminConsole() {
@@ -348,6 +350,7 @@ export default function SuperAdminConsole() {
           <ProvisionWizard onDone={()=>{ setSection('clients'); setClientView('list'); }} onCancel={()=>setSection('clients')}/>
         )}
         {section === 'perf' && <Performance/>}
+        {section === 'demo' && <DemoDataManager/>}
       </div>
     </div>
   );

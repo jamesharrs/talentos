@@ -65,6 +65,7 @@ app.use('/api/calendar',         require('./routes/calendar'));
 app.use('/api/translate',          require('./routes/translate'));
 app.use('/api/superadmin',         require('./routes/superadmin'));
 app.use('/api/superadmin/clients', require('./routes/superadmin_clients'));
+app.use('/api/superadmin/demo',    require('./routes/demo_seed'));
 app.use('/api/file-types',         require('./routes/file_types'));
 app.use('/api/cv-parse',           require('./routes/cv_parse'));
 app.use('/api/doc-extract',        require('./routes/doc_extract'));

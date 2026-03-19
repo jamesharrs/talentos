@@ -968,12 +968,46 @@ const SessionsSection = () => {
 
 // ── Data Model Section ────────────────────────────────────────────────────────
 const FIELD_TYPES_DM = [
-  {value:"text",label:"Text",icon:"T"},{value:"textarea",label:"Long Text",icon:"¶"},{value:"number",label:"Number",icon:"#"},
-  {value:"email",label:"Email",icon:"@"},{value:"phone",label:"Phone",icon:"☎"},{value:"url",label:"URL",icon:"🔗"},
-  {value:"date",label:"Date",icon:"📅"},{value:"boolean",label:"Boolean",icon:"◉"},{value:"select",label:"Select",icon:"▾"},
-  {value:"multi_select",label:"Multi Select",icon:"☑"},{value:"currency",label:"Currency",icon:"$"},{value:"rating",label:"Rating",icon:"★"},
-  {value:"people",label:"People",icon:"👤"},
-  {value:"dataset",label:"Data Set",icon:"≡"},{value:"skills",label:"Skills",icon:"⚡"},
+  // Text
+  {value:"text",         label:"Text",         icon:"T",  group:"Text"},
+  {value:"textarea",     label:"Long Text",    icon:"¶",  group:"Text"},
+  {value:"rich_text",    label:"Rich Text",    icon:"✦",  group:"Text"},
+  // Numbers
+  {value:"number",       label:"Number",       icon:"#",  group:"Number"},
+  {value:"currency",     label:"Currency",     icon:"$",  group:"Number"},
+  {value:"percent",      label:"Percent",      icon:"%",  group:"Number"},
+  {value:"formula",      label:"Formula",      icon:"ƒ",  group:"Number"},
+  {value:"progress",     label:"Progress",     icon:"▬",  group:"Number"},
+  // Dates
+  {value:"date",         label:"Date",         icon:"📅", group:"Date"},
+  {value:"datetime",     label:"Date & Time",  icon:"🕐", group:"Date"},
+  {value:"date_range",   label:"Date Range",   icon:"↔",  group:"Date"},
+  {value:"duration",     label:"Duration",     icon:"⏱",  group:"Date"},
+  // Choice
+  {value:"select",       label:"Select",       icon:"⊙",  group:"Choice"},
+  {value:"multi_select", label:"Multi Select", icon:"⊛",  group:"Choice"},
+  {value:"status",       label:"Status",       icon:"◈",  group:"Choice"},
+  {value:"boolean",      label:"Boolean",      icon:"✓",  group:"Choice"},
+  {value:"rating",       label:"Rating",       icon:"★",  group:"Choice"},
+  // Contact
+  {value:"email",        label:"Email",        icon:"@",  group:"Contact"},
+  {value:"phone",        label:"Phone",        icon:"☎",  group:"Contact"},
+  {value:"phone_intl",   label:"Phone (Intl)", icon:"☏",  group:"Contact"},
+  {value:"url",          label:"URL",          icon:"🔗", group:"Contact"},
+  {value:"social",       label:"Social Link",  icon:"⬡",  group:"Contact"},
+  // Location
+  {value:"country",      label:"Country",      icon:"🌍", group:"Location"},
+  {value:"address",      label:"Address",      icon:"📍", group:"Location"},
+  // Reference
+  {value:"people",       label:"People",       icon:"👤", group:"Reference"},
+  {value:"lookup",       label:"Lookup",       icon:"⤷",  group:"Reference"},
+  {value:"rollup",       label:"Rollup",       icon:"∑",  group:"Reference"},
+  // System
+  {value:"auto_number",  label:"Auto Number",  icon:"№",  group:"System"},
+  {value:"unique_id",    label:"Unique ID",    icon:"⌗",  group:"System"},
+  // Legacy / kept for compatibility
+  {value:"dataset",      label:"Data Set",     icon:"≡",  group:"Other"},
+  {value:"skills",       label:"Skills",       icon:"⚡", group:"Other"},
 ];
 const COLORS_DM = ["#6366f1","#f59e0b","#10b981","#ef4444","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f97316","#64748b"];
 
@@ -1136,13 +1170,22 @@ const DataModelSection = () => {
     const handle = async () => {
       setSaving(true);
       await saveField({ ...form, object_id: selObj.id, environment_id: selEnv.id,
-        options: ["select","multi_select"].includes(form.field_type) ? form.options.split(",").map(s=>s.trim()).filter(Boolean) : undefined,
+        options: ["select","multi_select","status"].includes(form.field_type) ? form.options.split(",").map(s=>s.trim()).filter(Boolean) : undefined,
         related_object_slug: form.field_type === "people" ? form.related_object_slug : undefined,
         people_multi: form.field_type === "people" ? form.people_multi : undefined,
         dataset_id: form.field_type === "dataset" ? form.dataset_id : undefined,
         dataset_multi: form.field_type === "dataset" ? form.dataset_multi : undefined,
         skills_multi: form.field_type === "skills" ? form.skills_multi : undefined,
         skills_categories: form.field_type === "skills" ? form.skills_categories : undefined,
+        formula_expression: form.field_type === "formula" ? form.formula_expression : undefined,
+        formula_output_type: form.field_type === "formula" ? (form.formula_output_type||"auto") : undefined,
+        auto_number_prefix: form.field_type === "auto_number" ? form.auto_number_prefix : undefined,
+        auto_number_padding: form.field_type === "auto_number" ? (form.auto_number_padding||4) : undefined,
+        duration_unit: form.field_type === "duration" ? (form.duration_unit||"days") : undefined,
+        date_range_start_label: form.field_type === "date_range" ? form.date_range_start_label : undefined,
+        date_range_end_label: form.field_type === "date_range" ? form.date_range_end_label : undefined,
+        social_platform: form.field_type === "social" ? (form.social_platform||"linkedin") : undefined,
+        address_fields: form.field_type === "address" ? (form.address_fields||["street","city","country","postal_code"]) : undefined,
       }, field?.id);
       setSaving(false);
     };
@@ -1161,7 +1204,75 @@ const DataModelSection = () => {
             <Inp label="Field Name" value={form.name} onChange={handleName} required/>
             <Inp label="API Key" value={form.api_key} onChange={v=>{set("api_key",v);setAutoKey(false);}} disabled={isEdit&&field?.is_system}/>
           </div>
-          {["select","multi_select"].includes(form.field_type) && <div style={{marginBottom:12}}><Inp label="Options (comma-separated)" value={form.options} onChange={v=>set("options",v)} placeholder="Option A, Option B"/></div>}
+          {["select","multi_select","status"].includes(form.field_type) && <div style={{marginBottom:12}}><Inp label="Options (comma-separated)" value={form.options} onChange={v=>set("options",v)} placeholder="Option A, Option B"/></div>}
+
+          {/* ── Formula config ── */}
+          {form.field_type==="formula" && <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>ƒ Formula</div>
+            <label style={{display:"block",fontSize:11,fontWeight:600,color:C.text3,marginBottom:4}}>EXPRESSION</label>
+            <textarea value={form.formula_expression||""} onChange={e=>set("formula_expression",e.target.value)}
+              placeholder="{salary_max} - {salary_min}  or  ROUND({base} * 1.15, 2)"
+              rows={3} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:12,fontFamily:"ui-monospace,monospace",resize:"vertical",background:"white",color:C.text1,boxSizing:"border-box"}}/>
+            <div style={{fontSize:10,color:C.text3,marginTop:4}}>Use {"{field_key}"} for other fields. Functions: SUM, AVG, MIN, MAX, ROUND, ABS, IF, DATEDIFF, TODAY, CONCAT, LEN, UPPER, LOWER.</div>
+            <div style={{marginTop:8}}>
+              <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>OUTPUT TYPE</label>
+              <select value={form.formula_output_type||"auto"} onChange={e=>set("formula_output_type",e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:13,fontFamily:F,background:"white",color:C.text1}}>
+                {["auto","number","currency","percent","text","date"].map(v=><option key={v} value={v}>{v.charAt(0).toUpperCase()+v.slice(1)}</option>)}
+              </select>
+            </div>
+          </div>}
+
+          {/* ── Auto Number config ── */}
+          {form.field_type==="auto_number" && <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>№ Auto Number</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
+              <div><label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>PREFIX</label>
+                <input value={form.auto_number_prefix||""} onChange={e=>set("auto_number_prefix",e.target.value)} placeholder="REQ-"
+                  style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:13,color:C.text1,boxSizing:"border-box"}}/></div>
+              <div><label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>PADDING</label>
+                <input type="number" min={1} max={8} value={form.auto_number_padding||4} onChange={e=>set("auto_number_padding",Number(e.target.value))}
+                  style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:13,color:C.text1,boxSizing:"border-box"}}/></div>
+            </div>
+            <div style={{padding:"6px 10px",background:"#f0f4ff",borderRadius:6,fontSize:11,color:"#3b5bdb",fontFamily:"ui-monospace,monospace"}}>
+              Preview: {form.auto_number_prefix||"REQ-"}{String(1).padStart(form.auto_number_padding||4,"0")}
+            </div>
+          </div>}
+
+          {/* ── Duration config ── */}
+          {form.field_type==="duration" && <div style={{marginBottom:12}}>
+            <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>DEFAULT UNIT</label>
+            <select value={form.duration_unit||"days"} onChange={e=>set("duration_unit",e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:13,fontFamily:F,background:"white",color:C.text1}}>
+              {[["minutes","Minutes"],["hours","Hours"],["days","Days"],["weeks","Weeks"],["months","Months"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>}
+
+          {/* ── Date Range config ── */}
+          {form.field_type==="date_range" && <div style={{marginBottom:12,display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div><label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>START LABEL</label>
+              <input value={form.date_range_start_label||"Start"} onChange={e=>set("date_range_start_label",e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:13,color:C.text1,boxSizing:"border-box"}}/></div>
+            <div><label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>END LABEL</label>
+              <input value={form.date_range_end_label||"End"} onChange={e=>set("date_range_end_label",e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:13,color:C.text1,boxSizing:"border-box"}}/></div>
+          </div>}
+
+          {/* ── Social Link config ── */}
+          {form.field_type==="social" && <div style={{marginBottom:12}}>
+            <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>PLATFORM</label>
+            <select value={form.social_platform||"linkedin"} onChange={e=>set("social_platform",e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:13,fontFamily:F,background:"white",color:C.text1}}>
+              {[["linkedin","LinkedIn"],["github","GitHub"],["twitter","X / Twitter"],["instagram","Instagram"],["facebook","Facebook"],["youtube","YouTube"],["other","Other"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>}
+
+          {/* ── Address config ── */}
+          {form.field_type==="address" && <div style={{marginBottom:12}}>
+            <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:6}}>SUB-FIELDS TO SHOW</label>
+            {[["street","Street Address"],["city","City"],["state","State / Region"],["country","Country"],["postal_code","Postal Code"]].map(([k,lbl])=>{
+              const curr=form.address_fields||["street","city","country","postal_code"];
+              const checked=curr.includes(k);
+              return <label key={k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,fontSize:13,cursor:"pointer"}}>
+                <input type="checkbox" checked={checked} onChange={()=>set("address_fields",checked?curr.filter(x=>x!==k):[...curr,k])}/>{lbl}
+              </label>;
+            })}
+          </div>}
           {form.field_type === "dataset" && (
             <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
               <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>≡ Data Set Field</div>

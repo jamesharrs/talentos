@@ -6,6 +6,10 @@ import CommunicationsPanel from "./Communications.jsx";
 import SharePicker from "./SharePicker.jsx";
 import { RecordPipelinePanel, PeoplePipelineWidget, LinkedRecordsPanel } from "./Workflows.jsx";
 import { RecordFormPanel } from "./Forms.jsx";
+import { evaluateFormula, formatFormulaResult } from "./utils/formula.js";
+import { COUNTRIES, COUNTRY_MAP, PHONE_CODES, formatPhone,
+         validatePhone, autoFormatPhoneNumber, countryCodeFromDial,
+         getPhoneRule, stripPhoneDigits } from "./utils/countries.js";
 import { TasksEventsPanel } from "./TasksEventsPanel.jsx";
 import { ScorecardPanel } from "./Scorecards.jsx";
 import AiBadge, { isAiGenerated } from "./AiBadge.jsx";
@@ -157,7 +161,7 @@ const emitFilterNav = (fieldKey, fieldLabel, fieldValue) => {
   }));
 };
 
-const FieldValue = ({ field, value }) => {
+const FieldValue = ({ field, value, allFieldValues = {} }) => {
   if (value===null||value===undefined||value==="") return <span style={{color:C.text3,fontSize:12}}>—</span>;
 
   // Clickable pill — navigates to a filtered list of records with this value
@@ -216,6 +220,60 @@ const FieldValue = ({ field, value }) => {
       );
     }
     case "currency": return <span style={{fontSize:13,color:C.text1,fontWeight:600}}>${Number(value).toLocaleString()}</span>;
+    // ── New field types ──────────────────────────────────────────────────────
+    case "formula": {
+      const result = evaluateFormula(field.formula_expression, allFieldValues||{});
+      const fmt = formatFormulaResult(result, field.formula_output_type);
+      return <span style={{fontSize:13,fontWeight:600,color:fmt==='#ERROR'?"#ef4444":"#1a1a2e",fontFamily:fmt==='#ERROR'?"inherit":"ui-monospace,monospace"}}>{fmt}</span>;
+    }
+    case "progress": {
+      const pct = Math.max(0,Math.min(100,Number(value)));
+      const col = pct>=75?"#0ca678":pct>=40?"#f59f00":"#ef4444";
+      return <div style={{display:"flex",alignItems:"center",gap:8,minWidth:120}}>
+        <div style={{flex:1,height:6,borderRadius:99,background:"#f0f0f0",overflow:"hidden"}}>
+          <div style={{width:`${pct}%`,height:"100%",borderRadius:99,background:col}}/>
+        </div>
+        <span style={{fontSize:11,fontWeight:700,color:col,minWidth:30}}>{pct}%</span>
+      </div>;
+    }
+    case "percent": return <span style={{fontSize:13,fontWeight:600}}>{Number(value).toLocaleString()}%</span>;
+    case "datetime": {
+      try { const d=new Date(value); return <span style={{fontSize:13}}>{d.toLocaleDateString()} {d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>; }
+      catch { return <span style={{fontSize:13}}>{String(value)}</span>; }
+    }
+    case "duration": return <span style={{fontSize:13}}>{String(value)} {field.duration_unit||"days"}</span>;
+    case "date_range": {
+      const dr = (() => { try { return typeof value==="object"&&value ? value : JSON.parse(value); } catch { return {}; } })();
+      const e = dr.end?new Date(dr.end).toLocaleDateString():null;
+      if(!s&&!e) return <span style={{color:C.text3,fontSize:12}}>—</span>;
+      return <span style={{fontSize:13}}><span style={{color:"#6b7280",fontSize:11,marginRight:2}}>{field.date_range_start_label||"Start"}</span>{s||"—"}<span style={{margin:"0 6px",color:"#d1d5db"}}>→</span><span style={{color:"#6b7280",fontSize:11,marginRight:2}}>{field.date_range_end_label||"End"}</span>{e||"—"}</span>;
+    }
+    case "rich_text": {
+      const html = String(value).replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").replace(/\*(.*?)\*/g,"<em>$1</em>").replace(/\n/g,"<br/>");
+      return <div style={{fontSize:13,lineHeight:1.6}} dangerouslySetInnerHTML={{__html:html}}/>;
+    }
+    case "auto_number":
+    case "unique_id": return <span style={{fontSize:11,fontWeight:700,fontFamily:"ui-monospace,monospace",padding:"2px 6px",borderRadius:4,background:"#f0f4ff",color:"#3b5bdb",letterSpacing:"0.05em"}}>{String(value)}</span>;
+    case "country": {
+      const c = COUNTRY_MAP[value];
+      return <FilterPill label={c?`${c.flag} ${c.name}`:value} color={C.accent}/>;
+    }
+    case "address": {
+      const addr = (() => { try { return typeof value==="object"&&value ? value : JSON.parse(value); } catch { return {street:value}; } })();
+      const parts=[addr.street,addr.city,addr.state,addr.country,addr.postal_code].filter(Boolean);
+      return <span style={{fontSize:13,lineHeight:1.5}}>{parts.join(", ")||"—"}</span>;
+    }
+    case "phone_intl": return <a href={`tel:${formatPhone(value).replace(/\s/g,"")}`} style={{color:C.accent,fontSize:13,textDecoration:"none"}} onClick={e=>e.stopPropagation()}>{formatPhone(value)}</a>;
+    case "social": {
+      const SCFG = {linkedin:{color:"#0A66C2",icon:"in"},github:{color:"#24292f",icon:"gh"},twitter:{color:"#000",icon:"𝕏"},instagram:{color:"#E1306C",icon:"ig"},facebook:{color:"#1877F2",icon:"fb"},youtube:{color:"#FF0000",icon:"yt"},other:{color:"#6366f1",icon:"🔗"}};
+      const cfg = SCFG[field.social_platform||"linkedin"]||SCFG.other;
+      const href = String(value).startsWith("http")?value:`https://${value}`;
+      return <a href={href} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:cfg.color,textDecoration:"none",padding:"2px 8px",borderRadius:99,background:`${cfg.color}12`}} onClick={e=>e.stopPropagation()}><span style={{fontSize:10,fontWeight:800}}>{cfg.icon}</span>{(field.social_platform||"link")}</a>;
+    }
+    case "status": {
+      const col = STATUS_COLORS[String(value).toLowerCase()] || C.accent;
+      return <FilterPill label={value} color={col}/>;
+    }
     case "date":    return <span style={{fontSize:13}}>{new Date(value).toLocaleDateString()}</span>;
     case "dataset": {
       // Dataset values stored as string or array of strings
@@ -234,6 +292,96 @@ const FieldValue = ({ field, value }) => {
     }
     default:        return <span style={{fontSize:13,color:C.text1,lineHeight:1.5}}>{String(value)}</span>;
   }
+};
+
+// ── PhoneInput — plain phone with basic validation ────────────────────────────
+const PhoneInput = ({ value, onChange, autoFocus }) => {
+  const [err, setErr] = useState(null);
+  const check = (v) => { if(!v)return setErr(null); const r=validatePhone(v,"phone"); setErr(r.valid?null:r); };
+  return <div>
+    <input type="tel" value={value||""} onChange={e=>{onChange(e.target.value);check(e.target.value);}} onBlur={()=>check(value)} autoFocus={autoFocus} placeholder="+971 50 123 4567"
+      style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1.5px solid ${err?"#ef4444":"#e5e7eb"}`,fontSize:13,color:C.text1,boxSizing:"border-box"}}/>
+    {err&&<div style={{marginTop:4,fontSize:11,color:"#ef4444"}}>{err.error}{err.example&&<span style={{color:"#9ca3af",marginLeft:6}}>{err.example}</span>}</div>}
+  </div>;
+};
+
+// ── PhoneIntlInput — dial-code selector + number with live validation ─────────
+const PhoneIntlInput = ({ field, value, onChange, autoFocus }) => {
+  const ph = typeof value==="object"&&value?value:{dial:"+971",number:value||""};
+  const [err, setErr] = useState(null);
+  const [display, setDisplay] = useState(ph.number||"");
+  const cc = countryCodeFromDial(ph.dial);
+  const rule = getPhoneRule(cc);
+  const digits = stripPhoneDigits(ph.number||"");
+  const [focused, setFocused] = useState(false);
+  const counterOk = digits.length>=rule.min && digits.length<=rule.max;
+  const check = (d,n) => { if(!n?.trim())return setErr(null); const r=validatePhone({dial:d,number:n},"phone_intl"); setErr(r.valid?null:r); };
+  const handleNum = (e) => {
+    const raw = e.target.value.replace(/[^\d\s\-()+]/g,"");
+    setDisplay(autoFormatPhoneNumber(raw,cc));
+    const newPh = {...ph, number:raw.replace(/\D/g,"")};
+    onChange(newPh); check(ph.dial,newPh.number);
+  };
+  const handleDial = (e) => { const d=e.target.value; onChange({...ph,dial:d}); setDisplay(""); check(d,ph.number); };
+  return <div>
+    <div style={{display:"flex",gap:6}}>
+      <select value={ph.dial||"+971"} onChange={handleDial} style={{width:88,padding:"6px 6px",borderRadius:8,border:`1.5px solid ${err?"#ef4444":"#e5e7eb"}`,fontSize:12,color:C.text1,background:"white",flexShrink:0}}>
+        {PHONE_CODES.map(p=><option key={`${p.code}-${p.dial}`} value={p.dial}>{p.flag} {p.dial}</option>)}
+      </select>
+      <div style={{flex:1,position:"relative"}}>
+        <input type="tel" value={display} onChange={handleNum} onFocus={()=>setFocused(true)} onBlur={()=>{setFocused(false);check(ph.dial,ph.number);}} autoFocus={autoFocus}
+          placeholder={rule?.example||"50 123 4567"}
+          style={{width:"100%",padding:"7px 30px 7px 10px",borderRadius:8,border:`1.5px solid ${err?"#ef4444":focused&&counterOk?"#0ca678":"#e5e7eb"}`,fontSize:13,color:C.text1,boxSizing:"border-box"}}/>
+        {ph.number&&<div style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)"}}>
+          {err?<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              :counterOk?<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0ca678" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>:null}
+        </div>}
+      </div>
+    </div>
+    {focused&&ph.number&&<div style={{marginTop:3,display:"flex",alignItems:"center",gap:6,fontSize:11}}>
+      <div style={{flex:1,height:3,borderRadius:99,background:"#f0f0f0",overflow:"hidden"}}><div style={{height:"100%",borderRadius:99,background:counterOk?"#0ca678":"#f59f00",width:rule?`${Math.min(100,(digits.length/rule.max)*100)}%`:"0%",transition:"width .2s"}}/></div>
+      <span style={{color:counterOk?"#0ca678":"#9ca3af",minWidth:60,textAlign:"right"}}>{digits.length}/{rule?.max} digits</span>
+    </div>}
+    {err&&<div style={{marginTop:4,fontSize:11,color:"#ef4444"}}>{err.error}{err.hint&&<span style={{color:"#6b7280",display:"block",marginTop:1}}>{err.hint}</span>}{err.example&&<span style={{color:"#9ca3af",display:"block"}}>{err.example}</span>}</div>}
+    {!err&&focused&&cc&&!ph.number&&<div style={{marginTop:3,fontSize:11,color:"#9ca3af"}}>{COUNTRY_MAP[cc]?.name} — {rule.hint}{rule.example&&` (e.g. ${ph.dial} ${rule.example})`}</div>}
+  </div>;
+};
+
+// ── CountryPicker ─────────────────────────────────────────────────────────────
+const CountryPicker = ({ value, onChange, autoFocus }) => {
+  const [search, setSearch] = useState("");
+  const filtered = search ? COUNTRIES.filter(c=>c.name.toLowerCase().includes(search.toLowerCase())||c.code.toLowerCase().includes(search.toLowerCase())) : COUNTRIES;
+  return <div>
+    <div style={{display:"flex",gap:6,marginBottom:4}}>
+      {value&&COUNTRY_MAP[value]&&<span style={{padding:"4px 10px",borderRadius:8,background:"#f0f4ff",color:C.accent,fontSize:12,fontWeight:600,flexShrink:0}}>{COUNTRY_MAP[value].flag} {COUNTRY_MAP[value].name}</span>}
+      <input placeholder="Search countries…" value={search} onChange={e=>setSearch(e.target.value)} autoFocus={autoFocus} style={{flex:1,padding:"6px 10px",borderRadius:8,border:"1.5px solid #e5e7eb",fontSize:12,color:C.text1}}/>
+    </div>
+    <div style={{maxHeight:180,overflowY:"auto",border:"1.5px solid #e5e7eb",borderRadius:8,background:"white"}}>
+      {value&&<div onClick={()=>{onChange("");setSearch("");}} style={{padding:"6px 10px",fontSize:12,color:C.text3,cursor:"pointer",borderBottom:"1px solid #f0f0f0"}}>✕ Clear</div>}
+      {filtered.map(c=><div key={c.code} onClick={()=>{onChange(c.code);setSearch("");}} style={{padding:"5px 10px",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:8,background:value===c.code?"#f0f4ff":"transparent",color:value===c.code?C.accent:C.text1}} onMouseEnter={e=>{if(value!==c.code)e.currentTarget.style.background="#f9fafb";}} onMouseLeave={e=>{if(value!==c.code)e.currentTarget.style.background="transparent";}}>
+        <span>{c.flag}</span><span>{c.name}</span><span style={{marginLeft:"auto",fontSize:10,color:C.text3}}>{c.code}</span>
+      </div>)}
+      {!filtered.length&&<div style={{padding:10,fontSize:12,color:C.text3,textAlign:"center"}}>No countries found</div>}
+    </div>
+  </div>;
+};
+
+// ── AddressInput ──────────────────────────────────────────────────────────────
+const AddressInput = ({ field, value, onChange }) => {
+  let addr = {};
+  if (typeof value === "object" && value) addr = value;
+  else { try { addr = JSON.parse(value); } catch { addr = { street: value || "" }; } }
+  const show = field.address_fields||["street","city","country","postal_code"];
+  const LABELS = {street:"Street",city:"City",state:"State / Region",country:"Country",postal_code:"Postal Code"};
+  return <div style={{display:"flex",flexDirection:"column",gap:5}}>
+    {["street","city","state","country","postal_code"].filter(k=>show.includes(k)).map(k=>(
+      <div key={k}><label style={{display:"block",fontSize:10,fontWeight:600,color:C.text3,marginBottom:2}}>{LABELS[k]}</label>
+        {k==="country"
+          ?<select value={addr.country||""} onChange={e=>onChange({...addr,country:e.target.value})} style={{width:"100%",padding:"6px 10px",borderRadius:8,border:"1.5px solid #e5e7eb",fontSize:12,color:C.text1,boxSizing:"border-box"}}><option value="">Select…</option>{COUNTRIES.map(c=><option key={c.code} value={c.name}>{c.flag} {c.name}</option>)}</select>
+          :<input value={addr[k]||""} onChange={e=>onChange({...addr,[k]:e.target.value})} placeholder={LABELS[k]} style={{width:"100%",padding:"6px 10px",borderRadius:8,border:"1.5px solid #e5e7eb",fontSize:12,color:C.text1,boxSizing:"border-box"}}/>}
+      </div>
+    ))}
+  </div>;
 };
 
 const FieldEditor = ({ field, value, onChange, autoFocus }) => {
@@ -297,7 +445,57 @@ const FieldEditor = ({ field, value, onChange, autoFocus }) => {
       return <SkillsPicker field={field} value={value} onChange={onChange}/>;
     case "url":
       return <Inp type="url" value={value} onChange={onChange} placeholder="https://…" autoFocus={autoFocus}/>;
-    default:
+    case "phone":
+      return <PhoneInput value={value} onChange={onChange} autoFocus={autoFocus}/>;
+    case "phone_intl":
+      return <PhoneIntlInput field={field} value={value} onChange={onChange} autoFocus={autoFocus}/>;
+    case "formula":
+    case "auto_number":
+    case "unique_id":
+    case "lookup":
+    case "rollup":
+      return <div style={{padding:"6px 10px",background:"#f9fafb",border:"1.5px solid #e5e7eb",borderRadius:8,fontSize:12,color:"#6b7280",display:"flex",alignItems:"center",gap:6}}>
+        <Ic n="lock" s={11} c="#9ca3af"/>
+        <span style={{fontFamily:"ui-monospace,monospace"}}>{value!==null&&value!==undefined&&value!==''?String(value):"Auto-generated"}</span>
+      </div>;
+    case "progress": {
+      const pct = Number(value)||0;
+      const col = pct>=75?"#0ca678":pct>=40?"#f59f00":"#ef4444";
+      return <div>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+          <div style={{flex:1,height:8,borderRadius:99,background:"#f0f0f0",overflow:"hidden",cursor:"pointer"}} onClick={e=>{const r=e.currentTarget.getBoundingClientRect();onChange(Math.max(0,Math.min(100,Math.round((e.clientX-r.left)/r.width*100))));}}>
+            <div style={{width:`${pct}%`,height:"100%",borderRadius:99,background:col}}/>
+          </div>
+          <span style={{fontSize:12,fontWeight:700,color:col,minWidth:34,textAlign:"right"}}>{pct}%</span>
+        </div>
+        <input type="range" min={0} max={100} value={pct} onChange={e=>onChange(Number(e.target.value))} style={{width:"100%",accentColor:col}}/>
+      </div>;
+    }
+    case "percent":
+      return <div style={{position:"relative"}}><input type="number" min={0} max={100} step={0.1} value={value??""} placeholder="0" onChange={e=>onChange(e.target.value===''?null:Number(e.target.value))} autoFocus={autoFocus} style={{width:"100%",padding:"7px 32px 7px 10px",borderRadius:8,border:"1.5px solid #e5e7eb",fontSize:13,color:C.text1,boxSizing:"border-box"}}/><span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:13,fontWeight:700,color:C.text3}}>%</span></div>;
+    case "datetime":
+      return <input type="datetime-local" value={value?String(value).slice(0,16):""} onChange={e=>onChange(e.target.value)} autoFocus={autoFocus} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e5e7eb",fontSize:13,color:C.text1,boxSizing:"border-box"}}/>;
+    case "duration":
+      return <div style={{display:"flex",gap:8}}><Inp type="number" value={value} onChange={v=>onChange(Number(v))} placeholder="0" autoFocus={autoFocus}/><div style={{padding:"7px 12px",borderRadius:8,border:"1.5px solid #e5e7eb",fontSize:12,color:C.text3,background:"#f9fafb"}}>{field.duration_unit||"days"}</div></div>;
+    case "date_range": {
+      const dr = (() => { try { return typeof value==="object"&&value ? value : JSON.parse(value); } catch { return {}; } })();
+      return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        {[["start",field.date_range_start_label||"Start"],["end",field.date_range_end_label||"End"]].map(([k,lbl])=>(
+          <div key={k}><label style={{display:"block",fontSize:10,fontWeight:600,color:C.text3,marginBottom:2}}>{lbl}</label>
+            <input type="date" value={dr[k]||""} onChange={e=>onChange({...dr,[k]:e.target.value})} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e5e7eb",fontSize:13,boxSizing:"border-box"}}/></div>
+        ))}
+      </div>;
+    }
+    case "country":
+      return <CountryPicker value={value} onChange={onChange} autoFocus={autoFocus}/>;
+    case "address":
+      return <AddressInput field={field} value={value} onChange={onChange}/>;
+    case "social":
+      return <Inp type="url" value={value} onChange={onChange} placeholder={field.social_platform==="github"?"username or full URL":field.social_platform==="twitter"?"@handle or full URL":"https://…"} autoFocus={autoFocus}/>;
+    case "status": {
+      const opts = (field.options||[]);
+      return <div style={{display:"flex",flexWrap:"wrap",gap:6}}>{opts.map(opt=>{const col=STATUS_COLORS[String(opt).toLowerCase()]||C.accent;const isSel=value===opt;return <button key={opt} onClick={()=>onChange(opt)} style={{padding:"5px 12px",borderRadius:99,border:`2px solid ${isSel?col:"#e5e7eb"}`,background:isSel?`${col}18`:"white",color:isSel?col:C.text2,fontSize:12,fontWeight:600,cursor:"pointer"}}>{opt}</button>;})}</div>;
+    }
       return <Inp value={value} onChange={onChange} placeholder={field.placeholder||`Enter ${field.name}`} autoFocus={autoFocus}/>;
   }
 };
@@ -1537,7 +1735,7 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                         ? <span style={{ fontWeight:700, color:"#4361EE" }}
                             onMouseEnter={e=>e.currentTarget.style.textDecoration="underline"}
                             onMouseLeave={e=>e.currentTarget.style.textDecoration="none"}>
-                            {f.isSystem ? val : <FieldValue field={f} value={val}/>}
+                            {f.isSystem ? val : <FieldValue field={f} value={val} allFieldValues={record?.data}/>}
                           </span>
                         : f.apiKey === '_stage'
                           ? <StagePill
@@ -1546,7 +1744,7 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                             />
                           : f.isSystem
                             ? <span style={{ fontSize:13, color: val === '—' ? C.text3 : C.text1 }}>{val}</span>
-                            : <FieldValue field={f} value={val}/>
+                            : <FieldValue field={f} value={val} allFieldValues={record?.data}/>
                       }
                     </td>
                   );
@@ -3576,7 +3774,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                       : isEditing
                       ? <FieldEditor field={field} value={val} onChange={v=>handleFieldEdit(field.api_key, v, field.field_type)} autoFocus={!isClickSave}/>
                       : <div onClick={()=>!isReadonly&&setEditing(e=>({...e,[field.api_key]:originalVal}))} style={{ cursor:isReadonly?"default":"text", minHeight:22 }}>
-                          <FieldValue field={field} value={val}/>
+                          <FieldValue field={field} value={val} allFieldValues={record?.data}/>
                         </div>
                     }
                   </div>

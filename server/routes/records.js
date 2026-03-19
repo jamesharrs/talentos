@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { query, findOne, insert, update, remove } = require('../db/init');
+const { query, findOne, insert, update, remove, getStore, saveStore } = require('../db/init');
 const { hasPermission, hasGlobalAction, applyFieldVisibility, applyFieldVisibilityBulk } = require('../middleware/rbac');
 
 // Lazy-load agent engine to avoid circular deps at startup
@@ -14,6 +14,27 @@ function getObjectSlug(objectId) {
   if (!objectId) return null;
   const obj = findOne('objects', o => o.id === objectId);
   return obj ? obj.slug : null;
+}
+
+// Auto-number field resolver — sets REQ-0001 style values on new records
+function resolveAutoNumbers(objectId, data) {
+  const store = getStore();
+  const fields = (store.field_definitions || []).filter(f => f.object_id === objectId && f.field_type === 'auto_number');
+  if (!fields.length) return data;
+  const result = { ...data };
+  if (!store.auto_number_counters) store.auto_number_counters = [];
+  for (const field of fields) {
+    if (result[field.api_key]) continue; // already set (e.g. import)
+    const key = `${objectId}:${field.id}`;
+    let counter = store.auto_number_counters.find(c => c.key === key);
+    if (!counter) { counter = { key, next: 1 }; store.auto_number_counters.push(counter); }
+    const prefix = field.auto_number_prefix || '';
+    const padding = Number(field.auto_number_padding) || 4;
+    result[field.api_key] = `${prefix}${String(counter.next).padStart(padding, '0')}`;
+    counter.next += 1;
+  }
+  saveStore(store);
+  return result;
 }
 
 // Permission gate — returns 403 if user lacks permission, null if OK
@@ -128,8 +149,10 @@ router.post('/', (req, res) => {
   // Inherit org_unit_id from creating user
   const creator = user_id ? findOne('users', u => u.id === user_id) : null;
   const org_unit_id = creator?.org_unit_id || null;
-  const record = insert('records', {id:uuidv4(),object_id,environment_id,data,org_unit_id,created_by:created_by||null,created_at:new Date().toISOString(),updated_at:new Date().toISOString(),deleted_at:null});
-  insert('activity', {id:uuidv4(),environment_id,record_id:record.id,object_id,action:'created',actor:created_by||null,changes:data,created_at:new Date().toISOString()});
+  // Resolve auto_number fields
+  const resolvedData = resolveAutoNumbers(object_id, data);
+  const record = insert('records', {id:uuidv4(),object_id,environment_id,data:resolvedData,org_unit_id,created_by:created_by||null,created_at:new Date().toISOString(),updated_at:new Date().toISOString(),deleted_at:null});
+  insert('activity', {id:uuidv4(),environment_id,record_id:record.id,object_id,action:'created',actor:created_by||null,changes:resolvedData,created_at:new Date().toISOString()});
   // Fire agent triggers
   getEngine().fireEventTrigger('record_created', record, null).catch(()=>{});
   res.status(201).json(record);

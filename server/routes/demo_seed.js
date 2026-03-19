@@ -146,7 +146,7 @@ async function runSeed({ environmentId, clearFirst, progressCb }) {
      'people_links','notes','communications'].forEach(table => {
       if (store[table]) store[table] = store[table].filter(r => !(r._demo && r.environment_id === environmentId));
     });
-    saveStore(store);
+    saveStore();
   }
 
   // ── Fetch 300 real profiles ──────────────────────────────────────────────
@@ -189,7 +189,7 @@ async function runSeed({ environmentId, clearFirst, progressCb }) {
     store.records.push(rec);
     jobRecords.push(rec);
   }
-  saveStore(store);
+  saveStore();
 
   // ── Create 4 workflows ───────────────────────────────────────────────────
   progressCb({ step:'workflows', message:'Creating workflows and stages…', pct:22 });
@@ -210,7 +210,7 @@ async function runSeed({ environmentId, clearFirst, progressCb }) {
     });
     wfRecords.push({ wf:store.workflows[store.workflows.length-1], steps });
   }
-  saveStore(store);
+  saveStore();
 
   // ── Assign workflows to jobs ─────────────────────────────────────────────
   progressCb({ step:'assign', message:'Assigning workflows to jobs…', pct:26 });
@@ -231,7 +231,7 @@ async function runSeed({ environmentId, clearFirst, progressCb }) {
   assign(techJobs.slice(0,10), 2);
   assign(gradJobs, 3);
   assign(jobRecords.filter(j => !assigned.has(j.id)), 0);
-  saveStore(store);
+  saveStore();
 
   // ── Create 300 candidates ────────────────────────────────────────────────
   progressCb({ step:'candidates', message:'Creating 300 candidate profiles…', pct:30 });
@@ -258,7 +258,7 @@ async function runSeed({ environmentId, clearFirst, progressCb }) {
     candidateRecords.push(rec);
     if (i % 50 === 0) progressCb({ step:'candidates', message:`Creating candidates… ${i}/300`, pct:30+Math.floor((i/300)*25) });
   }
-  saveStore(store);
+  saveStore();
 
   // ── Link candidates to jobs ──────────────────────────────────────────────
   progressCb({ step:'links', message:'Linking candidates to jobs via pipelines…', pct:55 });
@@ -279,7 +279,7 @@ async function runSeed({ environmentId, clearFirst, progressCb }) {
         linked_at:isoAgo(randInt(1,120)), updated_at:isoNow(), _demo:true });
     });
   }
-  saveStore(store);
+  saveStore();
 
   // ── Notes ────────────────────────────────────────────────────────────────
   progressCb({ step:'notes', message:'Adding recruiter notes…', pct:68 });
@@ -291,7 +291,7 @@ async function runSeed({ environmentId, clearFirst, progressCb }) {
         author:'Admin User', created_at:isoAgo(randInt(1,90)), _demo:true });
     }
   }
-  saveStore(store);
+  saveStore();
 
   // ── Communications ───────────────────────────────────────────────────────
   progressCb({ step:'comms', message:'Adding email communications…', pct:78 });
@@ -310,7 +310,7 @@ async function runSeed({ environmentId, clearFirst, progressCb }) {
         sent_at:isoAgo(randInt(1,120)), created_at:isoAgo(randInt(1,120)), _demo:true });
     }
   }
-  saveStore(store);
+  saveStore();
 
   progressCb({ step:'done', message:'Demo data ready!', pct:100 });
   return {
@@ -381,7 +381,7 @@ router.delete('/clear', (req, res) => {
       removed += before - store[table].length;
     }
   });
-  saveStore(store);
+  saveStore();
   res.json({ removed });
 });
 

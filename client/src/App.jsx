@@ -16,6 +16,7 @@ const ReportsPage     = lazy(() => import("./Reports.jsx"));
 const Interviews      = lazy(() => import("./Interviews.jsx"));
 const OffersModule    = lazy(() => import("./Offers.jsx"));
 const SuperAdminConsole = lazy(() => import("./SuperAdminConsole.jsx"));
+const AgentsModule      = lazy(() => import("./Agents.jsx"));
 
 // Records loaded eagerly — used everywhere for record detail navigation
 import RecordsView, { RecordDetail } from "./Records.jsx";
@@ -1242,6 +1243,7 @@ function App() {
       label: t("nav.tools"),
       items: [
         { id: "orgchart",   icon: "git-branch",  label: t("nav.orgChart") },
+        { id: "agents",     icon: "zap",          label: "Agents" },
         { id: "interviews", icon: "calendar",     label: t("nav.interviews") },
         { id: "calendar",   icon: "calendar-days", label: t("nav.calendar") },
         { id: "offers",     icon: "dollar",       label: t("nav.offers") || "Offers" },
@@ -1559,6 +1561,10 @@ function App() {
         ) : activeNav === "offers" ? (
           <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
             <OffersModule environment={selectedEnv} />
+          </div>
+        ) : activeNav === "agents" ? (
+          <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column", padding:"0 32px" }}>
+            <AgentsModule environment={selectedEnv} />
           </div>
         ) : activeNav === "schema" ? (
           selectedObject

@@ -224,8 +224,10 @@ async function provisionClient(clientData, envData, adminUser, templateKey) {
 
   const createdRoles = [];
   for (const roleDef of roles) {
+    const slug = roleDef.name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
     const role = {
-      id: uuidv4(), environment_id: environment.id, name: roleDef.name,
+      id: uuidv4(), environment_id: environment.id,
+      name: roleDef.name, slug,
       permissions: roleDef.permissions, color: roleDef.color||'#4361EE',
       is_system: true, created_at: now, updated_at: now, deleted_at: null,
     };

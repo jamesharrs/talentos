@@ -89,7 +89,7 @@ require('./routes/enterprise_settings').migrate();
 require('./routes/skills_intelligence').migrate();
 require('./routes/datasets').migrate();
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '1.3.0', build: 'fix-auth-passwords' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '1.3.1', build: 'fix-roles-slug' }));
 
 const PORT = process.env.PORT || 3001;
 
@@ -165,6 +165,20 @@ initDB().then(() => {
   if (pwFixed > 0) {
     fs.writeFileSync(path.join(__dirname, '../data/talentos.json'), JSON.stringify(store, null, 2));
     console.log(`[migration] Fixed missing password_hash on ${pwFixed} user(s) → default: Admin1234!`);
+  }
+  // ───────────────────────────────────────────────────────────────────────────
+
+  // ── Migration: ensure all roles have a slug ────────────────────────────────
+  let rolesFixed = 0;
+  (store.roles || []).forEach(r => {
+    if (!r.slug && r.name) {
+      r.slug = r.name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+      rolesFixed++;
+    }
+  });
+  if (rolesFixed > 0) {
+    fs.writeFileSync(path.join(__dirname, '../data/talentos.json'), JSON.stringify(store, null, 2));
+    console.log(`[migration] Added slug to ${rolesFixed} role(s)`);
   }
   // ───────────────────────────────────────────────────────────────────────────
 

@@ -33,7 +33,12 @@ function requireAuth(req, res, next) {
 }
 
 function isSuperAdmin(user) {
-  return user?.role?.slug === SUPER_ADMIN_SLUG;
+  if (!user) return false;
+  // Check slug (master store roles) OR name (provisioned tenant roles) OR explicit flag
+  return user.role?.slug === SUPER_ADMIN_SLUG
+    || user.role?.name === 'Super Admin'
+    || user.is_super_admin === true
+    || user.is_super_admin === 1;
 }
 
 function hasPermission(user, objectSlug, action) {

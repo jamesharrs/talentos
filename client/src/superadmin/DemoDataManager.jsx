@@ -61,9 +61,15 @@ export default function DemoDataManager() {
       .then(r => r.json())
       .then(data => {
         if (!Array.isArray(data)) return;
-        setEnvs(data);
-        const def = data.find(e => e.is_default) || data[0];
-        if (def) setEnvId(def.id);
+        // Sort: master Production first, then alphabetical
+        const sorted = [...data].sort((a, b) => {
+          if (a.name === 'Production') return -1;
+          if (b.name === 'Production') return 1;
+          return a.name.localeCompare(b.name);
+        });
+        setEnvs(sorted);
+        // Only pre-select if nothing selected yet
+        if (!envId && sorted.length > 0) setEnvId(sorted[0].id);
       })
       .catch(() => setError('Could not reach API'));
   }, []);
@@ -87,7 +93,9 @@ export default function DemoDataManager() {
   async function handleSeed() {
     if (!envId) return;
     setSeeding(true); setResults(null); setError(null); setPct(0); setLog([]);
-    addLog('Starting demo data generation…', 'dim');
+    const selectedEnv = envs.find(e => e.id === envId);
+    addLog(`Seeding environment: ${selectedEnv?.name || envId}`, 'dim');
+    console.log('[DemoSeed] Seeding environment_id:', envId, 'name:', selectedEnv?.name);
     try {
       const res = await fetch(apiUrl('/superadmin/demo/seed'), {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -154,8 +162,13 @@ export default function DemoDataManager() {
             background:status.has_demo_data?'#1c1917':'#0f172a',
             border:`1px solid ${status.has_demo_data?'#78350f':'#1e293b'}` }}>
             {status.has_demo_data
-              ? <span style={{fontSize:12,color:'#d97706'}}>⚠ Demo data exists — <strong>{status.counts.records}</strong> records, <strong>{status.counts.links}</strong> pipeline links</span>
-              : <span style={{fontSize:12,color:'#4ade80'}}>✓ No demo data in this environment</span>}
+              ? <span style={{fontSize:12,color:'#d97706'}}>
+                  ⚠ Demo data exists in <strong>{envs.find(e=>e.id===envId)?.name||envId}</strong> —{' '}
+                  <strong>{status.counts.records}</strong> records, <strong>{status.counts.links}</strong> pipeline links
+                </span>
+              : <span style={{fontSize:12,color:'#4ade80'}}>
+                  ✓ No demo data in <strong>{envs.find(e=>e.id===envId)?.name||envId}</strong>
+                </span>}
           </div>
         )}
         <div style={S.row}>

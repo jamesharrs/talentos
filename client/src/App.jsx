@@ -231,7 +231,7 @@ const Select = ({ label, value, onChange, options, required }) => (
     <select value={value} onChange={e => onChange(e.target.value)} style={{
       padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e5ea",
       fontSize: 13, fontFamily: "inherit", outline: "none", background: "white",
-      color: "#1a1a2e", cursor: "pointer"
+      color: "var(--t-text1)", cursor: "pointer"
     }}>
       {options.map(opt => (
         <option key={opt.value || opt} value={opt.value || opt}>{opt.label || opt}</option>
@@ -270,7 +270,7 @@ const Modal = ({ title, children, onClose, width = 520 }) => (
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "20px 24px", borderBottom: "1px solid #f0f0f0"
       }}>
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1a1a2e" }}>{title}</h2>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--t-text1)" }}>{title}</h2>
         <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 6, color: "#9ca3af" }}>
           <Icon name="x" size={18} />
         </button>
@@ -472,7 +472,7 @@ const FieldRow = ({ field, onEdit, onDelete }) => (
     </div>
     <div style={{ flex: 1, minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "#1a1a2e" }}>{field.name}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--t-text1)" }}>{field.name}</span>
         {field.is_system ? <Badge color="#6b7280" light>system</Badge> : null}
         {field.is_required ? <Badge color="#ef4444" light>required</Badge> : null}
         {field.is_unique ? <Badge color="#f59e0b" light>unique</Badge> : null}
@@ -554,7 +554,7 @@ const ObjectSchemaView = ({ object, allObjects, environmentId, onBack }) => {
           <Icon name={object.icon || "circle"} size={16} color="white" />
         </div>
         <div>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#1a1a2e" }}>{object.name} Schema</h1>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--t-text1)", fontFamily: "'Space Grotesk', sans-serif", letterSpacing: "-0.4px" }}>{object.name} Schema</h1>
           <p style={{ margin: 0, fontSize: 12, color: "#9ca3af" }}>{fields.length} fields · {object.is_system ? "System object" : "Custom object"}</p>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
@@ -651,7 +651,7 @@ const ObjectsListView = ({ environment, onSelectObject, mode = "schema" }) => {
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "#1a1a2e" }}>{obj.plural_name || obj.name}</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--t-text1)" }}>{obj.plural_name || obj.name}</span>
           {obj.is_system && <Badge color="#6b7280" light>system</Badge>}
         </div>
         {obj.description && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#9ca3af", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obj.description}</p>}
@@ -673,7 +673,7 @@ const ObjectsListView = ({ environment, onSelectObject, mode = "schema" }) => {
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#1a1a2e" }}>{title}</h1>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "var(--t-text1)", fontFamily: "'Space Grotesk', sans-serif", letterSpacing: "-0.4px" }}>{title}</h1>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: "#9ca3af" }}>{subtitle}</p>
         </div>
         {mode === "schema" && <Button icon="plus" onClick={() => setShowCreate(true)}>New Object</Button>}
@@ -1035,7 +1035,7 @@ function ThemePanel({ onClose }) {
         {/* Header */}
         <div style={{ padding:"16px 18px 12px",borderBottom:"1px solid var(--t-border)",display:"flex",alignItems:"center",justifyContent:"space-between" }}>
           <div>
-            <div style={{ fontSize:14,fontWeight:800,color:"var(--t-text1)" }}>Appearance</div>
+            <div style={{ fontSize:14,fontWeight:700,color:"var(--t-text1)", fontFamily:"'Space Grotesk', sans-serif" }}>Appearance</div>
             <div style={{ fontSize:11,color:"var(--t-text3)" }}>Personalise your workspace</div>
           </div>
           <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",padding:4,borderRadius:6,color:"var(--t-text3)",display:"flex" }}>
@@ -1449,7 +1449,7 @@ function App() {
       <div style={{ minHeight: "100vh", background: "#f7f8fa", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Geist', -apple-system, sans-serif" }}>
         <div style={{ textAlign: "center", maxWidth: 480, padding: 40 }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🔌</div>
-          <h2 style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 800, color: "#1a1a2e", fontFamily: "'Space Grotesk', sans-serif" }}>API Server Not Running</h2>
+          <h2 style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 700, color: "var(--t-text1)", fontFamily: "'Space Grotesk', sans-serif", letterSpacing:"-0.4px" }}>API Server Not Running</h2>
           <p style={{ color: "#6b7280", lineHeight: 1.6 }}>Start the backend server to use Vercentic.</p>
           <div style={{ background: "#1a1a2e", color: "#a5f3fc", padding: "14px 20px", borderRadius: 10, fontFamily: "ui-monospace, monospace", fontSize: 13, marginTop: 20, textAlign: "left" }}>
             <div style={{ color: "#94a3b8", marginBottom: 4 }}># In the server directory:</div>

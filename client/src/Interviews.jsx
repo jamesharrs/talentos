@@ -634,7 +634,7 @@ const AddQuestionModal = ({ onSave, onClose }) => {
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2000}} onClick={onClose}>
       <div style={{background:"white",borderRadius:16,padding:28,width:520,maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
-        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:20}}>Add Question</div>
+        <div style={{fontSize:16,fontWeight:800,color:"var(--t-text1)",marginBottom:20}}>Add Question</div>
         <div style={{marginBottom:14}}>
           <label style={{fontSize:12,fontWeight:700,color:"#6b7280",display:"block",marginBottom:5}}>Question text</label>
           <textarea value={form.text} onChange={e=>set("text",e.target.value)} rows={3} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:13,resize:"vertical",fontFamily:"inherit",outline:"none",boxSizing:"border-box"}} placeholder="Enter the question…"/>
@@ -680,7 +680,7 @@ const QuestionBankView = ({ questions, onDelete, showAdd, onSaveAdd, onCloseAdd 
           : qs.map(q=>(
             <div key={q.id} style={{display:"flex",alignItems:"flex-start",gap:12,padding:"12px 16px",borderRadius:10,border:"1px solid #e5e7eb",marginBottom:6,background:"white"}}>
               <div style={{flex:1}}>
-                <div style={{fontSize:13,color:"#111827",lineHeight:1.5,marginBottom:4}}>{q.text}</div>
+                <div style={{fontSize:13,color:"var(--t-text1)",lineHeight:1.5,marginBottom:4}}>{q.text}</div>
                 <div style={{display:"flex",gap:8,alignItems:"center"}}>
                   <span style={{fontSize:11,fontWeight:700,padding:"2px 6px",borderRadius:99,background:`${TYPE_COLORS[type]}14`,color:TYPE_COLORS[type]}}>{TYPE_LABELS[type]}</span>
                   <span style={{fontSize:11,color:"#9ca3af"}}>{q.weight} pts</span>

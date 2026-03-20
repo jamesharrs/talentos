@@ -1343,7 +1343,7 @@ const DataModelSection = () => {
     return (
       <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
         <div style={{background:"#fff",borderRadius:16,padding:"24px 28px",width:520,maxHeight:"90vh",overflow:"auto",fontFamily:F,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}>
-          <div style={{fontSize:16,fontWeight:800,color:C.text1,marginBottom:16}}>{isEdit?"Edit":"New"} Field</div>
+          <div style={{fontSize:16,fontWeight:700,color:C.text1,fontFamily:"'Space Grotesk', sans-serif",letterSpacing:"-0.3px",marginBottom:16}}>{isEdit?"Edit":"New"} Field</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:16}}>
             {FIELD_TYPES_DM.map(ft=>(
               <button key={ft.value} onClick={()=>set("field_type",ft.value)} style={{padding:"7px 4px",borderRadius:8,border:`2px solid ${form.field_type===ft.value?"#3b5bdb":"#e8eaed"}`,background:form.field_type===ft.value?"#3b5bdb":"#fff",color:form.field_type===ft.value?"#fff":"#6b7280",cursor:"pointer",fontSize:10,fontWeight:600,textAlign:"center",fontFamily:F}}>
@@ -1547,7 +1547,7 @@ const DataModelSection = () => {
     return (
       <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
         <div style={{background:"#fff",borderRadius:16,padding:"24px 28px",width:440,fontFamily:F,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}>
-          <div style={{fontSize:16,fontWeight:800,color:C.text1,marginBottom:16}}>New Object</div>
+          <div style={{fontSize:16,fontWeight:700,color:C.text1,fontFamily:"'Space Grotesk', sans-serif",letterSpacing:"-0.3px",marginBottom:16}}>New Object</div>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <Inp label="Name" value={form.name} onChange={handleName} required/>
@@ -1577,7 +1577,7 @@ const DataModelSection = () => {
     <div>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:24}}>
         <div>
-          <div style={{fontSize:18,fontWeight:800,color:C.text1}}>Data Model</div>
+          <div style={{fontSize:18,fontWeight:700,color:C.text1,fontFamily:"'Space Grotesk', sans-serif",letterSpacing:"-0.4px"}}>Data Model</div>
           <div style={{fontSize:12,color:C.text3}}>Configure objects and fields for each environment</div>
         </div>
         <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
@@ -1619,7 +1619,7 @@ const DataModelSection = () => {
               <span style={{color:"white",fontSize:14,fontWeight:700}}>{selObj.name.charAt(0)}</span>
             </div>
             <div>
-              <div style={{fontSize:14,fontWeight:800,color:C.text1}}>{selObj.name} Schema</div>
+              <div style={{fontSize:14,fontWeight:700,color:C.text1,fontFamily:"'Space Grotesk', sans-serif",letterSpacing:"-0.3px"}}>{selObj.name} Schema</div>
               <div style={{fontSize:11,color:C.text3}}>{fields.length} fields</div>
             </div>
           </div>
@@ -1708,7 +1708,7 @@ const ConfigSection = ({ environment }) => {
 
   return (
     <div style={{ maxWidth:720 }}>
-      <h2 style={{ margin:'0 0 4px', fontSize:18, fontWeight:800, color:C.text1 }}>Import / Export</h2>
+      <h2 style={{ margin:'0 0 4px', fontSize:18, fontWeight:700, color:C.text1, fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.4px" }}>Import / Export</h2>
       <p style={{ margin:'0 0 20px', fontSize:13, color:C.text3 }}>Export your platform configuration or import from another environment.</p>
 
       {status && (
@@ -1805,7 +1805,7 @@ function AppearanceSection() {
 
   return (
     <div style={{ maxWidth:540 }}>
-      <h2 style={{ margin:"0 0 4px", fontSize:18, fontWeight:800, color:C.text1 }}>Appearance</h2>
+      <h2 style={{ margin:"0 0 4px", fontSize:18, fontWeight:700, color:C.text1, fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.4px" }}>Appearance</h2>
       <p style={{ margin:"0 0 28px", fontSize:13, color:C.text3 }}>Personalise your workspace theme and layout.</p>
       <div style={{ display:"flex", flexDirection:"column", gap:28 }}>
 
@@ -1896,7 +1896,7 @@ function LanguageSection() {
 
   return (
     <div style={{ maxWidth:540 }}>
-      <h2 style={{ margin:"0 0 4px", fontSize:18, fontWeight:800, color:C.text1 }}>Language</h2>
+      <h2 style={{ margin:"0 0 4px", fontSize:18, fontWeight:700, color:C.text1, fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.4px" }}>Language</h2>
       <p style={{ margin:"0 0 24px", fontSize:13, color:C.text3 }}>Choose your preferred display language.</p>
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:16 }}>
@@ -2014,7 +2014,7 @@ export default function SettingsPage({ currentUser, environment }) {
     <div style={{display:"flex",gap:0,minHeight:"100%"}}>
       {/* Settings sidebar */}
       <div style={{width:210,flexShrink:0,paddingRight:20,display:"flex",flexDirection:"column"}}>
-        <h1 style={{margin:"0 0 14px",fontSize:18,fontWeight:800,color:C.text1}}>Settings</h1>
+        <h1 style={{margin:"0 0 14px",fontSize:18,fontWeight:700,color:C.text1,fontFamily:"'Space Grotesk', sans-serif",letterSpacing:"-0.4px"}}>Settings</h1>
 
         {/* Search */}
         <div style={{position:"relative",marginBottom:12}}>

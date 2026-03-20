@@ -1877,7 +1877,7 @@ const CreateOfferModal = ({ workflow, record, environment, onConfirm, onClose })
         boxShadow:"0 24px 64px rgba(0,0,0,.18)", overflow:"hidden" }}>
         <div style={{ height:4, background:"#0ca678" }}/>
         <div style={{ padding:"20px 24px" }}>
-          <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:2 }}>Create Offer</div>
+          <div style={{ fontSize:16, fontWeight:700, color:C.text1, marginBottom:2, fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.3px" }}>Create Offer</div>
           <div style={{ fontSize:12, color:C.text3, marginBottom:18 }}>
             For: <strong>{record?.data?.first_name} {record?.data?.last_name}</strong>
           </div>
@@ -1945,7 +1945,7 @@ const ScheduleInterviewModal = ({ workflow, record, environment, onConfirm, onCl
         boxShadow:"0 24px 64px rgba(0,0,0,.18)", overflow:"hidden" }}>
         <div style={{ height:4, background:"#0891b2" }}/>
         <div style={{ padding:"20px 24px" }}>
-          <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:2 }}>Schedule Interview</div>
+          <div style={{ fontSize:16, fontWeight:700, color:C.text1, marginBottom:2, fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.3px" }}>Schedule Interview</div>
           <div style={{ fontSize:12, color:C.text3, marginBottom:20 }}>
             {cfg.interview_type_name || "Interview"} · {cfg.interview_duration || 30} min
             {cfg.interview_format ? ` · ${cfg.interview_format}` : ""}
@@ -3108,7 +3108,7 @@ const FormsPanel = ({ record, environment, objectSlug }) => {
           <div style={{background:C.surface,borderRadius:16,width:'100%',maxWidth:520,maxHeight:'85vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 64px rgba(0,0,0,.2)',overflow:'hidden',fontFamily:F}}>
             <div style={{padding:'16px 20px',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div>
-                <div style={{fontSize:15,fontWeight:800,color:C.text1}}>{activeForm.name}</div>
+                <div style={{fontSize:15,fontWeight:700,color:C.text1,fontFamily:"'Space Grotesk', sans-serif"}}>{activeForm.name}</div>
                 {activeForm.description&&<div style={{fontSize:11,color:C.text3,marginTop:2}}>{activeForm.description}</div>}
               </div>
               <button onClick={()=>setFilling(false)} style={{background:'none',border:'none',cursor:'pointer',color:C.text3,fontSize:20}}>×</button>
@@ -3163,7 +3163,7 @@ const DocExtractModal = ({ result, mappings, record, onApply, onClose }) => {
       <div style={{background:C.surface,borderRadius:18,width:'100%',maxWidth:560,maxHeight:'85vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 64px rgba(0,0,0,.2)',overflow:'hidden',fontFamily:F}}>
         <div style={{padding:'18px 22px',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div>
-            <div style={{fontSize:16,fontWeight:800,color:C.text1}}>Document Data Extracted</div>
+            <div style={{fontSize:16,fontWeight:700,color:C.text1,fontFamily:"'Space Grotesk', sans-serif"}}>Document Data Extracted</div>
             <div style={{fontSize:12,color:C.text3,marginTop:2}}>Select fields to apply to this record</div>
           </div>
           <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:C.text3,fontSize:20}}>×</button>
@@ -4606,7 +4606,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     <div style={{ display:"flex", alignItems:"center", gap:14, padding:"16px 24px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
       <Avatar name={title} color={objectColor} size={38} photoUrl={record?.data?.profile_photo || record?.data?.photo_url}/>
       <div style={{ flex:1, minWidth:0 }}>
-        <h2 style={{ margin:0, fontSize:17, fontWeight:800, color:C.text1 }}>{title}</h2>
+        <h2 style={{ margin:0, fontSize:17, fontWeight:700, color:C.text1, fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.3px" }}>{title}</h2>
         {subtitle && <div style={{ fontSize:12, color:C.text3, marginTop:1 }}>{subtitle}</div>}
       </div>
       {status && statusField && <Badge color={STATUS_COLORS[status]||C.accent} light>{status}</Badge>}
@@ -4771,7 +4771,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         {/* Name + subtitle + pills */}
         <div style={{ minWidth:0, display:"flex", flexDirection:"column", gap:2 }}>
           <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-            <span style={{ fontSize:14, fontWeight:800, color:C.text1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:220 }}>{title}</span>
+            <span style={{ fontSize:14, fontWeight:700, color:C.text1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:220, fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.3px" }}>{title}</span>
             {status && statusField && (
               <Badge color={STATUS_COLORS[status]||C.accent} light>{status}</Badge>
             )}
@@ -5391,7 +5391,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
     <div style={{ display:"flex", flexDirection:"column", height:"100%", minHeight:0 }}>
       {/* Toolbar */}
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20, flexWrap:"wrap" }}>
-        <h1 style={{ margin:0, fontSize:22, fontWeight:800, color:C.text1, flex:"none" }}>{object.plural_name}</h1>
+        <h1 style={{ margin:0, fontSize:22, fontWeight:700, color:C.text1, flex:"none", fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.4px" }}>{object.plural_name}</h1>
         <span style={{ fontSize:13, color:C.text3, fontWeight:500 }}>
           {activeFilters.length ? `${displayedRecords.length} of ${total}` : total} record{total!==1?"s":""}
         </span>

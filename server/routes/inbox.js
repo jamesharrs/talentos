@@ -64,7 +64,12 @@ router.get('/:id', (req, res) => {
   let thread = [];
   if (msg.thread_id) {
     const comms = (store.communications || []).filter(c => c.thread_id === msg.thread_id);
-    const inbound = (store.inbound_messages || []).filter(m => m.thread_id === msg.thread_id);
+    // Track which inbound_message_ids are already represented in comms
+    const coveredInboundIds = new Set(comms.map(c => c.inbound_message_id).filter(Boolean));
+    // Only include raw inbound messages not already covered by a comms entry
+    const inbound = (store.inbound_messages || []).filter(m =>
+      m.thread_id === msg.thread_id && !coveredInboundIds.has(m.id)
+    );
     thread = [...comms, ...inbound].sort((a, b) =>
       new Date(a.sent_at || a.received_at) - new Date(b.sent_at || b.received_at));
   }

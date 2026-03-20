@@ -30,6 +30,8 @@ import BotInterview from "./BotInterview.jsx";
 import ClientHub from "./ClientHub.jsx";
 import { getSession, clearSession } from "./usePermissions.js";
 import { PermissionProvider, usePermissions, Gate } from "./PermissionContext.jsx";
+import { useHistory } from "./useHistory";
+import { SidebarRecent, HistoryDropdown } from "./RecentHistory";
 
 // ─── API Client ───────────────────────────────────────────────────────────────
 // Derive tenant slug — session takes priority, then URL param, then subdomain
@@ -1117,7 +1119,7 @@ function ThemePanel({ onClose }) {
 
 // ─── Record Page ─────────────────────────────────────────────────────────────
 // Standalone page — no overlay, no z-index, just a regular routed view
-function RecordPage({ recordId, objectId, environment, allObjects, onBack, onNavigate }) {
+function RecordPage({ recordId, objectId, environment, allObjects, onBack, onNavigate, onHistoryUpdate }) {
   const [state, setState] = useState(null); // { record, fields, object }
   const [loading, setLoading] = useState(true);
 
@@ -1139,6 +1141,16 @@ function RecordPage({ recordId, objectId, environment, allObjects, onBack, onNav
       if (!record) { setLoading(false); return; }
       setState({ record, fields: Array.isArray(fields) ? fields : [], object: obj });
       setLoading(false);
+      // Update history with real display name
+      if (onHistoryUpdate) {
+        const d = record.data || {};
+        const label = [d.first_name, d.last_name].filter(Boolean).join(" ")
+          || d.job_title || d.name || d.pool_name || "Untitled";
+        const subtitle = d.current_title || d.department || d.category || "";
+        onHistoryUpdate({ id: recordId, nav: `record_${recordId}_${objectId}`,
+          label, subtitle, type: "record",
+          objectName: obj.plural_name || obj.name, objectColor: obj.color || "#4361EE" });
+      }
     };
     load();
   }, [recordId, objectId, environment?.id]);
@@ -1213,6 +1225,7 @@ function App() {
   const [selectedObject, setSelectedObject] = useState(null);
   const [allObjects, setAllObjects] = useState([]);
   const [activeNav, setActiveNav] = useState("dashboard");
+  const { history: navHistory, pinned, push: pushHistory, clear: clearHistory, togglePin, isPinned } = useHistory();
   const [dashFlyout, setDashFlyout] = useState(false);
   const [navObjects, setNavObjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1303,12 +1316,27 @@ function App() {
   const switchNav = (id) => {
     if (!id.startsWith("obj_") || id !== activeNav) setFilterPreset(null);
     if (id !== "reports") setReportPreset(null);
-    // Close dashboard flyout when navigating away from dashboard section
     if (!id.startsWith("dashboard")) setDashFlyout(false);
-    // Open flyout when navigating to any dashboard sub-page
     if (id.startsWith("dashboard")) setDashFlyout(true);
-    // If clicking an obj_ nav item while already on that object's record page,
-    // force a re-mount by briefly resetting first
+    // Log nav-level pages to history
+    const NAV_META = {
+      dashboard:            { label: "Dashboard",   objectName: "Overview",   objectColor: "#4361EE" },
+      dashboard_interviews: { label: "Interviews",  objectName: "Dashboard",  objectColor: "#0891b2" },
+      dashboard_offers:     { label: "Offers",      objectName: "Dashboard",  objectColor: "#059669" },
+      search:               { label: "Search",      objectName: "Search",     objectColor: "#7c3aed" },
+      interviews:           { label: "Interviews",  objectName: "Scheduling", objectColor: "#0891b2" },
+      offers:               { label: "Offers",      objectName: "Offers",     objectColor: "#059669" },
+      reports:              { label: "Reports",     objectName: "Reports",    objectColor: "#d97706" },
+      calendar:             { label: "Calendar",    objectName: "Calendar",   objectColor: "#0891b2" },
+      "org-chart":          { label: "Org Chart",   objectName: "People",     objectColor: "#7c3aed" },
+    };
+    if (NAV_META[id]) {
+      pushHistory({ id: `nav_${id}`, nav: id, type: "nav", ...NAV_META[id] });
+    } else if (id.startsWith("obj_")) {
+      const obj = navObjects?.find(o => `obj_${o.id}` === id);
+      if (obj) pushHistory({ id: `nav_${id}`, nav: id, type: "nav",
+        label: obj.plural_name || obj.name, objectName: "List", objectColor: obj.color || "#4361EE" });
+    }
     if (id.startsWith("obj_") && (activeNav === id || activeNav.startsWith("record_"))) {
       setActiveNav("__reset__");
       setTimeout(() => { setActiveNav(id); setSelectedObject(null); }, 0);
@@ -1318,8 +1346,30 @@ function App() {
     }
   };
 
+  const navigateToHistoryEntry = (entry) => {
+    if (entry.type === "record" && entry.nav?.startsWith("record_")) {
+      const parts = entry.nav.split("_");
+      openRecord(parts[1], parts[2]);
+    } else if (entry.nav) {
+      switchNav(entry.nav);
+    }
+  };
+
   const openRecord = (recordId, objectId) => {
     setActiveNav(`record_${recordId}_${objectId}`);
+    // Push placeholder to history — label updated by RecordPage once loaded
+    const obj = navObjects?.find(o => o.id === objectId);
+    if (recordId && obj) {
+      pushHistory({
+        id: recordId,
+        nav: `record_${recordId}_${objectId}`,
+        type: "record",
+        objectName: obj.plural_name || obj.name,
+        objectColor: obj.color || "#4361EE",
+        label: "…",
+        subtitle: "",
+      });
+    }
   };
 
   // Global event listener — anything can fire talentos:openRecord to navigate to a record page
@@ -1484,6 +1534,15 @@ function App() {
           ))}
         </div>
 
+        {/* Recent history — sidebar */}
+        <SidebarRecent
+          history={navHistory}
+          pinned={pinned}
+          onNavigate={navigateToHistoryEntry}
+          onPin={togglePin}
+          isPinned={isPinned}
+        />
+
         {/* Footer */}
         <div style={{ padding: "0 12px", display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ padding: "10px 12px", background: "var(--t-surface2)", borderRadius: 10, display: "flex", alignItems: "center", gap: 8 }}>
@@ -1524,19 +1583,28 @@ function App() {
       {/* Main content */}
       <div style={{ marginLeft: 220, flex: 1, minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--t-bg)" }}>
         {/* Top bar */}
-        <GlobalSearch selectedEnv={selectedEnv} navObjects={navObjects} onNavigateToSearch={(q) => {
-          setActiveNav("search");
-          if (q) {
-            sessionStorage.setItem("talentos_search_query", q);
-            sessionStorage.setItem("talentos_autosearch", "1");
-          }
-        }} onNavigateToRecord={(recordId, objectId) => openRecord(recordId, objectId)}
-           onCreateRecord={(obj) => {
-             // Navigate to the object list and trigger new record modal
-             setActiveNav(`obj_${obj.id}`);
-             setCreateTarget(obj);
-           }}
-           onNavigateToCalendar={() => setActiveNav("calendar")} />
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <GlobalSearch selectedEnv={selectedEnv} navObjects={navObjects} onNavigateToSearch={(q) => {
+            setActiveNav("search");
+            if (q) {
+              sessionStorage.setItem("talentos_search_query", q);
+              sessionStorage.setItem("talentos_autosearch", "1");
+            }
+          }} onNavigateToRecord={(recordId, objectId) => openRecord(recordId, objectId)}
+             onCreateRecord={(obj) => {
+               setActiveNav(`obj_${obj.id}`);
+               setCreateTarget(obj);
+             }}
+             onNavigateToCalendar={() => setActiveNav("calendar")} />
+          <HistoryDropdown
+            history={navHistory}
+            pinned={pinned}
+            onNavigate={navigateToHistoryEntry}
+            onPin={togglePin}
+            isPinned={isPinned}
+            onClear={clearHistory}
+          />
+        </div>
         {/* Page content */}
         <div style={{ flex: 1, padding: activeNav.startsWith("record_") ? 0 : "28px 32px", overflow: "auto" }}>
         {loading ? (
@@ -1571,7 +1639,7 @@ function App() {
         ) : activeNav.startsWith("record_") ? (() => {
           const parts = activeNav.split("_"); const recordId = parts[1]; const objectId = parts[2];
           const obj = navObjects.find(o => o.id === objectId);
-          return <RecordPage recordId={recordId} objectId={objectId} environment={selectedEnv} allObjects={navObjects} onBack={() => setActiveNav(obj ? `obj_${obj.id}` : "dashboard")} onNavigate={openRecord}/>;
+          return <RecordPage recordId={recordId} objectId={objectId} environment={selectedEnv} allObjects={navObjects} onBack={() => setActiveNav(obj ? `obj_${obj.id}` : "dashboard")} onNavigate={openRecord} onHistoryUpdate={pushHistory}/>;
         })() : activeNav === "search" ? (
           <SearchPage environment={selectedEnv} onNavigateToRecord={(record) => {
             openRecord(record.id, record.object_id);

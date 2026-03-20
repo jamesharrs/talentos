@@ -26,6 +26,7 @@ function EntryRow({ entry, onNavigate, onPin, isPinned, showTime = false }) {
         transition: "background 0.12s",
       }}
     >
+      {/* Avatar */}
       <div style={{
         width: 30, height: 30, borderRadius: 8, flexShrink: 0,
         background: `${color}1e`, border: `1.5px solid ${color}44`,
@@ -34,6 +35,8 @@ function EntryRow({ entry, onNavigate, onPin, isPinned, showTime = false }) {
       }}>
         {initials}
       </div>
+
+      {/* Label + subtitle */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
           fontSize: 13, fontWeight: 600, color: "var(--t-text1)",
@@ -48,6 +51,8 @@ function EntryRow({ entry, onNavigate, onPin, isPinned, showTime = false }) {
           {showTime ? ` · ${timeAgo(entry.ts)}` : ""}
         </div>
       </div>
+
+      {/* Pin button — visible on hover */}
       {hovered && onPin && (
         <button
           onClick={e => { e.stopPropagation(); onPin(entry); }}
@@ -63,16 +68,21 @@ function EntryRow({ entry, onNavigate, onPin, isPinned, showTime = false }) {
   );
 }
 
-export function HistoryDropdown({ history, pinned, onNavigate, onPin, isPinned, onClear, isOpen, onToggle }) {
+// ─────────────────────────────────────────────────────────────────────────────
+// HistoryDropdown — clock button in top bar + right-side slide-out drawer
+// ─────────────────────────────────────────────────────────────────────────────
+export function HistoryDropdown({
+  history, pinned, onNavigate, onPin, isPinned, onClear, isOpen, onToggle,
+}) {
   const [tab, setTab] = useState("recent");
   const items = tab === "pinned" ? pinned : history;
 
   return (
     <>
-      {/* Clock button — lives inside GlobalSearch's sticky bar */}
+      {/* ── Clock button (lives inside GlobalSearch sticky bar) ── */}
       <button
         onClick={onToggle}
-        title={isOpen ? "Close history" : "History"}
+        title={isOpen ? "Close history" : "View history"}
         style={{
           display: "flex", alignItems: "center", gap: 5,
           padding: "6px 10px", borderRadius: 8, border: "none",
@@ -84,24 +94,28 @@ export function HistoryDropdown({ history, pinned, onNavigate, onPin, isPinned, 
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
         </svg>
         {history.length > 0 && (
           <span style={{ fontSize: 10, fontWeight: 700 }}>{history.length}</span>
         )}
       </button>
 
-      {/* Slide-out drawer — fixed, slides out from right edge of sidebar */}
+      {/* ── Right-side slide-out drawer ── */}
       <div style={{
-        position: "fixed", top: 0,
-        left: isOpen ? 220 : -320,
-        width: 280, height: "100vh",
+        position: "fixed",
+        top: 0,
+        right: isOpen ? 0 : -320,
+        width: 300,
+        height: "100vh",
         background: "var(--t-surface, white)",
-        borderRight: "1px solid var(--t-border)",
-        boxShadow: isOpen ? "4px 0 24px rgba(0,0,0,0.10)" : "none",
-        zIndex: 90,
-        display: "flex", flexDirection: "column",
-        transition: "left 0.25s cubic-bezier(0.4,0,0.2,1)",
+        borderLeft: "1px solid var(--t-border)",
+        boxShadow: isOpen ? "-4px 0 24px rgba(0,0,0,0.10)" : "none",
+        zIndex: 200,
+        display: "flex",
+        flexDirection: "column",
+        transition: "right 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
         overflow: "hidden",
       }}>
         {/* Header */}
@@ -110,6 +124,7 @@ export function HistoryDropdown({ history, pinned, onNavigate, onPin, isPinned, 
           borderBottom: "1px solid var(--t-border)",
           display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
         }}>
+          {/* Tab pills */}
           <div style={{ display: "flex", gap: 4, flex: 1 }}>
             {["recent", "pinned"].map(t => (
               <button key={t} onClick={() => setTab(t)} style={{
@@ -122,6 +137,8 @@ export function HistoryDropdown({ history, pinned, onNavigate, onPin, isPinned, 
               }}>{t}</button>
             ))}
           </div>
+
+          {/* Clear + close */}
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             {tab === "recent" && history.length > 0 && (
               <button onClick={onClear} style={{
@@ -153,17 +170,18 @@ export function HistoryDropdown({ history, pinned, onNavigate, onPin, isPinned, 
             }}>
               {tab === "pinned"
                 ? "Star ☆ items to pin them here"
-                : "Nothing viewed yet.\nVisit pages and records to build your history."}
+                : "Nothing viewed yet.\nPages and records you visit will appear here."}
             </div>
           ) : items.map((e, i) => (
             <EntryRow key={i} entry={e}
               onNavigate={onNavigate}
-              onPin={onPin} isPinned={isPinned(e)}
+              onPin={onPin}
+              isPinned={isPinned(e)}
               showTime={tab === "recent"} />
           ))}
         </div>
 
-        {/* Footer */}
+        {/* Footer count */}
         {items.length > 0 && (
           <div style={{
             padding: "8px 14px", borderTop: "1px solid var(--t-border)",
@@ -173,11 +191,6 @@ export function HistoryDropdown({ history, pinned, onNavigate, onPin, isPinned, 
           </div>
         )}
       </div>
-
-      {/* Invisible backdrop — click anywhere outside to close */}
-      {isOpen && (
-        <div onClick={onToggle} style={{ position: "fixed", inset: 0, zIndex: 89 }} />
-      )}
     </>
   );
 }

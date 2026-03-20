@@ -7,6 +7,22 @@ const C = {
   green:"#0CAF77", amber:"#F59E0B", red:"#EF4444",
 };
 const F = "'DM Sans', -apple-system, sans-serif";
+const FW = "'Space Grotesk', sans-serif";
+
+// Vercentic logo — white version (matches LoginPage)
+const VIcon = ({ size = 28 }) => (
+  <svg width={size} height={size} viewBox="0 0 80 80" fill="none">
+    <path d="M8 52 L40 36 L72 52 L40 68 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/>
+    <path d="M8 52 L8 62 L40 78 L40 68 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/>
+    <path d="M72 52 L72 62 L40 78 L40 68 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none" opacity="0.3"/>
+    <path d="M20 34 L40 24 L60 34 L40 44 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/>
+    <path d="M20 34 L20 42 L40 52 L40 44 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/>
+    <path d="M60 34 L60 42 L40 52 L40 44 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none" opacity="0.3"/>
+    <path d="M28 18 L40 12 L52 18 L40 24 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/>
+    <path d="M28 18 L28 24 L40 30 L40 24 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/>
+    <path d="M52 18 L52 24 L40 30 L40 24 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none" opacity="0.3"/>
+  </svg>
+);
 
 const PATHS = {
   search:"M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
@@ -30,15 +46,16 @@ const PulseLoader = ({ label="Researching..." }) => (
   <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:20,padding:"60px 0"}}>
     <div style={{position:"relative",width:80,height:80}}>
       {[0,1,2].map(i=>(
-        <div key={i} style={{position:"absolute",inset:0,borderRadius:"50%",border:`2px solid ${C.accent}`,opacity:0.3-i*0.05,animation:`pulse-csw ${1.5+i*0.3}s ease-in-out infinite`,animationDelay:`${i*0.2}s`,transform:`scale(${1+i*0.4})`}}/>
+        <div key={i} style={{position:"absolute",inset:0,borderRadius:"50%",border:"2px solid rgba(255,255,255,0.3)",animation:`pulse-csw ${1.5+i*0.3}s ease-in-out infinite`,animationDelay:`${i*0.2}s`,transform:`scale(${1+i*0.4})`}}/>
       ))}
-      <div style={{position:"absolute",inset:0,borderRadius:"50%",background:C.accentLight,display:"flex",alignItems:"center",justifyContent:"center"}}>
-        <Ic n="sparkle" s={28} c={C.accent}/>
+      <div style={{position:"absolute",inset:0,borderRadius:"50%",background:"rgba(255,255,255,0.12)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <VIcon size={32}/>
       </div>
     </div>
     <div style={{textAlign:"center"}}>
-      <div style={{fontSize:16,fontWeight:700,color:C.text1,marginBottom:6}}>{label}</div>
-      <div style={{fontSize:13,color:C.text3}}>Claude is searching the web and analysing your company…</div>
+      <div style={{fontSize:18,fontWeight:700,color:"white",marginBottom:8,fontFamily:FW}}>{label}</div>
+      <div style={{fontSize:14,color:"rgba(255,255,255,0.6)",marginBottom:6}}>Vercentic is searching the web and analysing your company…</div>
+      <div style={{fontSize:12,color:"rgba(255,255,255,0.4)"}}>This may take a minute or so — hang tight.</div>
     </div>
     <style>{`@keyframes pulse-csw{0%,100%{opacity:0.3}50%{opacity:0.1}}`}</style>
   </div>
@@ -139,25 +156,35 @@ export default function CompanySetupWizard({ environmentId, environmentName, onC
 
   // Step 0: Search
   if (step===0) return (
-    <div style={{minHeight:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:40,fontFamily:F}}>
-      <div style={{maxWidth:560,width:"100%",textAlign:"center"}}>
-        <div style={{width:72,height:72,borderRadius:20,background:`linear-gradient(135deg,${C.accent},#7C3AED)`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 24px"}}>
-          <Ic n="sparkle" s={34} c="white"/>
+    <div style={{minHeight:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:40,fontFamily:F,position:"relative",overflow:"hidden",background:"linear-gradient(135deg,#1a1a2e 0%,#3b5bdb 100%)"}}>
+      {/* Radial glow — matches login page */}
+      <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 20% 30%,rgba(99,102,241,0.35) 0%,transparent 55%),radial-gradient(ellipse at 80% 70%,rgba(67,97,238,0.25) 0%,transparent 50%)",pointerEvents:"none"}}/>
+      {/* Subtle grid overlay */}
+      <div style={{position:"absolute",inset:0,backgroundImage:"linear-gradient(rgba(255,255,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.04) 1px,transparent 1px)",backgroundSize:"60px 60px",pointerEvents:"none"}}/>
+
+      <div style={{maxWidth:560,width:"100%",textAlign:"center",position:"relative",zIndex:1}}>
+        {/* Vercentic logo */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:32}}>
+          <VIcon size={36}/>
+          <span style={{fontFamily:FW,fontSize:22,fontWeight:700,letterSpacing:"-0.5px",color:"white"}}>Vercentic</span>
         </div>
-        <h1 style={{fontSize:28,fontWeight:800,color:C.text1,margin:"0 0 12px"}}>Set up your workspace</h1>
-        <p style={{fontSize:15,color:C.text3,lineHeight:1.6,margin:"0 0 40px"}}>Enter your company name and our AI will research your organisation — finding your logo, locations, EVP, and setting up personalised email templates.</p>
-        <div style={{display:"flex",gap:12,background:C.card,borderRadius:16,padding:8,border:`1.5px solid ${C.border}`,boxShadow:"0 4px 24px rgba(0,0,0,0.06)"}}>
+
+        <h1 style={{fontSize:30,fontWeight:800,color:"white",margin:"0 0 12px",fontFamily:FW,letterSpacing:"-0.5px"}}>Set up your workspace</h1>
+        <p style={{fontSize:15,color:"rgba(255,255,255,0.6)",lineHeight:1.7,margin:"0 0 40px"}}>Enter your company name and our AI will research your organisation — finding your logo, locations, EVP, and setting up personalised email templates.</p>
+
+        <div style={{display:"flex",gap:12,background:"rgba(255,255,255,0.1)",borderRadius:16,padding:8,border:"1.5px solid rgba(255,255,255,0.15)",backdropFilter:"blur(10px)"}}>
           <input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleResearch()}
             placeholder="Enter your company name…" autoFocus
-            style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:16,color:C.text1,padding:"8px 12px",fontFamily:F}}/>
+            style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:16,color:"white",padding:"8px 12px",fontFamily:F}}/>
           <button onClick={handleResearch} disabled={!query.trim()||loading}
-            style={{padding:"10px 24px",borderRadius:10,border:"none",background:query.trim()?C.accent:C.border,color:"white",fontSize:14,fontWeight:700,cursor:query.trim()?"pointer":"default",display:"flex",alignItems:"center",gap:8,fontFamily:F}}>
+            style={{padding:"10px 24px",borderRadius:10,border:"none",background:query.trim()?"#4361EE":"rgba(255,255,255,0.2)",color:"white",fontSize:14,fontWeight:700,cursor:query.trim()?"pointer":"default",display:"flex",alignItems:"center",gap:8,fontFamily:F,transition:"background 0.15s"}}>
             <Ic n="search" s={16} c="white"/>Research
           </button>
         </div>
+
         {loading&&<PulseLoader/>}
-        {error&&<div style={{marginTop:20,padding:"12px 16px",borderRadius:10,background:"#FEF2F2",border:"1px solid #FECACA",color:C.red,fontSize:13}}>{error}</div>}
-        {onSkip&&<button onClick={onSkip} style={{marginTop:24,background:"none",border:"none",color:C.text3,fontSize:13,cursor:"pointer",fontFamily:F}}>Skip for now →</button>}
+        {error&&<div style={{marginTop:20,padding:"12px 16px",borderRadius:10,background:"rgba(239,68,68,0.15)",border:"1px solid rgba(239,68,68,0.3)",color:"#fca5a5",fontSize:13}}>{error}</div>}
+        {onSkip&&!loading&&<button onClick={onSkip} style={{marginTop:24,background:"none",border:"none",color:"rgba(255,255,255,0.4)",fontSize:13,cursor:"pointer",fontFamily:F}}>Skip for now →</button>}
       </div>
     </div>
   );

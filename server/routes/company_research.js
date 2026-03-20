@@ -57,62 +57,73 @@ router.post('/research', async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set' });
 
-  try {
-    const searchResponse = await fetch('https://api.anthropic.com/v1/messages', {
+  // Helper: call Anthropic with retry on rate limit
+  const callAI = async (body, attempt = 0) => {
+    const hasWebSearch = (body.tools||[]).some(t => t.type?.includes('web_search'));
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      ...(hasWebSearch ? { 'anthropic-beta': 'web-search-2025-03-05' } : {})
+    };
+    // Remove undefined tools key before sending
+    const cleanBody = { ...body };
+    if (!cleanBody.tools) delete cleanBody.tools;
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-beta': 'web-search-2025-03-05' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6', max_tokens: 4000,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        system: 'You are a company research specialist for a talent acquisition platform. Research the company and return ONLY valid JSON, no markdown.',
-        messages: [{ role: 'user', content: `Research "${company_name}" and return this exact JSON:
-{
-  "name": "official company name",
-  "industry": "primary industry (technology/finance/healthcare/legal/consulting/retail/manufacturing/media/energy/other)",
-  "sub_industry": "more specific sector",
-  "size": "company size (startup <50/small 50-200/medium 200-1000/large 1000-5000/enterprise 5000+)",
-  "founded": "year founded",
-  "description": "2-3 sentence description",
-  "website": "official website URL",
-  "logo_url": "direct URL to company logo image",
-  "brand_color": "primary brand color as hex e.g. #FF5500",
-  "headquarters": "city, country",
-  "locations": [{"city":"","country":"","region":"","is_hq":true,"type":"hq/office/remote-hub"}],
-  "evp": {"headline":"EVP headline max 10 words","statement":"2-3 sentences why work here","pillars":["pillar1","pillar2","pillar3"],"culture_points":["point1","point2","point3"]},
-  "tone": "formal/professional/conversational/startup/creative",
-  "typical_roles": ["role1","role2","role3","role4","role5"],
-  "key_benefits": ["benefit1","benefit2","benefit3"],
-  "awards": ["award if any"],
-  "social": {"linkedin":"url","twitter":"url"}
-}
-Return ONLY the JSON.` }]
-      })
+      headers,
+      body: JSON.stringify(cleanBody)
+    });
+    if (r.status === 429 && attempt < 3) {
+      const wait = (attempt + 1) * 20000;
+      console.log(`Rate limited, waiting ${wait/1000}s before retry ${attempt+1}...`);
+      await new Promise(res => setTimeout(res, wait));
+      return callAI(body, attempt + 1);
+    }
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  };
+
+  try {
+    // ── Step 1: Research company profile ──────────────────────────────────────
+    const searchData = await callAI({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2000,
+      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      system: 'You are a company research specialist. Research the company and return ONLY valid compact JSON, no markdown, no extra text.',
+      messages: [{ role: 'user', content: `Research "${company_name}" and return ONLY this JSON (no other text):
+{"name":"","industry":"technology/finance/healthcare/legal/consulting/retail/manufacturing/media/energy/other","size":"startup/small/medium/large/enterprise","founded":"","description":"2 sentences max","website":"","logo_url":"","brand_color":"#hex","headquarters":"city,country","locations":[{"city":"","country":"","is_hq":true}],"evp":{"headline":"max 8 words","statement":"2 sentences","pillars":["","",""]},"tone":"formal/professional/conversational/startup","typical_roles":["","",""],"key_benefits":["","",""],"social":{"linkedin":""}}` }]
     });
 
-    if (!searchResponse.ok) throw new Error(await searchResponse.text());
-    const searchData = await searchResponse.json();
     let profileText = '';
     for (const block of searchData.content || []) { if (block.type === 'text') profileText += block.text; }
     let profile;
     try { profile = JSON.parse(profileText.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim()); }
-    catch(e) { return res.status(500).json({ error: 'Failed to parse research results', raw: profileText }); }
+    catch(e) { return res.status(500).json({ error: 'Failed to parse research results', raw: profileText.slice(0,500) }); }
 
-    const templateResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6', max_tokens: 3000,
-        system: 'You are an expert recruiter writing email templates. Return ONLY valid JSON, no markdown.',
-        messages: [{ role: 'user', content: `Create 5 email templates for ${profile.name} (${profile.industry}, tone: ${profile.tone}). EVP: ${profile.evp?.statement||''}
-Return: {"templates":[{"name":"Initial Outreach","category":"outreach","subject":"...","body":"...with {{candidate_name}},{{job_title}},{{company_name}}"},{"name":"Interview Invitation","category":"interview","subject":"...","body":"...with {{candidate_name}},{{interview_date}},{{interview_time}},{{interview_format}}"},{"name":"Offer Letter","category":"offer","subject":"...","body":"...with {{candidate_name}},{{job_title}},{{salary}},{{start_date}}"},{"name":"Rejection (After Interview)","category":"rejection","subject":"...","body":"...warm rejection with {{candidate_name}},{{job_title}}"},{"name":"Welcome Aboard","category":"onboarding","subject":"...","body":"...with {{candidate_name}},{{start_date}},{{manager_name}}"}]}` }]
-      })
+    // ── Step 2: Wait 30s to clear rate limit window, then generate templates ──
+    console.log('Research complete, waiting 30s before template generation...');
+    await new Promise(res => setTimeout(res, 30000));
+
+    const tData = await callAI({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2000,
+      // No web search tool needed for templates — saves tokens
+      tools: undefined,
+      system: 'Write email templates for recruiters. Return ONLY valid JSON.',
+      messages: [{ role: 'user', content: `5 recruiting email templates for ${profile.name} (${profile.industry}, ${profile.tone} tone).
+Return ONLY: {"templates":[
+{"name":"Initial Outreach","category":"outreach","subject":"...","body":"Use {{candidate_name}},{{job_title}},{{company_name}}"},
+{"name":"Interview Invitation","category":"interview","subject":"...","body":"Use {{candidate_name}},{{interview_date}},{{interview_time}}"},
+{"name":"Offer Letter","category":"offer","subject":"...","body":"Use {{candidate_name}},{{job_title}},{{salary}},{{start_date}}"},
+{"name":"Rejection","category":"rejection","subject":"...","body":"Use {{candidate_name}},{{job_title}}"},
+{"name":"Welcome Aboard","category":"onboarding","subject":"...","body":"Use {{candidate_name}},{{start_date}}"}]}` }]
     });
 
     let emailTemplates = [];
-    if (templateResponse.ok) {
-      const tData = await templateResponse.json();
-      let tText = ''; for (const b of tData.content||[]) { if (b.type==='text') tText += b.text; }
-      try { emailTemplates = JSON.parse(tText.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim()).templates||[]; } catch(e) {}
+    let tText = ''; for (const b of tData.content||[]) { if (b.type==='text') tText += b.text; }
+    try { emailTemplates = JSON.parse(tText.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim()).templates||[]; } catch(e) {
+      console.log('Template parse failed, using empty templates');
     }
 
     const industryKey = (profile.industry||'default').toLowerCase();

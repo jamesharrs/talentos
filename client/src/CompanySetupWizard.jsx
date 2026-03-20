@@ -55,7 +55,7 @@ const PulseLoader = ({ label="Researching..." }) => (
     <div style={{textAlign:"center"}}>
       <div style={{fontSize:18,fontWeight:700,color:"white",marginBottom:8,fontFamily:FW}}>{label}</div>
       <div style={{fontSize:14,color:"rgba(255,255,255,0.6)",marginBottom:6}}>Vercentic is searching the web and analysing your company…</div>
-      <div style={{fontSize:12,color:"rgba(255,255,255,0.4)"}}>This may take a minute or so — hang tight.</div>
+      <div style={{fontSize:12,color:"rgba(255,255,255,0.4)"}}>This takes about a minute — we're building your full company profile, EVP and email templates.</div>
     </div>
     <style>{`@keyframes pulse-csw{0%,100%{opacity:0.3}50%{opacity:0.1}}`}</style>
   </div>

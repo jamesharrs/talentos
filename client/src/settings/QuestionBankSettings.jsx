@@ -1,7 +1,7 @@
 // client/src/settings/QuestionBankSettings.jsx
 import { useState, useEffect, useCallback } from "react";
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = { bg:"#EEF2FF", surface:"#FFFFFF", border:"#E8ECF8", text1:"#0F1729", text2:"#4B5675", text3:"#9DA8C7", accent:"#4361EE", accentLight:"#EEF2FF", green:"#0CAF77", amber:"#F79009", purple:"#7C3AED", red:"#EF4444" };
 import api from '../apiClient.js';
 

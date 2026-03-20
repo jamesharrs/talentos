@@ -849,7 +849,7 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
           onChange={handleChange}
           onFocus={() => query && setOpen(true)}
           placeholder="Search candidates, jobs, talent pools…"
-          style={{ width: "100%", padding: "8px 12px 8px 36px", borderRadius: 10, border: `1.5px solid ${open ? "var(--t-accent)" : "var(--t-border)"}`, fontSize: 13, fontFamily: "var(--t-font, 'DM Sans', sans-serif)", outline: "none", background: "var(--t-surface2)", color: "var(--t-text1)", boxSizing: "border-box", transition: "border-color .15s" }}
+          style={{ width: "100%", padding: "8px 12px 8px 36px", borderRadius: 10, border: `1.5px solid ${open ? "var(--t-accent)" : "var(--t-border)"}`, fontSize: 13, fontFamily: "var(--t-font, 'Geist', sans-serif)", outline: "none", background: "var(--t-surface2)", color: "var(--t-text1)", boxSizing: "border-box", transition: "border-color .15s" }}
         />
         <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: open ? "var(--t-accent)" : "var(--t-text3)", display: "flex", pointerEvents: "none", transition: "color .15s" }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/></svg>
@@ -910,7 +910,7 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
           onClick={() => setShowCreate(s => !s)}
           style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10,
             border: "none", background: showCreate ? "var(--t-accent-dark, #3451d1)" : "var(--t-accent)", color: "#fff",
-            fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--t-font, 'DM Sans', sans-serif)",
+            fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--t-font, 'Geist', sans-serif)",
             boxShadow: "0 2px 8px rgba(67,97,238,.3)", transition: "background .12s" }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
           Create
@@ -1446,11 +1446,11 @@ function App() {
 
   if (apiOnline === false) {
     return (
-      <div style={{ minHeight: "100vh", background: "#f7f8fa", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
+      <div style={{ minHeight: "100vh", background: "#f7f8fa", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Geist', -apple-system, sans-serif" }}>
         <div style={{ textAlign: "center", maxWidth: 480, padding: 40 }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🔌</div>
-          <h2 style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 800, color: "#1a1a2e" }}>API Server Not Running</h2>
-          <p style={{ color: "#6b7280", lineHeight: 1.6 }}>Start the backend server to use TalentOS.</p>
+          <h2 style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 800, color: "#1a1a2e", fontFamily: "'Space Grotesk', sans-serif" }}>API Server Not Running</h2>
+          <p style={{ color: "#6b7280", lineHeight: 1.6 }}>Start the backend server to use Vercentic.</p>
           <div style={{ background: "#1a1a2e", color: "#a5f3fc", padding: "14px 20px", borderRadius: 10, fontFamily: "ui-monospace, monospace", fontSize: 13, marginTop: 20, textAlign: "left" }}>
             <div style={{ color: "#94a3b8", marginBottom: 4 }}># In the server directory:</div>
             <div>node index.js</div>
@@ -1470,12 +1470,19 @@ function App() {
         {/* Logo */}
         <div style={{ padding: "20px 16px 16px", borderBottom: "1px solid var(--t-border2)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(var(--t-gradient))`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ color: "white", fontSize: 14, fontWeight: 900 }}>T</span>
-            </div>
+            <svg width="22" height="22" viewBox="0 0 80 80" fill="none">
+              <path d="M8 52 L40 36 L72 52 L40 68 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none"/>
+              <path d="M8 52 L8 62 L40 78 L40 68 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none"/>
+              <path d="M72 52 L72 62 L40 78 L40 68 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none" opacity="0.3"/>
+              <path d="M20 34 L40 24 L60 34 L40 44 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none"/>
+              <path d="M20 34 L20 42 L40 52 L40 44 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none"/>
+              <path d="M60 34 L60 42 L40 52 L40 44 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none" opacity="0.3"/>
+              <path d="M28 18 L40 12 L52 18 L40 24 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none"/>
+              <path d="M28 18 L28 24 L40 30 L40 24 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none"/>
+              <path d="M52 18 L52 24 L40 30 L40 24 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none" opacity="0.3"/>
+            </svg>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: "var(--t-text1)", lineHeight: 1 }}>TalentOS</div>
-              <div style={{ fontSize: 10, color: "var(--t-text3)", letterSpacing: "0.05em" }}>PLATFORM</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--t-text1)", lineHeight: 1, fontFamily: "'Space Grotesk', sans-serif", letterSpacing: "-0.3px" }}>Vercentic</div>
             </div>
           </div>
         </div>

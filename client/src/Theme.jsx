@@ -50,10 +50,11 @@ export const SCHEMES = {
 };
 
 export const FONTS = {
-  dm:    { label: "DM Sans",  value: "'DM Sans', -apple-system, sans-serif" },
-  inter: { label: "Inter",    value: "'Inter', -apple-system, sans-serif" },
-  jakarta: { label: "Jakarta", value: "'Plus Jakarta Sans', -apple-system, sans-serif" },
-  mono:  { label: "Mono",     value: "'JetBrains Mono', 'Fira Code', ui-monospace, monospace" },
+  geist:   { label: "Geist (Vercentic)", value: "'Geist', -apple-system, sans-serif" },
+  dm:      { label: "DM Sans",  value: "'Geist', -apple-system, sans-serif" },
+  inter:   { label: "Inter",    value: "'Inter', -apple-system, sans-serif" },
+  jakarta: { label: "Jakarta",  value: "'Plus Jakarta Sans', -apple-system, sans-serif" },
+  mono:    { label: "Mono",     value: "'JetBrains Mono', 'Fira Code', ui-monospace, monospace" },
 };
 
 export const DENSITIES = {
@@ -64,7 +65,7 @@ export const DENSITIES = {
 const DEFAULT_PREFS = {
   scheme: "default",
   dark:   false,
-  font:   "dm",
+  font:   "geist",
   density: "comfortable",
 };
 

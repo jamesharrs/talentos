@@ -9,7 +9,7 @@
 import { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = { accent:"#4361EE", text1:"#111827", text2:"#374151", text3:"#9ca3af", border:"#e5e7eb", bg:"#f9fafb" };
 
 function Ic({ n, s=14, c="currentColor" }) {

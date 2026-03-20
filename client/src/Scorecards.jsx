@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 
 const API = "/api";
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = { bg:"#EEF2FF", white:"#fff", accent:"#4361ee", text1:"#111827", text2:"#374151", text3:"#9ca3af", border:"#e5e7eb" };
 
 const REC = {

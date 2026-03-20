@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import api from './apiClient.js';
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = {
   bg:"#F3F4F8", surface:"#FFFFFF", surface2:"#F8F9FC",
   border:"#E8ECF8", border2:"#D1D5DB",
@@ -31,7 +31,7 @@ const WIDGET_TYPES = [
   { type:"hero",     label:"Hero",       icon:"🏔", desc:"Headline, subheading & CTA" },
   { type:"text",     label:"Rich Text",  icon:"¶",  desc:"Copy & content blocks" },
   { type:"image",    label:"Image",      icon:"🖼", desc:"Photo or illustration" },
-  { type:"jobs",     label:"Job Board",  icon:"💼", desc:"Live jobs from TalentOS" },
+  { type:"jobs",     label:"Job Board",  icon:"💼", desc:"Live jobs from Vercentic" },
   { type:"form",     label:"Form",       icon:"📋", desc:"Linked to any object" },
   { type:"stats",    label:"Stats",      icon:"📊", desc:"Numbers & social proof" },
   { type:"team",     label:"Team",       icon:"👥", desc:"People from records" },
@@ -41,7 +41,7 @@ const WIDGET_TYPES = [
 ];
 
 const FONT_OPTS = [
-  { value:"'DM Sans', sans-serif",           label:"DM Sans" },
+  { value:"'Geist', sans-serif",           label:"Geist (Vercentic)" },
   { value:"'Inter', sans-serif",             label:"Inter" },
   { value:"'Plus Jakarta Sans', sans-serif", label:"Jakarta Sans" },
   { value:"'Outfit', sans-serif",            label:"Outfit" },
@@ -90,7 +90,7 @@ const uid = () => Math.random().toString(36).slice(2,10);
 const defaultTheme = () => ({
   primaryColor:"#4361EE", secondaryColor:"#7C3AED",
   bgColor:"#FFFFFF", textColor:"#0F1729", accentColor:"#F79009",
-  fontFamily:"'DM Sans', sans-serif", headingFont:"'DM Sans', sans-serif",
+  fontFamily:"'Geist', sans-serif", headingFont:"'Geist', sans-serif",
   fontSize:"16px", headingWeight:"700",
   borderRadius:"8px", buttonStyle:"filled", buttonRadius:"8px",
   maxWidth:"1200px",

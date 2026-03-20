@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = {
   bg: "var(--color-background-tertiary, #f7f8fa)",
   card: "var(--color-background-primary, white)",

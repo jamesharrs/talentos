@@ -4,7 +4,7 @@ import api from './apiClient.js';import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from "recharts";
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = {
   bg:"#EEF2FF", surface:"#FFFFFF", border:"#E8ECF8",
   text1:"#0F1729", text2:"#4B5675", text3:"#9DA8C7",
@@ -76,7 +76,7 @@ const StatCard = ({ label, value, sub, icon, color, trend, trendLabel, onClick, 
           </button>}
         </div>
       </div>
-      <div style={{fontSize:32,fontWeight:800,color:C.text1,letterSpacing:"-1px",lineHeight:1}}>{value??0}</div>
+      <div style={{fontSize:32,fontWeight:700,color:C.text1,letterSpacing:"-1px",lineHeight:1,fontFamily:"'Space Grotesk', sans-serif"}}>{value??0}</div>
       <div style={{fontSize:12,color:C.text3,marginTop:6}}>{label}</div>
       {sub&&<div style={{fontSize:11,color:C.text3,marginTop:2}}>{sub}</div>}
       {trendLabel&&<div style={{fontSize:10,color:C.text3,marginTop:4,fontStyle:"italic"}}>{trendLabel}</div>}
@@ -298,7 +298,7 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
       <div style={{marginBottom:20,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
         {/* Greeting */}
         <div style={{flexShrink:0}}>
-          <h1 style={{margin:"0 0 1px",fontSize:20,fontWeight:800,color:C.text1,letterSpacing:"-0.3px"}}>{greeting} 👋</h1>
+          <h1 style={{margin:"0 0 1px",fontSize:20,fontWeight:700,color:C.text1,letterSpacing:"-0.5px",fontFamily:"'Space Grotesk', sans-serif"}}>{greeting} 👋</h1>
           <p style={{margin:0,fontSize:11,color:C.text3}}>{today}</p>
         </div>
 

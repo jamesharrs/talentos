@@ -4,7 +4,7 @@ import { matchCandidateToJob } from "./AI.jsx";
 import SharePicker from "./SharePicker.jsx";
 import api from './apiClient.js';
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = {
   bg: "#f5f6fa", surface: "#ffffff", border: "#e5e7eb",
   text1: "#111827", text2: "#374151", text3: "#9ca3af",

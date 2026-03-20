@@ -7,7 +7,7 @@ const api = {
   del:   p     => fetch(`/api${p}`,{method:"DELETE"}).then(r=>r.json()),
 };
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = {
   bg:"#f8f9fc", surface:"#ffffff", border:"#e8eaed", border2:"#d1d5db",
   text1:"#111827", text2:"#4b5563", text3:"#9ca3af", accent:"#3b5bdb",

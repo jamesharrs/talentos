@@ -4,7 +4,7 @@ import SharePicker from "./SharePicker.jsx";
 import { useState, useEffect, useCallback } from "react";
 import AiBadge from "./AiBadge.jsx";
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = {
   bg: "var(--t-bg, #EEF2FF)", card: "white", accent: "var(--t-accent, #4361EE)",
   accentLight: "var(--t-accent-light, #EEF2FF)", text1: "#111827", text2: "#374151",

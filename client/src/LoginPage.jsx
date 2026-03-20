@@ -11,6 +11,21 @@ const api = {
   }
 };
 
+// Vercentic SVG icon — white version for dark backgrounds
+const VIcon = ({ size = 28 }) => (
+  <svg width={size} height={size} viewBox="0 0 80 80" fill="none">
+    <path d="M8 52 L40 36 L72 52 L40 68 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/>
+    <path d="M8 52 L8 62 L40 78 L40 68 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/>
+    <path d="M72 52 L72 62 L40 78 L40 68 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none" opacity="0.3"/>
+    <path d="M20 34 L40 24 L60 34 L40 44 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/>
+    <path d="M20 34 L20 42 L40 52 L40 44 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/>
+    <path d="M60 34 L60 42 L40 52 L40 44 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none" opacity="0.3"/>
+    <path d="M28 18 L40 12 L52 18 L40 24 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/>
+    <path d="M28 18 L28 24 L40 30 L40 24 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/>
+    <path d="M52 18 L52 24 L40 30 L40 24 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none" opacity="0.3"/>
+  </svg>
+);
+
 export default function LoginPage({ onLogin }) {
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
@@ -21,14 +36,11 @@ export default function LoginPage({ onLogin }) {
     if (!email || !password) return;
     setLoading(true); setError("");
     try {
-      // Include ?tenant= from URL so server searches the right store
       const tenantParam = new URLSearchParams(window.location.search).get('tenant');
       const loginUrl = tenantParam ? `/api/users/login?tenant=${encodeURIComponent(tenantParam)}` : "/api/users/login";
       const data = await api.post(loginUrl, { email, password });
       const { role, permissions, tenant_slug, ...user } = data;
-      // Store tenant_slug in session so every API call can send the right header
       setSession({ user, role, permissions, tenant_slug });
-      // Pre-warm permission cache from server
       loadMyPermissions().catch(() => {});
       onLogin({ user, role, permissions, tenant_slug });
     } catch (e) {
@@ -40,74 +52,125 @@ export default function LoginPage({ onLogin }) {
 
   const handleKey = (e) => { if (e.key === "Enter") handleSubmit(); };
 
+  const F     = "'Geist', -apple-system, sans-serif";
+  const FW    = "'Space Grotesk', sans-serif";
+  const ready = !loading && email && password;
+
   return (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#f0f4ff 0%,#fafbff 60%,#f5f0ff 100%)",
-      display:"flex", alignItems:"center", justifyContent:"center",
-      fontFamily:"'DM Sans',-apple-system,sans-serif" }}>
+    <div style={{ minHeight:"100vh", display:"grid", gridTemplateColumns:"1fr 1fr", fontFamily: F }}>
 
-      <div style={{ width:"100%", maxWidth:420, padding:"0 20px" }}>
-        {/* Logo */}
-        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:40, justifyContent:"center" }}>
-          <div style={{ width:44, height:44, borderRadius:12,
-            background:"linear-gradient(135deg,#4f46e5,#7c3aed)",
-            display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 4px 14px #4f46e540" }}>
-            <span style={{ color:"white", fontSize:20, fontWeight:900 }}>T</span>
+      {/* Left — indigo/navy branded panel */}
+      <div style={{
+        position:"relative", overflow:"hidden",
+        background:"linear-gradient(135deg,#1a1a2e 0%,#3b5bdb 100%)",
+        display:"flex", flexDirection:"column", justifyContent:"space-between", padding:48,
+      }}>
+        {/* Subtle radial glow */}
+        <div style={{ position:"absolute", inset:0,
+          background:"radial-gradient(ellipse at 20% 30%,rgba(99,102,241,0.35) 0%,transparent 55%),radial-gradient(ellipse at 80% 70%,rgba(67,97,238,0.25) 0%,transparent 50%)" }}/>
+        {/* Grid overlay */}
+        <div style={{ position:"absolute", inset:0,
+          backgroundImage:"linear-gradient(rgba(255,255,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.04) 1px,transparent 1px)",
+          backgroundSize:"60px 60px" }}/>
+
+        {/* Content */}
+        <div style={{ position:"relative", zIndex:1 }}>
+          {/* Logo lockup */}
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:72 }}>
+            <VIcon size={26}/>
+            <span style={{ fontFamily:FW, fontSize:20, fontWeight:700, letterSpacing:"-0.5px", color:"white" }}>Vercentic</span>
           </div>
-          <div>
-            <div style={{ fontSize:22, fontWeight:800, color:"#1a1a2e", lineHeight:1 }}>TalentOS</div>
-            <div style={{ fontSize:11, color:"#6b7280", letterSpacing:"0.08em", textTransform:"uppercase" }}>Platform</div>
-          </div>
+          <h1 style={{ fontFamily:FW, fontSize:"clamp(28px,3.5vw,48px)", fontWeight:700, letterSpacing:"-1.5px", lineHeight:1.05, color:"white", marginBottom:18 }}>
+            The modern<br/>people platform.
+          </h1>
+          <p style={{ fontSize:14, color:"rgba(255,255,255,0.6)", lineHeight:1.75, maxWidth:320, margin:"0 0 36px" }}>
+            Intelligence built in. Not bolted on. Configure, manage, report and deliver — in one continuous loop.
+          </p>
+          {[
+            "100% AI-powered, infinitely configurable",
+            "Built for enterprise TA and RPO teams",
+            "One organic platform — not a stack of tools",
+          ].map(f => (
+            <div key={f} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, fontSize:13, fontWeight:500, color:"rgba(255,255,255,0.72)" }}>
+              <div style={{ width:5, height:5, borderRadius:"50%", background:"rgba(255,255,255,0.45)", flexShrink:0 }}/>
+              {f}
+            </div>
+          ))}
         </div>
+        <div style={{ position:"relative", zIndex:1, fontSize:12, color:"rgba(255,255,255,0.28)" }}>
+          Vercentic · The modern people platform · 2026
+        </div>
+      </div>
 
-        {/* Card */}
-        <div style={{ background:"white", borderRadius:20, padding:"36px 32px", boxShadow:"0 4px 40px #1a1a2e12, 0 1px 3px #1a1a2e08" }}>
-          <h2 style={{ margin:"0 0 6px", fontSize:20, fontWeight:800, color:"#1a1a2e" }}>Sign in</h2>
-          <p style={{ margin:"0 0 28px", fontSize:13, color:"#6b7280" }}>Enter your credentials to continue</p>
+      {/* Right — login form */}
+      <div style={{ background:"white", display:"flex", alignItems:"center", justifyContent:"center", padding:48, borderLeft:"1px solid #E5E7EB" }}>
+        <div style={{ width:"100%", maxWidth:360 }}>
+          <h2 style={{ margin:"0 0 5px", fontSize:22, fontWeight:700, color:"#0F1729", fontFamily:FW, letterSpacing:"-0.5px" }}>Welcome back</h2>
+          <p style={{ margin:"0 0 32px", fontSize:13, color:"#6B7280" }}>Sign in to your Vercentic workspace</p>
 
           {error && (
-            <div style={{ background:"#fff5f5", border:"1px solid #fecaca", borderRadius:10, padding:"10px 14px",
-              fontSize:13, color:"#dc2626", marginBottom:20 }}>
+            <div style={{ background:"#fff5f5", border:"1px solid #fecaca", borderRadius:8, padding:"10px 14px", fontSize:13, color:"#dc2626", marginBottom:18 }}>
               {error}
             </div>
           )}
 
-          <div style={{ marginBottom:16 }}>
-            <label style={{ fontSize:12, fontWeight:600, color:"#374151", display:"block", marginBottom:6 }}>Email</label>
+          <div style={{ marginBottom:14 }}>
+            <label style={{ fontSize:12, fontWeight:600, color:"#374151", display:"block", marginBottom:5 }}>Email address</label>
             <input value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={handleKey}
-              type="email" placeholder="you@company.com" autoFocus
-              style={{ width:"100%", padding:"11px 14px", borderRadius:10, border:"1.5px solid #e5e7eb",
-                fontSize:13, fontFamily:"inherit", outline:"none", boxSizing:"border-box",
-                color:"#1a1a2e", background:"#fafafa", transition:"border .15s" }}
-              onFocus={e=>e.target.style.borderColor="#4f46e5"}
-              onBlur={e=>e.target.style.borderColor="#e5e7eb"}
+              type="email" placeholder="you@organisation.com" autoFocus
+              style={{ width:"100%", padding:"10px 14px", borderRadius:8, border:"1.5px solid #E5E7EB",
+                fontSize:13, fontFamily:F, outline:"none", boxSizing:"border-box", color:"#0F1729",
+                background:"#FAFAFA", transition:"border .15s" }}
+              onFocus={e=>e.target.style.borderColor="#4361EE"}
+              onBlur={e=>e.target.style.borderColor="#E5E7EB"}
             />
           </div>
 
-          <div style={{ marginBottom:28 }}>
-            <label style={{ fontSize:12, fontWeight:600, color:"#374151", display:"block", marginBottom:6 }}>Password</label>
+          <div style={{ marginBottom:24 }}>
+            <label style={{ fontSize:12, fontWeight:600, color:"#374151", display:"block", marginBottom:5 }}>Password</label>
             <input value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={handleKey}
               type="password" placeholder="••••••••"
-              style={{ width:"100%", padding:"11px 14px", borderRadius:10, border:"1.5px solid #e5e7eb",
-                fontSize:13, fontFamily:"inherit", outline:"none", boxSizing:"border-box",
-                color:"#1a1a2e", background:"#fafafa", transition:"border .15s" }}
-              onFocus={e=>e.target.style.borderColor="#4f46e5"}
-              onBlur={e=>e.target.style.borderColor="#e5e7eb"}
+              style={{ width:"100%", padding:"10px 14px", borderRadius:8, border:"1.5px solid #E5E7EB",
+                fontSize:13, fontFamily:F, outline:"none", boxSizing:"border-box", color:"#0F1729",
+                background:"#FAFAFA", transition:"border .15s" }}
+              onFocus={e=>e.target.style.borderColor="#4361EE"}
+              onBlur={e=>e.target.style.borderColor="#E5E7EB"}
             />
           </div>
 
-          <button onClick={handleSubmit} disabled={loading || !email || !password}
-            style={{ width:"100%", padding:"13px", borderRadius:11, border:"none",
-              background: (loading||!email||!password) ? "#e5e7eb" : "linear-gradient(135deg,#4f46e5,#7c3aed)",
-              color: (loading||!email||!password) ? "#9ca3af" : "white",
-              fontSize:14, fontWeight:700, fontFamily:"inherit", cursor:(loading||!email||!password)?"not-allowed":"pointer",
-              transition:"all .15s", boxShadow:(loading||!email||!password)?"none":"0 4px 14px #4f46e540" }}>
-            {loading ? "Signing in…" : "Sign in"}
+          <button onClick={handleSubmit} disabled={!ready}
+            style={{ width:"100%", padding:"11px", borderRadius:8, border:"none",
+              background: ready ? "#4361EE" : "#E5E7EB",
+              color: ready ? "white" : "#9CA3AF",
+              fontSize:14, fontWeight:600, fontFamily:F, cursor:ready?"pointer":"not-allowed",
+              transition:"all .15s", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+            {loading ? "Signing in…" : (
+              <>
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1L12 6.5L6.5 12M1 6.5H12" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                Sign in
+              </>
+            )}
           </button>
-        </div>
 
-        <p style={{ textAlign:"center", fontSize:12, color:"#9ca3af", marginTop:20 }}>
-          TalentOS · Secure Platform
-        </p>
+          <div style={{ display:"flex", alignItems:"center", gap:10, margin:"18px 0" }}>
+            <div style={{ flex:1, height:1, background:"#E5E7EB" }}/>
+            <span style={{ fontSize:11, color:"#9CA3AF", fontWeight:500 }}>OR</span>
+            <div style={{ flex:1, height:1, background:"#E5E7EB" }}/>
+          </div>
+
+          <button style={{ width:"100%", padding:"10px", borderRadius:8, border:"1.5px solid #E5E7EB",
+            background:"white", color:"#374151", fontSize:13, fontFamily:F, fontWeight:500,
+            cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12h6M12 9v6"/></svg>
+            Continue with SSO
+          </button>
+
+          <p style={{ textAlign:"center", fontSize:12, color:"#9CA3AF", marginTop:24, lineHeight:1.7 }}>
+            <span style={{ color:"#4361EE", cursor:"pointer" }}>Forgot password?</span>
+            {" · "}
+            <span style={{ color:"#4361EE", cursor:"pointer" }}>Contact your admin</span>
+          </p>
+        </div>
       </div>
     </div>
   );

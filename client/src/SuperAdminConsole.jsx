@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ClientList, ClientDetail, ProvisionWizard, Performance } from './superadmin/ClientManager.jsx';
 import DemoDataManager from './superadmin/DemoDataManager';
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = {
   bg:      "#0a0e1a",
   surface: "#111827",
@@ -58,7 +58,7 @@ function LoginScreen({ onAuth }) {
           <div style={{ width:52, height:52, borderRadius:14, background:`${C.purple}20`, border:`1px solid ${C.purple}40`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.purple} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </div>
-          <div style={{ fontSize:18, fontWeight:800, color:C.text1 }}>TalentOS Super Admin</div>
+          <div style={{ fontSize:18, fontWeight:700, color:C.text1, fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.3px" }}>Vercentic Super Admin</div>
           <div style={{ fontSize:12, color:C.text3, marginTop:4 }}>Internal access only</div>
         </div>
         <input type="password" value={pw} onChange={e=>setPw(e.target.value)}
@@ -298,7 +298,7 @@ export default function SuperAdminConsole() {
             </div>
             <div>
               <div style={{ fontSize:13, fontWeight:800, color:C.text1 }}>Super Admin</div>
-              <div style={{ fontSize:10, color:C.text3 }}>TalentOS Internal</div>
+              <div style={{ fontSize:10, color:C.text3 }}>Vercentic Internal</div>
             </div>
           </div>
         </div>

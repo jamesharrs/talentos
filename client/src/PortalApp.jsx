@@ -17,7 +17,7 @@ const Spinner = ({ color = '#4361EE' }) => (
 )
 
 const ErrorScreen = ({ message }) => (
-  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', background:'#FEF2F2', fontFamily:"'DM Sans', sans-serif" }}>
+  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', background:'#FEF2F2', fontFamily:"'Geist', sans-serif" }}>
     <div style={{ textAlign:'center', maxWidth:400, padding:40 }}>
       <div style={{ fontSize:48, marginBottom:16 }}>🔒</div>
       <h2 style={{ margin:'0 0 8px', fontSize:20, fontWeight:800, color:'#0F1729' }}>Portal Unavailable</h2>

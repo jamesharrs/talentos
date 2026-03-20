@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import api from './apiClient.js';
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = {
   bg:"#EEF2FF", surface:"#FFFFFF", border:"#E8ECF8", border2:"#d1d5db",
   text1:"#0F1729", text2:"#4B5675", text3:"#9DA8C7",

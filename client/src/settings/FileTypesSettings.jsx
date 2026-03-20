@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = {
   text1:"#111827", text2:"#374151", text3:"#9CA3AF", border:"#E5E7EB",
   accent:"#4361EE", accentLight:"#EEF2FF", surface:"#FFFFFF", surface2:"#F9FAFB",

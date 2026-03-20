@@ -1,7 +1,7 @@
 // client/src/EnterpriseSettings.jsx
 import { useState, useEffect, useCallback } from "react";
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = { accent:'#4361EE', accentLight:'#EEF2FF', bg:'#F7F8FA', text1:'#111827', text2:'#374151', text3:'#6B7280', text4:'#9CA3AF', border:'#E5E7EB', green:'#0CAF77', amber:'#F59F00', red:'#EF4444', purple:'#7C3AED' };
 const api = {
   get: u => fetch(u).then(r=>r.json()),

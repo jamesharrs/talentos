@@ -165,7 +165,7 @@ const PROVIDERS = [
     fields: [
       { key:"SENDGRID_API_KEY",      label:"API Key",         placeholder:"SG.xxxxxxxxxxxxx", secret:true },
       { key:"SENDGRID_FROM_EMAIL",   label:"From Email",      placeholder:"noreply@yourdomain.com", secret:false },
-      { key:"SENDGRID_FROM_NAME",    label:"From Name",       placeholder:"TalentOS", secret:false },
+      { key:"SENDGRID_FROM_NAME",    label:"From Name",       placeholder:"Vercentic", secret:false },
     ],
   },
   {

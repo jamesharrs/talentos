@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import api from './apiClient.js';
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = {
   text1:"#111827", text2:"#374151", text3:"#9CA3AF", border:"#E5E7EB",
   accent:"#4361EE", accentLight:"#EEF2FF", surface:"#FFFFFF", surface2:"#F9FAFB",
@@ -322,7 +322,7 @@ const FormBuilderModal = ({ form, environment, onSave, onClose }) => {
           {tab==='sharing' && (
             <div style={{maxWidth:500}}>
               {[
-                ['internal','Internal Only','Only accessible within the TalentOS platform by logged-in users'],
+                ['internal','Internal Only','Only accessible within the Vercentic platform by logged-in users'],
                 ['link','Link Sharing','Anyone with the link can fill out this form (no login required)'],
                 ['public','Public','Discoverable publicly (future feature)'],
               ].map(([id,lbl,desc])=>(

@@ -22,7 +22,7 @@ export default function AiBadge({ label = "AI", variant = "badge", tooltip = "Ge
       background: `${purple}12`, border: `1px solid ${purple}25`,
       fontSize: 10, fontWeight: 700, color: purple,
       whiteSpace: "nowrap", flexShrink: 0,
-      fontFamily: "'DM Sans', -apple-system, sans-serif",
+      fontFamily: "'Geist', -apple-system, sans-serif",
     },
     inline: {
       display: "inline-flex", alignItems: "center", gap: 3,

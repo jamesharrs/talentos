@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 
 export default function AvailabilityPicker() {
   const token = window.location.pathname.split("/availability/")[1];
@@ -143,7 +143,7 @@ export default function AvailabilityPicker() {
         </button>
 
         <p style={{ textAlign:"center", fontSize:11, color:"#9ca3af", marginTop:12, fontFamily:F }}>
-          Powered by TalentOS · Your information is handled securely
+          Powered by Vercentic · Your information is handled securely
         </p>
       </div>
     </Screen>

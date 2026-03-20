@@ -9,7 +9,7 @@ const RAILWAY_URL = 'https://talentos-production-4045.up.railway.app';
 const apiUrl = (path) => `${RAILWAY_URL}/api${path}`;
 
 const S = {
-  page:  { fontFamily:"'DM Sans',-apple-system,sans-serif", color:'#e2e8f0', padding:32, maxWidth:860 },
+  page:  { fontFamily:"'Geist',-apple-system,sans-serif", color:'#e2e8f0', padding:32, maxWidth:860 },
   h1:    { fontSize:22, fontWeight:800, color:'#f8fafc', marginBottom:4 },
   sub:   { fontSize:14, color:'#94a3b8', marginBottom:32 },
   card:  { background:'#1e293b', border:'1px solid #334155', borderRadius:14, padding:24, marginBottom:20 },

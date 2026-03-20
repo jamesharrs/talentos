@@ -184,7 +184,7 @@ export default function HMPortal({ portal, api }) {
         )}
       </Section>
       <div style={{ borderTop:'1px solid #E8ECF8', padding:'20px', textAlign:'center' }}>
-        <p style={{ margin:0, fontSize:11, color:'#9DA8C7' }}>Hiring Manager Portal · Powered by TalentOS</p>
+        <p style={{ margin:0, fontSize:11, color:'#9DA8C7' }}>Hiring Manager Portal · Powered by Vercentic</p>
       </div>
     </div>
   )

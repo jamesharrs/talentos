@@ -19,7 +19,7 @@ const EVENT_TYPES = {
   interview: { label:"Interview", color:"#8b5cf6" },
   campus:    { label:"Campus",    color:"#f59e0b" },
 };
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 
 function Badge({ children, color, bg }) {
   return <span style={{ display:"inline-flex",alignItems:"center",padding:"1px 6px",borderRadius:99,fontSize:11,fontWeight:600,color,background:bg||`${color}18`,whiteSpace:"nowrap" }}>{children}</span>;

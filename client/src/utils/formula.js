@@ -1,5 +1,5 @@
 /**
- * TalentOS Formula Parser
+ * Vercentic Formula Parser
  * Evaluates formula expressions against a record's field values.
  *
  * Supported syntax:

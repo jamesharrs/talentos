@@ -1,4 +1,4 @@
-// ISO 3166-1 country list + phone validation for TalentOS
+// ISO 3166-1 country list + phone validation for Vercentic
 export const COUNTRIES = [
   { code:"AF", name:"Afghanistan",           flag:"🇦🇫" }, { code:"AL", name:"Albania",              flag:"🇦🇱" },
   { code:"DZ", name:"Algeria",               flag:"🇩🇿" }, { code:"AR", name:"Argentina",            flag:"🇦🇷" },

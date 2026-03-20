@@ -36,7 +36,7 @@ const api = {
   del:   p     => fetch(`/api${p}`,{method:"DELETE",  headers:getAuthHeaders()}).then(r=>r.json()),
 };
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = { bg:"#f8f9fc", surface:"#ffffff", border:"#e8eaed", border2:"#d1d5db", text1:"#111827", text2:"#4b5563", text3:"#9ca3af", accent:"#3b5bdb" };
 
 // ── Primitives ───────────────────────────────────────────────────────────────
@@ -1077,7 +1077,7 @@ const PersonTypeConfig = ({ object, onUpdate }) => {
           onKeyDown={e=>{ if(e.key==="Enter") addOption(); }}
           placeholder="Add option…"
           style={{ flex:1, padding:"6px 10px", borderRadius:8, border:"1px solid #fed7aa",
-            fontSize:12, fontFamily:"'DM Sans', sans-serif", outline:"none" }}/>
+            fontSize:12, fontFamily:"'Geist', sans-serif", outline:"none" }}/>
         <button onClick={addOption} disabled={!newOpt.trim()||saving}
           style={{ padding:"6px 14px", borderRadius:8, border:"none",
             background:"#f59e0b", color:"white", fontSize:12, fontWeight:700,

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import SharePicker from "../SharePicker.jsx";
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = { accent:"#4361EE", accentLight:"#eef1ff", text1:"#111827", text2:"#374151",
   text3:"#9ca3af", border:"#e5e7eb", bg:"#f9fafb", green:"#0ca678", red:"#e03131" };
 

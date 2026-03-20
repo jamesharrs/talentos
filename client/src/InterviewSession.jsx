@@ -1,11 +1,11 @@
 /**
- * TalentOS — AI Voice Interview Page
+ * Vercentic — AI Voice Interview Page
  * client/src/InterviewSession.jsx
  * Public page at /interview/:token — no login required
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 
 function MicBars({ active, color = '#6366f1' }) {
   return (

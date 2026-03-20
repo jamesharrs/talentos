@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = {
   bg:"#0a0e1a", surface:"#111827", surface2:"#1a2235", border:"#1e2d45", border2:"#2d3f5e",
   text1:"#f0f4ff", text2:"#8899bb", text3:"#4a5878",
@@ -234,7 +234,7 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
                 const slug = client.tenant_slug;
                 const tenantUrl = slug ? `${window.location.origin}?tenant=${slug}` : window.location.origin;
                 const latest = (client.provision_log||[]).slice(-1)[0];
-                const copyTxt = `TalentOS Login\nURL: ${tenantUrl}\nTenant: ${slug||'(default)'}\nEmail: ${latest?.admin_email||'(see provision log)'}\nPassword: Admin1234! (or as set during provisioning)`;
+                const copyTxt = `Vercentic Login\nURL: ${tenantUrl}\nTenant: ${slug||'(default)'}\nEmail: ${latest?.admin_email||'(see provision log)'}\nPassword: Admin1234! (or as set during provisioning)`;
                 return (<>
                   <div style={{flex:1}}>
                     <div style={{fontSize:12,color:C.text3,marginBottom:4}}>Login URL {slug && <code style={{background:'#EFF6FF',color:'#1D4ED8',padding:'1px 5px',borderRadius:3,fontSize:11}}>?tenant={slug}</code>}</div>
@@ -448,7 +448,7 @@ export function ProvisionWizard({ onDone, onCancel }) {
           <button onClick={()=>{
             const slug = result.tenant_slug || result.credentials?.tenant_slug;
             const tenantUrl = slug ? `${window.location.origin}?tenant=${slug}` : window.location.origin;
-            const txt = `TalentOS Login\nURL: ${tenantUrl}\nTenant: ${slug||'(default)'}\nEmail: ${result.credentials?.email}\nPassword: ${result.credentials?.password}`;
+            const txt = `Vercentic Login\nURL: ${tenantUrl}\nTenant: ${slug||'(default)'}\nEmail: ${result.credentials?.email}\nPassword: ${result.credentials?.password}`;
             navigator.clipboard.writeText(txt);
           }} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,cursor:'pointer',padding:'3px 8px',fontSize:10,fontWeight:700,color:C.text2}}>
             Copy all

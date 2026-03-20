@@ -8,7 +8,7 @@ const C = {
   text3: "var(--t-text3, #6B7280)", border: "var(--t-border, #E5E7EB)",
   danger: "#EF4444", success: "#10B981",
 };
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 
 const api = {
   get: (url) => fetch(url).then(r => r.json()),

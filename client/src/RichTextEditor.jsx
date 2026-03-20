@@ -73,7 +73,7 @@ const LinkModal = ({ position, onConfirm, onClose, initialUrl="" }) => {
     <div style={{ position:"fixed", top:position.y, left:position.x, zIndex:9999,
       background:"white", border:"1px solid #e5e7eb", borderRadius:10,
       boxShadow:"0 8px 24px rgba(0,0,0,0.12)", padding:"12px 14px", width:280,
-      fontFamily:"'DM Sans',-apple-system,sans-serif" }}>
+      fontFamily:"'Geist',-apple-system,sans-serif" }}>
       <div style={{ fontSize:12, fontWeight:700, color:"#374151", marginBottom:6 }}>Insert link</div>
       <input ref={inputRef} value={url} onChange={e=>setUrl(e.target.value)}
         onKeyDown={e=>{ if(e.key==="Enter"){e.preventDefault();onConfirm(url);} if(e.key==="Escape") onClose(); }}
@@ -232,7 +232,7 @@ export default function RichTextEditor({ value, onChange, placeholder, autoFocus
   const isEmpty = !value || value === "" || value === "<br>";
 
   return (
-    <div style={{ position:"relative", fontFamily:"'DM Sans',-apple-system,sans-serif" }}>
+    <div style={{ position:"relative", fontFamily:"'Geist',-apple-system,sans-serif" }}>
       {/* Toolbar */}
       <div style={{ display:"flex", alignItems:"center", gap:2, flexWrap:"wrap",
         padding:"6px 8px", borderRadius:"10px 10px 0 0",
@@ -264,7 +264,7 @@ export default function RichTextEditor({ value, onChange, placeholder, autoFocus
           outline:"none", fontSize:13, lineHeight:1.7,
           color:"#111827", background:"white",
           overflowY:"auto",
-          fontFamily:"'DM Sans',-apple-system,sans-serif",
+          fontFamily:"'Geist',-apple-system,sans-serif",
           /* Style headings, links, lists rendered inside */
         }}
       />

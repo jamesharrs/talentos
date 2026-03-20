@@ -17,7 +17,7 @@ import AiBadge, { isAiGenerated } from "./AiBadge.jsx";
 
 import api from './apiClient.js';
 
-const F  = "'DM Sans', -apple-system, sans-serif";
+const F  = "'Geist', -apple-system, sans-serif";
 const C  = {
   bg:"#f4f5f8", surface:"#ffffff", border:"#e8eaed", border2:"#d1d5db",
   text1:"#111827", text2:"#4b5563", text3:"#9ca3af", accent:"#3b5bdb",
@@ -3652,7 +3652,8 @@ const StableMatchPanel = memo(({ recordId, objectName, environment, record }) =>
 
 
 // ── PanelCard — defined at module level (uses useRef, can't be nested) ──
-const PanelCard = ({ id, compact, openPanels, setOpenPanels, openPanelsKey, PanelContent, startPanelDrag, overSlot, overZone }) => {
+const PanelCard = ({ id, compact, openPanels, setOpenPanels, openPanelsKey, PanelContent, startPanelDrag, overSlot, overZone,
+  draggingPanel, notes, attachments, clearZone, reportZone }) => {
   const meta = PANEL_META[id];
   if (!meta) return null;
   const isOpen     = compact ? true : openPanels[id];
@@ -3660,7 +3661,7 @@ const PanelCard = ({ id, compact, openPanels, setOpenPanels, openPanelsKey, Pane
   const myRepId    = id; // standalone → repId === id
   const isOver     = overSlot === myRepId && !isDragging;
   const zone       = isOver ? overZone : null;
-  const badge      = id==="notes" ? notes.length : id==="attachments" ? attachments.length : 0;
+  const badge      = id==="notes" ? (notes?.length ?? 0) : id==="attachments" ? (attachments?.length ?? 0) : 0;
 
   const cardRef = useRef(null);
 
@@ -4968,7 +4969,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
               if (validIds.length === 0) return null;
               if (validIds.length === 1) {
                 const id = validIds[0];
-                return <div key={id}>{DropIndicator({beforeRepId:id, afterRepId:prevRepId})}<PanelCard id={id} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} PanelContent={PanelContent} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone}/></div>;
+                return <div key={id}>{DropIndicator({beforeRepId:id, afterRepId:prevRepId})}<PanelCard id={id} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} PanelContent={PanelContent} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/></div>;
               }
               const repId = validIds[0];
               return (
@@ -4982,7 +4983,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
             return (
               <div key={slot}>
                 {DropIndicator({beforeRepId:slot, afterRepId:prevRepId})}
-                <PanelCard id={slot} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} PanelContent={PanelContent} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone}/>
+                <PanelCard id={slot} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} PanelContent={PanelContent} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/>
               </div>
             );
           })}

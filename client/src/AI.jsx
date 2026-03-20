@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, memo } from "react";
 
-const F = "'DM Sans', -apple-system, sans-serif";
+const F = "'Geist', -apple-system, sans-serif";
 const C = {
   bg:"#f4f5f8", surface:"#ffffff", border:"#e8eaed",
   text1:"#111827", text2:"#4b5563", text3:"#9ca3af",
@@ -452,7 +452,7 @@ const RecordPreview = ({ data, objectName, objectColor, fields, onConfirm, onEdi
 };
 
 /* ─── System Prompt ──────────────────────────────────────────────────────── */
-const SYSTEM_PROMPT = `You are TalentOS Copilot, an AI assistant embedded in an enterprise talent acquisition platform.
+const SYSTEM_PROMPT = `You are Vercentic Copilot, an AI assistant embedded in an enterprise talent acquisition platform.
 
 You can help with:
 1. Searching the database for candidates, jobs, and talent pools
@@ -699,7 +699,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     if(open&&messages.length===0){
       setMessages([{role:"assistant",content:context
         ?`Hi! I can see you're viewing a **${currentObject?.name}** record. I can summarise their profile, draft emails, or answer questions. I can also create records, workflows, users and roles — just ask!`
-        :`Hi! I'm your TalentOS Copilot. I can:\n\n• **Search** candidates, jobs, and pools\n• **Create records** — people, jobs, talent pools\n• **Build workflows** with stages and automations\n• **Invite users** and **create roles** (admin)\n\nWhat would you like to do?`,
+        :`Hi! I'm your Vercentic Copilot. I can:\n\n• **Search** candidates, jobs, and pools\n• **Create records** — people, jobs, talent pools\n• **Build workflows** with stages and automations\n• **Invite users** and **create roles** (admin)\n\nWhat would you like to do?`,
         ts:new Date()}]);
     }
   },[open]);
@@ -1094,7 +1094,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
           <div style={{padding:"16px 18px",background:`linear-gradient(135deg,${C.ai},#3b5bdb)`,display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
             <div style={{width:32,height:32,borderRadius:"50%",background:"rgba(255,255,255,.2)",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic n="sparkles" s={16} c="white"/></div>
             <div style={{flex:1}}>
-              <div style={{fontSize:14,fontWeight:700,color:"white"}}>TalentOS Copilot</div>
+              <div style={{fontSize:14,fontWeight:700,color:"white"}}>Vercentic Copilot</div>
               <div style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>{context?`Viewing ${currentObject?.name} record`:"Create records · ask questions · draft emails"}</div>
             </div>
             <button onClick={()=>{setMessages([]);setPendingRecord(null);setOpen(false);}} style={{background:"rgba(255,255,255,.15)",border:"none",cursor:"pointer",padding:6,borderRadius:8,display:"flex"}}><Ic n="x" s={14} c="white"/></button>

@@ -199,7 +199,7 @@ initDB().then(() => {
   // ───────────────────────────────────────────────────────────────────────────
 
   app.listen(PORT, () => {
-    console.log(`TalentOS API → http://localhost:${PORT}`);
+    console.log(`Vercentic API → http://localhost:${PORT}`);
     // Start agent scheduler
     const { startScheduler } = require('./agent-engine');
     startScheduler();

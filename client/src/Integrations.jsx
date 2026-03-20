@@ -368,7 +368,7 @@ export default function IntegrationsPage({environment}){
       {/* Monitor tab */}
       {activeTab==='monitor'&&<IntegrationMonitor environment={environment} connections={connections} onRetest={handleRetest}/>}
       {/* Library tab */}
-      {activeTab==='library'&&<>
+      {activeTab==='library'&&<div>
         <div style={{display:'flex',gap:10,marginTop:14}}>
           {[{label:'Available',value:allItems.length,color:C.accent},
             {label:'Connected',value:connectedCount,color:'#0CA678'},
@@ -422,7 +422,7 @@ export default function IntegrationsPage({environment}){
         <SetupModal provider={configuring.item} existing={configuring.connection}
           environmentId={envId} onClose={()=>setConfiguring(null)} onSaved={handleSaved}/>
       )}
-      </>}
+      </div>}
     </div>
   );
 }

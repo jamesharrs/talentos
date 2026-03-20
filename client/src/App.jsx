@@ -726,7 +726,7 @@ const EnvironmentBadge = ({ env, selected, onClick }) => (
 );
 
 // ─── Global Search Bar ────────────────────────────────────────────────────────
-const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateToRecord, onCreateRecord, onNavigateToCalendar }) => {
+const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateToRecord, onCreateRecord, onNavigateToCalendar, historySlot }) => {
   const [query,       setQuery]       = useState("");
   const [results,     setResults]     = useState([]);
   const [open,        setOpen]        = useState(false);
@@ -1013,6 +1013,10 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
             </div>
           )}
         </div>
+
+        {/* History slot — rendered inside the sticky bar */}
+        {historySlot}
+
       </div>
     </div>
   );
@@ -1583,8 +1587,7 @@ function App() {
       {/* Main content */}
       <div style={{ marginLeft: 220, flex: 1, minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--t-bg)" }}>
         {/* Top bar */}
-        <div style={{ display: "flex", alignItems: "center" }}>
-          <GlobalSearch selectedEnv={selectedEnv} navObjects={navObjects} onNavigateToSearch={(q) => {
+        <GlobalSearch selectedEnv={selectedEnv} navObjects={navObjects} onNavigateToSearch={(q) => {
             setActiveNav("search");
             if (q) {
               sessionStorage.setItem("talentos_search_query", q);
@@ -1595,16 +1598,17 @@ function App() {
                setActiveNav(`obj_${obj.id}`);
                setCreateTarget(obj);
              }}
-             onNavigateToCalendar={() => setActiveNav("calendar")} />
-          <HistoryDropdown
-            history={navHistory}
-            pinned={pinned}
-            onNavigate={navigateToHistoryEntry}
-            onPin={togglePin}
-            isPinned={isPinned}
-            onClear={clearHistory}
-          />
-        </div>
+             onNavigateToCalendar={() => setActiveNav("calendar")}
+             historySlot={
+               <HistoryDropdown
+                 history={navHistory}
+                 pinned={pinned}
+                 onNavigate={navigateToHistoryEntry}
+                 onPin={togglePin}
+                 isPinned={isPinned}
+                 onClear={clearHistory}
+               />
+             } />
         {/* Page content */}
         <div style={{ flex: 1, padding: activeNav.startsWith("record_") ? 0 : "28px 32px", overflow: "auto" }}>
         {loading ? (

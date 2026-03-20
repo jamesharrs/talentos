@@ -57,14 +57,21 @@ export default function LoginPage({ onLogin }) {
   const ready = !loading && email && password;
 
   return (
-    <div style={{ minHeight:"100vh", display:"grid", gridTemplateColumns:"1fr 1fr", fontFamily: F }}>
+    <>
+      <style>{`
+        @media (max-width: 768px) {
+          .login-left-panel { display: none !important; }
+          .login-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+    <div className="login-grid" style={{ minHeight:"100vh", display:"grid", gridTemplateColumns:"1fr 1fr", fontFamily: F }}>
 
-      {/* Left — indigo/navy branded panel */}
+      {/* Left — indigo/navy branded panel — hidden on narrow viewports via media query */}
       <div style={{
         position:"relative", overflow:"hidden",
         background:"linear-gradient(135deg,#1a1a2e 0%,#3b5bdb 100%)",
         display:"flex", flexDirection:"column", justifyContent:"space-between", padding:48,
-      }}>
+      }} className="login-left-panel">
         {/* Subtle radial glow */}
         <div style={{ position:"absolute", inset:0,
           background:"radial-gradient(ellipse at 20% 30%,rgba(99,102,241,0.35) 0%,transparent 55%),radial-gradient(ellipse at 80% 70%,rgba(67,97,238,0.25) 0%,transparent 50%)" }}/>
@@ -109,8 +116,9 @@ export default function LoginPage({ onLogin }) {
           <p style={{ margin:"0 0 32px", fontSize:13, color:"#6B7280" }}>Sign in to your Vercentic workspace</p>
 
           {error && (
-            <div style={{ background:"#fff5f5", border:"1px solid #fecaca", borderRadius:8, padding:"10px 14px", fontSize:13, color:"#dc2626", marginBottom:18 }}>
-              {error}
+            <div style={{ background:"#fff5f5", border:"1px solid #fecaca", borderRadius:8, padding:"10px 14px", fontSize:13, color:"#dc2626", marginBottom:18, display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+              <span>{error}</span>
+              {error.includes("reach") && <span style={{ fontSize:11, color:"#9CA3AF", whiteSpace:"nowrap" }}>Check server</span>}
             </div>
           )}
 
@@ -173,5 +181,6 @@ export default function LoginPage({ onLogin }) {
         </div>
       </div>
     </div>
+    </>
   );
 }

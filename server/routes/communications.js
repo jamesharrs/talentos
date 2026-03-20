@@ -28,13 +28,16 @@ router.post('/test-email', async (req, res) => {
   }
 });
 
-// GET /api/comms?record_id=X&type=email&direction=inbound&search=X&limit=50&offset=0
+// GET /api/comms?record_id=X&type=email&direction=inbound&context=general&related_record_id=X&search=X&limit=50&offset=0
 router.get('/', (req, res) => {
-  const { record_id, type, direction, search, limit = 100, offset = 0 } = req.query;
+  const { record_id, type, direction, context, related_record_id, search, limit = 100, offset = 0 } = req.query;
   let all = query('communications', () => true);
-  if (record_id)  all = all.filter(c => c.record_id === record_id);
-  if (type)       all = all.filter(c => c.type === type);
-  if (direction)  all = all.filter(c => c.direction === direction);
+  if (record_id)         all = all.filter(c => c.record_id === record_id);
+  if (type)              all = all.filter(c => c.type === type);
+  if (direction)         all = all.filter(c => c.direction === direction);
+  if (context === 'general')     all = all.filter(c => !c.related_record_id);
+  if (context === 'application') all = all.filter(c => !!c.related_record_id);
+  if (related_record_id) all = all.filter(c => c.related_record_id === related_record_id);
   if (search) {
     const s = search.toLowerCase();
     all = all.filter(c =>
@@ -81,6 +84,13 @@ router.post('/', async (req, res) => {
     dispatchResult = { error: err.message };
   }
 
+  // Derive context from related_record_id if not explicitly set
+  const related_record_id = rest.related_record_id || null;
+  const context = rest.context || (related_record_id ? 'application' : 'general');
+
+  // Generate a thread_id if not provided (new conversation)
+  const thread_id = rest.thread_id || uuidv4();
+
   const item = {
     id: uuidv4(),
     type,
@@ -92,6 +102,9 @@ router.post('/', async (req, res) => {
     provider_sid:  dispatchResult.sid || dispatchResult.messageId || undefined,
     provider_status: dispatchResult.status || undefined,
     simulated: dispatchResult.simulated || false,
+    related_record_id,
+    context,
+    thread_id,
     ...rest,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

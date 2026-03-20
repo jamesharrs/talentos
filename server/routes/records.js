@@ -163,6 +163,32 @@ router.get('/people-links', (req, res) => {
   res.json(links);
 });
 
+// Linked jobs for a person — used by Communications "Related to" picker
+router.get('/linked-jobs', (req, res) => {
+  const { person_id, environment_id } = req.query;
+  if (!person_id) return res.status(400).json({ error: 'person_id required' });
+  const { getStore } = require('../db/init');
+  const store = getStore();
+  // Find all pipeline links where this person is linked to a job/object record
+  const links = (store.people_links || []).filter(l =>
+    (l.person_id === person_id || l.person_record_id === person_id) &&
+    (!environment_id || l.environment_id === environment_id)
+  );
+  // Fetch the target records and return their titles
+  const results = links.map(l => {
+    const rec = (store.records || []).find(r => r.id === (l.record_id || l.target_record_id) && !r.deleted_at);
+    if (!rec) return null;
+    const d = rec.data || {};
+    return {
+      id: rec.id,
+      title: d.job_title || d.title || d.name || d.role_name || 'Untitled',
+      object_id: rec.object_id,
+      stage: l.stage || l.current_stage || null,
+    };
+  }).filter(Boolean);
+  res.json(results);
+});
+
 router.get('/:id', (req, res) => {
   const r = findOne('records', r=>r.id===req.params.id&&!r.deleted_at);
   if (!r) return res.status(404).json({error:'Not found'});

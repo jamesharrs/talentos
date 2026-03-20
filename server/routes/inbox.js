@@ -153,7 +153,10 @@ router.post('/:id/reply', async (req, res) => {
     id: uuidv4(), record_id: msg.matched_record_id || null,
     environment_id: msg.environment_id, type: 'email', direction: 'outbound',
     subject: subject || `Re: ${msg.subject}`, body, to_email: msg.from_email,
-    thread_id: msg.thread_id || msg.id, status: 'sent',
+    thread_id: msg.thread_id || msg.id,
+    related_record_id: msg.related_record_id || null,
+    context: msg.context || 'general',
+    status: 'sent',
     sent_at: new Date().toISOString(), created_at: new Date().toISOString()
   };
   store.communications.push(comm);
@@ -191,10 +194,22 @@ router.post('/inbound', async (req, res) => {
       thread_id = prev?.thread_id || prev?.id || in_reply_to;
     }
     if (!thread_id) thread_id = uuidv4();
+
+    // Inherit related_record_id and context from the original outbound thread
+    let related_record_id = null;
+    let context = 'general';
+    if (thread_id) {
+      const origComm = (store.communications || []).find(c => c.thread_id === thread_id && c.direction === 'outbound');
+      if (origComm?.related_record_id) {
+        related_record_id = origComm.related_record_id;
+        context = 'application';
+      }
+    }
     const msg = {
       id: uuidv4(), environment_id, message_id, thread_id, from_email,
       from_name: from_name || from_email, subject, body_text,
-      matched_record_id, read: false, assigned_to: null,
+      matched_record_id, related_record_id, context,
+      read: false, assigned_to: null,
       received_at: new Date().toISOString(), created_at: new Date().toISOString(), updated_at: new Date().toISOString()
     };
     store.inbound_messages.push(msg);
@@ -204,6 +219,7 @@ router.post('/inbound', async (req, res) => {
         id: uuidv4(), record_id: matched_record_id, environment_id, type: 'email',
         direction: 'inbound', subject, body: body_text, from_email,
         from_name: from_name || from_email, status: 'received', thread_id,
+        related_record_id, context,
         inbound_message_id: msg.id, sent_at: msg.received_at, created_at: new Date().toISOString()
       });
     }

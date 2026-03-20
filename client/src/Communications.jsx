@@ -143,7 +143,6 @@ function ComposeModal({ type, record, environment, onSave, onClose }) {
   const [subject, setSubject]   = useState("");
   const [body, setBody]         = useState("");
   const [to, setTo]             = useState(() => {
-    // Pre-fill from record data if available
     const d = record?.data || {};
     if (type === "email")     return d.email || d.email_address || "";
     if (type === "sms")       return d.mobile || d.phone || d.phone_number || "";
@@ -157,11 +156,24 @@ function ComposeModal({ type, record, environment, onSave, onClose }) {
   const [showAI, setShowAI]     = useState(false);
   const [saving, setSaving]     = useState(false);
   const [providerStatus, setProviderStatus] = useState(null);
+  // Related job — for application context
+  const [linkedJobs, setLinkedJobs] = useState([]);
+  const [relatedRecordId, setRelatedRecordId] = useState("");
   const meta = TYPE_META[type] || {};
 
   useEffect(() => {
     api.get('/comms/status').then(s => setProviderStatus(s)).catch(() => {});
   }, []);
+
+  // Load jobs this person is linked to (pipeline links)
+  useEffect(() => {
+    if (!record?.id || !environment?.id) return;
+    // Fetch people_links for this person, then get job record names
+    fetch(`/api/records/linked-jobs?person_id=${record.id}&environment_id=${environment.id}`)
+      .then(r => r.json())
+      .then(d => setLinkedJobs(Array.isArray(d) ? d : []))
+      .catch(() => setLinkedJobs([]));
+  }, [record?.id, environment?.id]);
 
   useEffect(() => {
     if (type==="email" && environment?.id) {
@@ -184,6 +196,8 @@ function ComposeModal({ type, record, environment, onSave, onClose }) {
       duration_seconds: duration ? Number(duration) : undefined,
       outcome: outcome || undefined,
       from_label: direction==="inbound" ? "External" : "Me",
+      related_record_id: relatedRecordId || undefined,
+      context: relatedRecordId ? 'application' : 'general',
     };
     await api.post("/comms", payload);
     setSaving(false);
@@ -233,6 +247,18 @@ function ComposeModal({ type, record, environment, onSave, onClose }) {
           <div style={{ marginBottom:16, padding:"8px 12px", background:"#fffbeb", border:"1.5px solid #fde68a", borderRadius:10, fontSize:12, color:"#92400e", display:"flex", alignItems:"center", gap:8 }}>
             <span>⚡</span>
             <span><strong>Simulation mode</strong> — message will be saved but not sent. Add Twilio credentials in Settings to enable live sending.</span>
+          </div>
+        )}
+
+        {/* Related to — job context */}
+        {linkedJobs.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 5 }}>Related to</label>
+            <select value={relatedRecordId} onChange={e => setRelatedRecordId(e.target.value)}
+              style={{ width: '100%', padding: '8px 10px', border: `1.5px solid ${relatedRecordId ? C.accent : C.border}`, borderRadius: 10, fontSize: 13, color: C.text1, background: relatedRecordId ? C.accentLight : C.bg, outline: 'none', cursor: 'pointer' }}>
+              <option value="">General (not job-specific)</option>
+              {linkedJobs.map(j => <option key={j.id} value={j.id}>{j.title || j.name}</option>)}
+            </select>
           </div>
         )}
 
@@ -401,6 +427,11 @@ function CommItem({ item, onClick }) {
           <span style={{ fontSize:11, color:dir.color, fontWeight:600 }}>{dir.badge} {dir.label}</span>
           {item.simulated && <span style={{ fontSize:10, background:"#fffbeb", color:"#92400e", border:"1px solid #fde68a", borderRadius:8, padding:"1px 6px", fontWeight:600 }}>simulated</span>}
           {isAiGenerated(item) && <AiBadge label="AI" tooltip="Generated or sent by an AI agent"/>}
+          {item.related_record_id && (
+            <span style={{ fontSize:10, background:"#EFF6FF", color:"#1D4ED8", border:"1px solid #BFDBFE", borderRadius:8, padding:"1px 6px", fontWeight:600, display:"flex", alignItems:"center", gap:3 }}>
+              💼 Application
+            </span>
+          )}
           {item.type==="call" && item.duration_seconds && (
             <span style={{ fontSize:11, color:C.text3 }}>· {fmtDuration(item.duration_seconds)}</span>
           )}
@@ -451,6 +482,8 @@ export default function CommunicationsPanel({ record, environment, externalCompo
   const [total, setTotal]       = useState(0);
   const [loading, setLoading]   = useState(true);
   const [activeType, setActiveType] = useState("all");
+  const [activeContext, setActiveContext] = useState("all"); // all | general | <job record id>
+  const [linkedJobs, setLinkedJobs] = useState([]);
   const [search, setSearch]     = useState("");
   const [compose, setCompose]   = useState(null);
   const [detail, setDetail]     = useState(null);
@@ -461,6 +494,15 @@ export default function CommunicationsPanel({ record, environment, externalCompo
   useEffect(() => {
     if (externalCompose) { setCompose(externalCompose); }
   }, [externalCompose]);
+
+  // Load linked jobs for context filter tabs
+  useEffect(() => {
+    if (!record?.id || !environment?.id) return;
+    fetch(`/api/records/linked-jobs?person_id=${record.id}&environment_id=${environment.id}`)
+      .then(r => r.json())
+      .then(d => setLinkedJobs(Array.isArray(d) ? d : []))
+      .catch(() => setLinkedJobs([]));
+  }, [record?.id, environment?.id]);
 
   // Debounced search
   const searchRef = useRef(null);
@@ -475,12 +517,14 @@ export default function CommunicationsPanel({ record, environment, externalCompo
     setLoading(true);
     const params = new URLSearchParams({ record_id: record.id, limit: PAGE, offset: (page-1)*PAGE });
     if (activeType !== "all") params.append("type", activeType);
+    if (activeContext === "general") params.append("context", "general");
+    else if (activeContext !== "all") params.append("related_record_id", activeContext);
     if (search) params.append("search", search);
     const d = await api.get(`/comms?${params}`);
     setItems(d.items || []);
     setTotal(d.total || 0);
     setLoading(false);
-  }, [record?.id, activeType, search, page]);
+  }, [record?.id, activeType, activeContext, search, page]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -511,6 +555,25 @@ export default function CommunicationsPanel({ record, environment, externalCompo
 
       {/* Detail drawer */}
       {detail && <CommDetail item={detail} onClose={()=>setDetail(null)} onDelete={id=>{ handleDelete(id); setDetail(null); }}/>}
+
+      {/* Context filter tabs — only shown when person has linked jobs */}
+      {linkedJobs.length > 0 && (
+        <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
+          {[{ id: 'all', label: 'All' }, { id: 'general', label: 'General' }, ...linkedJobs.map(j => ({ id: j.id, label: j.title }))].map(tab => (
+            <button key={tab.id} onClick={() => { setActiveContext(tab.id); setPage(1); }}
+              style={{
+                padding: '4px 12px', borderRadius: 20, border: `1.5px solid ${activeContext === tab.id ? C.accent : C.border}`,
+                background: activeContext === tab.id ? C.accentLight : 'transparent',
+                color: activeContext === tab.id ? C.accent : C.text3,
+                fontSize: 11, fontWeight: activeContext === tab.id ? 700 : 500,
+                cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .12s',
+              }}>
+              {tab.id !== 'all' && tab.id !== 'general' && <span style={{ marginRight: 4 }}>💼</span>}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Filter + search */}
       <FilterBar activeType={activeType} setActiveType={t=>{setActiveType(t);setPage(1);}}

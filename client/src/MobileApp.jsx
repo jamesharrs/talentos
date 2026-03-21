@@ -506,16 +506,27 @@ export const MobileShell = ({ session, environment, objects }) => {
   const titles = { copilot: "Vercentic", candidates: "People", interviews: "Interviews", jobs: "Jobs", more: "More" };
 
   const NavIcon = ({ id, active }) => {
-    if (id === "copilot" && active) return (
-      <div style={{ width: 32, height: 32, borderRadius: 10, background: V.ink, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <rect x="1"  y="17" width="16" height="3.5" rx="1.2" fill="white" opacity="0.35"/>
-          <rect x="0"  y="11" width="18" height="4"   rx="1.2" fill="white" opacity="0.65"/>
-          <rect x="1"  y="4"  width="16" height="5.5" rx="1.8" fill="white"/>
+    if (id === "copilot") {
+      // Active: white icon in dark pill
+      if (active) return (
+        <div style={{ width: 32, height: 32, borderRadius: 10, background: V.ink, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="17" width="16" height="3.5" rx="1.2" fill="white" opacity="0.35"/>
+            <rect x="0"  y="11" width="18" height="4"   rx="1.2" fill="white" opacity="0.65"/>
+            <rect x="1"  y="4"  width="16" height="5.5" rx="1.8" fill="white"/>
+          </svg>
+        </div>
+      );
+      // Inactive: same mark in muted ink
+      return (
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+          <rect x="1"  y="17" width="16" height="3.5" rx="1.2" fill={V.muted} opacity="0.35"/>
+          <rect x="0"  y="11" width="18" height="4"   rx="1.2" fill={V.muted} opacity="0.65"/>
+          <rect x="1"  y="4"  width="16" height="5.5" rx="1.8" fill={V.muted}/>
         </svg>
-      </div>
-    );
-    return <Ic n={id === "copilot" ? "spark" : nav.find(n => n.id === id)?.icon} s={21} c={active ? V.inkMid : V.muted} />;
+      );
+    }
+    return <Ic n={nav.find(n => n.id === id)?.icon} s={21} c={active ? V.inkMid : V.muted} />;
   };
 
   return (

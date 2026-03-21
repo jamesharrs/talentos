@@ -1090,7 +1090,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
   return (
     <>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes popIn{from{opacity:0;transform:scale(.95) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}} @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}`}</style>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes popIn{from{opacity:0;transform:scale(.97) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}} @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}} @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}} .copilot-action-btn:hover{background:rgba(124,58,237,0.1)!important;border-color:rgba(124,58,237,0.4)!important;color:#7c3aed!important;transform:translateY(-1px);}`}</style>
 
       {/* Floating button */}
       <button onClick={()=>setOpen(o=>!o)}
@@ -1102,38 +1102,45 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
       {/* Chat panel */}
       {open&&(
-        <div style={{position:"fixed",bottom:88,right:24,width:420,height:600,background:C.surface,borderRadius:20,boxShadow:"0 20px 60px rgba(0,0,0,.18)",zIndex:800,display:"flex",flexDirection:"column",overflow:"hidden",border:`1px solid ${C.border}`,animation:"popIn .2s ease"}}>
+        <div style={{position:"fixed",bottom:88,right:24,width:440,height:620,background:"#fafbff",borderRadius:24,boxShadow:"0 32px 80px rgba(80,40,180,.22),0 4px 16px rgba(0,0,0,.08)",zIndex:800,display:"flex",flexDirection:"column",overflow:"hidden",border:"1px solid rgba(124,58,237,.15)",animation:"popIn .22s cubic-bezier(.175,.885,.32,1.275)"}}>
 
           {/* Header */}
-          <div style={{padding:"16px 18px",background:`linear-gradient(135deg,${C.ai},#3b5bdb)`,display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-            <div style={{width:32,height:32,borderRadius:"50%",background:"rgba(255,255,255,.2)",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="18" height="18" viewBox="0 0 80 80" fill="none"><path d="M8 52 L40 36 L72 52 L40 68 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/><path d="M8 52 L8 62 L40 78 L40 68 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/><path d="M72 52 L72 62 L40 78 L40 68 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none" opacity="0.6"/><path d="M20 34 L40 24 L60 34 L40 44 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/><path d="M20 34 L20 42 L40 52 L40 44 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/><path d="M60 34 L60 42 L40 52 L40 44 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none" opacity="0.6"/><path d="M28 18 L40 12 L52 18 L40 24 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/><path d="M28 18 L28 24 L40 30 L40 24 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/><path d="M52 18 L52 24 L40 30 L40 24 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none" opacity="0.6"/></svg></div>
-            <div style={{flex:1}}>
-              <div style={{fontSize:14,fontWeight:700,color:"white"}}>Vercentic Copilot</div>
-              <div style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>{context?`Viewing ${currentObject?.name} record`:"Create records · ask questions · draft emails"}</div>
+          <div style={{padding:"18px 20px 16px",background:"linear-gradient(135deg,#5b21b6 0%,#4338ca 60%,#3b5bdb 100%)",display:"flex",alignItems:"center",gap:12,flexShrink:0,position:"relative",overflow:"hidden"}}>
+            {/* Decorative background icon */}
+            <svg style={{position:"absolute",right:-10,top:-10,opacity:0.06}} width="120" height="120" viewBox="0 0 80 80" fill="none"><path d="M8 52 L40 36 L72 52 L40 68 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/><path d="M8 52 L8 62 L40 78 L40 68 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/><path d="M72 52 L72 62 L40 78 L40 68 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/><path d="M20 34 L40 24 L60 34 L40 44 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/><path d="M20 34 L20 42 L40 52 L40 44 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/><path d="M60 34 L60 42 L40 52 L40 44 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/><path d="M28 18 L40 12 L52 18 L40 24 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/><path d="M28 18 L28 24 L40 30 L40 24 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/><path d="M52 18 L52 24 L40 30 L40 24 Z" stroke="white" strokeWidth="2" strokeLinejoin="round" fill="none"/></svg>
+            <div style={{width:38,height:38,borderRadius:12,background:"rgba(255,255,255,.18)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,border:"1px solid rgba(255,255,255,.25)"}}>
+              <svg width="20" height="20" viewBox="0 0 80 80" fill="none"><path d="M8 52 L40 36 L72 52 L40 68 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/><path d="M8 52 L8 62 L40 78 L40 68 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/><path d="M72 52 L72 62 L40 78 L40 68 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none" opacity="0.6"/><path d="M20 34 L40 24 L60 34 L40 44 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/><path d="M20 34 L20 42 L40 52 L40 44 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/><path d="M60 34 L60 42 L40 52 L40 44 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none" opacity="0.6"/><path d="M28 18 L40 12 L52 18 L40 24 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/><path d="M28 18 L28 24 L40 30 L40 24 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none"/><path d="M52 18 L52 24 L40 30 L40 24 Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round" fill="none" opacity="0.6"/></svg>
             </div>
-            <button onClick={()=>{setMessages([]);setPendingRecord(null);setOpen(false);}} style={{background:"rgba(255,255,255,.15)",border:"none",cursor:"pointer",padding:6,borderRadius:8,display:"flex"}}><Ic n="x" s={14} c="white"/></button>
+            <div style={{flex:1}}>
+              <div style={{fontSize:15,fontWeight:700,color:"white",letterSpacing:"-0.2px"}}>Vercentic Copilot</div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,.65)",marginTop:1}}>{context?`Viewing ${currentObject?.name} record`:"Your AI recruitment assistant"}</div>
+            </div>
+            <button onClick={()=>{setMessages([]);setPendingRecord(null);setOpen(false);}} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",cursor:"pointer",padding:7,borderRadius:10,display:"flex",transition:"background .15s"}}
+              onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.25)"}
+              onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,.15)"}>
+              <Ic n="x" s={13} c="white"/>
+            </button>
           </div>
 
           {/* Quick actions */}
           {messages.length<=1&&(
-            <div style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,flexShrink:0,background:"#fafbff"}}>
-              {context&&<div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
+            <div style={{padding:"14px 16px 12px",borderBottom:"1px solid rgba(124,58,237,.1)",flexShrink:0,background:"white"}}>
+              {context&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
                 {QUICK_ACTIONS.map(a=>(
-                  <button key={a.id} onClick={()=>sendMessage(a.prompt)}
-                    style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:7,border:`1px solid ${C.border}`,background:C.surface,color:C.text2,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F}}
-                    onMouseEnter={e=>{e.currentTarget.style.borderColor=C.ai;e.currentTarget.style.color=C.ai;e.currentTarget.style.background=C.aiLight;}}
-                    onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text2;e.currentTarget.style.background=C.surface;}}>
+                  <button key={a.id} onClick={()=>sendMessage(a.prompt)} className="copilot-action-btn"
+                    style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:8,border:"1px solid #e5e7eb",background:"white",color:"#374151",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F,transition:"all .12s"}}>
                     <Ic n={a.icon} s={11}/>{a.label}
                   </button>
                 ))}
               </div>}
-              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
                 {CREATE_ACTIONS.map(a=>(
-                  <button key={a.id} onClick={()=>sendMessage(a.prompt)}
-                    style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:7,border:`1.5px solid ${C.ai}40`,background:C.aiLight,color:C.ai,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F}}
-                    onMouseEnter={e=>e.currentTarget.style.background=`${C.ai}20`}
-                    onMouseLeave={e=>e.currentTarget.style.background=C.aiLight}>
-                    <Ic n={a.icon} s={11}/>{a.label}
+                  <button key={a.id} onClick={()=>sendMessage(a.prompt)} className="copilot-action-btn"
+                    style={{display:"flex",alignItems:"center",gap:7,padding:"8px 10px",borderRadius:10,border:"1px solid rgba(124,58,237,.18)",background:"rgba(124,58,237,.04)",color:"#5b21b6",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F,transition:"all .12s",textAlign:"left"}}>
+                    <div style={{width:22,height:22,borderRadius:6,background:"rgba(124,58,237,.12)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      <Ic n={a.icon} s={11} c="#7c3aed"/>
+                    </div>
+                    <span style={{lineHeight:1.2}}>{a.label}</span>
                   </button>
                 ))}
               </div>
@@ -1141,7 +1148,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
           )}
 
           {/* Messages */}
-          <div style={{flex:1,overflow:"auto",padding:"14px 16px",display:"flex",flexDirection:"column",gap:12}}>
+          <div style={{flex:1,overflow:"auto",padding:"16px 16px",display:"flex",flexDirection:"column",gap:14,background:"linear-gradient(180deg,#f5f3ff 0%,#eef2ff 100%)"}}>
             {messages.map((msg,i)=>(
               <div key={i}>
                 <div style={{display:"flex",gap:8,alignItems:"flex-start",flexDirection:msg.role==="user"?"row-reverse":"row"}}>
@@ -1152,7 +1159,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                   )}
                   <div style={{maxWidth:"82%",position:"relative"}}>
                     {msg.content&&(
-                      <div style={{padding:"10px 13px",borderRadius:msg.role==="user"?"14px 14px 4px 14px":"14px 14px 14px 4px",background:msg.role==="user"?`linear-gradient(135deg,${C.ai},#3b5bdb)`:msg.error?"#fef2f2":"#f8f9fc",color:msg.role==="user"?"white":msg.error?"#dc2626":C.text1,fontSize:13,lineHeight:1.55}}
+                      <div style={{padding:"11px 14px",borderRadius:msg.role==="user"?"14px 14px 4px 14px":"4px 14px 14px 14px",background:msg.role==="user"?"linear-gradient(135deg,#5b21b6,#4338ca)":msg.error?"#fef2f2":"white",color:msg.role==="user"?"white":msg.error?"#dc2626":C.text1,fontSize:13,lineHeight:1.6,boxShadow:msg.role==="user"?"0 2px 12px rgba(91,33,182,.3)":"0 1px 4px rgba(0,0,0,.06)",borderLeft:msg.role==="assistant"&&!msg.error?"3px solid rgba(124,58,237,.25)":undefined}}
                         dangerouslySetInnerHTML={{__html:renderMessage(msg.content)}}/>
                     )}
                     {msg.role==="assistant"&&!msg.error&&msg.content&&(
@@ -1387,15 +1394,15 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
           </div>
 
           {/* Input */}
-          <div style={{padding:"12px 14px",borderTop:`1px solid ${C.border}`,display:"flex",gap:8,alignItems:"flex-end",flexShrink:0}}>
+          <div style={{padding:"12px 14px",borderTop:"1px solid rgba(124,58,237,.1)",display:"flex",gap:8,alignItems:"flex-end",flexShrink:0,background:"white"}}>
             <textarea ref={inputRef} value={input} onChange={e=>setInput(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();}}}
               placeholder="Ask anything or say 'create a job'…"
-              rows={1} style={{flex:1,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${C.border}`,fontSize:13,fontFamily:F,outline:"none",resize:"none",color:C.text1,lineHeight:1.4,maxHeight:80,overflowY:"auto"}}
-              onFocus={e=>e.target.style.borderColor=C.ai}
-              onBlur={e=>e.target.style.borderColor=C.border}/>
+              rows={1} style={{flex:1,padding:"10px 14px",borderRadius:12,border:"1.5px solid #e5e7eb",fontSize:13,fontFamily:F,outline:"none",resize:"none",color:C.text1,lineHeight:1.4,maxHeight:80,overflowY:"auto",background:"#fafbff",transition:"border-color .15s"}}
+              onFocus={e=>e.target.style.borderColor="rgba(124,58,237,.5)"}
+              onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>
             <button onClick={()=>sendMessage()} disabled={!input.trim()||loading}
-              style={{width:36,height:36,borderRadius:10,border:"none",background:input.trim()&&!loading?`linear-gradient(135deg,${C.ai},#3b5bdb)`:"#f0f0f0",cursor:input.trim()&&!loading?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"background .15s"}}>
+              style={{width:38,height:38,borderRadius:12,border:"none",background:input.trim()&&!loading?"linear-gradient(135deg,#5b21b6,#4338ca)":"#f0f0f0",cursor:input.trim()&&!loading?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all .15s",boxShadow:input.trim()&&!loading?"0 2px 10px rgba(91,33,182,.35)":"none"}}>
               <Ic n="send" s={14} c={input.trim()&&!loading?"white":"#ccc"}/>
             </button>
           </div>

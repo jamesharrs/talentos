@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, memo } from "react";
+import { buildHelpContext } from "./helpContent";
 
 const F = "'Geist', -apple-system, sans-serif";
 const C = {
@@ -660,6 +661,18 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   const [open,         setOpen]         = useState(false);
   const [messages,     setMessages]     = useState([]);
   const [input,        setInput]        = useState("");
+
+  // Listen for external open requests (e.g. from Help page)
+  useEffect(() => {
+    const handler = (e) => {
+      setOpen(true);
+      if (e.detail?.message) {
+        setTimeout(() => setInput(e.detail.message), 120);
+      }
+    };
+    window.addEventListener("talentos:openCopilot", handler);
+    return () => window.removeEventListener("talentos:openCopilot", handler);
+  }, []);
   const [loading,      setLoading]      = useState(false);
   const [context,      setContext]      = useState(null);
   const [copied,       setCopied]       = useState(null);
@@ -817,6 +830,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
       const systemFull = [
         SYSTEM_PROMPT,
+        `\n\nHELP DOCUMENTATION (use this to answer "how do I" questions):\n${buildHelpContext()}`,
         `\n\nPLATFORM OBJECTS:\n${objectsInfo}`,
         context?`\n\nCURRENT RECORD:\n${context}`:"",
         adminRoles.length?`\n\nAVAILABLE ROLES:\n${adminRoles.map(r=>`- ${r.name} (slug: ${r.slug}, id: ${r.id})`).join("\n")}`:"",

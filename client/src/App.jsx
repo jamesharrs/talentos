@@ -19,6 +19,7 @@ const OffersModule    = lazy(() => import("./Offers.jsx"));
 const SuperAdminConsole = lazy(() => import("./SuperAdminConsole.jsx"));
 const AgentsModule      = lazy(() => import("./Agents.jsx"));
 const IntegrationsPage  = lazy(() => import("./IntegrationsSettings.jsx"));
+const HelpPage          = lazy(() => import("./Help.jsx"));
 const CompanySetupWizard = lazy(() => import("./CompanySetupWizard.jsx"));
 
 // Records loaded eagerly — used everywhere for record detail navigation
@@ -153,6 +154,7 @@ const Icon = ({ name, size = 16, color = "currentColor" }) => {
     "bar-chart-2": "M18 20V10M12 20V4M6 20v-6",
     "git-branch": "M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9",
     "log-out": "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
+    "help-circle": "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01",
     calendar: "M3 4h18v18H3V4zM16 2v4M8 2v4M3 10h18",
     "calendar-days": "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zM9 14h.01M13 14h.01M17 14h.01M9 18h.01M13 18h.01",
     dollar: "M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
@@ -1332,6 +1334,7 @@ function App() {
     {
       label: t("nav.configure"),
       items: [
+        { id: "help",     icon: "help-circle", label: "Help" },
         { id: "settings", icon: "settings", label: t("nav.settings") },
       ]
     }
@@ -1683,6 +1686,10 @@ function App() {
           }}/>
         ) : activeNav === "reports" ? (
           <ReportsPage envId={selectedEnv?.id} initialReport={reportPreset} />
+        ) : activeNav === "help" ? (
+          <HelpPage onOpenCopilot={(msg) => {
+            window.dispatchEvent(new CustomEvent("talentos:openCopilot", { detail: { message: msg } }));
+          }} />
         ) : activeNav === "settings" ? (
           <SettingsPage environment={selectedEnv} />
         ) : activeNav === "orgchart" ? (

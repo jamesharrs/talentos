@@ -1,5 +1,5 @@
 /**
- * TalentOS Demo Data Seeder
+ * Vercentic Demo Data Seeder
  * server/routes/demo_seed.js
  */
 

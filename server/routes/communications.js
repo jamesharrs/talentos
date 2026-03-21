@@ -18,9 +18,9 @@ router.post('/test-email', async (req, res) => {
     const status = getProviderStatus();
     const result = await sendEmail({
       to,
-      subject: 'TalentOS — Test Email',
-      text: `This is a test email from TalentOS.\n\nProvider: ${status.email_provider || 'unknown'}\nFrom: ${process.env.SENDGRID_FROM_EMAIL || 'not set'}\nSent: ${new Date().toISOString()}`,
-      html: `<p>This is a test email from TalentOS.</p><p>Provider: <b>${status.email_provider||'unknown'}</b><br>From: <b>${process.env.SENDGRID_FROM_EMAIL||'not set'}</b></p>`
+      subject: 'Vercentic — Test Email',
+      text: `This is a test email from Vercentic.\n\nProvider: ${status.email_provider || 'unknown'}\nFrom: ${process.env.SENDGRID_FROM_EMAIL || 'not set'}\nSent: ${new Date().toISOString()}`,
+      html: `<p>This is a test email from Vercentic.</p><p>Provider: <b>${status.email_provider||'unknown'}</b><br>From: <b>${process.env.SENDGRID_FROM_EMAIL||'not set'}</b></p>`
     });
     res.json({ ok: true, result, provider: status.email_provider, from: process.env.SENDGRID_FROM_EMAIL || 'not set' });
   } catch(e) {

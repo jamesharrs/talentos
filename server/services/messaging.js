@@ -1,5 +1,5 @@
 /**
- * TalentOS Messaging Service
+ * Vercentic Messaging Service
  * Handles SMS, WhatsApp, and Email dispatch via Twilio (SMS/WA) and SendGrid (Email).
  *
  * SETUP — add these to server/.env:
@@ -13,7 +13,7 @@
  *   # SendGrid (Email)
  *   SENDGRID_API_KEY=YOUR_SENDGRID_KEY
  *   SENDGRID_FROM_EMAIL=noreply@yourdomain.com
- *   SENDGRID_FROM_NAME=TalentOS
+ *   SENDGRID_FROM_NAME=Vercentic
  *
  *   # Twilio Webhook (inbound messages)
  *   WEBHOOK_BASE_URL=https://your-railway-url.up.railway.app
@@ -107,7 +107,7 @@ async function sendEmail({ to, toName, subject, body, text, html }) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: `${process.env.SENDGRID_FROM_NAME || 'TalentOS'} <${process.env.SENDGRID_FROM_EMAIL || 'onboarding@resend.dev'}>`,
+        from: `${process.env.SENDGRID_FROM_NAME || 'Vercentic'} <${process.env.SENDGRID_FROM_EMAIL || 'onboarding@resend.dev'}>`,
         to: toName ? [{ email: to, name: toName }] : [to],
         subject,
         text: textBody,
@@ -127,7 +127,7 @@ async function sendEmail({ to, toName, subject, body, text, html }) {
       to: toName ? { email: to, name: toName } : to,
       from: {
         email: process.env.SENDGRID_FROM_EMAIL || 'noreply@talentos.io',
-        name:  process.env.SENDGRID_FROM_NAME  || 'TalentOS',
+        name:  process.env.SENDGRID_FROM_NAME  || 'Vercentic',
       },
       subject,
       text: textBody,

@@ -651,7 +651,7 @@ async function fireEvent(environmentId, eventType, payload) {
         case 'stage_change':         result = await connector.notifyStageChange(payload); break;
         default:
           if (connector.fire)        result = await connector.fire(eventType, payload);
-          else if (connector.sendMessage) result = await connector.sendMessage({ text: `TalentOS: ${eventType}` });
+          else if (connector.sendMessage) result = await connector.sendMessage({ text: `Vercentic: ${eventType}` });
       }
       if (result) {
         results.push({ provider: slug, ...result });

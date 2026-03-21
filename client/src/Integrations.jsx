@@ -343,7 +343,7 @@ export default function IntegrationsPage({environment}){
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:20,marginBottom:14}}>
           <div>
             <h2 style={{margin:0,fontSize:20,fontWeight:800,color:C.text1}}>Integrations</h2>
-            <p style={{margin:'4px 0 0',fontSize:13,color:C.text3}}>Connect TalentOS to your tools. Credentials are encrypted and environment-specific.</p>
+            <p style={{margin:'4px 0 0',fontSize:13,color:C.text3}}>Connect Vercentic to your tools. Credentials are encrypted and environment-specific.</p>
           </div>
           <button onClick={load} style={{padding:'8px 14px',borderRadius:10,border:`1.5px solid ${C.border}`,background:'transparent',
             fontSize:12,fontWeight:600,color:C.text2,cursor:'pointer',fontFamily:F,display:'flex',alignItems:'center',gap:6}}>

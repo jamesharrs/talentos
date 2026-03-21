@@ -19,7 +19,7 @@ router.post('/', async (req, res) => {
       body: JSON.stringify({
         model: 'claude-opus-4-6',
         max_tokens: 4096,
-        system: `You are a professional translator for enterprise HR software (TalentOS).
+        system: `You are a professional translator for enterprise HR software (Vercentic).
 Translate the JSON object provided into ${targetLanguage}.
 Rules:
 - Preserve ALL JSON keys exactly as-is (do not translate keys)

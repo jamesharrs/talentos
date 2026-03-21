@@ -254,7 +254,7 @@ router.post('/seed-test', (req, res) => {
     id: uuidv4(), environment_id, message_id: `test-${uuidv4()}`, thread_id,
     from_email: from_email || 'candidate@example.com',
     from_name: from_name || 'Test Candidate',
-    subject: subject || 'Re: Your application at TalentOS',
+    subject: subject || 'Re: Your application at Vercentic',
     body_text: body || 'Hi, thanks for reaching out. I am very interested in the position and would love to schedule a call.',
     matched_record_id, read: false, assigned_to: null,
     received_at: new Date().toISOString(), created_at: new Date().toISOString(), updated_at: new Date().toISOString()

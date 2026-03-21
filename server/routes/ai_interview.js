@@ -1,5 +1,5 @@
 /**
- * TalentOS — AI Interview Session Route
+ * Vercentic — AI Interview Session Route
  * server/routes/ai_interview.js
  */
 const express = require('express');

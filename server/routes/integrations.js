@@ -107,7 +107,7 @@ const CATALOG = [
   { slug:'twilio',           name:'Twilio',             category:'messaging',      category_label:'Messaging',             color:'#F22F46', icon:'Twilio',description:'Send/receive SMS and WhatsApp messages.',tags:['sms','whatsapp','messaging'],
     fields:[{key:'TWILIO_ACCOUNT_SID',label:'Account SID',type:'text',required:true,secret:false,hint:'Starts with AC — found in Twilio Console'},{key:'TWILIO_AUTH_TOKEN',label:'Auth Token',type:'password',required:true,secret:true},{key:'TWILIO_SMS_NUMBER',label:'SMS Phone Number',type:'text',required:true,secret:false,placeholder:'+14155552671'},{key:'TWILIO_WA_NUMBER',label:'WhatsApp Number',type:'text',required:false,secret:false,placeholder:'whatsapp:+14155552671'}]},
   { slug:'sendgrid',         name:'SendGrid',           category:'messaging',      category_label:'Messaging',             color:'#1A82E2', icon:'SG',    description:'Send transactional and bulk emails.',  tags:['email','transactional'],
-    fields:[{key:'SENDGRID_API_KEY',label:'API Key',type:'password',required:true,secret:true,hint:'SendGrid → Settings → API Keys'},{key:'SENDGRID_FROM_EMAIL',label:'From Email',type:'text',required:true,secret:false,placeholder:'noreply@company.com'},{key:'SENDGRID_FROM_NAME',label:'From Name',type:'text',required:false,secret:false,placeholder:'TalentOS'}]},
+    fields:[{key:'SENDGRID_API_KEY',label:'API Key',type:'password',required:true,secret:true,hint:'SendGrid → Settings → API Keys'},{key:'SENDGRID_FROM_EMAIL',label:'From Email',type:'text',required:true,secret:false,placeholder:'noreply@company.com'},{key:'SENDGRID_FROM_NAME',label:'From Name',type:'text',required:false,secret:false,placeholder:'Vercentic'}]},
   { slug:'inbound_webhooks', name:'Inbound Webhooks',   category:'messaging',      category_label:'Messaging',             color:'#6366F1', icon:'WHK',   description:'Base URL for Twilio inbound callbacks.', tags:['webhooks','inbound'],
     fields:[{key:'WEBHOOK_BASE_URL',label:'Base URL',type:'text',required:true,secret:false,placeholder:'https://talentos-production-4045.up.railway.app',hint:'Twilio will POST inbound messages here'}]},
   // Analytics
@@ -255,13 +255,13 @@ router.post('/:id/test', async (req, res) => {
       }
       case 'slack': {
         const r = await fetch(cfg.webhook_url, { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ text:'✅ TalentOS integration test — Slack is connected!' }) });
+          body: JSON.stringify({ text:'✅ Vercentic integration test — Slack is connected!' }) });
         result = r.ok ? { ok:true, message:'Test message sent to Slack' } : { ok:false, message:`Slack returned ${r.status}` };
         break;
       }
       case 'microsoft_teams': {
         const r = await fetch(cfg.webhook_url, { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ text:'✅ TalentOS integration test — Teams is connected!' }) });
+          body: JSON.stringify({ text:'✅ Vercentic integration test — Teams is connected!' }) });
         result = r.ok ? { ok:true, message:'Test message sent to Teams' } : { ok:false, message:`Teams returned ${r.status}` };
         break;
       }

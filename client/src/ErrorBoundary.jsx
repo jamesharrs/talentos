@@ -73,7 +73,7 @@ export default class ErrorBoundary extends Component {
       severity: 'error',
       extra: { componentStack: info.componentStack },
     });
-    console.error('[TalentOS Error]', code, error);
+    console.error('[Vercentic Error]', code, error);
   }
 
   handleRetry = () => this.setState({ hasError: false, code: null });

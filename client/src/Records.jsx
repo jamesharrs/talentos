@@ -5249,17 +5249,26 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   };
 
   const guardedBulkAction = (action, payload = {}) => {
-    // Check global bulk_actions permission
-    if (_permCtx && !_permCtx.canGlobal('bulk_actions')) {
-      window.__toast?.alert('You do not have permission to perform bulk actions.');
+    // Check bulk_actions permission using session directly (sync, always available).
+    // _permCtx.canGlobal() is optimistic (returns true before async load) — don't use it here.
+    const hasBulkAccess = (() => {
+      if (!session) return false;
+      const { role, permissions: sesPerms } = session;
+      if (role?.slug === 'super_admin' || role?.slug === 'admin') return true;
+      return (sesPerms || []).some(p =>
+        p.object_slug === '__global__' && p.action === 'bulk_actions' && p.allowed
+      );
+    })();
+    if (!hasBulkAccess) {
+      alert('You do not have permission to perform bulk actions.');
       return;
     }
     if (action === 'delete' && !can('delete')) {
-      window.__toast?.alert('You do not have permission to delete records.');
+      alert('You do not have permission to delete records.');
       return;
     }
     if (action === 'edit' && !can('edit')) {
-      window.__toast?.alert('You do not have permission to edit records.');
+      alert('You do not have permission to edit records.');
       return;
     }
     const threshold = getBulkThreshold();

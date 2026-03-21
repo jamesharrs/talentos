@@ -28,16 +28,16 @@ const COLUMN_PRESETS = [
 ];
 
 const WIDGET_TYPES = [
-  { type:"hero",     label:"Hero",       icon:"🏔", desc:"Headline, subheading & CTA" },
-  { type:"text",     label:"Rich Text",  icon:"¶",  desc:"Copy & content blocks" },
-  { type:"image",    label:"Image",      icon:"🖼", desc:"Photo or illustration" },
-  { type:"jobs",     label:"Job Board",  icon:"💼", desc:"Live jobs from Vercentic" },
-  { type:"form",     label:"Form",       icon:"📋", desc:"Linked to any object" },
-  { type:"stats",    label:"Stats",      icon:"📊", desc:"Numbers & social proof" },
-  { type:"team",     label:"Team",       icon:"👥", desc:"People from records" },
-  { type:"video",    label:"Video",      icon:"▶",  desc:"YouTube or Vimeo embed" },
-  { type:"divider",  label:"Divider",    icon:"─",  desc:"Horizontal separator" },
-  { type:"spacer",   label:"Spacer",     icon:"⬜", desc:"Blank vertical space" },
+  { type:"hero",     label:"Hero",       icon:"mountain", desc:"Headline, subheading & CTA" },
+  { type:"text",     label:"Rich Text",  icon:"align",    desc:"Copy & content blocks" },
+  { type:"image",    label:"Image",      icon:"image",    desc:"Photo or illustration" },
+  { type:"jobs",     label:"Job Board",  icon:"briefcase",desc:"Live jobs from Vercentic" },
+  { type:"form",     label:"Form",       icon:"form",     desc:"Linked to any object" },
+  { type:"stats",    label:"Stats",      icon:"bar2",     desc:"Numbers & social proof" },
+  { type:"team",     label:"Team",       icon:"users2",   desc:"People from records" },
+  { type:"video",    label:"Video",      icon:"play",     desc:"YouTube or Vimeo embed" },
+  { type:"divider",  label:"Divider",    icon:"minus",    desc:"Horizontal separator" },
+  { type:"spacer",   label:"Spacer",     icon:"square",   desc:"Blank vertical space" },
 ];
 
 const FONT_OPTS = [
@@ -262,6 +262,17 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     settings:"M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z",
     check:"M20 6L9 17l-5-5", zap:"M13 2L3 14h9l-1 8 10-12h-9l1-8z",
     globe:"M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z",
+    briefcase:"M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2",
+    image:"M21 19V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2zM8.5 13.5l2.5 3 3.5-4.5 4.5 6H5l3.5-4.5z",
+    bar2:"M18 20V10M12 20V4M6 20v-6",
+    users2:"M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M9 7a4 4 0 100 8 4 4 0 000-8z",
+    play:"M5 3l14 9-14 9V3z",
+    minus:"M5 12h14",
+    square:"M3 3h18v18H3z",
+    align:"M17 10H3M21 6H3M21 14H3M17 18H3",
+    mountain:"M3 18l4-8 4 4 4-6 5 10H3z",
+    form:"M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8",
+    film:"M19.82 2H4.18A2.18 2.18 0 002 4.18v15.64A2.18 2.18 0 004.18 22h15.64A2.18 2.18 0 0022 19.82V4.18A2.18 2.18 0 0019.82 2zM7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5",
   };
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -514,7 +525,9 @@ const WidgetPicker = ({ onSelect, onClose }) => (
               display:"flex",alignItems:"center",gap:10,transition:"all .1s"}}
             onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.background=C.accentLight;}}
             onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background="transparent";}}>
-            <span style={{fontSize:22}}>{w.icon}</span>
+            <div style={{width:32,height:32,borderRadius:8,background:C.accentLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <Ic n={w.icon} s={15} c={C.accent}/>
+            </div>
             <div>
               <div style={{fontSize:12,fontWeight:700,color:C.text1}}>{w.label}</div>
               <div style={{fontSize:10,color:C.text3}}>{w.desc}</div>
@@ -566,7 +579,7 @@ const WidgetPreview = ({ cell, theme }) => {
     <div style={{background:C.surface2,minHeight:100,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,overflow:"hidden"}}>
       {cfg.url?<img src={cfg.url} alt="" style={{width:"100%",display:"block"}}/>:(
         <div style={{textAlign:"center",color:C.text3,padding:24}}>
-          <div style={{fontSize:28}}>🖼</div><div style={{fontSize:11,marginTop:4}}>Add image URL in settings</div>
+          <Ic n="image" s={28} c={C.text3}/><div style={{fontSize:11,marginTop:4}}>Add image URL in settings</div>
         </div>
       )}
     </div>
@@ -631,7 +644,7 @@ const WidgetPreview = ({ cell, theme }) => {
   if (cell.widgetType==="video") return (
     <div style={{background:"#000",minHeight:90,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8}}>
       <div style={{textAlign:"center",color:"rgba(255,255,255,.5)"}}>
-        <div style={{fontSize:32}}>▶</div>
+        <Ic n="film" s={32} c="rgba(255,255,255,.4)"/>
         <div style={{fontSize:11,marginTop:4}}>{cfg.url?cfg.url.slice(0,40)+"…":"Add video URL"}</div>
       </div>
     </div>
@@ -653,7 +666,9 @@ const WidgetPreview = ({ cell, theme }) => {
   const wt = WIDGET_TYPES.find(w=>w.type===cell.widgetType);
   return (
     <div style={{padding:"16px 20px",display:"flex",gap:10,alignItems:"center"}}>
-      <span style={{fontSize:22}}>{wt?.icon}</span>
+      <div style={{width:32,height:32,borderRadius:8,background:C.accentLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+        <Ic n={wt?.icon||"square"} s={15} c={C.accent}/>
+      </div>
       <div>
         <div style={{fontSize:13,fontWeight:700,color:C.text1}}>{wt?.label}</div>
         <div style={{fontSize:11,color:C.text3}}>Click to configure</div>
@@ -662,9 +677,122 @@ const WidgetPreview = ({ cell, theme }) => {
   );
 };
 
+// ─── Widget Config Panel ──────────────────────────────────────────────────────
+const WidgetConfigPanel = ({ cell, onUpdate, onClose }) => {
+  const cfg = cell.widgetConfig || {};
+  const set = (k, v) => onUpdate({ ...cell, widgetConfig: { ...cfg, [k]: v } });
+  const inp = { padding:"7px 10px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:13,
+    fontFamily:F, outline:"none", color:C.text1, background:C.surface, width:"100%", boxSizing:"border-box" };
+  const lbl = (text) => (
+    <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase",
+      letterSpacing:"0.06em", marginBottom:5 }}>{text}</div>
+  );
+  const WIDGET_LABELS = {
+    hero:"Hero Banner", text:"Rich Text", image:"Image", stats:"Stats",
+    video:"Video", jobs:"Job Board", team:"Team", form:"Form", divider:"Divider", spacer:"Spacer",
+  };
+  const renderFields = () => {
+    switch (cell.widgetType) {
+      case "hero": return (
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <div>{lbl("Headline")}<input value={cfg.headline||""} onChange={e=>set("headline",e.target.value)} placeholder="Your Compelling Headline" style={inp}/></div>
+          <div>{lbl("Subheading")}<textarea value={cfg.subheading||""} onChange={e=>set("subheading",e.target.value)} rows={3} placeholder="A short description…" style={{...inp,resize:"vertical"}}/></div>
+          <div>{lbl("Button text")}<input value={cfg.ctaText||""} onChange={e=>set("ctaText",e.target.value)} placeholder="Get Started" style={inp}/></div>
+          <div>{lbl("Button link")}<input value={cfg.ctaHref||""} onChange={e=>set("ctaHref",e.target.value)} placeholder="#jobs or /apply" style={inp}/></div>
+        </div>
+      );
+      case "text": return (
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <div>{lbl("Heading")}<input value={cfg.heading||""} onChange={e=>set("heading",e.target.value)} placeholder="Section heading" style={inp}/></div>
+          <div>{lbl("Body content")}<textarea value={cfg.content||""} onChange={e=>set("content",e.target.value)} rows={7} placeholder="Your content here…" style={{...inp,resize:"vertical"}}/></div>
+        </div>
+      );
+      case "image": return (
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <div>{lbl("Image URL")}<input value={cfg.url||""} onChange={e=>set("url",e.target.value)} placeholder="https://…" style={inp}/></div>
+          <div>{lbl("Alt text")}<input value={cfg.alt||""} onChange={e=>set("alt",e.target.value)} placeholder="Describe the image" style={inp}/></div>
+          {cfg.url&&<img src={cfg.url} alt="" style={{ borderRadius:8, maxHeight:120, objectFit:"cover", width:"100%" }}/>}
+        </div>
+      );
+      case "stats": return (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {lbl("Stats — value + label pairs")}
+          {(cfg.stats||[{value:"",label:""},{value:"",label:""},{value:"",label:""}]).map((s,i)=>(
+            <div key={i} style={{ display:"flex", gap:8, alignItems:"center" }}>
+              <input value={s.value} onChange={e=>{ const u=[...(cfg.stats||[])]; u[i]={...s,value:e.target.value}; set("stats",u); }} placeholder="500+" style={{...inp,flex:"0 0 88px"}}/>
+              <input value={s.label} onChange={e=>{ const u=[...(cfg.stats||[])]; u[i]={...s,label:e.target.value}; set("stats",u); }} placeholder="Employees" style={inp}/>
+              <button onClick={()=>{ const u=(cfg.stats||[]).filter((_,j)=>j!==i); set("stats",u); }}
+                style={{ background:"none", border:"none", cursor:"pointer", color:C.red, padding:4, flexShrink:0 }}><Ic n="x" s={14} c={C.red}/></button>
+            </div>
+          ))}
+          <button onClick={()=>set("stats",[...(cfg.stats||[]),{value:"",label:""}])}
+            style={{ padding:"6px 12px", borderRadius:8, border:`1.5px dashed ${C.border}`,
+              background:"transparent", cursor:"pointer", fontSize:12, color:C.text3, fontFamily:F }}>+ Add stat</button>
+        </div>
+      );
+      case "video": return (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {lbl("YouTube or Vimeo URL")}
+          <input value={cfg.url||""} onChange={e=>set("url",e.target.value)} placeholder="https://youtube.com/watch?v=…" style={inp}/>
+          <p style={{ fontSize:12, color:C.text3, margin:0 }}>YouTube and Vimeo URLs are automatically embedded.</p>
+        </div>
+      );
+      case "spacer": return (
+        <div>{lbl("Height")}
+          <select value={cfg.height||"48px"} onChange={e=>set("height",e.target.value)} style={inp}>
+            {["24px","48px","80px","120px","160px","240px"].map(h=><option key={h}>{h}</option>)}
+          </select>
+        </div>
+      );
+      case "jobs": return (
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <div>{lbl("Section heading (optional)")}<input value={cfg.heading||""} onChange={e=>set("heading",e.target.value)} placeholder="Open Positions" style={inp}/></div>
+          <div style={{ padding:"10px 12px", borderRadius:8, background:C.accentLight, fontSize:12, color:C.accent }}>Jobs are loaded live from your Vercentic data automatically.</div>
+        </div>
+      );
+      case "team": return (
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <div>{lbl("Section heading (optional)")}<input value={cfg.heading||""} onChange={e=>set("heading",e.target.value)} placeholder="Meet the Team" style={inp}/></div>
+          <div style={{ padding:"10px 12px", borderRadius:8, background:C.accentLight, fontSize:12, color:C.accent }}>Shows Employee-type People records from your data.</div>
+        </div>
+      );
+      case "form": return (
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <div>{lbl("Form title")}<input value={cfg.title||""} onChange={e=>set("title",e.target.value)} placeholder="Apply Now" style={inp}/></div>
+        </div>
+      );
+      default: return <p style={{ fontSize:12, color:C.text3, margin:0 }}>No settings for this widget.</p>;
+    }
+  };
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:900, display:"flex", alignItems:"center",
+      justifyContent:"center", background:"rgba(15,23,41,.45)" }}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{ background:C.surface, borderRadius:16, width:440, maxWidth:"calc(100vw - 48px)",
+        boxShadow:"0 24px 64px rgba(0,0,0,.2)", overflow:"hidden", display:"flex",
+        flexDirection:"column", maxHeight:"82vh" }}>
+        <div style={{ padding:"16px 20px", borderBottom:`1px solid ${C.border}`,
+          display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <Ic n="settings" s={15} c={C.accent}/>
+            <span style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{WIDGET_LABELS[cell.widgetType]||cell.widgetType} Settings</span>
+          </div>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:4 }}><Ic n="x" s={16}/></button>
+        </div>
+        <div style={{ padding:"20px", overflowY:"auto", flex:1 }}>{renderFields()}</div>
+        <div style={{ padding:"12px 20px", borderTop:`1px solid ${C.border}`,
+          display:"flex", justifyContent:"flex-end", flexShrink:0 }}>
+          <Btn onClick={onClose}>Done</Btn>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Widget Cell ──────────────────────────────────────────────────────────────
 const WidgetCell = ({ cell, flex, onUpdate, onRemove, theme, isEditing }) => {
   const [showPicker, setShowPicker] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
 
   return (
     <div style={{flex, minWidth:0, position:"relative"}}>
@@ -684,26 +812,50 @@ const WidgetCell = ({ cell, flex, onUpdate, onRemove, theme, isEditing }) => {
           {!isEditing&&<span style={{fontSize:11,color:C.text3}}>Empty</span>}
         </div>
       ) : (
-        <div style={{position:"relative",borderRadius:10,border:`1.5px solid ${C.border}`,background:C.surface,overflow:"hidden",minHeight:80}}
-          onMouseEnter={e=>{if(isEditing){const a=e.currentTarget.querySelector(".wa");if(a)a.style.opacity="1";}}}
-          onMouseLeave={e=>{if(isEditing){const a=e.currentTarget.querySelector(".wa");if(a)a.style.opacity="0";}}}>
+        <div
+          style={{position:"relative",borderRadius:10,border:`1.5px solid ${C.border}`,background:C.surface,overflow:"hidden",minHeight:80,cursor:isEditing?"pointer":"default"}}
+          onClick={()=>isEditing&&setShowConfig(true)}
+          onMouseEnter={e=>{if(isEditing){
+            e.currentTarget.style.borderColor=C.accent;
+            e.currentTarget.style.boxShadow=`0 0 0 3px ${C.accentLight}`;
+            const o=e.currentTarget.querySelector(".wa-overlay");if(o)o.style.opacity="1";
+            const a=e.currentTarget.querySelector(".wa-actions");if(a)a.style.opacity="1";
+          }}}
+          onMouseLeave={e=>{if(isEditing){
+            e.currentTarget.style.borderColor=C.border;
+            e.currentTarget.style.boxShadow="none";
+            const o=e.currentTarget.querySelector(".wa-overlay");if(o)o.style.opacity="0";
+            const a=e.currentTarget.querySelector(".wa-actions");if(a)a.style.opacity="0";
+          }}}>
           <WidgetPreview cell={cell} theme={theme}/>
-          {isEditing&&(
-            <div className="wa" style={{position:"absolute",top:6,right:6,display:"flex",gap:4,opacity:0,transition:"opacity .15s"}}>
-              <button onClick={()=>setShowPicker(true)}
+          {isEditing&&<>
+            <div className="wa-overlay" style={{position:"absolute",inset:0,background:"rgba(67,97,238,.08)",
+              display:"flex",alignItems:"center",justifyContent:"center",opacity:0,transition:"opacity .15s",pointerEvents:"none"}}>
+              <div style={{background:C.accent,color:"white",borderRadius:8,padding:"6px 14px",
+                fontSize:12,fontWeight:700,display:"flex",alignItems:"center",gap:6,boxShadow:"0 4px 16px rgba(67,97,238,.4)"}}>
+                <Ic n="edit" s={12} c="white"/> Click to edit
+              </div>
+            </div>
+            <div className="wa-actions" style={{position:"absolute",top:6,right:6,display:"flex",gap:4,opacity:0,transition:"opacity .15s"}}
+              onClick={e=>e.stopPropagation()}>
+              <button onClick={e=>{e.stopPropagation();setShowPicker(true);}}
                 style={{padding:"4px 9px",borderRadius:6,border:`1px solid ${C.border}`,background:"rgba(255,255,255,.95)",
                   color:C.text2,fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",gap:4}}>
                 <Ic n="edit" s={10}/> Change
               </button>
-              <button onClick={onRemove}
+              <button onClick={e=>{e.stopPropagation();onRemove();}}
                 style={{padding:"4px 7px",borderRadius:6,border:`1px solid ${C.red}30`,background:"rgba(255,255,255,.95)",color:C.red,fontSize:10,cursor:"pointer"}}>
                 <Ic n="trash" s={10}/>
               </button>
             </div>
-          )}
+          </>}
         </div>
       )}
-      {showPicker&&<WidgetPicker onSelect={type=>{onUpdate({...cell,widgetType:type,widgetConfig:{}});setShowPicker(false);}} onClose={()=>setShowPicker(false)}/>}
+      {showPicker&&<WidgetPicker
+        onSelect={type=>{onUpdate({...cell,widgetType:type,widgetConfig:{}});setShowPicker(false);setShowConfig(true);}}
+        onClose={()=>setShowPicker(false)}/>}
+      {showConfig&&cell.widgetType&&<WidgetConfigPanel
+        cell={cell} onUpdate={u=>onUpdate(u)} onClose={()=>setShowConfig(false)}/>}
     </div>
   );
 };

@@ -866,7 +866,9 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   },[currentRecord,currentObject,activeNav,navObjects,pageContext]);
 
   useEffect(()=>{
-    if(open&&messages.length===0){
+    if(!open) return;
+    // Update welcome message if only the initial greeting is showing (no real conversation started)
+    if(messages.length<=1){
       setMessages([{role:"assistant",content:(()=>{
         if(currentRecord&&currentObject){
           const d=currentRecord.data||{};
@@ -886,7 +888,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         return `Hi! I'm your Vercentic Copilot. I can:\n• **Search** candidates, jobs, and pools\n• **Create records** — people, jobs, talent pools\n• **Build workflows** with stages and automations\n• **Invite users** and **create roles** (admin)\n\nWhat would you like to do?`;
       })(),ts:new Date()}]);
     }
-  },[open]);
+  },[open, currentRecord?.id, currentObject?.id, activeNav]);
 
   useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:"smooth"}); },[messages]);
 
@@ -1502,9 +1504,26 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
             </div>
             <div style={{flex:1}}>
               <div style={{fontSize:15,fontWeight:700,color:"white",letterSpacing:"-0.2px"}}>Vercentic Copilot</div>
-              <div style={{fontSize:11,color:"rgba(255,255,255,.65)",marginTop:1}}>{context?`Viewing ${currentObject?.name} record`:"Your AI recruitment assistant"}</div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,.65)",marginTop:1}}>
+                {(()=>{
+                  if(currentRecord&&currentObject){
+                    const d=currentRecord.data||{};
+                    const name=(d.first_name?`${d.first_name} ${d.last_name||""}`.trim():null)||d.job_title||d.pool_name||"Record";
+                    return `Viewing ${currentObject.name}: ${name}`;
+                  }
+                  if(activeNav==="dashboard") return "On Dashboard";
+                  if(activeNav==="interviews") return "In Interviews";
+                  if(activeNav==="offers") return "In Offers";
+                  if(activeNav==="reports") return "In Reports";
+                  if(activeNav?.startsWith("obj_")){
+                    const obj=(navObjects||[]).find(o=>"obj_"+o.id===activeNav);
+                    return obj ? `Viewing ${obj.plural_name||obj.name}` : "Viewing records";
+                  }
+                  return "Your AI recruitment assistant";
+                })()}
+              </div>
             </div>
-            <button onClick={()=>{setMessages([]);setPendingRecord(null);setOpen(false);}} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",cursor:"pointer",padding:7,borderRadius:10,display:"flex",transition:"background .15s"}}
+            <button onClick={()=>setOpen(false)} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",cursor:"pointer",padding:7,borderRadius:10,display:"flex",transition:"background .15s",zIndex:1}}
               onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.25)"}
               onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,.15)"}>
               <Ic n="x" s={13} c="white"/>

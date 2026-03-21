@@ -358,7 +358,7 @@ function ComposeModal({ type, record, environment, onSave, onClose }) {
 function CommDetail({ item, onClose, onDelete }) {
   const meta = TYPE_META[item.type] || {};
   const dir  = DIR_META[item.direction] || {};
-  return (
+  return ReactDOM.createPortal(
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.35)", zIndex:1900, display:"flex", justifyContent:"flex-end" }} onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
       <div style={{ width:480, background:C.surface, height:"100%", overflowY:"auto", padding:28, boxShadow:"-8px 0 40px rgba(0,0,0,.12)" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
@@ -401,7 +401,7 @@ function CommDetail({ item, onClose, onDelete }) {
         </button>
       </div>
     </div>
-  );
+  , document.body);
 }
 
 // ─── Timeline Item ────────────────────────────────────────────────────────────

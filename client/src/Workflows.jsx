@@ -2030,8 +2030,8 @@ export function LinkedRecordsPanel({ record, environment, onNavigate }) {
         })}
       </div>
 
-      {/* Link to record modal */}
-      {addingLink && (
+      {/* Link to record modal — portal so it escapes panel overflow clipping */}
+      {addingLink && createPortal(
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:2000,
           display:"flex", alignItems:"center", justifyContent:"center" }}
           onClick={()=>setAddingLink(false)}>
@@ -2084,7 +2084,7 @@ export function LinkedRecordsPanel({ record, environment, onNavigate }) {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }

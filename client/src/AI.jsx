@@ -740,12 +740,31 @@ Rules:
 - Always suggest a sensible chart_type for the data shape`;
 
 
-const QUICK_ACTIONS = [
-  { id:"summarise", icon:"fileText",  label:"Summarise profile",    prompt:"Please provide a concise professional summary of this candidate profile, highlighting their key strengths." },
-  { id:"email",     icon:"mail",      label:"Draft outreach email", prompt:"Draft a warm, professional outreach email to this candidate. Keep it to 3 paragraphs." },
-  { id:"strengths", icon:"star",      label:"Strengths & gaps",     prompt:"Identify this candidate's top 3 strengths and top 2 gaps." },
-  { id:"questions", icon:"zap",       label:"Interview questions",  prompt:"Suggest 5 targeted interview questions based on this profile." },
-];
+// Record-specific actions shown when viewing a record — keyed by object slug
+const RECORD_ACTIONS = {
+  people: [
+    { id:"summarise", icon:"fileText", label:"Summarise",      prompt:"Give me a concise professional summary of this candidate, highlighting key strengths and experience." },
+    { id:"email",     icon:"mail",     label:"Draft email",    prompt:"Draft a warm, professional outreach email to this candidate. Keep it to 3 short paragraphs." },
+    { id:"strengths", icon:"star",     label:"Strengths & gaps", prompt:"Identify this candidate's top 3 strengths and top 2 gaps for recruitment purposes." },
+    { id:"questions", icon:"zap",      label:"Interview Qs",   prompt:"Suggest 5 targeted interview questions based on this candidate's profile." },
+    { id:"note",      icon:"edit",     label:"Add note",       prompt:"I want to add a note to this record." },
+    { id:"match",     icon:"layers",   label:"Match to jobs",  prompt:"Which open jobs would be the best match for this candidate and why?" },
+  ],
+  jobs: [
+    { id:"summarise", icon:"fileText", label:"Summarise role",  prompt:"Give me a concise summary of this job role and its key requirements." },
+    { id:"jd",        icon:"fileText", label:"Write JD",        prompt:"Write a compelling job description for this role suitable for posting on a career site." },
+    { id:"match",     icon:"user",     label:"Find candidates", prompt:"Which candidates in the system would be the best match for this role and why?" },
+    { id:"questions", icon:"zap",      label:"Interview Qs",    prompt:"Suggest 5 targeted interview questions for this role." },
+    { id:"note",      icon:"edit",     label:"Add note",        prompt:"I want to add a note to this job." },
+    { id:"interview", icon:"calendar", label:"Schedule interview", prompt:"I want to schedule an interview for this role." },
+  ],
+  "talent-pools": [
+    { id:"summarise", icon:"fileText", label:"Summarise pool",  prompt:"Give me a summary of this talent pool, its purpose and the candidates in it." },
+    { id:"match",     icon:"user",     label:"Find matches",    prompt:"Which candidates would be a good fit for this talent pool?" },
+    { id:"note",      icon:"edit",     label:"Add note",        prompt:"I want to add a note to this talent pool." },
+  ],
+};
+const QUICK_ACTIONS = RECORD_ACTIONS.people; // fallback (unused but kept for safety)
 
 const CREATE_ACTIONS = [
   { id:"new-person",   icon:"user",      label:"New Person",      prompt:"I want to add a new person" },
@@ -1495,25 +1514,43 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
           {/* Quick actions */}
           {messages.length<=1&&(
             <div style={{padding:"14px 16px 12px",borderBottom:"1px solid rgba(124,58,237,.1)",flexShrink:0,background:"white"}}>
-              {context&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
-                {QUICK_ACTIONS.map(a=>(
-                  <button key={a.id} onClick={()=>sendMessage(a.prompt)} className="copilot-action-btn"
-                    style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:8,border:"1px solid #e5e7eb",background:"white",color:"#374151",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F,transition:"all .12s"}}>
-                    <Ic n={a.icon} s={11}/>{a.label}
-                  </button>
-                ))}
-              </div>}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-                {CREATE_ACTIONS.map(a=>(
-                  <button key={a.id} onClick={()=>sendMessage(a.prompt)} className="copilot-action-btn"
-                    style={{display:"flex",alignItems:"center",gap:7,padding:"8px 10px",borderRadius:10,border:"1px solid rgba(124,58,237,.18)",background:"rgba(124,58,237,.04)",color:"#5b21b6",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F,transition:"all .12s",textAlign:"left"}}>
-                    <div style={{width:22,height:22,borderRadius:6,background:"rgba(124,58,237,.12)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                      <Ic n={a.icon} s={11} c="#7c3aed"/>
+              {currentRecord&&currentObject ? (
+                // On a record — show record-specific actions in the object's colour
+                (()=>{
+                  const actions = RECORD_ACTIONS[currentObject.slug] || RECORD_ACTIONS.people;
+                  const col = currentObject.color || "#7c3aed";
+                  const colLight = col + "18";
+                  const colBorder = col + "30";
+                  return (
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+                      {actions.map(a=>(
+                        <button key={a.id} onClick={()=>sendMessage(a.prompt)}
+                          style={{display:"flex",alignItems:"center",gap:7,padding:"8px 10px",borderRadius:10,border:`1px solid ${colBorder}`,background:colLight,color:col,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F,transition:"all .12s",textAlign:"left"}}
+                          onMouseEnter={e=>{e.currentTarget.style.background=col+"2e";e.currentTarget.style.transform="translateY(-1px)";}}
+                          onMouseLeave={e=>{e.currentTarget.style.background=colLight;e.currentTarget.style.transform="none";}}>
+                          <div style={{width:22,height:22,borderRadius:6,background:col+"28",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                            <Ic n={a.icon} s={11} c={col}/>
+                          </div>
+                          <span style={{lineHeight:1.2}}>{a.label}</span>
+                        </button>
+                      ))}
                     </div>
-                    <span style={{lineHeight:1.2}}>{a.label}</span>
-                  </button>
-                ))}
-              </div>
+                  );
+                })()
+              ) : (
+                // Not on a record — show the create actions grid
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+                  {CREATE_ACTIONS.map(a=>(
+                    <button key={a.id} onClick={()=>sendMessage(a.prompt)} className="copilot-action-btn"
+                      style={{display:"flex",alignItems:"center",gap:7,padding:"8px 10px",borderRadius:10,border:"1px solid rgba(124,58,237,.18)",background:"rgba(124,58,237,.04)",color:"#5b21b6",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F,transition:"all .12s",textAlign:"left"}}>
+                      <div style={{width:22,height:22,borderRadius:6,background:"rgba(124,58,237,.12)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        <Ic n={a.icon} s={11} c="#7c3aed"/>
+                      </div>
+                      <span style={{lineHeight:1.2}}>{a.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

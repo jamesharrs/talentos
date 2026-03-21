@@ -712,7 +712,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     if(open&&messages.length===0){
       setMessages([{role:"assistant",content:context
         ?`Hi! I can see you're viewing a **${currentObject?.name}** record. I can summarise their profile, draft emails, or answer questions. I can also create records, workflows, users and roles — just ask!`
-        :`Hi! I'm your Vercentic Copilot. I can:\n\n• **Search** candidates, jobs, and pools\n• **Create records** — people, jobs, talent pools\n• **Build workflows** with stages and automations\n• **Invite users** and **create roles** (admin)\n\nWhat would you like to do?`,
+        :`Hi! I'm your Vercentic Copilot. I can:\n• **Search** candidates, jobs, and pools\n• **Create records** — people, jobs, talent pools\n• **Build workflows** with stages and automations\n• **Invite users** and **create roles** (admin)\n\nWhat would you like to do?`,
         ts:new Date()}]);
     }
   },[open]);
@@ -1082,8 +1082,9 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
   const renderMessage = (content) => content
     .replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>")
-    .replace(/^[•\-] (.+)$/gm,'<span style="display:block;padding-left:12px">• $1</span>')
-    .replace(/\n/g,"<br/>");
+    .replace(/^[•\-] (.+)$/gm,'<span style="display:block;padding-left:10px;margin:2px 0">• $1</span>')
+    .replace(/\n\n/g,"<br/>")
+    .replace(/\n(?!<span)/g,"<br/>");
 
   const getObjForSlug  = (slug)  => objects.find(o=>o.slug===slug);
   const getFieldsForSlug = (slug) => { const o=getObjForSlug(slug); return o?(fields[o.id]||[]):[];  };
@@ -1159,7 +1160,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                   )}
                   <div style={{maxWidth:"82%",position:"relative"}}>
                     {msg.content&&(
-                      <div style={{padding:"11px 14px",borderRadius:msg.role==="user"?"14px 14px 4px 14px":"4px 14px 14px 14px",background:msg.role==="user"?"linear-gradient(135deg,#5b21b6,#4338ca)":msg.error?"#fef2f2":"white",color:msg.role==="user"?"white":msg.error?"#dc2626":C.text1,fontSize:13,lineHeight:1.6,boxShadow:msg.role==="user"?"0 2px 12px rgba(91,33,182,.3)":"0 1px 4px rgba(0,0,0,.06)",borderLeft:msg.role==="assistant"&&!msg.error?"3px solid rgba(124,58,237,.25)":undefined}}
+                      <div style={{padding:"11px 14px",borderRadius:msg.role==="user"?"14px 14px 4px 14px":"4px 14px 14px 14px",background:msg.role==="user"?"linear-gradient(135deg,#5b21b6,#4338ca)":msg.error?"#fef2f2":"white",color:msg.role==="user"?"white":msg.error?"#dc2626":C.text1,fontSize:13,lineHeight:1.45,boxShadow:msg.role==="user"?"0 2px 12px rgba(91,33,182,.3)":"0 1px 4px rgba(0,0,0,.06)",borderLeft:msg.role==="assistant"&&!msg.error?"3px solid rgba(124,58,237,.25)":undefined}}
                         dangerouslySetInnerHTML={{__html:renderMessage(msg.content)}}/>
                     )}
                     {msg.role==="assistant"&&!msg.error&&msg.content&&(

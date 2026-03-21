@@ -38,8 +38,10 @@ export default function App() {
   if (botToken) return <BotInterview token={botToken}/>;
 
   // Read slug from URL: ?portal=SLUG or /portal/SLUG
-  const token = new URLSearchParams(window.location.search).get('portal')
+  // Strip leading slashes so ?portal=/careers and ?portal=careers both work
+  const rawToken = new URLSearchParams(window.location.search).get('portal')
     || window.location.pathname.split('/portal/')[1]
+  const token = rawToken?.replace(/^\/+/, '') || ''
 
   useEffect(() => {
     if (!token) { setError('No portal provided. Add ?portal=YOUR_SLUG to the URL.'); setLoading(false); return; }

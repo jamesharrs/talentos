@@ -1003,13 +1003,22 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
           </button>
           <Btn v="primary" s="sm" onClick={handleSave} disabled={saving}>{saving?"Saving…":"Save"}</Btn>
           <Btn v={portal.status==="published"?"success":"secondary"} s="sm"
-            onClick={()=>setPortal(p=>({...p,status:p.status==="published"?"draft":"published"}))}>
+            onClick={async ()=>{
+              const newStatus = portal.status==="published"?"draft":"published";
+              const updated = {...portal, status: newStatus};
+              setPortal(updated);
+              // Auto-save the status change immediately
+              if (updated.id && !String(updated.id).startsWith("new_")) {
+                await api.patch(`/portals/${updated.id}`, { status: newStatus });
+              }
+            }}>
             {portal.status==="published"?"✓ Published":"Publish"}
           </Btn>
           {portal.status==="published" && portal.slug && (
             <button onClick={()=>{
               const base = window.location.hostname==='localhost'?`http://localhost:5173`:`https://portal-renderer.vercel.app`;
-              window.open(`${base}?portal=${portal.slug}`,'_blank');
+              const slug = (portal.slug||'').replace(/^\/+/,'');
+              window.open(`${base}?portal=${slug}`,'_blank');
             }} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,border:`1px solid ${C.green}`,background:C.greenLight,color:C.green}}>
               <Ic n="eye" s={11} c={C.green}/>View Live
             </button>
@@ -1078,7 +1087,8 @@ const PortalCard = ({ portal, onEdit, onDelete, onDuplicate }) => {
               const base = window.location.hostname === 'localhost'
                 ? window.location.origin.replace(':3000', ':5173')
                 : window.location.origin;
-              const portalUrl = `${base}?portal=${portal.slug}`;
+              const slug = (portal.slug||'').replace(/^\/+/,'');
+              const portalUrl = `${base}?portal=${slug}`;
               navigator.clipboard.writeText(portalUrl).catch(()=>{});
               alert(`Copied: ${portalUrl}`);
             }} title="Copy portal link"

@@ -3,6 +3,7 @@ import { ClientList, ClientDetail, ProvisionWizard, Performance } from './supera
 import DemoDataManager from './superadmin/DemoDataManager';
 import ErrorLogViewer from './superadmin/ErrorLogViewer.jsx';
 import { ReleaseNotesAdmin } from './ReleaseNotes.jsx';
+import CaseManager from './superadmin/CaseManager.jsx';
 
 const F = "'Geist', -apple-system, sans-serif";
 const C = {
@@ -267,6 +268,7 @@ const NAV_ICONS = {
   perf:     "M18 20V10M12 20V4M6 20v-6",
   errors:   "M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01",
   bell:     "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0",
+  cases:    "M3 18v-6a9 9 0 0 1 18 0v6M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z",
 };
 
 const NavIcon = ({ id, size=14, color="currentColor" }) => {
@@ -282,6 +284,7 @@ const NAV_ITEMS = [
   { id:'demo',     label:'Demo Data',    icon:'provision', desc:'Generate realistic demo data' },
   { id:'errors',   label:'Error Logs',   icon:'errors',    desc:'App errors across all environments' },
   { id:'release_notes', label:'Release Notes', icon:'bell', desc:'Manage platform release notes' },
+  { id:'cases', label:'Support Cases', icon:'cases', desc:'Customer service case management' },
 ];
 
 export default function SuperAdminConsole() {
@@ -359,6 +362,7 @@ export default function SuperAdminConsole() {
         {section === 'demo' && <DemoDataManager/>}
         {section === 'errors' && <ErrorLogViewer/>}
         {section === 'release_notes' && <ReleaseNotesAdmin />}
+        {section === 'cases' && <CaseManager />}
       </div>
     </div>
   );

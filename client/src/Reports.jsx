@@ -231,7 +231,7 @@ export default function Reports({ environment, initialReport }) {
           <div style={{ fontSize: 13, color: B.gray, marginTop: 4 }}>Build, save and share reports from any data</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => { setShowSaveForm(true); setPanel("saved"); }} style={{ fontSize: 11, padding: "6px 14px", borderRadius: 20, border: `0.5px solid ${B.border}`, background: B.card, color: B.gray, cursor: "pointer", fontFamily: "inherit" }}>Save as list</button>
+          <button onClick={() => { setShowSaveForm(true); setPanel("saved"); }} style={{ fontSize: 11, padding: "6px 14px", borderRadius: 20, border: `0.5px solid ${B.border}`, background: B.card, color: B.gray, cursor: "pointer", fontFamily: "inherit" }}>Save report</button>
           <button onClick={() => runReport()} style={{ fontSize: 11, padding: "6px 14px", borderRadius: 20, border: "none", background: B.purple, color: "#fff", cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>{running ? "Running…" : "▶ Run report"}</button>
         </div>
       </div>
@@ -239,7 +239,7 @@ export default function Reports({ environment, initialReport }) {
       <div style={{ display: "grid", gridTemplateColumns: "260px minmax(0,1fr)", gap: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", gap: 4 }}>
-            {["build","formulas","saved"].map(p => <Pill key={p} label={p==="build"?"Build":p==="formulas"?"∑ Formulas":"Saved"} active={panel===p} onClick={()=>setPanel(p)} />)}
+            {["build","formulas","saved"].map(p => <Pill key={p} label={p==="build"?"Build":p==="formulas"?"∑ Formulas":"Saved reports"} active={panel===p} onClick={()=>setPanel(p)} />)}
           </div>
 
           {panel === "build" && (
@@ -323,7 +323,7 @@ export default function Reports({ environment, initialReport }) {
 
           {panel === "saved" && (
             <div style={{ background: B.card, border: `0.5px solid ${B.border}`, borderRadius: 14, padding: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#111827", marginBottom: 12 }}>Saved lists</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#111827", marginBottom: 12 }}>Saved reports</div>
               {showSaveForm && (
                 <div style={{ background: B.bg, borderRadius: 10, padding: 12, marginBottom: 12 }}>
                   <Inp val={listName} onChange={setListName} placeholder="List name…" style={{ marginBottom: 8 }} />
@@ -336,7 +336,7 @@ export default function Reports({ environment, initialReport }) {
                   </div>
                 </div>
               )}
-              {savedLists.length === 0 && !showSaveForm && <div style={{ fontSize: 12, color: B.gray, textAlign: "center", padding: "16px 0" }}>No saved lists yet</div>}
+              {savedLists.length === 0 && !showSaveForm && <div style={{ fontSize: 12, color: B.gray, textAlign: "center", padding: "16px 0" }}>No saved reports yet</div>}
               {savedLists.map(sv => (
                 <div key={sv.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: `0.5px solid ${B.border}` }}>
                   <div style={{ flex: 1 }}>

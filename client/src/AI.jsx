@@ -26,6 +26,7 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     fileText:"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8",
     copy:"M8 17.929H6c-1.105 0-2-.912-2-2.036V5.036C4 3.912 4.895 3 6 3h8c1.105 0 2 .912 2 2.036v1.866m-6 .17h8c1.105 0 2 .91 2 2.035v10.857C20 21.088 19.105 22 18 22h-8c-1.105 0-2-.912-2-2.036V9.107c0-1.124.895-2.036 2-2.036z",
     loader:"M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83",
+    "bar-chart-2":"M18 20V10M12 20V4M6 20v-6",
     layers:"M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
     plus:"M12 5v14M5 12h14",
     edit:"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",
@@ -701,7 +702,43 @@ FORM RULES:
 - Be proactive — suggest 4-8 sensible fields based on the form's purpose
 - rating fields go from 1-5 stars automatically — no options needed
 - boolean fields render as Yes/No toggle — no options needed
-- Always confirm fields with user before outputting the block`;
+- Always confirm fields with user before outputting the block
+
+REPORT CREATION INSTRUCTIONS:
+When a user asks to "create a report", "show me data", "build me a chart", "how many...", "what's the breakdown of...", "analyse...", or any request that involves summarising or visualising records, help them build a report.
+
+Available objects (use slug): people, jobs, talent-pools, and any custom objects.
+
+Common groupable fields:
+- people: status, source, department, location, person_type
+- jobs: status, department, location, work_type, employment_type
+- talent-pools: category, status
+
+Chart types: bar (comparisons), area (trends over time), pie (proportions)
+
+Output a <CREATE_REPORT> JSON block then a brief confirmation message. The user sees a card before anything opens.
+
+Example:
+<CREATE_REPORT>
+{
+  "title": "Candidates by Status",
+  "object": "people",
+  "group_by": "status",
+  "chart_type": "bar",
+  "sort_by": "_count",
+  "sort_dir": "desc",
+  "filters": [],
+  "description": "Breakdown of candidates by pipeline stage"
+}
+</CREATE_REPORT>
+
+Rules:
+- If the user is vague, ask ONE clarifying question (which object?) before outputting the block
+- "object" must be a slug (people, jobs, talent-pools)
+- "group_by" must be a snake_case field api_key
+- Filter values should be lowercase unless a proper noun
+- Always suggest a sensible chart_type for the data shape`;
+
 
 const QUICK_ACTIONS = [
   { id:"summarise", icon:"fileText",  label:"Summarise profile",    prompt:"Please provide a concise professional summary of this candidate profile, highlighting their key strengths." },
@@ -717,6 +754,7 @@ const CREATE_ACTIONS = [
   { id:"new-workflow",   icon:"workflow",  label:"New Workflow",    prompt:"I want to create a new workflow" },
   { id:"new-interview",  icon:"calendar",  label:"Schedule Interview", prompt:"I want to schedule an interview" },
   { id:"new-form",       icon:"form",      label:"Create Form",        prompt:"I want to create a new form" },
+  { id:"new-report",     icon:"bar-chart-2", label:"Build a report",   prompt:"I want to build a report" },
   { id:"new-user",     icon:"user",      label:"Invite User",     prompt:"I want to invite a new user" },
   { id:"new-role",     icon:"shield",    label:"New Role",        prompt:"I want to create a new role" },
   { id:"search",       icon:"search",    label:"Search records",  prompt:"Search for " },
@@ -755,6 +793,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   const [interviewTypes, setInterviewTypes] = useState([]);
   const [pendingInterview, setPendingInterview] = useState(null);
   const [pendingForm,      setPendingForm]      = useState(null);
+  const [pendingReport,    setPendingReport]    = useState(null);
   const [parsedPerson,     setParsedPerson]     = useState(null);
   const [parsedJob,        setParsedJob]        = useState(null);
   const [proposedAction,   setProposedAction]   = useState(null);
@@ -876,6 +915,17 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     try { return JSON.parse(match[1].trim()); } catch { return null; }
   };
 
+  const parseCreateReport = (text) => {
+    const match = text.match(/<CREATE_REPORT>([\s\S]*?)<\/CREATE_REPORT>/);
+    if (!match) return null;
+    try { return JSON.parse(match[1].trim()); } catch {
+      const get = (k) => { const m = match[1].match(new RegExp(`"${k}"\\s*:\\s*"([^"]*)"`,"i")); return m?m[1]:null; };
+      const getArr = (k) => { const m = match[1].match(new RegExp(`"${k}"\\s*:\\s*\\[([^\\]]*)\\]`,"i")); if(!m)return[]; return m[1].match(/"([^"]*)"/g)?.map(s=>s.replace(/"/g,""))||[]; };
+      const getFilters = () => { const m = match[1].match(/"filters"\s*:\s*(\[[\s\S]*?\])/i); if(!m)return[]; try{return JSON.parse(m[1]);}catch{return[];} };
+      return { title:get("title")||"Report", object:get("object")||get("object_slug")||"", group_by:get("group_by")||"", chart_type:get("chart_type")||"bar", sort_by:get("sort_by")||"", sort_dir:get("sort_dir")||"desc", filters:getFilters(), formulas:getArr("formulas"), description:get("description")||"" };
+    }
+  };
+
   const parseParsedCV = (text) => {
     const m = text.match(/<PARSE_CV>([\s\S]*?)<\/PARSE_CV>/);
     if (!m) return null;
@@ -910,6 +960,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     .replace(/<CREATE_ROLE>[\s\S]*?<\/CREATE_ROLE>/g,"")
     .replace(/<SCHEDULE_INTERVIEW>[\s\S]*?<\/SCHEDULE_INTERVIEW>/g,"")
     .replace(/<CREATE_FORM>[\s\S]*?<\/CREATE_FORM>/g,"")
+    .replace(/<CREATE_REPORT>[\s\S]*?<\/CREATE_REPORT>/g,"")
     .replace(/<PARSE_CV>[\s\S]*?<\/PARSE_CV>/g,"")
     .replace(/<PARSE_JD>[\s\S]*?<\/PARSE_JD>/g,"")
     .replace(/<PROPOSE_ACTION>[\s\S]*?<\/PROPOSE_ACTION>/g,"")
@@ -950,6 +1001,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     setPendingRole(null);
     setPendingInterview(null);
     setPendingForm(null);
+    setPendingReport(null);
     setParsedPerson(null);
     setParsedJob(null);
     setProposedAction(null);
@@ -1015,6 +1067,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       const roleData      = parseCreateRole(reply);
       const interviewData = parseScheduleInterview(reply);
       const formData2     = parseCreateForm(reply);
+      const reportData    = parseCreateReport(reply);
       const cvData        = parseParsedCV(reply);
       const jdData        = parseParsedJD(reply);
       const propAction    = parseProposeAction(reply);
@@ -1027,17 +1080,19 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         : roleData       ? `I've prepared the **${roleData.name}** role:`
         : interviewData  ? `I've prepared the interview for **${interviewData.candidate_name||'the candidate'}**:`
         : formData2      ? `I've designed the **${formData2.name}** form:`
+        : reportData     ? `I've built a **${reportData.title}** report — does this look right?`
         : "";
 
       // Store action data on the message itself so each card is self-contained and immune to state resets
-      setMessages(m=>[...m,{role:"assistant",content:displayText||fallbackMsg,ts:new Date(),hasCreate:!!createData,hasWorkflow:!!workflowData,hasUser:!!userData,hasRole:!!roleData,hasInterview:!!interviewData,hasForm:!!formData2,hasParsedCV:!!cvData,hasParsedJD:!!jdData,hasProposedAction:!!propAction,hasSearch:searchHits.length>0,searchIndex:msgIndex,
-        interviewData, formData2}]);
+      setMessages(m=>[...m,{role:"assistant",content:displayText||fallbackMsg,ts:new Date(),hasCreate:!!createData,hasWorkflow:!!workflowData,hasUser:!!userData,hasRole:!!roleData,hasInterview:!!interviewData,hasForm:!!formData2,hasReport:!!reportData,hasParsedCV:!!cvData,hasParsedJD:!!jdData,hasProposedAction:!!propAction,hasSearch:searchHits.length>0,searchIndex:msgIndex,
+        interviewData, formData2, reportData}]);
       if(createData)    setPendingRecord(createData);
       if(workflowData)  setPendingWorkflow(workflowData);
       if(userData)      setPendingUser(userData);
       if(roleData)      setPendingRole(roleData);
       if(interviewData) setPendingInterview(interviewData);
       if(formData2)     setPendingForm(formData2);
+      if(reportData)    setPendingReport(reportData);
       if(cvData)        setParsedPerson(cvData);
       if(jdData)        setParsedJob(jdData);
       if(propAction)    setProposedAction(propAction);
@@ -1372,6 +1427,24 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       setMessages(m=>[...m,{role:"assistant",content:`Failed to create form: ${err.message}`,ts:new Date(),error:true}]);
     }
     setCreating(false);
+  };
+
+  const handleConfirmReport = () => {
+    if (!pendingReport) return;
+    const cfg = {
+      title:     pendingReport.title,
+      object:    pendingReport.object,
+      groupBy:   pendingReport.group_by,
+      chartType: pendingReport.chart_type || "bar",
+      sortBy:    pendingReport.sort_by,
+      sortDir:   pendingReport.sort_dir || "desc",
+      filters:   pendingReport.filters  || [],
+      formulas:  pendingReport.formulas || [],
+      autoRun:   true,
+    };
+    window.dispatchEvent(new CustomEvent("talentos:open-report", { detail: cfg }));
+    setMessages(m=>[...m,{role:"assistant",content:`Opening **${pendingReport.title}** in Reports — it's running now. Adjust filters or save it from there.`,ts:new Date()}]);
+    setPendingReport(null);
   };
 
   const copyMessage = (text,id) => { navigator.clipboard.writeText(text); setCopied(id); setTimeout(()=>setCopied(null),2000); };
@@ -1774,6 +1847,43 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                       <button onClick={()=>setPendingForm(null)} style={{flex:1,padding:"8px",borderRadius:8,border:"1px solid #E5E7EB",background:"transparent",color:"#374151",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>Discard</button>
                       <button onClick={handleConfirmForm} disabled={creating} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:"#0CAF77",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                         {creating?<><Ic n="loader" s={12}/> Creating…</>:<><Ic n="check" s={12}/> Create Form</>}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Report card ── */}
+                {msg.role==="assistant"&&msg.hasReport&&pendingReport&&i===messages.length-1&&(
+                  <div style={{margin:"8px 0",padding:"14px",borderRadius:12,border:"1.5px solid #7F77DD",background:"rgba(127,119,221,0.06)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                      <div style={{width:28,height:28,borderRadius:8,background:"#7F77DD",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        <Ic n="bar-chart-2" s={14} c="white"/>
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:700,color:C.text1}}>{pendingReport.title}</div>
+                        <div style={{fontSize:11,color:"#7F77DD",fontWeight:600,textTransform:"capitalize"}}>
+                          {pendingReport.object} · {pendingReport.chart_type||"bar"} chart
+                          {pendingReport.group_by?` · grouped by ${pendingReport.group_by}`:""}
+                        </div>
+                      </div>
+                    </div>
+                    {(pendingReport.filters||[]).length>0&&(
+                      <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>
+                        {pendingReport.filters.map((f,fi)=>(
+                          <div key={fi} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",background:"white",borderRadius:6,border:"1px solid rgba(127,119,221,0.2)",fontSize:12}}>
+                            <span style={{color:"#7F77DD",fontWeight:700,width:48,flexShrink:0}}>Filter</span>
+                            <span style={{color:C.text1}}>{f.field} {f.op} {f.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {pendingReport.description&&(
+                      <div style={{fontSize:11,color:C.text3,marginBottom:10,fontStyle:"italic"}}>{pendingReport.description}</div>
+                    )}
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={()=>setPendingReport(null)} style={{flex:1,padding:"8px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.text2,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>Discard</button>
+                      <button onClick={handleConfirmReport} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:"#7F77DD",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                        <Ic n="bar-chart-2" s={12} c="white"/> Open in Reports
                       </button>
                     </div>
                   </div>

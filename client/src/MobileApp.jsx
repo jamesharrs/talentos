@@ -69,12 +69,8 @@ const Ic = ({ n, s = 20, c = V.muted, style = {} }) => (
   </svg>
 );
 
-const BrandMark = ({ size = 32 }) => (
-  <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-    <rect x="8" y="22" width="24" height="5" rx="2" fill={V.ink} opacity="0.15" />
-    <rect x="6" y="16" width="28" height="5" rx="2" fill={V.ink} opacity="0.35" />
-    <rect x="4" y="10" width="32" height="6" rx="2.5" fill={V.ink} />
-  </svg>
+const VLogo = ({ height = 28 }) => (
+  <img src="/vercentic-logo.svg" alt="Vercentic" height={height} style={{ display: "block" }} />
 );
 
 const Avatar = ({ name = "", size = 40, color = V.lavender }) => {
@@ -177,12 +173,8 @@ const CopilotScreen = ({ session, environment, onNavigate }) => {
   ];
 
   const AiAvatar = () => (
-    <div style={{ width: 24, height: 24, borderRadius: 8, background: V.ink, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-      <svg width="14" height="14" viewBox="0 0 40 40" fill="none">
-        <rect x="6" y="23" width="28" height="5" rx="2" fill="white" opacity="0.4" />
-        <rect x="4" y="16" width="32" height="6" rx="2" fill="white" opacity="0.7" />
-        <rect x="8" y="10" width="24" height="6" rx="2" fill="white" />
-      </svg>
+    <div style={{ width: 24, height: 24, borderRadius: 8, background: V.ink, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+      <img src="/vercentic-logo.svg" alt="" style={{ width: 20, height: 20, filter: "invert(1)", objectFit: "contain" }} />
     </div>
   );
 
@@ -190,9 +182,9 @@ const CopilotScreen = ({ session, environment, onNavigate }) => {
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, background: V.gradientBg }}>
       {!started && messages.length === 0 && (
         <div style={{ padding: "32px 22px 0", textAlign: "center", flexShrink: 0 }}>
-          <div style={{ marginBottom: 14 }}><BrandMark size={44} /></div>
+          <div style={{ marginBottom: 20, display: "flex", justifyContent: "center" }}><VLogo height={24} /></div>
           <div style={{ fontSize: 26, fontWeight: 800, color: V.inkMid, fontFamily: FD, letterSpacing: "-0.04em", lineHeight: 1.15, marginBottom: 8 }}>
-            Hi {session?.first_name || "there"} 👋
+            Good to see you, {session?.first_name || "there"}
           </div>
           <div style={{ fontSize: 15, color: V.muted, fontFamily: F, lineHeight: 1.55 }}>
             Your recruiting copilot.<br />What do you need today?
@@ -493,12 +485,8 @@ export const MobileShell = ({ session, environment, objects }) => {
 
   const NavIcon = ({ id, active }) => {
     if (id === "copilot" && active) return (
-      <div style={{ width: 32, height: 32, borderRadius: 10, background: V.ink, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <svg width="16" height="16" viewBox="0 0 40 40" fill="none">
-          <rect x="6" y="23" width="28" height="5" rx="2" fill="white" opacity="0.4" />
-          <rect x="4" y="16" width="32" height="6" rx="2" fill="white" opacity="0.7" />
-          <rect x="8" y="10" width="24" height="6" rx="2" fill="white" />
-        </svg>
+      <div style={{ width: 32, height: 32, borderRadius: 10, background: V.ink, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+        <img src="/vercentic-logo.svg" alt="" style={{ width: 26, height: 26, filter: "invert(1)", objectFit: "contain" }} />
       </div>
     );
     return <Ic n={id === "copilot" ? "spark" : nav.find(n => n.id === id)?.icon} s={21} c={active ? V.inkMid : V.muted} />;
@@ -513,9 +501,7 @@ export const MobileShell = ({ session, environment, objects }) => {
             <Ic n="chevL" s={18} c={V.inkMid} />
           </button>
         ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <BrandMark size={22} />
-          </div>
+          <VLogo height={20} />
         )}
         <span style={{ fontSize: 16, fontWeight: 800, color: V.inkMid, fontFamily: FD, letterSpacing: "-0.03em" }}>{titles[screen]}</span>
         <Avatar name={[session?.first_name || "", session?.last_name || ""].join(" ").trim() || "U"} size={30} color={V.lavender} />

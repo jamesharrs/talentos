@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import SettingsDashboard from "./SettingsDashboard.jsx";
 import { usePermissions, Gate } from "./PermissionContext.jsx";
 import ReactDOM from "react-dom";
 import FileTypesSettings from "./settings/FileTypesSettings.jsx";
@@ -2315,7 +2316,7 @@ const NAV_GROUPS = [
 ];
 
 export default function SettingsPage({ currentUser, environment }) {
-  const [activeSection, setActiveSection] = useState("appearance");
+  const [activeSection, setActiveSection] = useState(null);
   const [search, setSearch]               = useState("");
   const [collapsed, setCollapsed]         = useState({});
   const toggleGroup = (id) => setCollapsed(p => ({ ...p, [id]: !p[id] }));
@@ -2330,7 +2331,7 @@ export default function SettingsPage({ currentUser, environment }) {
     <div style={{display:"flex",gap:0,minHeight:"100%"}}>
       {/* Settings sidebar */}
       <div style={{width:210,flexShrink:0,paddingRight:20,display:"flex",flexDirection:"column"}}>
-        <h1 style={{margin:"0 0 14px",fontSize:18,fontWeight:700,color:C.text1,fontFamily:"'Space Grotesk', sans-serif",letterSpacing:"-0.4px"}}>Settings</h1>
+        <h1 onClick={()=>setActiveSection(null)} style={{margin:"0 0 14px",fontSize:18,fontWeight:700,color:C.text1,fontFamily:"'Space Grotesk', sans-serif",letterSpacing:"-0.4px",cursor:"pointer"}} title="Back to settings overview">Settings</h1>
 
         {/* Search */}
         <div style={{position:"relative",marginBottom:12}}>
@@ -2398,6 +2399,12 @@ export default function SettingsPage({ currentUser, environment }) {
 
       {/* Content */}
       <div style={{flex:1,minWidth:0}}>
+        {!activeSection && (
+          <SettingsDashboard
+            onNavigate={(id) => setActiveSection(id)}
+            searchQuery={search}
+          />
+        )}
         {activeSection==="datamodel"  && <DataModelSection/>}
         {activeSection==="users"      && <UsersSection/>}
         {activeSection==="groups"     && <GroupsSection environment={environment}/>}

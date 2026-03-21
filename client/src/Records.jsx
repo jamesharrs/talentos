@@ -5404,14 +5404,14 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
     else { setSortBy(key); setSortDir('asc'); }
   };
 
-  // Column filter handler — clicking the filter icon on a header adds a filter
+  // Column filter handler — clicking the filter icon on a header opens the filter bar for that field
   const handleColumnFilter = (field) => {
-    const uniqueVals = [...new Set(records.map(r => r.data?.[field.api_key]).filter(v => v !== null && v !== undefined && v !== ''))];
-    if (!uniqueVals.length) return;
-    // If only one unique value, apply directly; otherwise use the filter bar
+    // Just add a sensible default filter for this field so the user can see and edit it
     setActiveFilters(prev => {
-      const without = prev.filter(f => f.fieldKey !== field.api_key);
-      return [...without, { id: Date.now(), fieldKey: field.api_key, fieldLabel: field.name, op: 'not_empty', value: '' }];
+      // Don't add a duplicate for the same field
+      if (prev.some(f => f.fieldId === field.id)) return prev;
+      const defaultOp = ["select","multi_select","boolean"].includes(field.field_type) ? "is" : "contains";
+      return [...prev, { id: Date.now()+"", fieldId: field.id, op: defaultOp, value: "" }];
     });
   };
 

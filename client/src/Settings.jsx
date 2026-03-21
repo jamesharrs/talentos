@@ -8,7 +8,6 @@ import AiGovernance from "./settings/AiGovernance.jsx";
 import QuestionBankSettings from "./settings/QuestionBankSettings.jsx";
 import AiMatchingSettings from "./settings/AiMatchingSettings.jsx";
 import { FormsList } from "./Forms.jsx";
-import RpoClientCompanies from "./settings/RpoClientCompanies.jsx";
 
 import IntegrationsSettings from "./IntegrationsSettings.jsx";
 import DatasetsSection from "./settings/DatasetsSection.jsx";
@@ -2252,7 +2251,6 @@ const NAV_GROUPS = [
     items: [
       { id:"appearance",  icon:"sun",       label:"Appearance" },
       { id:"language",    icon:"globe",     label:"Language" },
-      { id:"rpo_clients", icon:"briefcase", label:"Client Companies" },
       { id:"setup_wizard", icon:"building", label:"Company Profile" },
     ],
   },
@@ -2420,7 +2418,6 @@ export default function SettingsPage({ currentUser, environment }) {
         {activeSection==="config"      && <ConfigSection environment={environment}/>}
         {activeSection==="datasets"    && <DatasetsSection environment={environment}/>}
         {activeSection==="enterprise"  && <EnterpriseSettings environment={environment}/>}
-        {activeSection==="rpo_clients" && <RpoClientCompanies environment={environment}/>}
         {activeSection==="setup_wizard" && (
           <CompanyProfilePanel environment={environment}/>
         )}

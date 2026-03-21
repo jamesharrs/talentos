@@ -203,9 +203,8 @@ const CopilotScreen = ({ session, environment, onNavigate }) => {
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, background: V.gradientBg }}>
       {!started && messages.length === 0 && (
-        <div style={{ padding: "32px 22px 0", textAlign: "center", flexShrink: 0 }}>
-          <div style={{ marginBottom: 20, display: "flex", justifyContent: "center" }}><VLogo height={24} /></div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: V.inkMid, fontFamily: FD, letterSpacing: "-0.04em", lineHeight: 1.15, marginBottom: 8 }}>
+        <div style={{ padding: "36px 22px 0", textAlign: "center", flexShrink: 0 }}>
+          <div style={{ fontSize: 27, fontWeight: 800, color: V.inkMid, fontFamily: FD, letterSpacing: "-0.04em", lineHeight: 1.15, marginBottom: 8 }}>
             Good to see you, {session?.first_name || "there"}
           </div>
           <div style={{ fontSize: 15, color: V.muted, fontFamily: F, lineHeight: 1.55 }}>
@@ -533,15 +532,23 @@ export const MobileShell = ({ session, environment, objects }) => {
     <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: "#F7F5F2", fontFamily: F, overscrollBehavior: "none", maxWidth: 600, margin: "0 auto" }}>
       {/* Header */}
       <div style={{ background: "rgba(247,245,242,0.92)", backdropFilter: "blur(16px)", borderBottom: `1px solid rgba(0,0,0,0.07)`, padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 54, flexShrink: 0, zIndex: 10 }}>
-        {screen !== "copilot" ? (
-          <button onClick={() => setScreen("copilot")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", padding: "4px 0" }}>
-            <Ic n="chevL" s={18} c={V.inkMid} />
-          </button>
+        {screen === "copilot" ? (
+          // Copilot home — logo centred, avatar right, nothing left
+          <>
+            <div style={{ width: 30 }} />
+            <VLogo height={22} />
+            <Avatar name={[session?.first_name || "", session?.last_name || ""].join(" ").trim() || "U"} size={30} color={V.lavender} />
+          </>
         ) : (
-          <VLogo height={20} />
+          // Other screens — back button left, page title centred, avatar right
+          <>
+            <button onClick={() => setScreen("copilot")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", padding: "4px 0", width: 30 }}>
+              <Ic n="chevL" s={18} c={V.inkMid} />
+            </button>
+            <span style={{ fontSize: 16, fontWeight: 800, color: V.inkMid, fontFamily: FD, letterSpacing: "-0.03em" }}>{titles[screen]}</span>
+            <Avatar name={[session?.first_name || "", session?.last_name || ""].join(" ").trim() || "U"} size={30} color={V.lavender} />
+          </>
         )}
-        <span style={{ fontSize: 16, fontWeight: 800, color: V.inkMid, fontFamily: FD, letterSpacing: "-0.03em" }}>{titles[screen]}</span>
-        <Avatar name={[session?.first_name || "", session?.last_name || ""].join(" ").trim() || "U"} size={30} color={V.lavender} />
       </div>
 
       {/* Screen */}

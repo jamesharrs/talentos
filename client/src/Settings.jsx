@@ -2476,6 +2476,7 @@ const FeatureAccessSection = ({ selectedRole }) => {
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
+  const [saveErr, setSaveErr] = useState('');
 
   useEffect(() => {
     if (!selectedRole) { setLoading(false); return; }
@@ -2492,14 +2493,13 @@ const FeatureAccessSection = ({ selectedRole }) => {
   }, [selectedRole?.id]);
 
   const toggle = (flag) => {
-    if (selectedRole?.is_system) return;
     setPerms(prev => ({ ...prev, [flag]: !prev[flag] }));
   };
 
   const isDirty = JSON.stringify(perms) !== JSON.stringify(orig);
 
   const handleSave = async () => {
-    if (!selectedRole || selectedRole.is_system) return;
+    if (!selectedRole) return;
     setSaving(true);
     const ALL_FLAGS = FEATURE_FLAGS_LIST.map(f => f.id);
     // Load existing perms to preserve object-level ones
@@ -2513,12 +2513,18 @@ const FeatureAccessSection = ({ selectedRole }) => {
     const flagPerms = ALL_FLAGS.map(flag => ({
       object_slug: '__global__', action: flag, allowed: perms[flag] ? 1 : 0
     }));
-    await api.put(`/roles/${selectedRole.id}/permissions`, {
-      permissions: [...objectPerms, ...nonFlagGlobals, ...flagPerms]
-    });
-    setOrig({ ...perms });
-    setSaving(false); setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      const result = await api.put(`/roles/${selectedRole.id}/permissions`, {
+        permissions: [...objectPerms, ...nonFlagGlobals, ...flagPerms]
+      });
+      if (result?.error) { setSaveErr(result.error); setSaving(false); return; }
+      setOrig({ ...perms });
+      setSaved(true); setSaveErr('');
+      setTimeout(() => setSaved(false), 2000);
+    } catch(e) {
+      setSaveErr(e.message || 'Save failed');
+    }
+    setSaving(false);
   };
 
   if (!selectedRole) return (
@@ -2536,20 +2542,16 @@ const FeatureAccessSection = ({ selectedRole }) => {
     <div>
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-        <div>
-          <span style={{ fontSize:13, color:C.text2 }}>
-            {isSystem
-              ? <><strong style={{ color:roleColor }}>{selectedRole.name}</strong> is a system role — permissions shown read-only.</>
-              : <>Toggle features for <strong style={{ color:roleColor }}>{selectedRole.name}</strong>.</>
-            }
-          </span>
+        <div style={{ fontSize:13, color:C.text2 }}>
+          Toggle features for <strong style={{ color:roleColor }}>{selectedRole.name}</strong>
         </div>
-        {!isSystem && (
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4 }}>
           <Btn onClick={handleSave} disabled={saving || !isDirty} sz="sm"
             style={{ opacity: isDirty ? 1 : 0.4 }}>
             {saved ? '✓ Saved' : saving ? 'Saving…' : 'Save Changes'}
           </Btn>
-        )}
+          {saveErr && <div style={{ fontSize:11, color:'#dc2626' }}>{saveErr}</div>}
+        </div>
       </div>
 
       {/* Feature groups */}
@@ -2566,13 +2568,13 @@ const FeatureAccessSection = ({ selectedRole }) => {
               return (
                 <div key={feature.id}
                   onClick={() => toggle(feature.id)}
-                  title={isSystem ? 'System role — read only' : on ? 'Click to revoke' : 'Click to grant'}
+                  title={on ? 'Click to revoke access' : 'Click to grant access'}
                   style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-                    padding:'6px 10px', borderRadius:8, cursor: isSystem ? 'default' : 'pointer',
+                    padding:'6px 10px', borderRadius:8, cursor:'pointer',
                     border:`1.5px solid ${on ? roleColor+'40' : C.border}`,
                     background: on ? roleColor+'08' : 'transparent',
                     transition:'all .12s', userSelect:'none' }}
-                  onMouseEnter={e => { if (!isSystem) e.currentTarget.style.background = on ? roleColor+'15' : '#f9fafb'; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = on ? roleColor+'15' : '#f9fafb'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = on ? roleColor+'08' : 'transparent'; }}>
                   <span style={{ fontSize:12, fontWeight: on ? 600 : 400,
                     color: on ? C.text1 : C.text3 }}>
@@ -2581,7 +2583,7 @@ const FeatureAccessSection = ({ selectedRole }) => {
                   {/* Toggle pill */}
                   <div style={{ flexShrink:0, width:32, height:18, borderRadius:99,
                     background: on ? roleColor : '#e5e7eb', position:'relative',
-                    transition:'background .15s', opacity: isSystem ? 0.5 : 1 }}>
+                    transition:'background .15s' }}>
                     <div style={{ position:'absolute', top:2, left: on ? 16 : 2,
                       width:14, height:14, borderRadius:'50%', background:'white',
                       boxShadow:'0 1px 3px rgba(0,0,0,.2)', transition:'left .15s' }}/>

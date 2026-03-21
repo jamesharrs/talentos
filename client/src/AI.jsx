@@ -34,6 +34,11 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     shield:"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
     workflow:"M22 12h-4l-3 9L9 3l-3 9H2",
     calendar:"M3 4h18v18H3V4zM16 2v4M8 2v4M3 10h18",
+    "refresh-cw":"M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15",
+    "alert-triangle":"M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01",
+    "arrow-right":"M5 12h14M12 5l7 7-7 7",
+    paperclip:"M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48",
+    trash:"M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2",
   };
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -455,6 +460,43 @@ const RecordPreview = ({ data, objectName, objectColor, fields, onConfirm, onEdi
 /* ─── System Prompt ──────────────────────────────────────────────────────── */
 const SYSTEM_PROMPT = `You are Vercentic Copilot, an AI assistant embedded in an enterprise talent acquisition platform.
 
+CRITICAL RULES — ACTIONS AND CONFIRMATION:
+1. You NEVER execute any action silently or claim to have done something before the user confirms.
+2. For ANY action that creates, updates, deletes, or moves data, you MUST output a tagged block and wait.
+3. Always describe EXACTLY what will happen BEFORE the user clicks confirm.
+4. Use plain, specific language: "I will create a person record for Ahmed" NOT "I'll handle that."
+5. Always give the user a clear way to cancel before confirming.
+6. After a user says "yes", "go ahead", "confirm", "do it", or similar — output the action block immediately.
+7. If unsure what the user wants, ASK before proposing any action.
+
+For actions not covered by specific blocks (pipeline moves, bulk updates, status changes), use:
+<PROPOSE_ACTION>
+{
+  "title": "Short action title",
+  "description": "One sentence explaining exactly what will happen",
+  "details": ["Detail line 1", "Detail line 2"],
+  "confirm_label": "Yes, Do This",
+  "cancel_label": "Cancel",
+  "severity": "normal",
+  "action_type": "status_change",
+  "payload": {}
+}
+</PROPOSE_ACTION>
+severity: "normal" (blue), "warning" (amber, for significant changes), "danger" (red, for deletes/irreversible)
+
+DOCUMENT ANALYSIS — CV & JOB DESCRIPTIONS:
+When the user pastes or attaches a CV/resume, extract fields and respond with:
+<PARSE_CV>
+{"first_name":"","last_name":"","email":"","phone":"","current_title":"","location":"","skills":[],"linkedin":"","years_experience":0,"summary":""}
+</PARSE_CV>
+Then say: "I found a CV for [name] — want me to create a person record?"
+
+When the user pastes or attaches a job description/template, respond with:
+<PARSE_JD>
+{"job_title":"","department":"","location":"","work_type":"","employment_type":"","salary_min":0,"salary_max":0,"description":"","requirements":"","skills":[],"status":"Open"}
+</PARSE_JD>
+Then say: "I found a job description for [title] — shall I create this job?"
+
 You can help with:
 1. Searching the database for candidates, jobs, and talent pools
 2. Answering questions about recruitment data
@@ -689,6 +731,9 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   const [interviewTypes, setInterviewTypes] = useState([]);
   const [pendingInterview, setPendingInterview] = useState(null);
   const [pendingForm,      setPendingForm]      = useState(null);
+  const [parsedPerson,     setParsedPerson]     = useState(null);
+  const [parsedJob,        setParsedJob]        = useState(null);
+  const [proposedAction,   setProposedAction]   = useState(null);
   const bottomRef = useRef(null);
   const inputRef  = useRef(null);
 
@@ -763,6 +808,24 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     try { return JSON.parse(match[1].trim()); } catch { return null; }
   };
 
+  const parseParsedCV = (text) => {
+    const m = text.match(/<PARSE_CV>([\s\S]*?)<\/PARSE_CV>/);
+    if (!m) return null;
+    try { return JSON.parse(m[1].trim()); } catch { return null; }
+  };
+
+  const parseParsedJD = (text) => {
+    const m = text.match(/<PARSE_JD>([\s\S]*?)<\/PARSE_JD>/);
+    if (!m) return null;
+    try { return JSON.parse(m[1].trim()); } catch { return null; }
+  };
+
+  const parseProposeAction = (text) => {
+    const m = text.match(/<PROPOSE_ACTION>([\s\S]*?)<\/PROPOSE_ACTION>/);
+    if (!m) return null;
+    try { return JSON.parse(m[1].trim()); } catch { return null; }
+  };
+
   const parseSearchQuery = (text) => {
     const match = text.match(/<SEARCH_QUERY>([\s\S]*?)<\/SEARCH_QUERY>/);
     if (!match) return null;
@@ -779,6 +842,9 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     .replace(/<CREATE_ROLE>[\s\S]*?<\/CREATE_ROLE>/g,"")
     .replace(/<SCHEDULE_INTERVIEW>[\s\S]*?<\/SCHEDULE_INTERVIEW>/g,"")
     .replace(/<CREATE_FORM>[\s\S]*?<\/CREATE_FORM>/g,"")
+    .replace(/<PARSE_CV>[\s\S]*?<\/PARSE_CV>/g,"")
+    .replace(/<PARSE_JD>[\s\S]*?<\/PARSE_JD>/g,"")
+    .replace(/<PROPOSE_ACTION>[\s\S]*?<\/PROPOSE_ACTION>/g,"")
     .replace(/<SEARCH_QUERY>[\s\S]*?<\/SEARCH_QUERY>/g,"")
     .trim();
 
@@ -816,6 +882,9 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     setPendingRole(null);
     setPendingInterview(null);
     setPendingForm(null);
+    setParsedPerson(null);
+    setParsedJob(null);
+    setProposedAction(null);
 
     const newMessages=[...messages,{role:"user",content:userMsg,ts:new Date()}];
     setMessages(newMessages);
@@ -878,6 +947,9 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       const roleData      = parseCreateRole(reply);
       const interviewData = parseScheduleInterview(reply);
       const formData2     = parseCreateForm(reply);
+      const cvData        = parseParsedCV(reply);
+      const jdData        = parseParsedJD(reply);
+      const propAction    = parseProposeAction(reply);
       const displayText = stripBlocks(reply);
       const msgIndex = newMessages.length;
 
@@ -890,7 +962,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         : "";
 
       // Store action data on the message itself so each card is self-contained and immune to state resets
-      setMessages(m=>[...m,{role:"assistant",content:displayText||fallbackMsg,ts:new Date(),hasCreate:!!createData,hasWorkflow:!!workflowData,hasUser:!!userData,hasRole:!!roleData,hasInterview:!!interviewData,hasForm:!!formData2,hasSearch:searchHits.length>0,searchIndex:msgIndex,
+      setMessages(m=>[...m,{role:"assistant",content:displayText||fallbackMsg,ts:new Date(),hasCreate:!!createData,hasWorkflow:!!workflowData,hasUser:!!userData,hasRole:!!roleData,hasInterview:!!interviewData,hasForm:!!formData2,hasParsedCV:!!cvData,hasParsedJD:!!jdData,hasProposedAction:!!propAction,hasSearch:searchHits.length>0,searchIndex:msgIndex,
         interviewData, formData2}]);
       if(createData)    setPendingRecord(createData);
       if(workflowData)  setPendingWorkflow(workflowData);
@@ -898,6 +970,9 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       if(roleData)      setPendingRole(roleData);
       if(interviewData) setPendingInterview(interviewData);
       if(formData2)     setPendingForm(formData2);
+      if(cvData)        setParsedPerson(cvData);
+      if(jdData)        setParsedJob(jdData);
+      if(propAction)    setProposedAction(propAction);
 
     } catch(err){
       setMessages(m=>[...m,{role:"assistant",content:"I encountered an error. Please check your API key is set on the server.",ts:new Date(),error:true}]);
@@ -993,6 +1068,77 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       api.get("/roles").then(r=>{ if(Array.isArray(r)) setAdminRoles(r); }).catch(()=>{});
     } catch(err) {
       setMessages(m=>[...m,{role:"assistant",content:`Failed to create role: ${err.message}`,ts:new Date(),error:true}]);
+    }
+    setCreating(false);
+  };
+
+  const handleConfirmParsedPerson = async () => {
+    if (!parsedPerson || !environment?.id) return;
+    setCreating(true);
+    try {
+      const objs = await fetch(`/api/objects?environment_id=${environment.id}`).then(r=>r.json());
+      const peopleObj = (Array.isArray(objs)?objs:[]).find(o=>o.slug==='people'||o.name?.toLowerCase().includes('person')||o.name?.toLowerCase().includes('people'));
+      if (!peopleObj) throw new Error('People object not found');
+      const rec = await fetch('/api/records',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({object_id:peopleObj.id,environment_id:environment.id,data:{
+          first_name:parsedPerson.first_name||'',last_name:parsedPerson.last_name||'',
+          email:parsedPerson.email||'',phone:parsedPerson.phone||'',
+          current_title:parsedPerson.current_title||'',location:parsedPerson.location||'',
+          skills:parsedPerson.skills||[],linkedin:parsedPerson.linkedin||'',
+          years_experience:parsedPerson.years_experience||0,status:'Active',
+        },created_by:'Copilot'})}).then(r=>r.json());
+      setMessages(m=>[...m,{role:'assistant',content:`✅ Person created: **${parsedPerson.first_name} ${parsedPerson.last_name}**`,ts:new Date()}]);
+      setParsedPerson(null);
+    } catch(err) {
+      setMessages(m=>[...m,{role:'assistant',content:`Failed: ${err.message}`,ts:new Date(),error:true}]);
+    }
+    setCreating(false);
+  };
+
+  const handleConfirmParsedJob = async () => {
+    if (!parsedJob || !environment?.id) return;
+    setCreating(true);
+    try {
+      const objs = await fetch(`/api/objects?environment_id=${environment.id}`).then(r=>r.json());
+      const jobObj = (Array.isArray(objs)?objs:[]).find(o=>o.slug==='jobs'||o.name?.toLowerCase().includes('job'));
+      if (!jobObj) throw new Error('Jobs object not found');
+      await fetch('/api/records',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({object_id:jobObj.id,environment_id:environment.id,data:{
+          job_title:parsedJob.job_title||'',department:parsedJob.department||'',
+          location:parsedJob.location||'',work_type:parsedJob.work_type||'',
+          employment_type:parsedJob.employment_type||'',salary_min:parsedJob.salary_min||0,
+          salary_max:parsedJob.salary_max||0,description:parsedJob.description||'',
+          requirements:parsedJob.requirements||'',skills:parsedJob.skills||[],status:'Open',
+        },created_by:'Copilot'})}).then(r=>r.json());
+      setMessages(m=>[...m,{role:'assistant',content:`✅ Job created: **${parsedJob.job_title}**`,ts:new Date()}]);
+      setParsedJob(null);
+    } catch(err) {
+      setMessages(m=>[...m,{role:'assistant',content:`Failed: ${err.message}`,ts:new Date(),error:true}]);
+    }
+    setCreating(false);
+  };
+
+  const handleConfirmProposedAction = async () => {
+    if (!proposedAction) return;
+    setCreating(true);
+    const { action_type, payload, title } = proposedAction;
+    try {
+      let resultMsg = `✅ Done — ${title}`;
+      if (action_type==='status_change' && payload?.record_id && payload?.field && payload?.value) {
+        const rec = await fetch(`/api/records/${payload.record_id}`).then(r=>r.json());
+        await fetch(`/api/records/${payload.record_id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{...rec.data,[payload.field]:payload.value}})});
+        resultMsg = `✅ Updated to **${payload.value}**`;
+      } else if (action_type==='delete' && payload?.record_id) {
+        await fetch(`/api/records/${payload.record_id}`,{method:'DELETE'});
+        resultMsg = `✅ Record deleted`;
+      } else if (action_type==='bulk_op' && payload?.record_ids?.length) {
+        await Promise.all(payload.record_ids.map(id=>fetch(`/api/records/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:payload.data})})));
+        resultMsg = `✅ Updated ${payload.record_ids.length} records`;
+      }
+      setMessages(m=>[...m,{role:'assistant',content:resultMsg,ts:new Date()}]);
+      setProposedAction(null);
+    } catch(err) {
+      setMessages(m=>[...m,{role:'assistant',content:`❌ Failed: ${err.message}`,ts:new Date(),error:true}]);
     }
     setCreating(false);
   };
@@ -1296,6 +1442,109 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                       <button onClick={()=>setPendingRole(null)} style={{flex:1,padding:"8px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.text2,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>Discard</button>
                       <button onClick={handleConfirmRole} disabled={creating} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:pendingRole.color||C.accent,color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                         {creating?<><Ic n="loader" s={12}/> Creating…</>:<><Ic n="check" s={12}/> Create Role</>}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Proposed Action Card ── */}
+                {msg.role==="assistant"&&msg.hasProposedAction&&proposedAction&&i===messages.length-1&&(()=>{
+                  const sev = proposedAction.severity||'normal';
+                  const col = sev==='danger'?{border:"#ef4444",bg:"#fff1f2",btn:"linear-gradient(135deg,#dc2626,#ef4444)",shadow:"rgba(239,68,68,.3)",badge:"#fee2e2",badgeTxt:"#b91c1c"}
+                    : sev==='warning'?{border:"#f59e0b",bg:"#fffbeb",btn:"linear-gradient(135deg,#d97706,#f59e0b)",shadow:"rgba(245,158,11,.3)",badge:"#fef3c7",badgeTxt:"#b45309"}
+                    : {border:"#6366f1",bg:"#eef2ff",btn:"linear-gradient(135deg,#4f46e5,#6366f1)",shadow:"rgba(99,102,241,.3)",badge:"#e0e7ff",badgeTxt:"#4338ca"};
+                  return (
+                    <div style={{margin:"8px 0",borderRadius:14,border:`2px solid ${col.border}`,background:col.bg,overflow:"hidden",animation:"fadeIn .2s ease"}}>
+                      <div style={{padding:"9px 14px",background:col.btn,display:"flex",alignItems:"center",gap:8}}>
+                        <Ic n="zap" s={13} c="white"/>
+                        <span style={{fontSize:11,fontWeight:700,color:"white",letterSpacing:"0.02em"}}>PENDING ACTION — CONFIRM TO PROCEED</span>
+                      </div>
+                      <div style={{padding:"12px 14px"}}>
+                        <div style={{fontSize:13,fontWeight:700,color:"#111827",marginBottom:3}}>{proposedAction.title}</div>
+                        <div style={{fontSize:12,color:"#374151",marginBottom:10,lineHeight:1.5}}>{proposedAction.description}</div>
+                        {proposedAction.details?.length>0&&(
+                          <div style={{background:"white",borderRadius:8,padding:"9px 12px",marginBottom:10,border:`1px solid ${col.border}44`}}>
+                            <div style={{fontSize:10,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>This will:</div>
+                            {proposedAction.details.map((d,di)=>(
+                              <div key={di} style={{display:"flex",alignItems:"flex-start",gap:6,fontSize:12,color:"#374151",marginBottom:3}}>
+                                <span style={{color:col.border,fontWeight:700,flexShrink:0}}>→</span><span>{d}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {sev==="danger"&&<div style={{display:"flex",alignItems:"center",gap:6,padding:"7px 10px",borderRadius:8,background:"#fee2e2",marginBottom:10,fontSize:11,color:"#991b1b",fontWeight:600}}><Ic n="alert-triangle" s={13} c="#b91c1c"/> This action cannot be undone</div>}
+                        {sev==="warning"&&<div style={{display:"flex",alignItems:"center",gap:6,padding:"7px 10px",borderRadius:8,background:"#fef3c7",marginBottom:10,fontSize:11,color:"#92400e",fontWeight:600}}><Ic n="alert-triangle" s={13} c="#b45309"/> Please review carefully before confirming</div>}
+                        <div style={{display:"flex",gap:8}}>
+                          <button onClick={()=>setProposedAction(null)} style={{flex:1,padding:"9px",borderRadius:9,border:"1px solid #e5e7eb",background:"white",color:"#6b7280",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>
+                            {proposedAction.cancel_label||"Cancel"}
+                          </button>
+                          <button onClick={handleConfirmProposedAction} disabled={creating}
+                            style={{flex:2,padding:"9px",borderRadius:9,border:"none",background:col.btn,color:"white",fontSize:12,fontWeight:700,cursor:creating?"default":"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6,boxShadow:`0 2px 10px ${col.shadow}`,opacity:creating?.7:1}}>
+                            {creating?<><Ic n="loader" s={12} c="white"/> Working…</>:<><Ic n="check" s={12} c="white"/> {proposedAction.confirm_label||"Confirm"}</>}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ── CV Parse Card ── */}
+                {msg.role==="assistant"&&msg.hasParsedCV&&parsedPerson&&i===messages.length-1&&(
+                  <div style={{margin:"8px 0",padding:"14px",borderRadius:12,border:"1.5px solid #0ea5e9",background:"#f0f9ff",animation:"fadeIn .2s ease"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                      <div style={{width:30,height:30,borderRadius:8,background:"linear-gradient(135deg,#0284c7,#0ea5e9)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                        <Ic n="user" s={14} c="white"/>
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:700,color:"#0c4a6e"}}>{parsedPerson.first_name} {parsedPerson.last_name}</div>
+                        <div style={{fontSize:11,color:"#0284c7",fontWeight:600}}>{parsedPerson.current_title||'CV detected'}</div>
+                      </div>
+                      <span style={{fontSize:10,background:"#e0f2fe",color:"#0284c7",fontWeight:700,padding:"3px 8px",borderRadius:99}}>CV</span>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:10}}>
+                      {[parsedPerson.email&&["✉️","Email",parsedPerson.email],parsedPerson.phone&&["📞","Phone",parsedPerson.phone],parsedPerson.location&&["📍","Location",parsedPerson.location],parsedPerson.years_experience&&["⏱","Experience",`${parsedPerson.years_experience} yrs`]].filter(Boolean).map(([icon,label,val])=>(
+                        <div key={label} style={{background:"white",borderRadius:7,padding:"6px 9px",border:"1px solid #bae6fd",fontSize:11}}>
+                          <div style={{color:"#94a3b8",fontSize:9,marginBottom:1}}>{icon} {label}</div>
+                          <div style={{color:"#0c4a6e",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {parsedPerson.skills?.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:10}}>{parsedPerson.skills.slice(0,6).map(s=><span key={s} style={{fontSize:10,padding:"2px 7px",borderRadius:99,background:"#e0f2fe",color:"#0369a1",fontWeight:600}}>{s}</span>)}{parsedPerson.skills.length>6&&<span style={{fontSize:10,color:"#94a3b8"}}>+{parsedPerson.skills.length-6} more</span>}</div>}
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={()=>setParsedPerson(null)} style={{flex:1,padding:"8px",borderRadius:8,border:"1px solid #e2e8f0",background:"transparent",color:"#64748b",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>Dismiss</button>
+                      <button onClick={handleConfirmParsedPerson} disabled={creating} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#0284c7,#0ea5e9)",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                        {creating?<><Ic n="loader" s={12}/> Creating…</>:<><Ic n="user" s={12} c="white"/> Create Person</>}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── JD Parse Card ── */}
+                {msg.role==="assistant"&&msg.hasParsedJD&&parsedJob&&i===messages.length-1&&(
+                  <div style={{margin:"8px 0",padding:"14px",borderRadius:12,border:"1.5px solid #f59e0b",background:"#fffbeb",animation:"fadeIn .2s ease"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                      <div style={{width:30,height:30,borderRadius:8,background:"linear-gradient(135deg,#d97706,#f59e0b)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                        <Ic n="briefcase" s={14} c="white"/>
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:700,color:"#78350f"}}>{parsedJob.job_title||'Job Role'}</div>
+                        <div style={{fontSize:11,color:"#d97706",fontWeight:600}}>{parsedJob.department||''}{parsedJob.location?` · ${parsedJob.location}`:''}</div>
+                      </div>
+                      <span style={{fontSize:10,background:"#fef3c7",color:"#d97706",fontWeight:700,padding:"3px 8px",borderRadius:99}}>JD</span>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:10}}>
+                      {[parsedJob.employment_type&&["💼","Type",parsedJob.employment_type],parsedJob.work_type&&["🏢","Work",parsedJob.work_type],(parsedJob.salary_min||parsedJob.salary_max)&&["💰","Salary",parsedJob.salary_min&&parsedJob.salary_max?`${parsedJob.salary_min.toLocaleString()}–${parsedJob.salary_max.toLocaleString()}`:`${(parsedJob.salary_min||parsedJob.salary_max).toLocaleString()}+`],parsedJob.location&&["📍","Location",parsedJob.location]].filter(Boolean).map(([icon,label,val])=>(
+                        <div key={label} style={{background:"white",borderRadius:7,padding:"6px 9px",border:"1px solid #fde68a",fontSize:11}}>
+                          <div style={{color:"#94a3b8",fontSize:9,marginBottom:1}}>{icon} {label}</div>
+                          <div style={{color:"#78350f",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {parsedJob.skills?.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:10}}>{parsedJob.skills.slice(0,6).map(s=><span key={s} style={{fontSize:10,padding:"2px 7px",borderRadius:99,background:"#fef3c7",color:"#92400e",fontWeight:600}}>{s}</span>)}{parsedJob.skills.length>6&&<span style={{fontSize:10,color:"#94a3b8"}}>+{parsedJob.skills.length-6} more</span>}</div>}
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={()=>setParsedJob(null)} style={{flex:1,padding:"8px",borderRadius:8,border:"1px solid #e2e8f0",background:"transparent",color:"#64748b",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>Dismiss</button>
+                      <button onClick={handleConfirmParsedJob} disabled={creating} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#d97706,#f59e0b)",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                        {creating?<><Ic n="loader" s={12}/> Creating…</>:<><Ic n="briefcase" s={12} c="white"/> Create Job</>}
                       </button>
                     </div>
                   </div>

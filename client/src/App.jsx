@@ -36,7 +36,6 @@ import { getSession, clearSession } from "./usePermissions.js";
 import { PermissionProvider, usePermissions, Gate } from "./PermissionContext.jsx";
 import { useHistory } from "./useHistory";
 import { HistoryDropdown } from "./RecentHistory";
-import { WhatsNewButton } from "./ReleaseNotes.jsx";
 
 // ─── API Client ───────────────────────────────────────────────────────────────
 // Derive tenant slug — session takes priority, then URL param, then subdomain
@@ -741,6 +740,10 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
   const [notifs,      setNotifs]      = useState([]);
   const [unread,      setUnread]      = useState(0);
   const [bellOpen,    setBellOpen]    = useState(false);
+  const [bellTab,     setBellTab]     = useState("notifications"); // "notifications" | "whats_new"
+  const [releases,    setReleases]    = useState([]);
+  const [relLastSeen, setRelLastSeen] = useState(() => localStorage.getItem('vrc_news_seen') || '2000-01-01');
+  const [selRelease,  setSelRelease]  = useState(null);
   const bellRef  = useRef(null);
   const [loading,     setLoading]     = useState(false);
   const [showCreate,  setShowCreate]  = useState(false);
@@ -761,17 +764,20 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Load notifications
+  // Load notifications + release notes
   useEffect(() => {
     const load = async () => {
       try {
-        // Fetch all notifications — no env filter so we always get results
         const d = await fetch(`/api/notifications?limit=30`).then(r => r.json());
         if (d && Array.isArray(d.notifications)) {
           setNotifs(d.notifications);
           setUnread(d.unread || 0);
         }
       } catch(e) { console.error("notif fetch failed", e); }
+      try {
+        const rel = await fetch(`/api/release-notes`).then(r => r.json());
+        setReleases(Array.isArray(rel) ? rel : []);
+      } catch(e) {}
     };
     load();
     const timer = setInterval(load, 30000);
@@ -950,7 +956,7 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
         )}
       </div>
 
-      {/* ── Right group: Calendar + What's New + Bell ── */}
+      {/* ── Right group: Calendar + Bell (Notifications & What's New) ── */}
       <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:"auto", flexShrink:0, borderLeft:"1px solid var(--t-border)", paddingLeft:10 }}>
 
         {/* Calendar */}
@@ -962,62 +968,183 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
         </button>
 
         {/* What's New */}
-        <WhatsNewButton />
         <div ref={bellRef} style={{ position:"relative" }}>
-          <button onClick={() => setBellOpen(o => !o)} title="Notifications"
+          <button onClick={() => setBellOpen(o => !o)} title="Notifications & What's New"
             style={{ width:34, height:34, borderRadius:9, border:"1px solid var(--t-border)", background: bellOpen ? "var(--t-accent-light,#eef2ff)" : "var(--t-surface2)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", position:"relative", transition:"background .12s" }}
             onMouseEnter={e=>e.currentTarget.style.background="var(--t-accent-light,#eef2ff)"}
             onMouseLeave={e=>{ if(!bellOpen) e.currentTarget.style.background="var(--t-surface2)"; }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--t-accent)" strokeWidth="2" strokeLinecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-            {unread > 0 && (
+            {(unread + releases.filter(r => new Date(r.published_at) > new Date(relLastSeen)).length) > 0 && (
               <span style={{ position:"absolute", top:-4, right:-4, minWidth:17, height:17, borderRadius:99, background:"#ef4444", color:"white", fontSize:9, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 4px", border:"2px solid var(--t-surface)", lineHeight:1 }}>
-                {unread > 9 ? "9+" : unread}
+                {(() => { const t = unread + releases.filter(r => new Date(r.published_at) > new Date(relLastSeen)).length; return t > 9 ? "9+" : t; })()}
               </span>
             )}
           </button>
 
           {/* Dropdown */}
           {bellOpen && (
-            <div style={{ position:"absolute", top:"calc(100% + 8px)", right:0, width:360, maxHeight:480, background:"var(--t-surface)", border:"1px solid var(--t-border)", borderRadius:14, boxShadow:"0 12px 40px rgba(0,0,0,.18)", zIndex:700, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-              <div style={{ padding:"12px 14px 10px", borderBottom:"1px solid var(--t-border)", display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{ fontSize:13, fontWeight:700, color:"var(--t-text1)", flex:1 }}>Notifications</span>
-                {unread > 0 && <span style={{ fontSize:11, color:"var(--t-text3)" }}>{unread} unread</span>}
-                {unread > 0 && <button onClick={markAllRead} style={{ fontSize:11, color:"var(--t-accent)", fontWeight:600, background:"none", border:"none", cursor:"pointer", padding:"2px 6px", borderRadius:5 }}>Mark all read</button>}
-              </div>
-              <div style={{ overflowY:"auto", flex:1 }}>
-                {notifs.length === 0 ? (
-                  <div style={{ padding:"32px 16px", textAlign:"center", color:"var(--t-text3)", fontSize:12 }}>
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin:"0 auto 8px", display:"block", opacity:0.4 }}><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-                    All caught up!
+            <div style={{ position:"absolute", top:"calc(100% + 8px)", right:0, width:380, maxHeight:520, background:"var(--t-surface)", border:"1px solid var(--t-border)", borderRadius:14, boxShadow:"0 12px 40px rgba(0,0,0,.18)", zIndex:700, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+
+              {/* Tab strip */}
+              {(() => {
+                const newReleases = releases.filter(r => new Date(r.published_at) > new Date(relLastSeen)).length;
+                return (
+                  <div style={{ display:"flex", borderBottom:"1px solid var(--t-border)", background:"var(--t-surface2)" }}>
+                    {[
+                      { id:"notifications", label:"Notifications", badge: unread },
+                      { id:"whats_new",     label:"What's New",    badge: newReleases },
+                    ].map(tab => (
+                      <button key={tab.id} onClick={() => {
+                        setBellTab(tab.id);
+                        if (tab.id === "whats_new") {
+                          const now = new Date().toISOString();
+                          localStorage.setItem('vrc_news_seen', now);
+                          setRelLastSeen(now);
+                          setSelRelease(null);
+                        }
+                      }} style={{
+                        flex:1, padding:"10px 12px", border:"none", background:"transparent",
+                        cursor:"pointer", fontSize:12, fontWeight: bellTab===tab.id ? 700 : 500,
+                        color: bellTab===tab.id ? "var(--t-accent,#4361EE)" : "var(--t-text3,#6B7280)",
+                        borderBottom: bellTab===tab.id ? "2px solid var(--t-accent,#4361EE)" : "2px solid transparent",
+                        display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                        fontFamily:"var(--t-font,'Geist',sans-serif)", transition:"all .12s",
+                      }}>
+                        {tab.label}
+                        {tab.badge > 0 && (
+                          <span style={{ minWidth:16, height:16, borderRadius:99, background: bellTab===tab.id ? "var(--t-accent,#4361EE)" : "#6b7280", color:"white", fontSize:9, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 4px" }}>
+                            {tab.badge > 9 ? "9+" : tab.badge}
+                          </span>
+                        )}
+                      </button>
+                    ))}
                   </div>
-                ) : notifs.map(n => {
-                  const color    = NOTIF_COLORS[n.type] || "#6b7280";
-                  const icon     = NOTIF_ICONS[n.type]  || null;
-                  const isUnread = !n.read_at;
-                  return (
-                    <div key={n.id} onClick={() => { if(isUnread) markRead(n.id); }}
-                      style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"11px 14px", borderBottom:"1px solid #f3f4f6", cursor: isUnread ? "pointer" : "default", background: isUnread ? `${color}09` : "transparent", transition:"background .1s" }}
-                      onMouseEnter={e=>{ e.currentTarget.style.background = isUnread ? `${color}16` : "#f9fafb"; }}
-                      onMouseLeave={e=>{ e.currentTarget.style.background = isUnread ? `${color}09` : "transparent"; }}>
-                      <div style={{ width:30, height:30, borderRadius:9, background:`${color}18`, color, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
-                        {icon}
-                      </div>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
-                          <span style={{ fontSize:12, fontWeight: isUnread ? 700 : 500, color:"#111827", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{n.title}</span>
-                          {isUnread && <span style={{ width:7, height:7, borderRadius:"50%", background:color, flexShrink:0 }}/>}
-                        </div>
-                        <div style={{ fontSize:11, color:"#6b7280", lineHeight:1.45, marginBottom:3 }}>{n.body}</div>
-                        <div style={{ fontSize:10, color:"#9ca3af" }}>{relTime(n.created_at)}</div>
-                      </div>
-                      <button onClick={e=>deleteNotif(n.id,e)}
-                        style={{ background:"none", border:"none", cursor:"pointer", padding:"2px 5px", color:"#d1d5db", borderRadius:4, fontSize:16, lineHeight:1, flexShrink:0 }}
-                        onMouseEnter={e=>{e.currentTarget.style.color="#ef4444";}}
-                        onMouseLeave={e=>{e.currentTarget.style.color="#d1d5db";}}>×</button>
+                );
+              })()}
+
+              {/* Notifications tab */}
+              {bellTab === "notifications" && (
+                <>
+                  {unread > 0 && (
+                    <div style={{ padding:"8px 14px 6px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                      <span style={{ fontSize:11, color:"var(--t-text3)" }}>{unread} unread</span>
+                      <button onClick={markAllRead} style={{ fontSize:11, color:"var(--t-accent)", fontWeight:600, background:"none", border:"none", cursor:"pointer", padding:"2px 6px", borderRadius:5 }}>Mark all read</button>
                     </div>
-                  );
-                })}
-              </div>
+                  )}
+                  <div style={{ overflowY:"auto", flex:1 }}>
+                    {notifs.length === 0 ? (
+                      <div style={{ padding:"32px 16px", textAlign:"center", color:"var(--t-text3)", fontSize:12 }}>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin:"0 auto 8px", display:"block", opacity:0.4 }}><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                        All caught up!
+                      </div>
+                    ) : notifs.map(n => {
+                      const color    = NOTIF_COLORS[n.type] || "#6b7280";
+                      const icon     = NOTIF_ICONS[n.type]  || null;
+                      const isUnread = !n.read_at;
+                      return (
+                        <div key={n.id} onClick={() => { if(isUnread) markRead(n.id); }}
+                          style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"11px 14px", borderBottom:"1px solid #f3f4f6", cursor: isUnread ? "pointer" : "default", background: isUnread ? `${color}09` : "transparent", transition:"background .1s" }}
+                          onMouseEnter={e=>{ e.currentTarget.style.background = isUnread ? `${color}16` : "#f9fafb"; }}
+                          onMouseLeave={e=>{ e.currentTarget.style.background = isUnread ? `${color}09` : "transparent"; }}>
+                          <div style={{ width:30, height:30, borderRadius:9, background:`${color}18`, color, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
+                            {icon}
+                          </div>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                              <span style={{ fontSize:12, fontWeight: isUnread ? 700 : 500, color:"#111827", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{n.title}</span>
+                              {isUnread && <span style={{ width:7, height:7, borderRadius:"50%", background:color, flexShrink:0 }}/>}
+                            </div>
+                            <div style={{ fontSize:11, color:"#6b7280", lineHeight:1.45, marginBottom:3 }}>{n.body}</div>
+                            <div style={{ fontSize:10, color:"#9ca3af" }}>{relTime(n.created_at)}</div>
+                          </div>
+                          <button onClick={e=>deleteNotif(n.id,e)}
+                            style={{ background:"none", border:"none", cursor:"pointer", padding:"2px 5px", color:"#d1d5db", borderRadius:4, fontSize:16, lineHeight:1, flexShrink:0 }}
+                            onMouseEnter={e=>{e.currentTarget.style.color="#ef4444";}}
+                            onMouseLeave={e=>{e.currentTarget.style.color="#d1d5db";}}>×</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* What's New tab */}
+              {bellTab === "whats_new" && (
+                <div style={{ overflowY:"auto", flex:1 }}>
+                  {selRelease ? (
+                    /* Detail view */
+                    (() => {
+                      const CAT = { feature:{label:"New Feature",color:"var(--t-accent,#4361EE)",bg:"var(--t-accent-light,#EEF2FF)"}, improvement:{label:"Improvement",color:"#0CAF77",bg:"#F0FDF4"}, fix:{label:"Bug Fix",color:"#F59F00",bg:"#FFFBEB"}, security:{label:"Security",color:"#EF4444",bg:"#FEF2F2"} };
+                      const meta = CAT[selRelease.category] || CAT.feature;
+                      return (
+                        <div>
+                          <div style={{ padding:"11px 14px", borderBottom:"1px solid var(--t-border)", display:"flex", alignItems:"center", gap:8 }}>
+                            <button onClick={() => setSelRelease(null)} style={{ background:"none", border:"none", cursor:"pointer", display:"flex", padding:4, color:"var(--t-text3)" }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                            </button>
+                            <div style={{ flex:1 }}>
+                              <div style={{ fontSize:13, fontWeight:700, color:"var(--t-text1)" }}>{selRelease.title}</div>
+                              <div style={{ fontSize:11, color:"var(--t-text3)" }}>v{selRelease.version}</div>
+                            </div>
+                            <span style={{ fontSize:10, fontWeight:700, padding:"3px 8px", borderRadius:99, background:meta.bg, color:meta.color }}>{meta.label}</span>
+                          </div>
+                          <div style={{ padding:"14px 16px" }}>
+                            <div style={{ fontSize:11, color:"var(--t-text3)", marginBottom:10 }}>
+                              {new Date(selRelease.published_at).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
+                            </div>
+                            {selRelease.summary && (
+                              <div style={{ fontSize:13, color:"var(--t-text2)", lineHeight:1.6, marginBottom:14, padding:"10px 12px", background:"var(--t-bg,#f7f8fc)", borderRadius:8 }}>
+                                {selRelease.summary}
+                              </div>
+                            )}
+                            {selRelease.features?.length > 0 && (
+                              <div>
+                                <div style={{ fontSize:11, fontWeight:700, color:"var(--t-text3)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>What's included</div>
+                                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                                  {selRelease.features.map((f,i) => (
+                                    <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:8, fontSize:13, color:"var(--t-text2)", lineHeight:1.5 }}>
+                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={meta.color} strokeWidth="2" strokeLinecap="round" style={{ flexShrink:0, marginTop:2 }}><path d="M20 6L9 17l-5-5"/></svg>
+                                      {f}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    /* List view */
+                    releases.length === 0 ? (
+                      <div style={{ padding:"32px 16px", textAlign:"center", color:"var(--t-text3)", fontSize:12 }}>No release notes yet.</div>
+                    ) : releases.map(note => {
+                      const CAT = { feature:{color:"var(--t-accent,#4361EE)",bg:"var(--t-accent-light,#EEF2FF)"}, improvement:{color:"#0CAF77",bg:"#F0FDF4"}, fix:{color:"#F59F00",bg:"#FFFBEB"}, security:{color:"#EF4444",bg:"#FEF2F2"} };
+                      const meta = CAT[note.category] || CAT.feature;
+                      const isNew = new Date(note.published_at) > new Date(relLastSeen);
+                      return (
+                        <div key={note.id} onClick={() => setSelRelease(note)}
+                          style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"12px 14px", borderBottom:"1px solid var(--t-border)", cursor:"pointer", background: isNew ? "#FAFBFF" : "transparent", transition:"background .1s" }}
+                          onMouseEnter={e=>e.currentTarget.style.background="var(--t-accent-light,#EEF2FF)"}
+                          onMouseLeave={e=>e.currentTarget.style.background=isNew?"#FAFBFF":"transparent"}>
+                          <div style={{ width:32, height:32, borderRadius:8, flexShrink:0, background:meta.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={meta.color} strokeWidth="1.8"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2"/></svg>
+                          </div>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                              <span style={{ fontSize:13, fontWeight:700, color:"var(--t-text1)", flex:1 }}>{note.title}</span>
+                              {isNew && <span style={{ fontSize:9, fontWeight:700, padding:"2px 5px", background:"var(--t-accent,#4361EE)", color:"#fff", borderRadius:99 }}>NEW</span>}
+                            </div>
+                            <div style={{ fontSize:11, color:"var(--t-text3)", marginBottom:3 }}>v{note.version} · {new Date(note.published_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
+                            <div style={{ fontSize:12, color:"var(--t-text2)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{note.summary}</div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+
             </div>
           )}
         </div>

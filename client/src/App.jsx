@@ -1129,7 +1129,7 @@ function ThemePanel({ onClose }) {
 
 // ─── Record Page ─────────────────────────────────────────────────────────────
 // Standalone page — no overlay, no z-index, just a regular routed view
-function RecordPage({ recordId, objectId, environment, allObjects, onBack, onNavigate, onHistoryUpdate }) {
+function RecordPage({ recordId, objectId, environment, allObjects, onBack, onNavigate, onHistoryUpdate, onRecordLoad }) {
   const [state, setState] = useState(null); // { record, fields, object }
   const [loading, setLoading] = useState(true);
 
@@ -1151,6 +1151,8 @@ function RecordPage({ recordId, objectId, environment, allObjects, onBack, onNav
       if (!record) { setLoading(false); return; }
       setState({ record, fields: Array.isArray(fields) ? fields : [], object: obj });
       setLoading(false);
+      // Broadcast to parent (for copilot context)
+      if (onRecordLoad) onRecordLoad(record, obj);
       // Update history with real display name
       if (onHistoryUpdate) {
         const d = record.data || {};
@@ -1360,6 +1362,8 @@ function App() {
     if (id !== "reports") setReportPreset(null);
     if (!id.startsWith("dashboard")) setDashFlyout(false);
     if (id.startsWith("dashboard")) setDashFlyout(true);
+    // Clear active record context when leaving a record page
+    if (!id.startsWith("record_")) { setActiveRecord(null); setActiveRecordObj(null); }
     // Log nav-level pages to history
     const NAV_META = {
       dashboard:            { label: "Dashboard",   objectName: "Overview",   objectColor: "#4361EE" },
@@ -1396,6 +1400,10 @@ function App() {
       switchNav(entry.nav);
     }
   };
+
+  // Track active record for copilot context
+  const [activeRecord,    setActiveRecord]    = useState(null); // { id, data, object }
+  const [activeRecordObj, setActiveRecordObj] = useState(null);
 
   const openRecord = (recordId, objectId) => {
     setActiveNav(`record_${recordId}_${objectId}`);
@@ -1692,7 +1700,9 @@ function App() {
         ) : activeNav.startsWith("record_") ? (() => {
           const parts = activeNav.split("_"); const recordId = parts[1]; const objectId = parts[2];
           const obj = navObjects.find(o => o.id === objectId);
-          return <RecordPage recordId={recordId} objectId={objectId} environment={selectedEnv} allObjects={navObjects} onBack={() => setActiveNav(obj ? `obj_${obj.id}` : "dashboard")} onNavigate={openRecord} onHistoryUpdate={pushHistory}/>;
+          return <RecordPage recordId={recordId} objectId={objectId} environment={selectedEnv} allObjects={navObjects} onBack={() => { setActiveRecord(null); setActiveRecordObj(null); setActiveNav(obj ? `obj_${obj.id}` : "dashboard"); }} onNavigate={openRecord} onHistoryUpdate={pushHistory}
+            onRecordLoad={(rec, recObj) => { setActiveRecord(rec); setActiveRecordObj(recObj); }}
+          />;
         })() : activeNav === "search" ? (
           <SearchPage environment={selectedEnv} onNavigateToRecord={(record) => {
             openRecord(record.id, record.object_id);
@@ -1742,11 +1752,17 @@ function App() {
         )}
         </div>
       </div>
-      <AICopilot environment={selectedEnv} onNavigateToRecord={(record) => {
-        const obj = navObjects.find(o => o.slug === record.object_slug || o.id === record.object_id);
-        if (!obj) return;
-        openRecord(record.id, obj.id);
-      }} />
+      <AICopilot
+          environment={selectedEnv}
+          activeNav={activeNav}
+          navObjects={navObjects}
+          currentRecord={activeRecord}
+          currentObject={activeRecordObj}
+          onNavigateToRecord={(record) => {
+            const obj = navObjects.find(o => o.slug === record.object_slug || o.id === record.object_id);
+            if (!obj) return;
+            openRecord(record.id, obj.id);
+          }} />
 
       {/* Company Setup Wizard — first-run only */}
       {showSetupWizard && (

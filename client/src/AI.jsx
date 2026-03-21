@@ -460,6 +460,17 @@ const RecordPreview = ({ data, objectName, objectColor, fields, onConfirm, onEdi
 /* ─── System Prompt ──────────────────────────────────────────────────────── */
 const SYSTEM_PROMPT = `You are Vercentic Copilot, an AI assistant embedded in an enterprise talent acquisition platform.
 
+PAGE AWARENESS — CRITICAL:
+You are always given the current page and record via "CURRENT PAGE CONTEXT:" in the system context.
+- ALWAYS reference the current page/record context when answering questions
+- If asked "what can you see?" or "what am I looking at?" — describe the page and record clearly in plain English
+- Reference people and jobs by name — never say "the current record" when you know their name
+- On a person record: proactively offer to summarise, draft emails, find matching jobs
+- On a job record: proactively offer to find matching candidates, summarise requirements
+- On a list page: offer to search, filter, or create a new record
+- On the dashboard: offer to explain the pipeline, find records, or take actions
+- NEVER claim you cannot see what page the user is on — you are always told via context
+
 CRITICAL RULES — ACTIONS AND CONFIRMATION:
 1. You NEVER execute any action silently or claim to have done something before the user confirms.
 2. For ANY action that creates, updates, deletes, or moves data, you MUST output a tagged block and wait.
@@ -699,7 +710,7 @@ const CREATE_ACTIONS = [
 ];
 
 /* ─── AI Copilot ─────────────────────────────────────────────────────────── */
-export const AICopilot = ({ environment, currentRecord, currentObject, onNavigateToRecord }) => {
+export const AICopilot = ({ environment, currentRecord, currentObject, onNavigateToRecord, activeNav, navObjects, pageContext }) => {
   const [open,         setOpen]         = useState(false);
   const [messages,     setMessages]     = useState([]);
   const [input,        setInput]        = useState("");
@@ -748,17 +759,61 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     });
   },[environment?.id]);
 
+  // Build rich page context from everything we know
   useEffect(()=>{
-    if(!currentRecord||!currentObject){setContext(null);return;}
-    setContext(`Current record (${currentObject.name}):\n${JSON.stringify(currentRecord.data,null,2)}`);
-  },[currentRecord,currentObject]);
+    const parts=[];
+    if(activeNav){
+      const lbl=activeNav==='dashboard'?'Dashboard (pipeline overview, stats, recent activity)'
+        :activeNav==='interviews'?'Interviews (upcoming and past interviews)'
+        :activeNav==='offers'?'Offers (candidate offers and approvals)'
+        :activeNav==='reports'?'Reports (analytics and data)'
+        :activeNav==='search'?'Search (searching across all records)'
+        :activeNav==='settings'?'Settings (platform configuration)'
+        :activeNav==='orgchart'?'Org Chart (organisational structure)'
+        :activeNav==='workflows'?'Workflows (automation builder)'
+        :activeNav?.startsWith('obj_')?(()=>{const o=(navObjects||[]).find(o=>'obj_'+o.id===activeNav);return o?(o.plural_name||o.name)+' list':'Object list';})()
+        :activeNav?.startsWith('record_')?'Record detail view'
+        :activeNav;
+      parts.push('USER IS CURRENTLY ON: '+lbl);
+    }
+    if(currentRecord&&currentObject){
+      const d=currentRecord.data||{};
+      const name=(d.first_name?((d.first_name+' '+(d.last_name||'')).trim()):null)||d.job_title||d.pool_name||d.name||'Untitled';
+      parts.push('');
+      parts.push('VIEWING '+currentObject.name.toUpperCase()+' RECORD: '+name);
+      parts.push('Record ID: '+currentRecord.id);
+      parts.push('Object type: '+currentObject.name+' (slug: '+currentObject.slug+')');
+      parts.push('All field values:');
+      Object.entries(d).forEach(([k,v])=>{
+        if(v===null||v===undefined||v==='')return;
+        const disp=Array.isArray(v)?v.join(', '):String(v);
+        if(disp)parts.push('  '+k+': '+disp);
+      });
+    }
+    if(pageContext){parts.push('');parts.push('ADDITIONAL PAGE CONTEXT:');parts.push(pageContext);}
+    setContext(parts.length?parts.join('\n'):null);
+  },[currentRecord,currentObject,activeNav,navObjects,pageContext]);
 
   useEffect(()=>{
     if(open&&messages.length===0){
-      setMessages([{role:"assistant",content:context
-        ?`Hi! I can see you're viewing a **${currentObject?.name}** record. I can summarise their profile, draft emails, or answer questions. I can also create records, workflows, users and roles — just ask!`
-        :`Hi! I'm your Vercentic Copilot. I can:\n• **Search** candidates, jobs, and pools\n• **Create records** — people, jobs, talent pools\n• **Build workflows** with stages and automations\n• **Invite users** and **create roles** (admin)\n\nWhat would you like to do?`,
-        ts:new Date()}]);
+      setMessages([{role:"assistant",content:(()=>{
+        if(currentRecord&&currentObject){
+          const d=currentRecord.data||{};
+          const name=(d.first_name?((d.first_name+' '+(d.last_name||'')).trim()):null)||d.job_title||d.pool_name||'this record';
+          if(currentObject.slug==='people') return `Hi! I can see you're viewing **${name}**.\n\nI can:\n• Summarise their profile and background\n• Draft outreach or follow-up emails\n• Find matching jobs for them\n• Answer any questions about this candidate\n\nWhat would you like?`;
+          if(currentObject.slug==='jobs') return `Hi! I can see you're viewing the **${name}** role.\n\nI can:\n• Summarise the job requirements\n• Find matching candidates\n• Draft a job description\n• Answer any questions about this role\n\nWhat would you like?`;
+          return `Hi! I can see you're viewing **${name}** (${currentObject.name}).\n\nI can summarise this record, answer questions, or help take actions. What would you like?`;
+        }
+        if(activeNav==='dashboard') return `Hi! I can see you're on the **Dashboard**.\n\nI can help you:\n• Understand your current pipeline\n• Find specific candidates or jobs\n• Create new records\n• Summarise recent activity\n\nWhat would you like to do?`;
+        if(activeNav==='interviews') return `Hi! I can see you're in **Interviews**.\n\nI can help you:\n• Schedule a new interview\n• Review upcoming sessions\n• Answer questions about the schedule\n\nWhat would you like to do?`;
+        if(activeNav==='offers') return `Hi! I can see you're in **Offers**.\n\nI can help you:\n• Create or review offers\n• Check approval status\n• Answer questions about the offer pipeline\n\nWhat would you like to do?`;
+        if(activeNav?.startsWith('obj_')){
+          const obj=(navObjects||[]).find(o=>'obj_'+o.id===activeNav);
+          const n=obj?.plural_name||obj?.name||'records';
+          return `Hi! I can see you're viewing **${n}**.\n\nI can help you:\n• Search and filter this list\n• Create a new ${obj?.name||'record'}\n• Answer questions about any record here\n\nWhat would you like to do?`;
+        }
+        return `Hi! I'm your Vercentic Copilot. I can:\n• **Search** candidates, jobs, and pools\n• **Create records** — people, jobs, talent pools\n• **Build workflows** with stages and automations\n• **Invite users** and **create roles** (admin)\n\nWhat would you like to do?`;
+      })(),ts:new Date()}]);
     }
   },[open]);
 
@@ -901,7 +956,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         SYSTEM_PROMPT,
         `\n\nHELP DOCUMENTATION (use this to answer "how do I" questions):\n${buildHelpContext()}`,
         `\n\nPLATFORM OBJECTS:\n${objectsInfo}`,
-        context?`\n\nCURRENT RECORD:\n${context}`:"",
+        context?`\n\nCURRENT PAGE CONTEXT:\n${context}`:"",
         adminRoles.length?`\n\nAVAILABLE ROLES:\n${adminRoles.map(r=>`- ${r.name} (slug: ${r.slug}, id: ${r.id})`).join("\n")}`:"",
         adminUsers.length?`\n\nEXISTING USERS (${adminUsers.length} total):\n${adminUsers.map(u=>`- ${u.first_name} ${u.last_name} <${u.email}> role:${adminRoles.find(r=>r.id===u.role_id)?.name||u.role_id} status:${u.status}`).join("\n")}`:"",
         interviewTypes.length?`\n\nAVAILABLE INTERVIEW TYPES:\n${interviewTypes.map(t=>`- ${t.name} (id:${t.id}, duration:${t.duration}min, format:${t.format||t.interview_format||'Video Call'})`).join("\n")}`

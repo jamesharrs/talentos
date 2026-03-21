@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { usePermissions, Gate } from "./PermissionContext.jsx";
 import ReactDOM from "react-dom";
 import FileTypesSettings from "./settings/FileTypesSettings.jsx";
@@ -622,7 +622,7 @@ const RolesSection = ({ environment }) => {
               </div>
               {/* Tab bar */}
               <div style={{display:"flex",gap:4,marginBottom:14,borderBottom:`1px solid ${C.border}`,paddingBottom:8}}>
-                {[{id:"permissions",label:"Permissions"},{id:"field_visibility",label:"Field Visibility"}].map(tab=>(
+                {[{id:"permissions",label:"Permissions"},{id:"field_visibility",label:"Field Visibility"},{id:"feature_access",label:"Feature Access"}].map(tab=>(
                   <button key={tab.id} onClick={()=>setRoleTab(tab.id)}
                     style={{padding:"5px 14px",borderRadius:20,fontSize:12,fontWeight:roleTab===tab.id?700:500,border:"none",
                       background:roleTab===tab.id?C.accent:"transparent",color:roleTab===tab.id?"white":C.text3,cursor:"pointer",fontFamily:F}}>
@@ -630,7 +630,9 @@ const RolesSection = ({ environment }) => {
                   </button>
                 ))}
               </div>
-              {roleTab==="field_visibility"
+              {roleTab==="feature_access"
+                ? <FeatureAccessSection/>
+                : roleTab==="field_visibility"
                 ? <FieldVisibilityPanel role={selectedRole} environment={environment}/>
                 : <>
                     <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -2306,7 +2308,6 @@ const NAV_GROUPS = [
     id: "system",
     label: "System",
     items: [
-      { id:"feature_access", icon:"shield", label:"Feature Access" },
       { id:"superadmin", icon:"zap",     label:"Integrations" },
       { id:"config",     icon:"refresh", label:"Import / Export" },
     ],
@@ -2415,7 +2416,6 @@ export default function SettingsPage({ currentUser, environment }) {
         {activeSection==="portals"    && <PortalsPage environment={environment}/>}
         {activeSection==="questions"  && <QuestionBankSettings/>}
         {activeSection==="agents"     && <AgentsSettings environment={environment}/>}
-        {activeSection==="feature_access" && <FeatureAccessSection/>}
         {activeSection==="superadmin"  && <IntegrationsSettings environment={environment}/>}
         {activeSection==="config"      && <ConfigSection environment={environment}/>}
         {activeSection==="datasets"    && <DatasetsSection environment={environment}/>}

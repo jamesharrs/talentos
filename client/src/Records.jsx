@@ -3976,6 +3976,8 @@ const GroupCard = ({ ids, overSlot, overZone, openPanels, setOpenPanels, openPan
 };
 
 export const RecordDetail = ({ record, fields, allObjects, environment, objectName, objectColor, onClose, fullPage, onToggleFullPage, onUpdate, onDelete, onNavigate }) => {
+  const _permCtx = usePermCtx();
+  const canRecord = (flag) => _permCtx ? _permCtx.canGlobal(flag) : true;
   const [tab, setTab]           = useState("fields");
   const [editing, setEditing]   = useState({});
   const [notes, setNotes]       = useState([]);

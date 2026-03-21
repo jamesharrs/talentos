@@ -90,6 +90,7 @@ app.use('/api/ai-interview',       require('./routes/ai_interview'));
 app.use('/api/ai-interview',       require('./routes/ai_interview'));
 app.use('/api/notifications',   require('./routes/notifications'));
 app.use('/api/offers',             require('./routes/offers'));
+app.use('/api/error-logs',         require('./routes/error_logs'));
 app.use('/api/company-research',   require('./routes/company_research'));
 app.use('/api/rpo-clients',        require('./routes/rpo_clients'));
 app.use('/api/question-bank',      require('./routes/question_bank'));
@@ -153,8 +154,8 @@ initDB().then(() => {
   }
   if (!store.job_questions) { store.job_questions = []; dirty = true; }
   seedDefaultPermissions(store);
-  if (!store.notifications) {
-    const now = new Date();
+  if (!store.error_logs)  { store.error_logs = [];  dirty = true; }
+  if (!store.notifications) {    const now = new Date();
     const ago = (mins) => new Date(now - mins*60000).toISOString();
     store.notifications = [
       { id:'n1', type:'message_reply',    title:'Reply from Ahmed Al-Rashidi', body:'Thanks for reaching out – I am available for a call this week.',         record_id:null, object_slug:'people',  user_id:null, environment_id:null, action_url:null, read_at:null, created_at:ago(15)  },

@@ -1272,6 +1272,16 @@ function App() {
     api.get(`/objects?environment_id=${selectedEnv.id}`).then(d => setNavObjects(Array.isArray(d) ? d : []));
   }, [selectedEnv?.id]);
 
+  // Persist session context for error reporter
+  useEffect(() => {
+    if (session?.user && selectedEnv) {
+      sessionStorage.setItem('talentos_session', JSON.stringify({
+        user: { id: session.user.id, email: session.user.email },
+        environment: { id: selectedEnv.id, name: selectedEnv.name },
+      }));
+    }
+  }, [session?.user?.id, selectedEnv?.id]);
+
   // First-run company setup wizard
   useEffect(() => {
     if (!selectedEnv?.id) return;

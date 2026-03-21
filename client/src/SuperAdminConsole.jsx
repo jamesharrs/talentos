@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { ClientList, ClientDetail, ProvisionWizard, Performance } from './superadmin/ClientManager.jsx';
 import DemoDataManager from './superadmin/DemoDataManager';
+import ErrorLogViewer from './superadmin/ErrorLogViewer.jsx';
 
 const F = "'Geist', -apple-system, sans-serif";
 const C = {
@@ -263,6 +264,7 @@ const NAV_ICONS = {
   clients:  "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10",
   provision:"M13 2L3 14h9l-1 8 10-12h-9l1-8z",
   perf:     "M18 20V10M12 20V4M6 20v-6",
+  errors:   "M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01",
 };
 
 const NavIcon = ({ id, size=14, color="currentColor" }) => {
@@ -276,6 +278,7 @@ const NAV_ITEMS = [
   { id:'provision',label:'Provision',    icon:'provision',desc:'Provision a new client environment' },
   { id:'perf',     label:'Performance',  icon:'perf',    desc:'Platform-wide stats & usage' },
   { id:'demo',     label:'Demo Data',    icon:'provision', desc:'Generate realistic demo data' },
+  { id:'errors',   label:'Error Logs',   icon:'errors',    desc:'App errors across all environments' },
 ];
 
 export default function SuperAdminConsole() {
@@ -351,6 +354,7 @@ export default function SuperAdminConsole() {
         )}
         {section === 'perf' && <Performance/>}
         {section === 'demo' && <DemoDataManager/>}
+        {section === 'errors' && <ErrorLogViewer/>}
       </div>
     </div>
   );

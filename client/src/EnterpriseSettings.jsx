@@ -81,8 +81,8 @@ function SkillsSection({environment}) {
   const grouped={}; filtered.forEach(s=>{ const k=`${s.category}|||${s.subcategory||'Other'}`; if(!grouped[k]) grouped[k]={category:s.category,subcategory:s.subcategory||'Other',skills:[]}; grouped[k].skills.push(s); });
   const embCount=skills.filter(s=>s.embedding).length;
 
-  async function handleSeed(){setSeeding(true); const r=await api.post('/api/enterprise/skills/seed',{environment_id:envId}); setSeeding(false); if(r.error)alert(r.error); else load();}
-  async function handleSeedRels(){setSeedingRels(true); const r=await api.post('/api/skills-intel/seed-relationships',{environment_id:envId}); setSeedingRels(false); if(r.error)alert(r.error); else alert(`Seeded ${r.inserted} relationships`);}
+  async function handleSeed(){setSeeding(true); const r=await api.post('/api/enterprise/skills/seed',{environment_id:envId}); setSeeding(false); if(r.error)window.__toast?.alert(r.error); else load();}
+  async function handleSeedRels(){setSeedingRels(true); const r=await api.post('/api/skills-intel/seed-relationships',{environment_id:envId}); setSeedingRels(false); if(r.error)window.__toast?.alert(r.error); else window.__toast?.alert(`Seeded ${r.inserted} relationships`);}
   async function handleGenEmb(){setGeneratingEmb(true); setEmbMsg('Generating embeddings via Claude…'); const r=await api.post('/api/skills-intel/generate-embeddings',{environment_id:envId}); setGeneratingEmb(false); setEmbMsg(r.error?`Error: ${r.error}`:`Done — ${r.done} embeddings generated`); load();}
   async function handleSave(form){setSaving(true); if(modal.mode==='edit') await api.patch(`/api/enterprise/skills/${modal.skill.id}`,{...form,environment_id:envId}); else await api.post('/api/enterprise/skills',{...form,environment_id:envId}); setSaving(false); setModal(null); load();}
   async function handleDelete(id){if(!confirm('Delete this skill?'))return; await api.delete(`/api/enterprise/skills/${id}`); load();}
@@ -222,8 +222,8 @@ function ExpandTaxonomyModal({open,onClose,environment,onExpanded}) {
 function AiDiscoveryPanel({environment,onApplied}) {
   const [running,setRunning]=useState(false); const [source,setSource]=useState('all'); const [result,setResult]=useState(null); const [selected,setSelected]=useState(new Set()); const [applying,setApplying]=useState(false); const [applied,setApplied]=useState(0);
   const envId=environment?.id;
-  async function handleDiscover(){setRunning(true);setResult(null);setSelected(new Set());setApplied(0);const r=await api.post('/api/skills-import/discover',{environment_id:envId,source});setRunning(false);if(r.error){alert(r.error);return;}setResult(r);setSelected(new Set((r.suggestions||[]).map((s,i)=>s.confidence==='high'?i:-1).filter(i=>i>=0)));}
-  async function handleApply(){if(!selected.size)return;setApplying(true);const toAdd=[...selected].map(i=>result.suggestions[i]);const r=await api.post('/api/skills-import/discover/apply',{skills:toAdd,environment_id:envId});setApplying(false);if(r.error){alert(r.error);return;}setApplied(r.added);setResult(prev=>({...prev,suggestions:prev.suggestions.filter((_,i)=>!selected.has(i))}));setSelected(new Set());if(onApplied)onApplied();}
+  async function handleDiscover(){setRunning(true);setResult(null);setSelected(new Set());setApplied(0);const r=await api.post('/api/skills-import/discover',{environment_id:envId,source});setRunning(false);if(r.error){window.__toast?.alert(r.error);return;}setResult(r);setSelected(new Set((r.suggestions||[]).map((s,i)=>s.confidence==='high'?i:-1).filter(i=>i>=0)));}
+  async function handleApply(){if(!selected.size)return;setApplying(true);const toAdd=[...selected].map(i=>result.suggestions[i]);const r=await api.post('/api/skills-import/discover/apply',{skills:toAdd,environment_id:envId});setApplying(false);if(r.error){window.__toast?.alert(r.error);return;}setApplied(r.added);setResult(prev=>({...prev,suggestions:prev.suggestions.filter((_,i)=>!selected.has(i))}));setSelected(new Set());if(onApplied)onApplied();}
   const CONF_COLOR={high:C.green,medium:C.amber,low:C.text4};
   return <div>
     <div style={{display:'flex',gap:12,marginBottom:16,flexWrap:'wrap',alignItems:'flex-start'}}>

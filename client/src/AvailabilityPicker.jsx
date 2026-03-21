@@ -37,7 +37,7 @@ export default function AvailabilityPicker() {
       const d = await r.json();
       if (r.ok) setStatus("submitted");
       else throw new Error(d.error || "Failed");
-    } catch(e) { alert("Something went wrong: " + e.message); }
+    } catch(e) { window.__toast?.alert("Something went wrong: " + e.message); }
     setSubmitting(false);
   };
 

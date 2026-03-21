@@ -158,7 +158,7 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Failed');
       setTdResults(prev => ({ ...prev, [envId]: d }));
-    } catch(e) { alert('Error loading test data: ' + e.message); }
+    } catch(e) { window.__toast?.alert('Error loading test data: ' + e.message); }
     setLoadingTD(false);
   };
 
@@ -387,7 +387,7 @@ export function ProvisionWizard({ onDone, onCancel }) {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Failed');
       setTdResult(d);
-    } catch(e) { alert('Error: ' + e.message); }
+    } catch(e) { window.__toast?.alert('Error: ' + e.message); }
     setLoadingTD(false);
   };
 

@@ -94,7 +94,7 @@ const FileTypeFormModal = ({fileType,allObjects,environment,onSave,onClose}) => 
   const updateMapping=(i,k,v)=>setForm(f=>{const m=[...f.mappings];m[i]={...m[i],[k]:v};return{...f,mappings:m};});
   const removeMapping=(i)=>setForm(f=>({...f,mappings:f.mappings.filter((_,idx)=>idx!==i)}));
   const toggleFormat=(fmt)=>set('allowed_formats',form.allowed_formats.includes(fmt)?form.allowed_formats.filter(f=>f!==fmt):[...form.allowed_formats,fmt]);
-  const handleSave=async()=>{if(!form.name.trim())return alert('Name is required');setSaving(true);await onSave({...form,slug:form.slug||form.name.toLowerCase().replace(/[^a-z0-9]+/g,'_')});setSaving(false);};
+  const handleSave=async()=>{if(!form.name.trim())return window.__toast?.alert('Name is required');setSaving(true);await onSave({...form,slug:form.slug||form.name.toLowerCase().replace(/[^a-z0-9]+/g,'_')});setSaving(false);};
   const TAB=id=>({padding:'7px 14px',border:'none',borderRadius:7,fontFamily:F,fontSize:12,fontWeight:700,cursor:'pointer',background:tab===id?C.accent:'transparent',color:tab===id?'#fff':C.text2});
 
   return (

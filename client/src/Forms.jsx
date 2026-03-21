@@ -201,8 +201,8 @@ const FormBuilderModal = ({ form, environment, onSave, onClose }) => {
   };
 
   const handleSave = async () => {
-    if (!f.name.trim()) return alert('Form name is required');
-    if (!f.fields.length) return alert('Add at least one field');
+    if (!f.name.trim()) return window.__toast?.alert('Form name is required');
+    if (!f.fields.length) return window.__toast?.alert('Add at least one field');
     setSaving(true);
     await onSave({ ...f, environment_id: environment?.id });
     setSaving(false);
@@ -590,7 +590,7 @@ export function RecordFormPanel({ record, objectSlug, environment, currentUser }
   const handleSubmit = async () => {
     const required = (activeForm.fields||[]).filter(f=>f.required&&f.field_type!=='section');
     const missing  = required.filter(f=>!formData[f.api_key]&&formData[f.api_key]!==0);
-    if (missing.length) { alert(`Please fill in: ${missing.map(f=>f.label).join(', ')}`); return; }
+    if (missing.length) { window.__toast?.alert(`Please fill in: ${missing.map(f=>f.label).join(', ')}`); return; }
     setSubmitting(true);
     await api.post(`/api/forms/${activeForm.id}/responses`, {
       record_id: record.id, record_type: objectSlug,

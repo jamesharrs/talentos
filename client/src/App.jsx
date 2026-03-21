@@ -554,7 +554,7 @@ const ObjectSchemaView = ({ object, allObjects, environmentId, onBack }) => {
       ? await api.patch(`/fields/${fieldId}`, payload)
       : await api.post("/fields", payload);
     if (result?.error) {
-      alert(`Could not save field: ${result.error}`);
+      window.__toast?.alert(`Could not save field: ${result.error}`);
       return;
     }
     await loadFields();

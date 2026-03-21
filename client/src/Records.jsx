@@ -2201,7 +2201,7 @@ function PlatformUserSection({ record }) {
                 setSaving(true);
                 const res = await api.post("/users",{...createForm,email});
                 setSaving(false);
-                if(res.error){alert(res.error);return;}
+                if(res.error){window.__toast?.alert(res.error);return;}
                 setCreating(false); load();
               }} disabled={saving||!createForm.first_name||!createForm.last_name||!createForm.role_id}
                 style={{ padding:"6px 16px", borderRadius:7, border:"none", background:C.accent, color:"#fff",
@@ -2890,8 +2890,8 @@ const CoordinationPanel = ({ record, environment }) => {
     setStarting(true);
     try {
       const r = await fetch("/api/interview-coordinator/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({candidate_id:record.id,environment_id:environment?.id})}).then(r=>r.json());
-      if (r.ok) await load(); else alert(r.error||"Failed");
-    } catch(e){alert(e.message);}
+      if (r.ok) await load(); else window.__toast?.alert(r.error||"Failed");
+    } catch(e){window.__toast?.alert(e.message);}
     setStarting(false);
   };
   if (loading) return <div style={{padding:"20px 0",textAlign:"center",color:C.text3,fontSize:13}}>Loading…</div>;
@@ -2934,7 +2934,7 @@ const CoordinationPanel = ({ record, environment }) => {
                         ? <span style={{fontSize:11,fontWeight:700,color:"#0ca678"}}>✓ Responded ({(r.selected_slots||[]).length} slots)</span>
                         : <div>
                             <span style={{fontSize:11,color:"#92400e",fontWeight:600}}>⏳ Pending</span>
-                            {r.token && <button onClick={()=>navigator.clipboard.writeText(`${appUrl}/availability/${r.token}`).then(()=>alert("Link copied!"))}
+                            {r.token && <button onClick={()=>navigator.clipboard.writeText(`${appUrl}/availability/${r.token}`).then(()=>window.__toast?.alert("Link copied!"))}
                               style={{display:"block",fontSize:10,color:C.accent,background:"none",border:"none",cursor:"pointer",padding:"2px 0",fontFamily:F,textDecoration:"underline"}}>Copy link</button>}
                           </div>}
                   </div>
@@ -4206,8 +4206,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       });
       const data = await res.json();
       if (res.ok) setCvParseResult(data.parsed);
-      else        alert('CV parsing failed: ' + data.error);
-    } catch(e) { alert('CV parsing error: ' + e.message); }
+      else        window.__toast?.alert('CV parsing failed: ' + data.error);
+    } catch(e) { window.__toast?.alert('CV parsing error: ' + e.message); }
     setCvParsing(false);
   };
 
@@ -4225,7 +4225,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const handleDocExtract = async (att) => {
     const ft = fileTypes.find(t => t.id === att.file_type_id);
     if (!ft?.extract_enabled) return;
-    if (!ft?.mappings?.length) { alert('This file type has no extraction mappings. Go to Settings → File Types to configure them.'); return; }
+    if (!ft?.mappings?.length) { window.__toast?.alert('This file type has no extraction mappings. Go to Settings → File Types to configure them.'); return; }
     setDocExtractAtt(att); setDocExtractMappings(ft.mappings);
     setDocExtracting(true); setDocExtractResult(null);
     try {
@@ -4235,8 +4235,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       });
       const data = await res.json();
       if (res.ok) setDocExtractResult(data.parsed);
-      else alert('Extraction failed: ' + data.error);
-    } catch(e) { alert('Extraction error: ' + e.message); }
+      else window.__toast?.alert('Extraction failed: ' + data.error);
+    } catch(e) { window.__toast?.alert('Extraction error: ' + e.message); }
     setDocExtracting(false);
   };
 
@@ -5251,15 +5251,15 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   const guardedBulkAction = (action, payload = {}) => {
     // Check global bulk_actions permission
     if (_permCtx && !_permCtx.canGlobal('bulk_actions')) {
-      alert('You do not have permission to perform bulk actions.');
+      window.__toast?.alert('You do not have permission to perform bulk actions.');
       return;
     }
     if (action === 'delete' && !can('delete')) {
-      alert('You do not have permission to delete records.');
+      window.__toast?.alert('You do not have permission to delete records.');
       return;
     }
     if (action === 'edit' && !can('edit')) {
-      alert('You do not have permission to edit records.');
+      window.__toast?.alert('You do not have permission to edit records.');
       return;
     }
     const threshold = getBulkThreshold();

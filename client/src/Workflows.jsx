@@ -694,7 +694,7 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
       await api.put(`/workflows/${wf.id}/steps`, { steps: steps.map(migrateStep) });
       onSave({ ...wf, steps });
     } catch (err) {
-      alert("Save failed: " + err.message);
+      window.__toast?.alert("Save failed: " + err.message);
     } finally {
       setSaving(false);
     }
@@ -1298,7 +1298,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
     if (res?.step_run_log?.length) {
       const msgs = res.step_run_log.map(r => `${r.action_type}: ${r.output}`).join("\n");
       const hasWarning = res.step_run_log.some(r => r.status === 'warning' || r.status === 'error');
-      if (hasWarning) alert(`⚠ Stage actions ran with issues:\n\n${msgs}`);
+      if (hasWarning) window.__toast?.alert(`⚠ Stage actions ran with issues:\n\n${msgs}`);
     }
   };
 
@@ -1872,7 +1872,7 @@ export function LinkedRecordsPanel({ record, environment, onNavigate }) {
     const plAssignment = (Array.isArray(assignments) ? assignments : []).find(a => a.type === "people_link");
     const wfSteps = plAssignment?.workflow?.steps || [];
     if (!plAssignment || wfSteps.length === 0) {
-      alert(`"${recLabel(targetRecord)}" doesn't have a Linked Person workflow with stages assigned. Set one up in that record's Pipeline panel first.`);
+      window.__toast?.alert(`"${recLabel(targetRecord)}" doesn't have a Linked Person workflow with stages assigned. Set one up in that record's Pipeline panel first.`);
       return;
     }
     const firstStep = wfSteps[0];
@@ -1895,7 +1895,7 @@ export function LinkedRecordsPanel({ record, environment, onNavigate }) {
       const hasWarning = res.step_run_log.some(r => r.status === 'warning' || r.status === 'error');
       if (hasWarning) {
         const msgs = res.step_run_log.map(r => `${r.action_type}: ${r.output}`).join("\n");
-        alert(`⚠ Stage actions ran with issues:\n\n${msgs}`);
+        window.__toast?.alert(`⚠ Stage actions ran with issues:\n\n${msgs}`);
       }
     }
   };

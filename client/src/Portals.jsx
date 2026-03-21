@@ -1089,7 +1089,7 @@ const PortalCard = ({ portal, onEdit, onDelete, onDuplicate }) => {
               const slug = (portal.slug||'').replace(/^\/+/,'');
               const portalUrl = `${base}/${slug}`;
               navigator.clipboard.writeText(portalUrl).catch(()=>{});
-              alert(`Copied: ${portalUrl}`);
+              window.__toast?.alert(`Copied: ${portalUrl}`);
             }} title="Copy portal link"
               style={{background:C.greenLight,border:`1px solid ${C.green}30`,borderRadius:6,cursor:"pointer",padding:"4px 8px",color:C.green,fontSize:10,fontWeight:700,fontFamily:F,display:"flex",alignItems:"center",gap:4}}>
               <Ic n="link" s={11} c={C.green}/>Link

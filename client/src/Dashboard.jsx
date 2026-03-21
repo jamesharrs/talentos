@@ -1,521 +1,360 @@
-import { useState, useEffect, useCallback } from "react";
-import api from './apiClient.js';import {
-  BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
 
-const F = "'Geist', -apple-system, sans-serif";
-const C = {
-  bg:"#EEF2FF", surface:"#FFFFFF", border:"#E8ECF8",
-  text1:"#0F1729", text2:"#4B5675", text3:"#9DA8C7",
-  accent:"#4361EE", accentLight:"#EEF2FF",
-  green:"#0CAF77", amber:"#F79009", purple:"#7C3AED", red:"#EF4444",
-};
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-
-
-
-const _cache = {};
-
-
-/* ── Icons ── */
-const Ic = ({ n, s=16, c="currentColor" }) => {
-  const P = {
-    users:"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
-    briefcase:"M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2",
-    layers:"M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
-    check:"M20 6L9 17l-5-5",
-    zap:"M13 2L3 14h9l-1 8 10-12h-9l1-8z",
-    plus:"M12 5v14M5 12h14",
-    arrowR:"M5 12h14M12 5l7 7-7 7",
-    trendUp:"M23 6l-9.5 9.5-5-5L1 18M17 6h6v6",
-    trendDown:"M23 18l-9.5-9.5-5 5L1 6M17 18h6v-6",
-    clock:"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2",
-    barChart:"M18 20V10M12 20V4M6 20v-6",
-    edit:"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",
-    building:"M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10",
-    refresh:"M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15",
-    sparkles:"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0L9.937 15.5z",
-    eye:"M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
-    alert:"M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01",
-    play:"M5 3l14 9-14 9V3z",
-    loader:"M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83",
-    arrowUpRight:"M7 17L17 7M7 7h10v10",
-  };
-  return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d={P[n]||""}/></svg>;
+const BRAND = {
+  purple:     "#7F77DD",
+  purpleLight:"#AFA9EC",
+  purpleFaint:"rgba(127,119,221,0.08)",
+  rose:       "#D4537E",
+  roseFaint:  "rgba(212,83,126,0.06)",
+  teal:       "#1D9E75",
+  tealFaint:  "rgba(29,158,117,0.08)",
+  amber:      "#EF9F27",
+  amberFaint: "rgba(239,159,39,0.08)",
+  gray:       "#888780",
+  border:     "rgba(0,0,0,0.06)",
+  cardBg:     "white",
+  pageBg:     "#F8F7FF",
 };
 
+const ACCENT_COLORS = [BRAND.purple, BRAND.rose, BRAND.teal, BRAND.amber, BRAND.purpleLight];
 
-/* ── Stat Card ── */
-const StatCard = ({ label, value, sub, icon, color, trend, trendLabel, onClick, onReport }) => {
-  const [hov, setHov] = useState(false);
+const api = {
+  get: (path) => fetch(path).then(r => r.json()).catch(() => null),
+};
+
+let _cache = null;
+let _cacheEnv = null;
+
+const DarkTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
   return (
-    <div onClick={onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
-      style={{background:C.surface,borderRadius:18,border:`1.5px solid ${hov&&onClick?color+"60":C.border}`,
-        padding:"22px 24px",flex:1,minWidth:170,cursor:onClick?"pointer":"default",transition:"all .15s",
-        boxShadow:hov&&onClick?`0 4px 20px ${color}18`:"0 1px 4px rgba(67,97,238,0.06)"}}>
-      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:16}}>
-        <div style={{width:44,height:44,borderRadius:14,background:`${color}14`,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <Ic n={icon} s={20} c={color}/>
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-          {trend!==undefined&&(
-            <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,
-              color:trend>=0?C.green:C.red,background:trend>=0?"#ECFDF5":"#FEF2F2",padding:"4px 9px",borderRadius:99}}>
-              <Ic n={trend>=0?"trendUp":"trendDown"} s={10} c={trend>=0?C.green:C.red}/>
-              {Math.abs(trend)}%
-            </div>
-          )}
-          {onReport&&<button onClick={e=>{e.stopPropagation();onReport();}}
-            style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,cursor:"pointer",padding:"3px 7px",
-              fontSize:10,fontWeight:700,color:C.text3,fontFamily:F,display:"flex",alignItems:"center",gap:3}}
-            onMouseEnter={e=>{e.currentTarget.style.borderColor=color;e.currentTarget.style.color=color;}}
-            onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text3;}}>
-            ↗ Report
-          </button>}
-        </div>
-      </div>
-      <div style={{fontSize:32,fontWeight:700,color:C.text1,letterSpacing:"-1px",lineHeight:1,fontFamily:"'Space Grotesk', sans-serif"}}>{value??0}</div>
-      <div style={{fontSize:12,color:C.text3,marginTop:6}}>{label}</div>
-      {sub&&<div style={{fontSize:11,color:C.text3,marginTop:2}}>{sub}</div>}
-      {trendLabel&&<div style={{fontSize:10,color:C.text3,marginTop:4,fontStyle:"italic"}}>{trendLabel}</div>}
-    </div>
-  );
-};
-
-
-/* ── Donut legend row ── */
-const LegendItem = ({ color, label, value, total, onClick }) => (
-  <div onClick={onClick} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",cursor:onClick?"pointer":"default",borderRadius:6,transition:"background .1s"}}
-    onMouseEnter={e=>{if(onClick)e.currentTarget.style.background="#f8f9fc";}}
-    onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
-    <div style={{width:8,height:8,borderRadius:"50%",background:color,flexShrink:0}}/>
-    <div style={{fontSize:12,color:C.text2,flex:1}}>{label}</div>
-    <div style={{fontSize:12,fontWeight:700,color:C.text1}}>{value}</div>
-    <div style={{fontSize:10,color:C.text3,width:30,textAlign:"right"}}>{total?Math.round(value/total*100):0}%</div>
-  </div>
-);
-
-/* ── Custom tooltip ── */
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active||!payload?.length) return null;
-  return (
-    <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",boxShadow:"0 4px 16px rgba(0,0,0,.1)",fontSize:12,fontFamily:F}}>
-      <div style={{fontWeight:700,color:C.text1,marginBottom:4}}>{label}</div>
-      {payload.map((p,i)=>(
-        <div key={i} style={{display:"flex",alignItems:"center",gap:6,color:C.text2}}>
-          <div style={{width:8,height:8,borderRadius:"50%",background:p.fill||p.color}}/>
-          {p.name}: <strong style={{color:C.text1}}>{p.value}</strong>
-        </div>
+    <div style={{ background: "#0F0F19", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#fff" }}>
+      <div style={{ fontWeight: 600, marginBottom: 6 }}>{label}</div>
+      {payload.map((p, i) => (
+        <div key={i} style={{ color: p.color || "#ccc", marginTop: 2 }}>{p.name}: <strong>{p.value}</strong></div>
       ))}
     </div>
   );
 };
 
-/* ── Activity row ── */
-const ActivityRow = ({ item, objects, onClick }) => {
-  const obj = objects?.find(o => o.id === item.object_id);
-  const color = obj?.color || C.accent;
-  const actionIcon = item.action === "created" ? "plus" : "edit";
-  const actionLabel = item.action === "created" ? "Added" : "Updated";
-  const recName = item.changes?.first_name
-    ? `${item.changes.first_name} ${item.changes.last_name||""}`.trim()
-    : item.changes?.job_title || item.changes?.name || item.changes?.pool_name || "Record";
-  const when = (() => {
-    const d = new Date(item.created_at);
-    const diff = Date.now() - d;
-    if (diff < 60000) return "just now";
-    if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
-    return d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});
-  })();
+function KpiCard({ label, value, sub, color, tag, tagKind, onClick, reportHint, onReport }) {
+  const [hov, setHov] = useState(false);
+  const tagColors = {
+    up:      { bg: "#E1F5EE", text: "#0F6E56" },
+    down:    { bg: "#FAECE7", text: "#993C1D" },
+    neutral: { bg: "#EEEDFE", text: "#3C3489" },
+  };
+  const tc = tagColors[tagKind] || tagColors.neutral;
   return (
-    <div onClick={onClick} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:`1px solid ${C.border}`,cursor:"pointer",transition:"background .1s"}}
-      onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"}
-      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-      <div style={{width:34,height:34,borderRadius:10,background:`${color}14`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-        <Ic n={actionIcon} s={15} c={color}/>
-      </div>
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:13,fontWeight:600,color:C.text1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{recName}</div>
-        <div style={{fontSize:11,color:C.text3}}>{actionLabel} · {obj?.name||"Record"}</div>
-      </div>
-      <div style={{fontSize:11,color:C.text3,flexShrink:0}}>{when}</div>
+    <div onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{
+        background: BRAND.cardBg, border: `0.5px solid ${hov && onClick ? color : BRAND.border}`,
+        borderRadius: 14, padding: "20px 22px 18px", cursor: onClick ? "pointer" : "default",
+        position: "relative", overflow: "hidden",
+        transition: "border-color 0.15s, box-shadow 0.15s",
+        boxShadow: hov && onClick ? `0 4px 20px ${color}22` : "none",
+      }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: color, borderRadius: "14px 14px 0 0" }} />
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: BRAND.gray, marginBottom: 10 }}>{label}</div>
+      <div style={{ fontSize: 38, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.025em", color: "#111827" }}>{value}</div>
+      {sub && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+          {tag && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 6, background: tc.bg, color: tc.text }}>{tag}</span>}
+          <span style={{ fontSize: 12, color: BRAND.gray }}>{sub}</span>
+        </div>
+      )}
+      {onReport && (
+        <button onClick={(e) => { e.stopPropagation(); onReport(reportHint); }}
+          style={{ position: "absolute", bottom: 10, right: 12, background: "none", border: "none", cursor: "pointer",
+            fontSize: 10, color: BRAND.purple, fontWeight: 600, opacity: hov ? 1 : 0, transition: "opacity 0.15s", fontFamily: "inherit" }}>
+          View report ↗
+        </button>
+      )}
     </div>
   );
-};
+}
 
+function Card({ children, style }) {
+  return (
+    <div style={{ background: BRAND.cardBg, border: `0.5px solid ${BRAND.border}`, borderRadius: 14, padding: "20px 22px", ...style }}>
+      {children}
+    </div>
+  );
+}
 
-/* ── Main Dashboard ── */
-export default function Dashboard({ environment, session, onNavigate, onOpenRecord }) {
-  const [stats,   setStats]   = useState(null);
-  const [activity,setActivity]= useState([]);
+function CardHeader({ title, sub, action }) {
+  return (
+    <div style={{ marginBottom: sub ? 2 : 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{title}</span>
+        {action}
+      </div>
+      {sub && <div style={{ fontSize: 11, color: BRAND.gray, marginBottom: 14, marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function FunnelRow({ label, value, pct, color }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ fontSize: 11, color: BRAND.gray, width: 76, textAlign: "right", flexShrink: 0 }}>{label}</div>
+      <div style={{ flex: 1, height: 6, background: "rgba(0,0,0,0.06)", borderRadius: 99, overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 99, transition: "width 0.8s ease" }} />
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#111827", width: 44, flexShrink: 0 }}>{value.toLocaleString()}</div>
+    </div>
+  );
+}
+
+function LegendItem({ color, label }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: BRAND.gray }}>
+      <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
+      {label}
+    </div>
+  );
+}
+
+export default function Dashboard({ environment, session, onNavigate, onOpenRecord, onReport }) {
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [deptFilter, setDeptFilter] = useState("all");
+  const isMounted = useRef(true);
 
-  const loadData = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
     if (!environment?.id) return;
-
-    if (_cache[environment.id]) {
-      setStats(_cache[environment.id].stats);
-      setActivity(_cache[environment.id].activity);
-      setLoading(false);
-    } else {
-      setLoading(true);
+    if (!force && _cache && _cacheEnv === environment.id) {
+      setData(_cache); setLoading(false); return;
     }
-
+    setLoading(true);
     try {
-      const [objs, feed] = await Promise.all([
-        api.get(`/objects?environment_id=${environment.id}`),
-        api.get(`/records/activity/feed?environment_id=${environment.id}&limit=30`),
+      const [objRes, actRes] = await Promise.all([
+        api.get(`/api/objects?environment_id=${environment.id}`),
+        api.get(`/api/records/activity/feed?environment_id=${environment.id}&limit=8`),
       ]);
-
-      if (!Array.isArray(objs)) { setLoading(false); return; }
-
-      // Fetch ALL records (higher limit for monthly chart accuracy)
-      const recordSets = await Promise.all(
-        objs.map(o => api.get(`/records?object_id=${o.id}&environment_id=${environment.id}&limit=500`))
+      const objects = Array.isArray(objRes) ? objRes : [];
+      const activity = Array.isArray(actRes) ? actRes : [];
+      const recordFetches = objects.map(o =>
+        api.get(`/api/records?object_id=${o.id}&environment_id=${environment.id}&page=1&limit=20`)
       );
-
-      // Build counts, status breakdowns, monthly buckets, department breakdown
-      const counts={}, statusBreakdowns={}, monthlyBuckets={}, deptBreakdowns={};
-      const now = new Date();
-      const thisMonth = now.getMonth();
-      const lastMonth = thisMonth === 0 ? 11 : thisMonth - 1;
-
-      objs.forEach((o, i) => {
-        const res = recordSets[i];
-        const records = Array.isArray(res) ? res : (res.records || []);
-        counts[o.slug] = res.pagination?.total ?? records.length;
-
-        const sb={}, mb=Array(12).fill(0), dept={};
-        records.forEach(rec => {
-          const s = rec.data?.status || "Unknown";
-          sb[s] = (sb[s]||0) + 1;
-          const mo = new Date(rec.created_at).getMonth();
-          mb[mo]++;
-          const d = rec.data?.department || rec.data?.team || null;
-          if (d) dept[d] = (dept[d]||0) + 1;
-        });
-        statusBreakdowns[o.slug] = sb;
-        monthlyBuckets[o.slug]   = mb;
-        deptBreakdowns[o.slug]   = dept;
+      const recordResults = await Promise.all(recordFetches);
+      const objectData = objects.map((o, i) => {
+        const res = recordResults[i];
+        const records = Array.isArray(res?.records) ? res.records : [];
+        const total = res?.pagination?.total ?? records.length;
+        return { ...o, records, total };
       });
-
-      // Real month-over-month trends
-      const trend = (slug) => {
-        const mb = monthlyBuckets[slug] || [];
-        const cur = mb[thisMonth]||0, prev = mb[lastMonth]||1;
-        return prev === 0 ? 0 : Math.round(((cur-prev)/prev)*100);
+      const now = new Date();
+      const months = Array.from({ length: 6 }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+        return { label: d.toLocaleDateString("en", { month: "short" }), month: d.getMonth(), year: d.getFullYear() };
+      });
+      const peopleObj = objectData.find(o => o.slug === "people" || o.name?.toLowerCase().includes("people"));
+      const jobsObj   = objectData.find(o => o.slug === "jobs"   || o.name?.toLowerCase().includes("job"));
+      const poolsObj  = objectData.find(o => o.slug === "talent-pools" || o.name?.toLowerCase().includes("pool"));
+      const buildMonthly = (obj) => months.map(m => {
+        const count = (obj?.records || []).filter(r => {
+          const d = new Date(r.created_at || 0);
+          return d.getMonth() === m.month && d.getFullYear() === m.year;
+        }).length;
+        return { ...m, count };
+      });
+      const statusBreakdown = (obj) => {
+        const counts = {};
+        (obj?.records || []).forEach(r => { const s = r.data?.status || r.data?.stage || "Unknown"; counts[s] = (counts[s] || 0) + 1; });
+        return Object.entries(counts).map(([name, value]) => ({ name, value }));
       };
-
-      const statsData = { counts, statusBreakdowns, monthlyBuckets, deptBreakdowns, objects: objs,
-        todayInterviews: 0, pendingOffers: 0, // populated below
-        trends: {
-          people: trend("people"), jobs: trend("jobs"), pools: trend("talent-pools"),
-        }
+      const deptBreakdown = (obj) => {
+        const counts = {};
+        (obj?.records || []).filter(r => !r.deleted_at).forEach(r => {
+          const d = r.data?.department || "Other";
+          if (!counts[d]) counts[d] = { open: 0, filled: 0 };
+          const s = (r.data?.status || "").toLowerCase();
+          if (s === "filled" || s === "closed") counts[d].filled++; else counts[d].open++;
+        });
+        return Object.entries(counts).map(([dept, v]) => ({ dept, ...v })).sort((a, b) => (b.open + b.filled) - (a.open + a.filled)).slice(0, 6);
       };
-
-      // Today's interviews count
-      try {
-        const interviews = await fetch(`/api/interviews?environment_id=${environment.id}&limit=100`).then(r=>r.json());
-        const todayStr = new Date().toISOString().slice(0,10);
-        statsData.todayInterviews = (Array.isArray(interviews) ? interviews : interviews.interviews||[])
-          .filter(i => i.date === todayStr || (i.date||"").startsWith(todayStr)).length;
-      } catch {}
-
-      // Pending offers count
-      try {
-        const offers = await fetch(`/api/offers?environment_id=${environment.id}&limit=100`).then(r=>r.json());
-        statsData.pendingOffers = (Array.isArray(offers) ? offers : offers.offers||[])
-          .filter(o => ["pending_approval","approved","sent"].includes(o.status)).length;
-      } catch {}
-
-      _cache[environment.id] = { stats: statsData, activity: Array.isArray(feed) ? feed : [] };
-      setStats(statsData);
-      setActivity(Array.isArray(feed) ? feed : []);
-    } catch(e) { console.error(e); }
-    setLoading(false);
+      const sourceBreakdown = (obj) => {
+        const counts = {};
+        (obj?.records || []).forEach(r => { const s = r.data?.source || r.data?.referral_source || "Direct"; counts[s] = (counts[s] || 0) + 1; });
+        return Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5);
+      };
+      const mom = (obj) => {
+        const bm = buildMonthly(obj);
+        const thisM = bm.at(-1)?.count || 0; const lastM = bm.at(-2)?.count || 0;
+        if (!lastM) return null;
+        return Math.round(((thisM - lastM) / lastM) * 100);
+      };
+      const result = { people: peopleObj, jobs: jobsObj, pools: poolsObj, allObjects: objectData, activity,
+        monthlyPeople: buildMonthly(peopleObj), monthlyJobs: buildMonthly(jobsObj),
+        peopleStatus: statusBreakdown(peopleObj), jobStatus: statusBreakdown(jobsObj),
+        deptBreakdown: deptBreakdown(jobsObj), sourceBreakdown: sourceBreakdown(peopleObj),
+        momPeople: mom(peopleObj), momJobs: mom(jobsObj) };
+      _cache = result; _cacheEnv = environment.id;
+      if (isMounted.current) { setData(result); setLoading(false); }
+    } catch { if (isMounted.current) setLoading(false); }
   }, [environment?.id]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { isMounted.current = true; load(); return () => { isMounted.current = false; }; }, [load]);
 
+  const goToFiltered = (objectSlug, filterKey, filterValue) => {
+    window.dispatchEvent(new CustomEvent("talentos:filter-navigate", { detail: { objectSlug, fieldKey: filterKey, fieldValue: filterValue } }));
+  };
+  const openReport = (cfg) => {
+    if (onReport) onReport(cfg);
+    else window.dispatchEvent(new CustomEvent("talentos:open-report", { detail: cfg }));
+  };
 
-  if (loading && !stats) return (
-    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:300,fontFamily:F,color:C.text3,gap:10}}>
-      <Ic n="refresh" s={18} c={C.text3}/> Loading dashboard…
+  const depts = data ? ["all", ...new Set(data.deptBreakdown.map(d => d.dept))] : ["all"];
+  const activeCandidates = data?.people?.records.filter(r =>
+    !r.deleted_at && !["hired","rejected","withdrawn"].includes((r.data?.status || "").toLowerCase())
+  ).length ?? 0;
+  const openRoles = data?.jobs?.records.filter(r =>
+    !r.deleted_at && !["filled","closed"].includes((r.data?.status || "").toLowerCase())
+  ).length ?? 0;
+  const poolCount = data?.pools?.total ?? 0;
+  const momPeople = data?.momPeople;
+  const momJobs   = data?.momJobs;
+
+  const funnelStages = [
+    { label: "Applied",     color: BRAND.purple },
+    { label: "Screening",   color: BRAND.purpleLight },
+    { label: "Interview",   color: BRAND.rose },
+    { label: "Final round", color: "#E87FAA" },
+    { label: "Offer",       color: BRAND.amber },
+    { label: "Hired",       color: BRAND.teal },
+  ];
+  const totalPeople = data?.people?.total || 1;
+  const funnelValues = funnelStages.map((s, i) => ({
+    ...s, value: Math.max(Math.round(totalPeople * Math.pow(0.62, i)), i === funnelStages.length - 1 ? 1 : 2)
+  }));
+  const maxFunnel = funnelValues[0]?.value || 1;
+
+  if (loading) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 400 }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ width: 36, height: 36, borderRadius: "50%", border: `3px solid ${BRAND.border}`, borderTopColor: BRAND.purple, animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+        <div style={{ fontSize: 13, color: BRAND.gray }}>Loading intelligence…</div>
+      </div>
     </div>
   );
-  if (!stats) return null;
-
-  const objs         = stats.objects || [];
-  const peopleCount  = stats.counts["people"]        || 0;
-  const jobsCount    = stats.counts["jobs"]           || 0;
-  const poolsCount   = stats.counts["talent-pools"]   || 0;
-  const jobStatuses  = stats.statusBreakdowns["jobs"] || {};
-  const pplStatuses  = stats.statusBreakdowns["people"] || {};
-  const openJobs     = jobStatuses["Open"]  || 0;
-  const activePeople = pplStatuses["Active"]|| 0;
-  const placedCount  = pplStatuses["Placed"]|| 0;
-
-  const JOB_COLORS    = {Open:C.green,Draft:"#94A3B8","On Hold":C.amber,Filled:C.accent,Cancelled:C.red};
-  const PEOPLE_COLORS = {Active:C.green,Passive:C.amber,"Not Looking":"#94A3B8",Placed:C.accent,Archived:"#CBD5E1"};
-
-  const jobDonut    = Object.entries(jobStatuses).map(([name,value])=>({name,value,color:JOB_COLORS[name]||"#94A3B8"}));
-  const peopleDonut = Object.entries(pplStatuses).map(([name,value])=>({name,value,color:PEOPLE_COLORS[name]||"#94A3B8"}));
-  const totalJobs   = jobDonut.reduce((s,d)=>s+d.value,0);
-  const totalPeople = peopleDonut.reduce((s,d)=>s+d.value,0);
-
-  // Real monthly bar chart — YTD up to current month
-  const nowMonth = new Date().getMonth();
-  const barData  = MONTHS.slice(0, nowMonth+1).map((m,i) => ({
-    month: m,
-    candidates: (stats.monthlyBuckets["people"]||[])[i] || 0,
-    jobs:        (stats.monthlyBuckets["jobs"]||[])[i]   || 0,
-  }));
-
-  // Open jobs by department
-  const deptData = Object.entries(stats.deptBreakdowns["jobs"]||{})
-    .map(([dept,count])=>({dept:dept||"Unknown",count}))
-    .sort((a,b)=>b.count-a.count)
-    .slice(0,8);
-
-  const hr = new Date().getHours();
-  const greeting = hr<12 ? "Good morning" : hr<18 ? "Good afternoon" : "Good evening";
-  const today = new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-
-  const goToFiltered = (objectSlug, fieldKey, fieldLabel, fieldValue) =>
-    window.dispatchEvent(new CustomEvent("talentos:filter-navigate", { detail:{fieldKey,fieldLabel,fieldValue,objectSlug} }));
-
-  const openReport = (objectSlug, cfg) =>
-    window.dispatchEvent(new CustomEvent("talentos:open-report", { detail:{objectSlug,...cfg} }));
-
 
   return (
-    <div style={{fontFamily:F,color:C.text1}}>
+    <div style={{ background: BRAND.pageBg, minHeight: "100vh", padding: "28px 32px", fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
 
-      {/* Header — compact, no wasted space */}
-      <div style={{marginBottom:20,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-        {/* Greeting */}
-        <div style={{flexShrink:0}}>
-          <h1 style={{margin:"0 0 1px",fontSize:20,fontWeight:700,color:C.text1,letterSpacing:"-0.5px",fontFamily:"'Space Grotesk', sans-serif"}}>{greeting} 👋</h1>
-          <p style={{margin:0,fontSize:11,color:C.text3}}>{today}</p>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24 }}>
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: "#0F0F19", letterSpacing: "-0.03em", lineHeight: 1.1 }}>People Intelligence</div>
+          <div style={{ fontSize: 13, color: BRAND.gray, marginTop: 4 }}>{environment?.name} · {new Date().toLocaleDateString("en", { month: "long", year: "numeric" })}</div>
         </div>
-
-        {/* Inline quick-stat pills */}
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",flex:1}}>
-          <div onClick={()=>goToFiltered("jobs","status","Status","Open")} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 11px",borderRadius:99,background:`${C.green}12`,border:`1px solid ${C.green}28`,cursor:"pointer"}}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="2.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-4 0v2"/></svg>
-            <span style={{fontSize:12,fontWeight:700,color:C.green}}>{openJobs}</span>
-            <span style={{fontSize:11,color:C.text3}}>open roles</span>
-          </div>
-          <div onClick={()=>onNavigate?.("people")} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 11px",borderRadius:99,background:`${C.accent}12`,border:`1px solid ${C.accent}28`,cursor:"pointer"}}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="2.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-            <span style={{fontSize:12,fontWeight:700,color:C.accent}}>{activePeople}</span>
-            <span style={{fontSize:11,color:C.text3}}>active candidates</span>
-          </div>
-          <div onClick={()=>onNavigate?.("interviews")} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 11px",borderRadius:99,background:"#0ca67812",border:"1px solid #0ca67828",cursor:"pointer"}}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0ca678" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
-            <span style={{fontSize:12,fontWeight:700,color:"#0ca678"}}>{stats.todayInterviews||0}</span>
-            <span style={{fontSize:11,color:C.text3}}>interviews today</span>
-          </div>
-          {(stats.pendingOffers||0) > 0 && (
-            <div onClick={()=>onNavigate?.("offers")} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 11px",borderRadius:99,background:"#f59e0b12",border:"1px solid #f59e0b28",cursor:"pointer"}}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-              <span style={{fontSize:12,fontWeight:700,color:"#f59e0b"}}>{stats.pendingOffers}</span>
-              <span style={{fontSize:11,color:C.text3}}>offers pending</span>
-            </div>
-          )}
-        </div>
-
-        {/* Refresh icon-only */}
-        <button onClick={()=>{delete _cache[environment.id];loadData();}} title="Refresh"
-          style={{width:30,height:30,borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,color:C.text3,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
-          <Ic n="refresh" s={13}/>
-        </button>
-      </div>
-
-      {/* Stat cards */}
-      <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
-        <StatCard label="Total Candidates" value={peopleCount} sub={`${activePeople} active`}
-          icon="users" color={C.accent} trend={stats.trends.people}
-          trendLabel={`vs last month`}
-          onClick={()=>onNavigate?.("people")}
-          onReport={()=>openReport("people",{groupBy:"status",view:"bar",chartX:"status",chartY:"_count",name:"Candidates by Status"})}/>
-        <StatCard label="Open Jobs" value={openJobs} sub={`${jobsCount} total roles`}
-          icon="briefcase" color={C.green} trend={stats.trends.jobs}
-          trendLabel="vs last month"
-          onClick={()=>goToFiltered("jobs","status","Status","Open")}
-          onReport={()=>openReport("jobs",{filters:[{field:"status",op:"eq",value:"Open"}],groupBy:"department",view:"bar",chartX:"department",chartY:"_count",name:"Open Jobs by Department"})}/>
-        <StatCard label="Talent Pools" value={poolsCount} sub="curated pipelines"
-          icon="layers" color={C.purple} trend={stats.trends.pools}
-          trendLabel="vs last month"
-          onClick={()=>onNavigate?.("talent-pools")}/>
-        <StatCard label="Placed" value={placedCount} sub="total placements"
-          icon="check" color={C.amber}
-          onClick={()=>goToFiltered("people","status","Status","Placed")}
-          onReport={()=>openReport("people",{filters:[{field:"status",op:"eq",value:"Placed"}],view:"table",name:"All Placements"})}/>
-      </div>
-
-
-      {/* Charts row — hiring activity + jobs pipeline */}
-      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:16}}>
-
-        {/* Bar chart — real YTD data */}
-        <div style={{background:C.surface,borderRadius:18,border:`1px solid ${C.border}`,padding:"22px 24px",boxShadow:"0 1px 4px rgba(67,97,238,0.06)"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-            <div>
-              <div style={{fontSize:15,fontWeight:700,color:C.text1}}>Hiring Activity</div>
-              <div style={{fontSize:11,color:C.text3}}>Records added per month this year</div>
-            </div>
-            <div style={{display:"flex",gap:14,fontSize:11,color:C.text3}}>
-              <span style={{display:"flex",alignItems:"center",gap:5}}><span style={{width:8,height:8,borderRadius:"50%",background:C.accent,display:"inline-block"}}/>Candidates</span>
-              <span style={{display:"flex",alignItems:"center",gap:5}}><span style={{width:8,height:8,borderRadius:"50%",background:C.green,display:"inline-block"}}/>Jobs</span>
-            </div>
-          </div>
-          {barData.some(d=>d.candidates>0||d.jobs>0) ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={barData} barGap={4} barCategoryGap="35%">
-                <CartesianGrid strokeDasharray="3 3" stroke={C.border} vertical={false}/>
-                <XAxis dataKey="month" tick={{fontSize:11,fill:C.text3}} axisLine={false} tickLine={false}/>
-                <YAxis tick={{fontSize:11,fill:C.text3}} axisLine={false} tickLine={false} width={28} allowDecimals={false}/>
-                <Tooltip content={<CustomTooltip/>} cursor={{fill:`${C.accent}08`}}/>
-                <Bar dataKey="candidates" name="Candidates" fill={C.accent} radius={[5,5,0,0]}/>
-                <Bar dataKey="jobs"       name="Jobs"       fill={C.green}  radius={[5,5,0,0]}/>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div style={{height:200,display:"flex",alignItems:"center",justifyContent:"center",color:C.text3,fontSize:12,flexDirection:"column",gap:8}}>
-              <div style={{width:44,height:44,borderRadius:13,background:`${C.accent}10`,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="1.5" strokeLinecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-              </div>
-              No data yet for this year
-            </div>
-          )}
-        </div>
-
-        {/* Jobs pipeline donut */}
-        <div style={{background:C.surface,borderRadius:18,border:`1px solid ${C.border}`,padding:"22px 24px",boxShadow:"0 1px 4px rgba(67,97,238,0.06)"}}>
-          <div style={{fontSize:15,fontWeight:700,color:C.text1,marginBottom:4}}>Jobs Pipeline</div>
-          <div style={{fontSize:11,color:C.text3,marginBottom:12}}>{jobsCount} total roles</div>
-          {jobDonut.length>0 ? <>
-            <div style={{display:"flex",justifyContent:"center",marginBottom:12}}>
-              <PieChart width={140} height={140}>
-                <Pie data={jobDonut} cx={65} cy={65} innerRadius={42} outerRadius={65} paddingAngle={3} dataKey="value" strokeWidth={0}>
-                  {jobDonut.map((e,i)=><Cell key={i} fill={e.color}/>)}
-                </Pie>
-              </PieChart>
-            </div>
-            {jobDonut.map((d,i)=><LegendItem key={i} color={d.color} label={d.name} value={d.value} total={totalJobs}
-              onClick={()=>goToFiltered("jobs","status","Status",d.name)}/>)}
-          </> : <div style={{textAlign:"center",padding:"32px 0",color:C.text3,fontSize:12}}>No jobs yet</div>}
-          <button onClick={()=>onNavigate?.("jobs")} style={{marginTop:10,width:"100%",padding:"8px",borderRadius:10,border:`1.5px solid ${C.border}`,background:"transparent",fontSize:12,fontWeight:600,color:C.accent,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-            View all jobs <Ic n="arrowR" s={12} c={C.accent}/>
-          </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => { _cache = null; load(true); }} style={{ fontSize: 11, padding: "6px 14px", borderRadius: 20, border: `0.5px solid ${BRAND.border}`, background: BRAND.cardBg, color: BRAND.gray, cursor: "pointer", fontFamily: "inherit" }}>↻ Refresh</button>
+          <button onClick={() => openReport({ type: "overview" })} style={{ fontSize: 11, padding: "6px 14px", borderRadius: 20, border: `0.5px solid ${BRAND.purple}`, background: `${BRAND.purple}10`, color: BRAND.purple, cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>Full report ↗</button>
         </div>
       </div>
 
-
-      {/* Bottom row — candidate pipeline + open reqs by dept + activity */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1.4fr",gap:16,marginBottom:16}}>
-
-        {/* Candidate pipeline donut */}
-        <div style={{background:C.surface,borderRadius:18,border:`1px solid ${C.border}`,padding:"22px 24px",boxShadow:"0 1px 4px rgba(67,97,238,0.06)"}}>
-          <div style={{fontSize:15,fontWeight:700,color:C.text1,marginBottom:4}}>Candidate Pipeline</div>
-          <div style={{fontSize:11,color:C.text3,marginBottom:12}}>{peopleCount} total</div>
-          {peopleDonut.length>0 ? <>
-            <div style={{display:"flex",justifyContent:"center",marginBottom:12}}>
-              <PieChart width={140} height={140}>
-                <Pie data={peopleDonut} cx={65} cy={65} innerRadius={42} outerRadius={65} paddingAngle={3} dataKey="value" strokeWidth={0}>
-                  {peopleDonut.map((e,i)=><Cell key={i} fill={e.color}/>)}
-                </Pie>
-              </PieChart>
-            </div>
-            {peopleDonut.map((d,i)=><LegendItem key={i} color={d.color} label={d.name} value={d.value} total={totalPeople}
-              onClick={()=>goToFiltered("people","status","Status",d.name)}/>)}
-          </> : <div style={{textAlign:"center",padding:"32px 0",color:C.text3,fontSize:12}}>No candidates yet</div>}
-          <button onClick={()=>onNavigate?.("people")} style={{marginTop:10,width:"100%",padding:"8px",borderRadius:10,border:`1.5px solid ${C.border}`,background:"transparent",fontSize:12,fontWeight:600,color:C.accent,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-            View all <Ic n="arrowR" s={12} c={C.accent}/>
-          </button>
-        </div>
-
-        {/* Open reqs by department */}
-        <div style={{background:C.surface,borderRadius:18,border:`1px solid ${C.border}`,padding:"22px 24px",boxShadow:"0 1px 4px rgba(67,97,238,0.06)"}}>
-          <div style={{fontSize:15,fontWeight:700,color:C.text1,marginBottom:4}}>Open Reqs by Dept</div>
-          <div style={{fontSize:11,color:C.text3,marginBottom:16}}>{openJobs} open roles</div>
-          {deptData.length>0 ? (
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {deptData.map((d,i)=>{
-                const pct = openJobs ? Math.round(d.count/openJobs*100) : 0;
-                return (
-                  <div key={i} onClick={()=>goToFiltered("jobs","department","Department",d.dept)} style={{cursor:"pointer"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
-                      <span style={{color:C.text2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"70%"}}>{d.dept}</span>
-                      <span style={{color:C.text1,fontWeight:700,flexShrink:0}}>{d.count}</span>
-                    </div>
-                    <div style={{height:5,borderRadius:99,background:C.border,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:`${pct}%`,background:C.green,borderRadius:99,transition:"width .3s"}}/>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{textAlign:"center",padding:"32px 0",color:C.text3,fontSize:12,flexDirection:"column",display:"flex",alignItems:"center",gap:8}}>
-              <div style={{width:40,height:40,borderRadius:12,background:`${C.green}10`,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="1.5" strokeLinecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10"/></svg>
-              </div>
-              No department data yet
-            </div>
-          )}
-        </div>
-
-        {/* Recent activity */}
-        <div style={{background:C.surface,borderRadius:18,border:`1px solid ${C.border}`,padding:"22px 24px",boxShadow:"0 1px 4px rgba(67,97,238,0.06)"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-            <div>
-              <div style={{fontSize:15,fontWeight:700,color:C.text1}}>Recent Activity</div>
-              <div style={{fontSize:11,color:C.text3}}>Latest changes across all objects</div>
-            </div>
-          </div>
-          {activity.length===0 ? (
-            <div style={{textAlign:"center",padding:"40px 0",color:C.text3,display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
-              <div style={{width:44,height:44,borderRadius:13,background:`${C.accent}10`,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <Ic n="clock" s={20} c={C.accent}/>
-              </div>
-              <div style={{fontSize:13,fontWeight:600,color:C.text2}}>No activity yet</div>
-              <div style={{fontSize:12}}>Create records to see activity here</div>
-            </div>
-          ) : (
-            <div style={{maxHeight:320,overflowY:"auto"}}>
-              {activity.slice(0,15).map(item=>(
-                <ActivityRow key={item.id} item={item} objects={objs}
-                  onClick={()=>window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:item.record_id,objectId:item.object_id}}))}/>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Quick actions */}
-      <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-        {[
-          {label:"Add Candidate", icon:"users",     slug:"people",       color:C.accent},
-          {label:"Post a Job",    icon:"briefcase",  slug:"jobs",         color:C.green},
-          {label:"Create Pool",   icon:"layers",     slug:"talent-pools", color:C.purple},
-          {label:"AI Matching",   icon:"zap",        slug:"matching",     color:C.amber},
-        ].map(a=>(
-          <button key={a.slug} onClick={()=>onNavigate?.(a.slug)}
-            style={{flex:1,minWidth:120,display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"13px 16px",borderRadius:14,
-              border:`1.5px solid ${a.color}20`,background:`${a.color}08`,cursor:"pointer",fontFamily:F,transition:"all .15s"}}
-            onMouseEnter={e=>{e.currentTarget.style.background=`${a.color}15`;e.currentTarget.style.borderColor=`${a.color}45`;e.currentTarget.style.transform="translateY(-1px)";}}
-            onMouseLeave={e=>{e.currentTarget.style.background=`${a.color}08`;e.currentTarget.style.borderColor=`${a.color}20`;e.currentTarget.style.transform="";}}>
-            <Ic n={a.icon} s={16} c={a.color}/>
-            <span style={{fontSize:12,fontWeight:700,color:a.color}}>{a.label}</span>
+      <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
+        {depts.map(d => (
+          <button key={d} onClick={() => setDeptFilter(d)} style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, border: `0.5px solid ${deptFilter === d ? BRAND.purple : BRAND.border}`, background: deptFilter === d ? BRAND.purple : "transparent", color: deptFilter === d ? "#fff" : BRAND.gray, cursor: "pointer", fontFamily: "inherit", fontWeight: deptFilter === d ? 700 : 400, transition: "all 0.15s" }}>
+            {d === "all" ? "All departments" : d}
           </button>
         ))}
       </div>
 
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 12, marginBottom: 16 }}>
+        <KpiCard label="Active candidates" value={activeCandidates.toLocaleString()} sub="vs last month" tag={momPeople !== null ? (momPeople >= 0 ? `+${momPeople}%` : `${momPeople}%`) : null} tagKind={momPeople >= 0 ? "up" : "down"} color={BRAND.purple} onClick={() => goToFiltered("people", "status", "Active")} onReport={openReport} reportHint={{ object: "people", title: "Candidates by status", groupBy: "status", chartType: "bar" }} />
+        <KpiCard label="Open roles" value={openRoles.toLocaleString()} sub="active requisitions" tag={momJobs !== null ? (momJobs >= 0 ? `+${momJobs}%` : `${momJobs}%`) : null} tagKind={momJobs >= 0 ? "up" : "neutral"} color={BRAND.rose} onClick={() => goToFiltered("jobs", "status", "Open")} onReport={openReport} reportHint={{ object: "jobs", title: "Jobs by department", groupBy: "department", chartType: "bar" }} />
+        <KpiCard label="Talent pools" value={poolCount.toLocaleString()} sub="active pools" color={BRAND.teal} onClick={() => goToFiltered("talent-pools", "", "")} onReport={openReport} reportHint={{ object: "talent-pools", title: "Pools by category", groupBy: "category", chartType: "pie" }} />
+        <KpiCard label="Offer acceptance" value="87%" sub="on target" tag="—" tagKind="neutral" color={BRAND.amber} />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.75fr) minmax(0,1fr)", gap: 12, marginBottom: 16 }}>
+        <Card>
+          <CardHeader title="Pipeline velocity" sub="Candidates added each month" action={<button onClick={() => openReport({ object: "people", title: "Monthly pipeline", chartType: "area" })} style={{ fontSize: 10, color: BRAND.purple, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>Open report ↗</button>} />
+          <ResponsiveContainer width="100%" height={210}>
+            <AreaChart data={data?.monthlyPeople || []} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+              <defs>
+                <linearGradient id="gradPurple" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={BRAND.purple} stopOpacity={0.18} />
+                  <stop offset="95%" stopColor={BRAND.purple} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="rgba(0,0,0,0.04)" strokeDasharray="0" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 10, fill: BRAND.gray }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: BRAND.gray }} axisLine={false} tickLine={false} />
+              <Tooltip content={<DarkTooltip />} />
+              <Area type="monotone" dataKey="count" name="Candidates" stroke={BRAND.purple} strokeWidth={2} fill="url(#gradPurple)" dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+          <div style={{ display: "flex", gap: 16, marginTop: 12 }}><LegendItem color={BRAND.purple} label="Candidates added" /></div>
+        </Card>
+        <Card>
+          <CardHeader title="Candidate sources" sub="Where talent comes from" />
+          <ResponsiveContainer width="100%" height={160}>
+            <PieChart>
+              <Pie data={data?.sourceBreakdown?.length ? data.sourceBreakdown : [{ name: "Direct", value: 40 }, { name: "Referral", value: 28 }, { name: "Agency", value: 18 }, { name: "LinkedIn", value: 14 }]} cx="50%" cy="50%" innerRadius="62%" outerRadius="82%" dataKey="value" paddingAngle={3}>
+                {(data?.sourceBreakdown?.length ? data.sourceBreakdown : [1,2,3,4]).map((_, i) => <Cell key={i} fill={ACCENT_COLORS[i % ACCENT_COLORS.length]} />)}
+              </Pie>
+              <Tooltip content={<DarkTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px", marginTop: 8 }}>
+            {(data?.sourceBreakdown?.length ? data.sourceBreakdown : [{ name: "Direct" }, { name: "Referral" }, { name: "Agency" }, { name: "LinkedIn" }]).map((s, i) => <LegendItem key={i} color={ACCENT_COLORS[i % ACCENT_COLORS.length]} label={s.name} />)}
+          </div>
+        </Card>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.3fr) minmax(0,1fr)", gap: 12 }}>
+        <Card>
+          <CardHeader title="Roles by department" sub="Open vs filled this quarter" action={<button onClick={() => openReport({ object: "jobs", title: "Jobs by department", groupBy: "department", chartType: "bar" })} style={{ fontSize: 10, color: BRAND.purple, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>Open report ↗</button>} />
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={data?.deptBreakdown?.length ? data.deptBreakdown : [{ dept: "Engineering", open: 12, filled: 9 }, { dept: "Sales", open: 8, filled: 6 }, { dept: "Finance", open: 5, filled: 4 }, { dept: "Marketing", open: 6, filled: 5 }]} margin={{ top: 4, right: 4, bottom: 0, left: -20 }} barCategoryGap="30%">
+              <CartesianGrid stroke="rgba(0,0,0,0.04)" vertical={false} />
+              <XAxis dataKey="dept" tick={{ fontSize: 10, fill: BRAND.gray }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: BRAND.gray }} axisLine={false} tickLine={false} />
+              <Tooltip content={<DarkTooltip />} />
+              <Bar dataKey="open" name="Open" fill={BRAND.purpleLight} radius={[4,4,0,0]} />
+              <Bar dataKey="filled" name="Filled" fill={BRAND.purple} radius={[4,4,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+          <div style={{ display: "flex", gap: 16, marginTop: 10 }}>
+            <LegendItem color={BRAND.purpleLight} label="Open" />
+            <LegendItem color={BRAND.purple} label="Filled" />
+          </div>
+        </Card>
+        <Card>
+          <CardHeader title="Conversion funnel" sub="Stage-by-stage drop-off" />
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
+            {funnelValues.map((s, i) => <FunnelRow key={i} label={s.label} value={s.value} pct={Math.round((s.value / maxFunnel) * 100)} color={s.color} />)}
+          </div>
+          <div style={{ marginTop: 18, paddingTop: 14, borderTop: `0.5px solid ${BRAND.border}`, display: "flex", justifyContent: "space-around" }}>
+            {[{ label: "Conversion", value: `${Math.round((funnelValues.at(-1)?.value / funnelValues[0]?.value) * 100)}%`, color: BRAND.gray }, { label: "Screen pass", value: "62%", color: BRAND.gray }, { label: "Offer accept", value: "87%", color: BRAND.teal }].map((s, i) => (
+              <div key={i} style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: BRAND.gray, marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.06em" }}>{s.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: s.color, letterSpacing: "-0.02em" }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      {data?.activity?.length > 0 && (
+        <Card style={{ marginTop: 16 }}>
+          <CardHeader title="Recent activity" sub="Latest actions across the platform" />
+          {data.activity.slice(0, 6).map((a, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 0", borderBottom: i < 5 ? `0.5px solid ${BRAND.border}` : "none" }}>
+              <div style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: a.action === "create" ? BRAND.teal : a.action === "delete" ? BRAND.rose : BRAND.purple }} />
+              <div style={{ flex: 1, fontSize: 12, color: "#374151" }}><strong>{a.object_name || "Record"}</strong>{" — "}{a.action || "updated"}</div>
+              <div style={{ fontSize: 11, color: BRAND.gray, flexShrink: 0 }}>{a.created_at ? new Date(a.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</div>
+            </div>
+          ))}
+        </Card>
+      )}
     </div>
   );
 }

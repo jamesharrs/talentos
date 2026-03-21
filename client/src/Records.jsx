@@ -1182,61 +1182,60 @@ const applyFilters = (records, filters, fields) => {
   }));
 };
 
-const FilterBar = ({ fields, filters, onChange }) => {
-  const [adding, setAdding] = useState(false);
-  const [draftField, setDraftField] = useState("");
-  const [draftOp, setDraftOp]       = useState("");
-  const [draftVal, setDraftVal]     = useState("");
-  const addRef = useRef(null);
-
-  // sync first field when fields load or change
-  useEffect(() => {
-    if (fields.length && !draftField) {
-      setDraftField(fields[0].id);
-    }
-  }, [fields]);
-
-  // reset draft op when field changes
-  useEffect(() => {
-    const f = fields.find(x => x.id === draftField);
-    setDraftOp(getOpsForField(f)[0] || "");
-    setDraftVal("");
-  }, [draftField]);
+const FilterBar = ({ fields = [], filters = [], onChange }) => {
+  const [open, setOpen]         = useState(false);
+  const [fSearch, setFSearch]   = useState("");
+  const [draft, setDraft]       = useState(null); // { field, op, value }
+  const anchorRef               = useRef(null);
 
   useEffect(() => {
-    const h = e => { if (addRef.current && !addRef.current.contains(e.target)) setAdding(false); };
+    if (!open) return;
+    const h = e => { if (anchorRef.current && !anchorRef.current.contains(e.target)) { setOpen(false); setDraft(null); setFSearch(""); } };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
-  }, []);
+  }, [open]);
 
-  const draftFieldObj = fields.find(f => f.id === draftField);
-  const noValueOps = ["is empty","is not empty","is true","is false"];
-  const needsValue = !noValueOps.includes(draftOp);
-
-  const handleAdd = () => {
-    if (!draftField || !draftOp) return;
-    onChange([...filters, { id: Date.now()+"", fieldId: draftField, op: draftOp, value: draftVal }]);
-    setAdding(false);
-    setDraftVal("");
+  const TYPE_OPS = {
+    text:["contains","does not contain","is","is not","starts with","is empty","not empty"],
+    textarea:["contains","does not contain","is empty","not empty"],
+    number:["=","≠","<",">","≤","≥","is empty","not empty"],
+    currency:["=","≠","<",">","≤","≥","is empty","not empty"],
+    date:["is","before","after","is empty","not empty"],
+    boolean:["is true","is false"],
+    select:["is","is not","is empty","not empty"],
+    multi_select:["includes","excludes","is empty","not empty"],
+    email:["contains","is","is empty","not empty"],
+    url:["contains","is empty","not empty"],
+    phone:["contains","is","is empty","not empty"],
+    rating:["=","≠","<",">"],
   };
+  const NO_VAL_OPS = ["is empty","not empty","is true","is false"];
+  const getOps    = f => TYPE_OPS[f?.field_type] || TYPE_OPS.text;
+  const needsVal  = op => !NO_VAL_OPS.includes(op);
+  const typeLabel = t => ({text:"Aa",textarea:"¶",number:"#",currency:"$",date:"📅",select:"▾",multi_select:"▾▾",boolean:"☑",email:"@",url:"🔗",phone:"☎",rating:"★"}[t] || (t||"?").slice(0,2).toUpperCase());
 
-  const removeFilter = (id) => onChange(filters.filter(f => f.id !== id));
-
-  const selectSt = { padding:"6px 9px", borderRadius:7, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, color:C.text1, background:"white" };
+  const pickField = f => { setDraft({ field:f, op:getOps(f)[0], value:"" }); setFSearch(""); };
+  const addFilter = () => {
+    if (!draft?.field) return;
+    onChange([...(filters||[]), { id:Date.now()+"", fieldId:draft.field.id, op:draft.op, value:draft.value }]);
+    setDraft(null); setOpen(false);
+  };
+  const removeFilter = id => onChange((filters||[]).filter(f => f.id !== id));
+  const visFields = fields.filter(f => !fSearch || f.name.toLowerCase().includes(fSearch.toLowerCase()));
 
   return (
     <div style={{ display:"flex", flexWrap:"wrap", gap:6, alignItems:"center" }}>
-      {/* Active filter chips */}
-      {filters.map(filt => {
+      {/* Active chips */}
+      {(filters||[]).map(filt => {
         const field = fields.find(f => f.id === filt.fieldId);
         return (
-          <div key={filt.id} style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 8px 4px 10px",
+          <div key={filt.id} style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 8px 4px 10px",
             borderRadius:20, background:C.accentLight, border:`1.5px solid ${C.accent}`, fontSize:12, color:C.accent, fontWeight:600, whiteSpace:"nowrap" }}>
             <span style={{ color:C.text2, fontWeight:400 }}>{field?.name}</span>
-            <span style={{ color:C.text3, fontWeight:400 }}>{filt.op}</span>
+            <span style={{ color:C.text3, fontWeight:400, margin:"0 1px" }}>{filt.op}</span>
             {filt.value && <span style={{ fontStyle:"italic" }}>{filt.value}</span>}
             <button onClick={() => removeFilter(filt.id)}
-              style={{ background:"none", border:"none", cursor:"pointer", padding:"0 0 0 2px", display:"flex", color:C.accent, opacity:0.6 }}
+              style={{ background:"none", border:"none", cursor:"pointer", padding:"0 0 0 3px", display:"flex", color:C.accent, opacity:0.6 }}
               onMouseEnter={e=>e.currentTarget.style.opacity="1"} onMouseLeave={e=>e.currentTarget.style.opacity="0.6"}>
               <Ic n="x" s={11} c={C.accent}/>
             </button>
@@ -1244,53 +1243,122 @@ const FilterBar = ({ fields, filters, onChange }) => {
         );
       })}
 
-      {/* Add filter popover */}
-      <div ref={addRef} style={{ position:"relative" }}>
-        <button onClick={() => setAdding(a => !a)}
+      {/* + Add filter button + 2-step popover */}
+      <div ref={anchorRef} style={{ position:"relative" }}>
+        <button onClick={() => { setOpen(v=>!v); setDraft(null); setFSearch(""); }}
           style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 10px", borderRadius:8,
-            border:`1px dashed ${C.border}`, background:"transparent", fontSize:12, fontWeight:600,
-            cursor:"pointer", fontFamily:F, color:C.text3, transition:"all .12s" }}
-          onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
-          onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text3;}}>
+            border:`1px dashed ${open ? C.accent : C.border}`, background: open ? C.accentLight : "transparent",
+            fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F,
+            color: open ? C.accent : C.text3, transition:"all .12s" }}
+          onMouseEnter={e=>{if(!open){e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}}
+          onMouseLeave={e=>{if(!open){e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text3;}}}>
           <Ic n="plus" s={12}/> Add filter
         </button>
-        {adding && (
-          <div style={{ position:"absolute", top:"100%", left:0, zIndex:400, marginTop:6,
+
+        {open && (
+          <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, zIndex:500,
             background:C.surface, border:`1px solid ${C.border}`, borderRadius:12,
-            boxShadow:"0 8px 24px rgba(0,0,0,.12)", padding:"14px", display:"flex", flexDirection:"column", gap:8, minWidth:320 }}>
-            <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:2 }}>Add filter</div>
-            {/* Field */}
-            <select value={draftField} onChange={e => setDraftField(e.target.value)} style={selectSt}>
-              {fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-            </select>
-            {/* Operator */}
-            <select value={draftOp} onChange={e => setDraftOp(e.target.value)} style={selectSt}>
-              {getOpsForField(draftFieldObj).map(op => <option key={op} value={op}>{op}</option>)}
-            </select>
-            {/* Value */}
-            {needsValue && (
-              draftFieldObj?.field_type === "select" ? (
-                <select value={draftVal} onChange={e => setDraftVal(e.target.value)} style={selectSt}>
-                  <option value="">— Any —</option>
-                  {(draftFieldObj.options || []).map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              ) : draftFieldObj?.field_type === "multi_select" ? (
-                <select value={draftVal} onChange={e => setDraftVal(e.target.value)} style={selectSt}>
-                  <option value="">— Any —</option>
-                  {(draftFieldObj.options || []).map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              ) : draftFieldObj?.field_type === "date" ? (
-                <input type="date" value={draftVal} onChange={e => setDraftVal(e.target.value)} style={{...selectSt, width:"100%", boxSizing:"border-box"}}/>
-              ) : (
-                <input value={draftVal} onChange={e => setDraftVal(e.target.value)}
-                  placeholder="Value…" style={{...selectSt, width:"100%", boxSizing:"border-box"}}
-                  onKeyDown={e => e.key === "Enter" && handleAdd()}/>
-              )
+            boxShadow:"0 8px 28px rgba(0,0,0,.13)", width: draft ? 300 : 220, overflow:"hidden" }}>
+
+            {!draft ? (
+              /* ── Step 1: searchable field picker ── */
+              <>
+                <div style={{ padding:"9px 10px 7px", borderBottom:`1px solid ${C.border}` }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6,
+                    background:"var(--t-surface2,#f4f5f8)", borderRadius:8, padding:"6px 9px" }}>
+                    <Ic n="search" s={12} c={C.text3}/>
+                    <input autoFocus value={fSearch} onChange={e=>setFSearch(e.target.value)}
+                      placeholder="Search fields…"
+                      style={{ border:"none", background:"transparent", outline:"none",
+                        fontSize:12, color:C.text1, fontFamily:F, flex:1 }}/>
+                  </div>
+                </div>
+                <div style={{ maxHeight:250, overflowY:"auto", padding:"4px 0" }}>
+                  {visFields.length === 0 && (
+                    <div style={{ padding:"12px", fontSize:12, color:C.text3, textAlign:"center" }}>No fields match</div>
+                  )}
+                  {visFields.map(f => (
+                    <button key={f.id} onClick={() => pickField(f)}
+                      style={{ width:"100%", textAlign:"left", padding:"7px 12px", border:"none",
+                        background:"transparent", cursor:"pointer", fontFamily:F, fontSize:13,
+                        color:C.text1, display:"flex", alignItems:"center", gap:8 }}
+                      onMouseEnter={e=>e.currentTarget.style.background="var(--t-surface2,#f4f5f8)"}
+                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      <span style={{ fontSize:10, color:C.text3, background:"var(--t-surface2,#f0f1f4)",
+                        padding:"1px 5px", borderRadius:4, fontWeight:700, minWidth:28, textAlign:"center" }}>
+                        {typeLabel(f.field_type)}
+                      </span>
+                      {f.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              /* ── Step 2: operator + value builder ── */
+              <div style={{ padding:13 }}>
+                {/* Header with back + field name */}
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:11 }}>
+                  <button onClick={() => setDraft(null)}
+                    style={{ background:"none", border:"none", cursor:"pointer", padding:0,
+                      color:C.text3, display:"flex" }}>
+                    <Ic n="chevL" s={14} c={C.text3}/>
+                  </button>
+                  <span style={{ fontSize:13, fontWeight:700, color:C.text1, flex:1 }}>{draft.field.name}</span>
+                  <span style={{ fontSize:10, color:C.text3, background:"var(--t-surface2,#f0f1f4)",
+                    padding:"1px 5px", borderRadius:4, fontWeight:700, textTransform:"uppercase" }}>
+                    {typeLabel(draft.field.field_type)}
+                  </span>
+                </div>
+
+                {/* Condition / operator */}
+                <div style={{ marginBottom:9 }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:C.text3,
+                    textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:4 }}>Condition</div>
+                  <select value={draft.op}
+                    onChange={e => setDraft(d => ({ ...d, op:e.target.value, value:"" }))}
+                    style={{ width:"100%", padding:"6px 9px", borderRadius:8, fontSize:12,
+                      border:`1px solid ${C.border}`, background:C.surface, color:C.text1,
+                      fontFamily:F, cursor:"pointer" }}>
+                    {getOps(draft.field).map(op => <option key={op} value={op}>{op}</option>)}
+                  </select>
+                </div>
+
+                {/* Value input */}
+                {needsVal(draft.op) && draft.field.field_type !== "boolean" && (
+                  <div style={{ marginBottom:11 }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:C.text3,
+                      textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:4 }}>Value</div>
+                    {(draft.field.field_type==="select"||draft.field.field_type==="multi_select") && draft.field.options?.length ? (
+                      <select value={draft.value}
+                        onChange={e => setDraft(d => ({ ...d, value:e.target.value }))}
+                        style={{ width:"100%", padding:"6px 9px", borderRadius:8, fontSize:12,
+                          border:`1px solid ${C.border}`, background:C.surface, color:C.text1, fontFamily:F }}>
+                        <option value="">Select…</option>
+                        {draft.field.options.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    ) : (
+                      <input autoFocus value={draft.value}
+                        onChange={e => setDraft(d => ({ ...d, value:e.target.value }))}
+                        onKeyDown={e => e.key === "Enter" && addFilter()}
+                        placeholder="Filter value…"
+                        type={draft.field.field_type==="date"?"date":draft.field.field_type==="number"||draft.field.field_type==="currency"?"number":"text"}
+                        style={{ width:"100%", padding:"6px 9px", borderRadius:8, fontSize:12,
+                          border:`1px solid ${C.border}`, background:C.surface, color:C.text1,
+                          fontFamily:F, boxSizing:"border-box" }}/>
+                    )}
+                  </div>
+                )}
+
+                {/* Apply */}
+                <button onClick={addFilter}
+                  disabled={needsVal(draft.op) && !draft.value && draft.field.field_type !== "boolean"}
+                  style={{ width:"100%", padding:"7px", borderRadius:8, background:C.accent, color:"#fff",
+                    border:"none", cursor:"pointer", fontSize:12, fontWeight:700, fontFamily:F,
+                    opacity:(needsVal(draft.op)&&!draft.value&&draft.field.field_type!=="boolean")?0.4:1 }}>
+                  Apply filter
+                </button>
+              </div>
             )}
-            <div style={{ display:"flex", gap:6, justifyContent:"flex-end", marginTop:2 }}>
-              <button onClick={() => setAdding(false)} style={{ padding:"5px 12px", borderRadius:7, border:`1px solid ${C.border}`, background:"transparent", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F, color:C.text2 }}>Cancel</button>
-              <button onClick={handleAdd} style={{ padding:"5px 14px", borderRadius:7, border:"none", background:C.accent, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:F }}>Apply</button>
-            </div>
           </div>
         )}
       </div>
@@ -5412,19 +5480,6 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
         <span style={{ fontSize:13, color:C.text3, fontWeight:500 }}>
           {activeFilters.length ? `${displayedRecords.length} of ${total}` : total} record{total!==1?"s":""}
         </span>
-
-        {/* Tab switcher */}
-        <div style={{ display:"flex", border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden", marginLeft:4 }}>
-          {[{id:"records",icon:"list",label:"Records"},{id:"matching",icon:"sparkles",label:"AI Match"}].map(t=>(
-            <button key={t.id} onClick={()=>setActiveTab(t.id)}
-              style={{ display:"flex", alignItems:"center", gap:5, padding:"7px 13px", border:"none", cursor:"pointer", fontFamily:F, fontSize:12, fontWeight:600,
-                background: activeTab===t.id ? C.accentLight : "transparent",
-                color: activeTab===t.id ? C.accent : C.text3,
-                transition:"all .12s" }}>
-              <Ic n={t.icon} s={13}/>{t.label}
-            </button>
-          ))}
-        </div>
 
         <div style={{ flex:1 }}/>
 

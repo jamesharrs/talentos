@@ -1397,6 +1397,21 @@ function App() {
   const [selectedObject, setSelectedObject] = useState(null);
   const [allObjects, setAllObjects] = useState([]);
   const [activeNav, setActiveNav] = useState("dashboard");
+  // ── Collapsible sidebar ──
+  const [navCollapsed, setNavCollapsed] = useState(
+    () => localStorage.getItem('vrc_nav_collapsed') === 'true'
+  );
+  const [navHovered, setNavHovered] = useState(false);
+  const navExpanded = !navCollapsed || navHovered;
+  const NAV_W = navExpanded ? 220 : 56;
+  const toggleNav = () => {
+    setNavCollapsed(v => {
+      const next = !v;
+      localStorage.setItem('vrc_nav_collapsed', String(next));
+      return next;
+    });
+    setNavHovered(false);
+  };
   const { history: navHistory, pinned, push: pushHistory, clear: clearHistory, togglePin, isPinned } = useHistory();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [dashFlyout, setDashFlyout] = useState(false);
@@ -1700,11 +1715,14 @@ function App() {
       {/* Theme Panel */}
       {showTheme && <ThemePanel onClose={() => setShowTheme(false)} />}
       {/* Sidebar */}
-      <div style={{ width: 220, background: "var(--t-nav-bg)", borderRight: "1px solid var(--t-border2)", display: "flex", flexDirection: "column", padding: "0 0 16px", position: "fixed", height: "100vh", top: 0, left: 0, zIndex: 100, overflowY: "hidden" }}>
+      <div
+        onMouseEnter={() => navCollapsed && setNavHovered(true)}
+        onMouseLeave={() => setNavHovered(false)}
+        style={{ width: NAV_W, background: "var(--t-nav-bg)", borderRight: "1px solid var(--t-border2)", display: "flex", flexDirection: "column", padding: "0 0 16px", position: "fixed", height: "100vh", top: 0, left: 0, zIndex: 100, overflowY: "hidden", overflowX: "hidden", transition: "width 0.2s cubic-bezier(0.4,0,0.2,1)" }}>
         {/* Logo */}
-        <div style={{ padding: "20px 16px 16px", borderBottom: "1px solid var(--t-border2)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <svg width="22" height="22" viewBox="0 0 80 80" fill="none">
+        <div style={{ padding: "0 12px", borderBottom: "1px solid var(--t-border2)", display: "flex", alignItems: "center", justifyContent: navExpanded ? "space-between" : "center", height: 56, flexShrink: 0, overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
+            <svg width="22" height="22" viewBox="0 0 80 80" fill="none" style={{ flexShrink: 0 }}>
               <path d="M8 52 L40 36 L72 52 L40 68 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none"/>
               <path d="M8 52 L8 62 L40 78 L40 68 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none"/>
               <path d="M72 52 L72 62 L40 78 L40 68 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none" opacity="0.3"/>
@@ -1715,17 +1733,28 @@ function App() {
               <path d="M28 18 L28 24 L40 30 L40 24 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none"/>
               <path d="M52 18 L52 24 L40 30 L40 24 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none" opacity="0.3"/>
             </svg>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--t-text1)", lineHeight: 1, fontFamily: "'Space Grotesk', sans-serif", letterSpacing: "-0.3px" }}>Vercentic</div>
-            </div>
+            {navExpanded && (
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--t-text1)", lineHeight: 1, fontFamily: "'Space Grotesk', sans-serif", letterSpacing: "-0.3px", whiteSpace: "nowrap" }}>Vercentic</div>
+            )}
           </div>
+          {/* Collapse toggle */}
+          <button
+            onClick={toggleNav}
+            title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            style={{ width: 24, height: 24, borderRadius: "50%", background: "var(--t-surface2)", border: "1px solid var(--t-border)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: "var(--t-text3)", transition: "all .15s" }}
+            onMouseEnter={e => { e.currentTarget.style.background = "var(--t-accent)"; e.currentTarget.style.color = "white"; e.currentTarget.style.borderColor = "var(--t-accent)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "var(--t-surface2)"; e.currentTarget.style.color = "var(--t-text3)"; e.currentTarget.style.borderColor = "var(--t-border)"; }}>
+            <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              {navCollapsed ? <path d="M9 18l6-6-6-6"/> : <path d="M15 18l-6-6 6-6"/>}
+            </svg>
+          </button>
         </div>
 
         {/* Nav */}
         <div style={{ padding: "8px 12px", flex: 1, overflowY: "auto", minHeight: 0 }}>
           {filteredNavSections.map(section => (
             <div key={section.label} style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--t-text3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6, paddingLeft: 4 }}>{section.label}</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--t-text3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6, paddingLeft: 4, height: navExpanded ? undefined : 0, overflow: "hidden", opacity: navExpanded ? 1 : 0, transition: "opacity 0.15s, height 0.15s" }}>{section.label}</div>
               {section.items.map(item => {
                 const isDashboard = item.id === "dashboard";
                 const dashActive = activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers";
@@ -1734,16 +1763,18 @@ function App() {
                   <div key={item.id} style={{ position: "relative" }}>
                     <button
                       onClick={() => isDashboard ? (setDashFlyout(o => !o), switchNav("dashboard")) : switchNav(item.id)}
+                      title={!navExpanded ? item.label : undefined}
                       style={{
                         width: "100%", display: "flex", alignItems: "center", gap: 9,
-                        padding: "8px 10px", borderRadius: 8, border: "none", cursor: "pointer",
+                        padding: navExpanded ? "8px 10px" : "8px 0", justifyContent: navExpanded ? "flex-start" : "center",
+                        borderRadius: 8, border: "none", cursor: "pointer",
                         background: isActive ? "var(--t-nav-active)" : "transparent",
                         color: isActive ? "var(--t-nav-active-c)" : "var(--t-nav-text)",
                         fontSize: 13, fontWeight: isActive ? 700 : 500,
                         fontFamily: "inherit", textAlign: "left", transition: "all 0.15s", marginBottom: 2
                       }}>
                       <Icon name={item.icon} size={15} color={isActive ? "var(--t-nav-active-c)" : "var(--t-text3)"} />
-                      <span style={{ flex: 1 }}>{item.label}</span>
+                      <span style={{ flex: 1, overflow: "hidden", opacity: navExpanded ? 1 : 0, width: navExpanded ? undefined : 0, transition: "opacity 0.1s", whiteSpace: "nowrap" }}>{item.label}</span>
                       {item.badge ? (
                         <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 99, background: "var(--t-accent, #4361EE)", color: "white", minWidth: 16, textAlign: "center" }}>{item.badge}</span>
                       ) : isDashboard && (
@@ -1782,21 +1813,32 @@ function App() {
         {/* Footer — user card with Settings/Help popover */}
         <div style={{ padding: "0 12px 4px", position: "relative" }}>
           {session?.user && (
-            <UserFooterMenu
-              session={session}
-              activeNav={activeNav}
-              setActiveNav={setActiveNav}
-              clearSession={clearSession}
-              setSession={setSession}
-              t={t}
-            />
+            navExpanded
+              ? <UserFooterMenu
+                  session={session}
+                  activeNav={activeNav}
+                  setActiveNav={setActiveNav}
+                  clearSession={clearSession}
+                  setSession={setSession}
+                  t={t}
+                />
+              : <div style={{ display: "flex", justifyContent: "center" }}>
+                  <div
+                    title={`${session.user.first_name} ${session.user.last_name}`}
+                    style={{ width: 32, height: 32, borderRadius: "50%", background: session.role?.color || "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                    onClick={toggleNav}>
+                    <span style={{ color: "white", fontSize: 11, fontWeight: 700 }}>
+                      {(session.user.first_name?.[0] || "") + (session.user.last_name?.[0] || "")}
+                    </span>
+                  </div>
+                </div>
           )}
         </div>
 
       </div>
 
       {/* Main content */}
-      <div style={{ marginLeft: 220, flex: 1, minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--t-bg)", paddingRight: historyOpen ? 300 : 0, transition: "padding-right 0.25s cubic-bezier(0.4,0,0.2,1)" }}>
+      <div style={{ marginLeft: NAV_W, flex: 1, minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--t-bg)", paddingRight: historyOpen ? 300 : 0, transition: "margin-left 0.2s cubic-bezier(0.4,0,0.2,1), padding-right 0.25s cubic-bezier(0.4,0,0.2,1)" }}>
         {/* Top bar */}
         <GlobalSearch selectedEnv={selectedEnv} navObjects={navObjects} onNavigateToSearch={(q) => {
             setActiveNav("search");

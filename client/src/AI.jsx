@@ -833,8 +833,11 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   const [parsedPerson,     setParsedPerson]     = useState(null);
   const [parsedJob,        setParsedJob]        = useState(null);
   const [proposedAction,   setProposedAction]   = useState(null);
-  const bottomRef = useRef(null);
-  const inputRef  = useRef(null);
+  const bottomRef  = useRef(null);
+  const inputRef   = useRef(null);
+  const fileRef    = useRef(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [fileProcessing, setFileProcessing] = useState(false);
 
   useEffect(()=>{
     if(!environment?.id) return;
@@ -1054,6 +1057,113 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       const data = await fetch(`/api/records/search?q=${encodeURIComponent(q)}&environment_id=${environment.id}&limit=8`).then(r=>r.json());
       return Array.isArray(data) ? data : [];
     } catch { return []; }
+  };
+
+  // ── File drop / attach handler ───────────────────────────────────────────
+  const handleFileDrop = async (file) => {
+    if (!file) return;
+    setFileProcessing(true);
+
+    const ext = file.name.split(".").pop().toLowerCase();
+    const isImage = ["jpg","jpeg","png","gif","webp"].includes(ext);
+    const isPDF   = ext === "pdf";
+    const isDoc   = ["doc","docx"].includes(ext);
+    const isTxt   = ["txt","md","csv"].includes(ext);
+
+    // Show file received message
+    setMessages(m=>[...m,{role:"user",content:`📎 ${file.name}`,ts:new Date(),isFile:true}]);
+
+    try {
+      let base64 = null, textContent = null, mediaType = null;
+
+      if (isImage || isPDF) {
+        // Convert to base64 for vision/PDF analysis
+        base64 = await new Promise((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result.split(",")[1]);
+          reader.onerror = rej;
+          reader.readAsDataURL(file);
+        });
+        mediaType = isImage ? file.type || "image/jpeg" : "application/pdf";
+      } else if (isDoc || isTxt) {
+        // Send to server for text extraction then parse
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/cv-parse", { method:"POST", body:fd });
+        if (res.ok) {
+          const data = await res.json();
+          // Inject the extracted text into the conversation
+          textContent = data.text || "";
+        }
+      } else {
+        textContent = await file.text().catch(() => null);
+      }
+
+      if (!textContent && !base64) {
+        setMessages(m=>[...m,{role:"assistant",content:`I couldn't read **${file.name}**. Supported formats: PDF, DOCX, DOC, TXT, images.`,ts:new Date(),error:true}]);
+        setFileProcessing(false);
+        return;
+      }
+
+      // Determine likely doc type from filename
+      const lname = file.name.toLowerCase();
+      const looksLikeCV = /cv|resume|curriculum/i.test(lname);
+      const looksLikeJD = /jd|job.desc|role.brief|position/i.test(lname);
+      const hint = looksLikeCV ? "\n\nThis looks like a CV — please parse it."
+                 : looksLikeJD ? "\n\nThis looks like a job description — please parse it."
+                 : "\n\nPlease analyse this document and let me know what it contains. If it looks like a CV or job description, parse it automatically.";
+
+      // Build the message to send to the AI
+      const apiMessages = [...messages.filter(m=>!m.isFile).map(m=>({role:m.role,content:m.content}))];
+
+      if (base64) {
+        // Vision / PDF analysis
+        const contentBlocks = [
+          mediaType === "application/pdf"
+            ? { type:"document", source:{ type:"base64", media_type:"application/pdf", data:base64 } }
+            : { type:"image",    source:{ type:"base64", media_type:mediaType, data:base64 } },
+          { type:"text", text:`File: ${file.name}${hint}` }
+        ];
+        apiMessages.push({ role:"user", content: contentBlocks });
+      } else {
+        apiMessages.push({ role:"user", content:`File: ${file.name}\n\n${textContent.slice(0,8000)}${hint}` });
+      }
+
+      setLoading(true);
+      const res2 = await fetch("/api/ai/chat", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ messages: apiMessages, system: SYSTEM_PROMPT })
+      });
+      const d2 = await res2.json();
+      const reply = d2.content?.[0]?.text || d2.content || "I couldn't process that file.";
+
+      const cvData   = parseParsedCV(reply);
+      const jdData   = parseParsedJD(reply);
+      const displayText = stripBlocks(reply);
+
+      setMessages(m=>[...m,{role:"assistant",content:displayText||(cvData?"Found a CV — create the person?":jdData?"Found a job description — create the job?":""),ts:new Date(),hasParsedCV:!!cvData,hasParsedJD:!!jdData}]);
+      if (cvData) setParsedPerson(cvData);
+      if (jdData) setParsedJob(jdData);
+
+    } catch(err) {
+      setMessages(m=>[...m,{role:"assistant",content:`Failed to process **${file.name}**: ${err.message}`,ts:new Date(),error:true}]);
+    }
+    setFileProcessing(false);
+    setLoading(false);
+  };
+
+  const handleDropEvent = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) handleFileDrop(file);
+  };
+
+  const handleFileInput = (e) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileDrop(file);
+    e.target.value = "";
   };
 
   const sendMessage = async (text) => {
@@ -2015,10 +2125,32 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
           </div>
 
           {/* Input */}
-          <div style={{padding:"12px 14px",borderTop:"1px solid rgba(124,58,237,.1)",display:"flex",gap:8,alignItems:"flex-end",flexShrink:0,background:"white"}}>
+          <div
+            style={{padding:"12px 14px",borderTop:`1.5px solid ${dragOver?"rgba(124,58,237,.5)":"rgba(124,58,237,.1)"}`,display:"flex",gap:8,alignItems:"flex-end",flexShrink:0,background:dragOver?"rgba(124,58,237,.04)":"white",transition:"all .15s"}}
+            onDragOver={e=>{e.preventDefault();setDragOver(true);}}
+            onDragLeave={()=>setDragOver(false)}
+            onDrop={handleDropEvent}
+          >
+            {/* Hidden file input */}
+            <input ref={fileRef} type="file" style={{display:"none"}}
+              accept=".pdf,.doc,.docx,.txt,.md,.jpg,.jpeg,.png,.csv"
+              onChange={handleFileInput}/>
+            {/* Attach button */}
+            <button onClick={()=>fileRef.current?.click()} disabled={fileProcessing||loading}
+              title="Attach a file (CV, JD, PDF, image…)"
+              style={{width:34,height:34,borderRadius:10,border:"1.5px solid #e5e7eb",background:"white",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all .15s",color:"#9ca3af"}}
+              onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(124,58,237,.4)"}
+              onMouseLeave={e=>e.currentTarget.style.borderColor="#e5e7eb"}>
+              {fileProcessing ? <Ic n="loader" s={14} c="rgba(124,58,237,.7)"/> : <Ic n="paperclip" s={14} c="#9ca3af"/>}
+            </button>
+            {dragOver && (
+              <div style={{position:"absolute",bottom:70,left:14,right:14,padding:"10px 14px",borderRadius:10,background:"rgba(124,58,237,.08)",border:"1.5px dashed rgba(124,58,237,.4)",fontSize:12,color:"rgba(124,58,237,.8)",fontWeight:600,textAlign:"center",pointerEvents:"none"}}>
+                Drop file to analyse →
+              </div>
+            )}
             <textarea ref={inputRef} value={input} onChange={e=>setInput(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();}}}
-              placeholder="Ask anything or say 'create a job'…"
+              placeholder={dragOver?"Drop to analyse…":"Ask anything or say 'create a job'…"}
               rows={1} style={{flex:1,padding:"10px 14px",borderRadius:12,border:"1.5px solid #e5e7eb",fontSize:13,fontFamily:F,outline:"none",resize:"none",color:C.text1,lineHeight:1.4,maxHeight:80,overflowY:"auto",background:"#fafbff",transition:"border-color .15s"}}
               onFocus={e=>e.target.style.borderColor="rgba(124,58,237,.5)"}
               onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>

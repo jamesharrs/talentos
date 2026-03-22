@@ -58,7 +58,7 @@ export default function AiMatchingSettings() {
         <div>
           <div style={{fontSize:20, fontWeight:800, color:C.text1}}>AI Matching Configuration</div>
           <div style={{fontSize:13, color:C.text3, marginTop:4}}>
-            Configure which fields and weightings the matching engine uses when scoring candidates against jobs, and vice versa.
+            Configure which fields and weightings the recommendation engine uses when scoring candidates against jobs, and vice versa.
           </div>
         </div>
         <div style={{display:"flex", gap:8, flexShrink:0}}>
@@ -162,7 +162,7 @@ export default function AiMatchingSettings() {
         </div>
         <div style={{padding:"16px 20px"}}>
           {[
-            {key:"show_reasons", label:"Show match reasons", help:"Display why a candidate scored well (e.g. 'Location match', 'Matches 3/5 skills')"},
+            {key:"show_reasons", label:"Show recommendation reasons", help:"Display why a candidate scored well (e.g. 'Location match', 'Matches 3/5 skills')"},
             {key:"show_gaps",    label:"Show match gaps",    help:"Display what's missing (e.g. 'Missing: Python, AWS')"},
           ].map(opt=>(
             <div key={opt.key} style={{display:"flex", alignItems:"flex-start", gap:14, padding:"10px 0", borderBottom:`1px solid ${C.border}`, lastChild:{borderBottom:"none"}}}>
@@ -197,7 +197,7 @@ export default function AiMatchingSettings() {
       <div style={{padding:"14px 18px", borderRadius:12, background:"#eff6ff", border:"1px solid #bfdbfe", fontSize:12, color:"#1e40af", display:"flex", gap:10, alignItems:"flex-start"}}>
         <Ic n="info" s={14} c="#3b82f6" style={{flexShrink:0, marginTop:1}}/>
         <div>
-          <strong>How matching works:</strong> Each enabled criterion contributes its weighted percentage to a 0–100 score. The score is used in the AI Match tab on record detail pages, the pipeline people view, and the Copilot when suggesting candidates for a role. Changes take effect immediately after saving — no restart needed.
+          <strong>How recommendations work:</strong> Each enabled criterion contributes its weighted percentage to a 0–100 fit score. The score is used in the Recommendations panel on record detail pages, the pipeline people view, and the Copilot when suggesting candidates for a role. Changes take effect immediately after saving — no restart needed.
         </div>
       </div>
     </div>

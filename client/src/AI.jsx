@@ -776,19 +776,19 @@ const RECORD_ACTIONS = {
     { id:"strengths", icon:"star",     label:"Strengths & gaps", prompt:"Identify this candidate's top 3 strengths and top 2 gaps for recruitment purposes." },
     { id:"questions", icon:"zap",      label:"Interview Qs",   prompt:"Suggest 5 targeted interview questions based on this candidate's profile." },
     { id:"note",      icon:"edit",     label:"Add note",       prompt:"I want to add a note to this record." },
-    { id:"match",     icon:"layers",   label:"Match to jobs",  prompt:"Which open jobs would be the best match for this candidate and why?" },
+    { id:"match",     icon:"layers",   label:"Recommend jobs",  prompt:"Which open jobs would be the best fit for this candidate and why?" },
   ],
   jobs: [
     { id:"summarise", icon:"fileText", label:"Summarise role",  prompt:"Give me a concise summary of this job role and its key requirements." },
     { id:"jd",        icon:"fileText", label:"Write JD",        prompt:"Write a compelling job description for this role suitable for posting on a career site." },
-    { id:"match",     icon:"user",     label:"Find candidates", prompt:"Which candidates in the system would be the best match for this role and why?" },
+    { id:"match",     icon:"user",     label:"Find candidates", prompt:"Which candidates in the system would be the best fit for this role and why?" },
     { id:"questions", icon:"zap",      label:"Interview Qs",    prompt:"Suggest 5 targeted interview questions for this role." },
     { id:"note",      icon:"edit",     label:"Add note",        prompt:"I want to add a note to this job." },
     { id:"interview", icon:"calendar", label:"Schedule interview", prompt:"I want to schedule an interview for this role." },
   ],
   "talent-pools": [
     { id:"summarise", icon:"fileText", label:"Summarise pool",  prompt:"Give me a summary of this talent pool, its purpose and the candidates in it." },
-    { id:"match",     icon:"user",     label:"Find matches",    prompt:"Which candidates would be a good fit for this talent pool?" },
+    { id:"match",     icon:"user",     label:"Find candidates",    prompt:"Which candidates would be a good fit for this talent pool?" },
     { id:"note",      icon:"edit",     label:"Add note",        prompt:"I want to add a note to this talent pool." },
   ],
 };
@@ -944,8 +944,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         if(currentRecord&&currentObject){
           const d=currentRecord.data||{};
           const name=(d.first_name?((d.first_name+' '+(d.last_name||'')).trim()):null)||d.job_title||d.pool_name||'this record';
-          if(currentObject.slug==='people') return `Hi! I can see you're viewing **${name}**.\n\nI can:\n• Summarise their profile and background\n• Draft outreach or follow-up emails\n• Find matching jobs for them\n• Answer any questions about this candidate\n\nWhat would you like?`;
-          if(currentObject.slug==='jobs') return `Hi! I can see you're viewing the **${name}** role.\n\nI can:\n• Summarise the job requirements\n• Find matching candidates\n• Draft a job description\n• Answer any questions about this role\n\nWhat would you like?`;
+          if(currentObject.slug==='people') return `Hi! I can see you're viewing **${name}**.\n\nI can:\n• Summarise their profile and background\n• Draft outreach or follow-up emails\n• Suggest suitable jobs for them\n• Answer any questions about this candidate\n\nWhat would you like?`;
+          if(currentObject.slug==='jobs') return `Hi! I can see you're viewing the **${name}** role.\n\nI can:\n• Summarise the job requirements\n• Suggest suitable candidates\n• Draft a job description\n• Answer any questions about this role\n\nWhat would you like?`;
           return `Hi! I can see you're viewing **${name}** (${currentObject.name}).\n\nI can summarise this record, answer questions, or help take actions. What would you like?`;
         }
         if(activeNav==='dashboard') return `Hi! I can see you're on the **Dashboard**.\n\nI can help you:\n• Understand your current pipeline\n• Find specific candidates or jobs\n• Create new records\n• Summarise recent activity\n\nWhat would you like to do?`;

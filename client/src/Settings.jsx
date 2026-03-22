@@ -2303,7 +2303,7 @@ const NAV_GROUPS = [
     label: "AI",
     items: [
       { id:"ai_governance", icon:"sparkles", label:"AI governance" },
-      { id:"ai_matching",   icon:"zap",      label:"AI Matching" },
+      { id:"ai_matching",   icon:"zap",      label:"Recommendations" },
     ],
   },
   {

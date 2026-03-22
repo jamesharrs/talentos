@@ -530,7 +530,7 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
         <ActionBtn label="Create Pool" color={V.teal}
           iconPath={<><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>}
           onClick={() => window.dispatchEvent(new CustomEvent("talentos:create-record", { detail: { objectName: "Talent Pools" } }))} />
-        <ActionBtn label="AI Matching" color={V.amber}
+        <ActionBtn label="Recommendations" color={V.amber}
           iconPath={<><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></>}
           onClick={() => {}} />
       </div>

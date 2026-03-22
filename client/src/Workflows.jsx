@@ -1696,12 +1696,12 @@ function PipelinePersonRow({ link, steps, label, subtitle, initial, matchScore, 
 
       {/* Match score badge */}
       {score !== null && (
-        <div title={matchScore?.reasons?.join(" · ")||"Match score"}
+        <div title={matchScore?.reasons?.join(" · ")||"Recommendation score"}
           style={{ display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0,
             background:scoreBg, border:`1px solid ${scoreColor}22`, borderRadius:8,
             padding:"3px 7px", minWidth:38, cursor:"default" }}>
           <span style={{ fontSize:13, fontWeight:800, color:scoreColor, lineHeight:1 }}>{score}%</span>
-          <span style={{ fontSize:9, color:scoreColor, fontWeight:600, opacity:0.8, lineHeight:1, marginTop:1 }}>match</span>
+          <span style={{ fontSize:9, color:scoreColor, fontWeight:600, opacity:0.8, lineHeight:1, marginTop:1 }}>fit</span>
         </div>
       )}
 

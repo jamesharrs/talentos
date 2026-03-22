@@ -3038,7 +3038,7 @@ export const PANEL_META = {
   activity:     { icon:"activity",      label:"Activity",            defaultOpen:false },
   workflows:    { icon:"layers",        label:"Pipeline",            defaultOpen:false },
   linked:       { icon:"link",          label:"Linked Records",      defaultOpen:true  },
-  match:        { icon:"sparkles",      label:"AI Match",            defaultOpen:false },
+  match:        { icon:"sparkles",      label:"Recommendations",     defaultOpen:false },
   reporting:    { icon:"gitBranch",     label:"Reporting",           defaultOpen:true  },
   user:         { icon:"user",          label:"Platform User",       defaultOpen:true  },
   scorecard:    { icon:"clipboard",     label:"Scorecards",          defaultOpen:false },
@@ -4876,7 +4876,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     { id:"forms",       icon:"form",          label:"Forms" },
     { id:"workflows",   icon:"layers",        label:"Pipeline" },
     ...( objectName === "Person" ? [{ id:"linked", icon:"link", label:"Linked Records" }] : [] ),
-    ...( ["Person","Job"].includes(objectName) ? [{ id:"match", icon:"sparkles", label:"AI Match" }] : [] ),
+    ...( ["Person","Job"].includes(objectName) ? [{ id:"match", icon:"sparkles", label:"Recommendations" }] : [] ),
   ];
 
   if (!fullPage) return (
@@ -5850,7 +5850,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
         </>}
       </div>
 
-      {/* AI Matching tab */}
+      {/* Recommendations tab */}
       {activeTab === "matching" && (
         <MatchingEngine environment={environment} initialObject={object}/>
       )}

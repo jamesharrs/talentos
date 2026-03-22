@@ -182,9 +182,9 @@ export const HELP_ARTICLES = [
   },
   {
     id: 'jobs-matching', section: 'jobs',
-    title: 'AI candidate matching',
-    summary: 'Score and rank candidates against a job using the AI matching engine.',
-    keywords: ['ai match','matching','score','rank','candidate score','match percentage','suitability'],
+    title: 'Candidate recommendations',
+    summary: 'Score and rank candidates against a job using the recommendation engine.',
+    keywords: ['recommendations','score','rank','candidate score','fit score','suitability','fit'],
     content: [
       { type:'p', text:'Open the AI Match tab on any Job record. All candidates are scored and ranked across skills, location, experience, availability, and rating.' },
       { type:'list', items:['Green (75%+) — strong match.','Amber (50–74%) — partial match, worth reviewing.','Red (below 50%) — significant gaps.'] },

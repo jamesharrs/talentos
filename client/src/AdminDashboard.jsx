@@ -48,7 +48,7 @@ const Card = ({ children, style={} }) => (
   <div style={{ background:C.card, borderRadius:14, border:`1px solid ${C.border}`, boxShadow:"0 1px 4px rgba(0,0,0,0.04)", padding:"20px 22px", ...style }}>{children}</div>
 );
 
-const FEATURE_COLORS = { "Copilot Chat":"#4361ee","CV Parsing":"#0ca678","Job Matching":"#f59f00","Translation":"#7c3aed","Document Extract":"#e03131","Form Builder":"#3b82f6","Interview Schedule":"#ec4899","JD Generation":"#06b6d4","Offer Creation":"#84cc16","Other":"#9ca3af" };
+const FEATURE_COLORS = { "Copilot Chat":"#4361ee","CV Parsing":"#0ca678","Recommendations":"#f59f00","Translation":"#7c3aed","Document Extract":"#e03131","Form Builder":"#3b82f6","Interview Schedule":"#ec4899","JD Generation":"#06b6d4","Offer Creation":"#84cc16","Other":"#9ca3af" };
 const COMMS_COLORS = { email:"#4361ee", sms:"#0ca678", whatsapp:"#25d366", call:"#f59f00" };
 
 function fmtDate(iso) {

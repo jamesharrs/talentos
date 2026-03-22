@@ -50,7 +50,7 @@ const DASHBOARD_GROUPS = [
     id: "ai", label: "AI", color: "#b45309",
     items: [
       { id:"ai_governance", icon:"sparkles", label:"AI Governance", desc:"Usage policies, content controls and audit" },
-      { id:"ai_matching",   icon:"target",   label:"AI Matching",   desc:"Configure candidate-to-job matching rules" },
+      { id:"ai_matching",   icon:"target",   label:"Recommendations",   desc:"Configure candidate-to-job recommendation rules" },
     ],
   },
   {

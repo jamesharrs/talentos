@@ -1487,8 +1487,9 @@ function App() {
     {
       label: t("nav.overview"),
       items: [
-        { id: "dashboard", icon: "home",  label: t("nav.dashboard") },
-        { id: "inbox",     icon: "inbox", label: "Inbox", badge: inboxUnread || null },
+        { id: "dashboard",   icon: "home",    label: t("nav.dashboard") },
+        { id: "inbox",       icon: "inbox",   label: "Inbox", badge: inboxUnread || null },
+        { id: "admin_stats", icon: "shield",  label: "Admin Stats" },
       ]
     },
     {
@@ -1505,7 +1506,6 @@ function App() {
           ? [{ id: "client-hub", icon: "building", label: "Client Hub" }]
           : []),
         { id: "reports",     icon: "bar-chart-2",  label: t("nav.reports") },
-        { id: "admin_stats", icon: "shield",       label: "Admin Stats" },
         { id: "search",      icon: "search",       label: t("nav.search") },
       ]
     },

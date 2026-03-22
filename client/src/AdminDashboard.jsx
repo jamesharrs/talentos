@@ -96,7 +96,7 @@ export default function AdminDashboard({ environment, session }) {
   const { ai, users, records, workflows, interviews, offers, forms, files, communications, system } = data;
 
   return (
-    <div style={{ fontFamily:F, color:C.text1, maxWidth:1200 }}>
+    <div style={{ fontFamily:F, color:C.text1, width:"100%" }}>
       {/* Header */}
       <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24 }}>
         <div>

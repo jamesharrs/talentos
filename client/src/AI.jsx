@@ -856,6 +856,17 @@ const SuggestedActions = ({ activeNav, currentObject, onSend, isLastMsg }) => {
   );
 };
 
+// Auth headers for fetch calls — reads session from localStorage (same as apiClient)
+function aiHeaders() {
+  try {
+    const sess = JSON.parse(localStorage.getItem('talentos_session') || 'null');
+    const h = { 'Content-Type': 'application/json' };
+    if (sess?.user?.id)     h['X-User-Id']     = sess.user.id;
+    if (sess?.tenant_slug)  h['X-Tenant-Slug']  = sess.tenant_slug;
+    return h;
+  } catch { return { 'Content-Type': 'application/json' }; }
+}
+
 export const AICopilot = ({ environment, currentRecord, currentObject, onNavigateToRecord, activeNav, navObjects, pageContext }) => {
   const [open,         setOpen]         = useState(false);
   const [messages,     setMessages]     = useState([]);
@@ -1201,7 +1212,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       setLoading(true);
       const res2 = await fetch("/api/ai/chat", {
         method:"POST",
-        headers:{"Content-Type":"application/json"},
+        headers:aiHeaders(),
         body: JSON.stringify({ messages: apiMessages, system: SYSTEM_PROMPT })
       });
       const d2 = await res2.json();
@@ -1283,7 +1294,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
       // First AI call
       const response = await fetch("/api/ai/chat",{
-        method:"POST", headers:{"Content-Type":"application/json"},
+        method:"POST", headers:aiHeaders(),
         body:JSON.stringify({system:systemFull,messages:newMessages.map(m=>({role:m.role,content:m.content}))}),
       });
       const data = await response.json();
@@ -1309,7 +1320,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
           {role:"assistant", content:reply},
           {role:"user", content:`[SEARCH_RESULTS for "${searchQ}"]\n${resultsText}\n\nPlease summarise these results concisely.`}
         ];
-        const r2 = await fetch("/api/ai/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:systemFull,messages:followUp})});
+        const r2 = await fetch("/api/ai/chat",{method:"POST",headers:aiHeaders(),body:JSON.stringify({system:systemFull,messages:followUp})});
         const d2 = await r2.json();
         reply = d2.content || reply;
       }

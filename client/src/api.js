@@ -20,6 +20,15 @@ function getTenantSlug() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('tenant')) return params.get('tenant');
   } catch {}
+  // 3. Subdomain (e.g. acme.vercentic.com → slug = 'acme')
+  try {
+    const host = window.location.hostname;
+    const parts = host.split('.');
+    const reserved = ['www', 'app', 'api', 'admin', 'localhost', 'client', 'portal'];
+    if (parts.length >= 3 && !reserved.includes(parts[0])) {
+      return parts[0];
+    }
+  } catch {}
   return null;
 }
 

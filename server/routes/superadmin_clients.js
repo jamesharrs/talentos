@@ -258,12 +258,11 @@ async function provisionClient(clientData, envData, adminUser, templateKey) {
   // NOTE: Do NOT push into s.environments — client environments live in their
   // own tenant store only. Adding them here would expose client data to master users.
 
-  if (!s.objects) s.objects = [];
-  if (!s.fields)  s.fields  = [];
-  if (!s.roles)   s.roles   = [];
-
+  // Build objects/fields/roles in memory only — do NOT push to master store (s).
+  // Everything goes exclusively into the isolated tenant store below.
   const { objects, roles } = buildTemplate(templateKey || 'core_recruitment');
   const createdObjects = [];
+  const createdFields  = [];
 
   for (const objDef of objects) {
     const obj = {
@@ -272,9 +271,9 @@ async function provisionClient(clientData, envData, adminUser, templateKey) {
       color: objDef.color||'#4361EE', is_system: objDef.is_system!==false,
       sort_order: createdObjects.length, created_at: now, updated_at: now, deleted_at: null,
     };
-    s.objects.push(obj); createdObjects.push(obj);
+    createdObjects.push(obj);
     (objDef.fields||[]).forEach((fDef, i) => {
-      s.fields.push({
+      createdFields.push({
         id: uuidv4(), environment_id: environment.id, object_id: obj.id,
         name: fDef.name, api_key: fDef.api_key, field_type: fDef.field_type,
         is_required: fDef.is_required||false, show_in_list: fDef.show_in_list!==false,
@@ -289,13 +288,12 @@ async function provisionClient(clientData, envData, adminUser, templateKey) {
   const createdRoles = [];
   for (const roleDef of roles) {
     const slug = roleDef.name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
-    const role = {
+    createdRoles.push({
       id: uuidv4(), environment_id: environment.id,
       name: roleDef.name, slug,
       permissions: roleDef.permissions, color: roleDef.color||'#4361EE',
       is_system: true, created_at: now, updated_at: now, deleted_at: null,
-    };
-    s.roles.push(role); createdRoles.push(role);
+    });
   }
 
   if (!s.users) s.users = [];
@@ -312,12 +310,12 @@ async function provisionClient(clientData, envData, adminUser, templateKey) {
     last_login: null, login_count: 0,
     created_at: now, updated_at: now, deleted_at: null,
   };
-  s.users.push(user);
+  // Do NOT push user into master s.users — user belongs only in the tenant store
 
   s.provision_log.push({
     id: uuidv4(), client_id: client.id, environment_id: environment.id,
     template: templateKey||'core_recruitment', objects_seeded: createdObjects.length,
-    fields_seeded: s.fields.filter(f=>f.environment_id===environment.id).length,
+    fields_seeded: createdFields.length,
     roles_seeded: createdRoles.length, admin_email: adminUser.email,
     provisioned_at: now, status: 'success',
   });
@@ -339,7 +337,7 @@ async function provisionClient(clientData, envData, adminUser, templateKey) {
     if (!ts.objects) ts.objects = [];
     if (!ts.fields)  ts.fields  = [];
     for (const obj of createdObjects) ts.objects.push(obj);
-    for (const field of (s.fields||[]).filter(f => f.environment_id === environment.id)) ts.fields.push(field);
+    for (const field of createdFields) ts.fields.push(field);
 
     // Seed roles
     if (!ts.roles) ts.roles = [];

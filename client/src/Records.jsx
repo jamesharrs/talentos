@@ -5155,6 +5155,35 @@ const CSVImportModal = ({ object, environment, onClose, onDone }) => {
   );
 };
 
+// Builds a plain-text list summary for the copilot
+function buildListContext(object, records, total) {
+  if (!object || !records) return null;
+  const lines = [];
+  lines.push("LIST: " + (object.plural_name || object.name) +
+    " (" + total + " total" + (records.length < total ? ", showing " + records.length : "") + ")");
+  const getName = r => {
+    const d = r.data || {};
+    return (d.first_name ? (d.first_name + " " + (d.last_name || "")).trim() : null)
+      || d.job_title || d.pool_name || d.name || "";
+  };
+  const statuses = {};
+  records.forEach(r => { const s = r.data?.status; if (s) statuses[s] = (statuses[s] || 0) + 1; });
+  if (Object.keys(statuses).length)
+    lines.push("Status breakdown: " +
+      Object.entries(statuses).map(([k,v]) => k + ": " + v).join(", "));
+  const depts = {};
+  records.forEach(r => { const d = r.data?.department; if (d) depts[d] = (depts[d] || 0) + 1; });
+  if (Object.keys(depts).length)
+    lines.push("Department breakdown: " +
+      Object.entries(depts).map(([k,v]) => k + ": " + v).join(", "));
+  const names = records.slice(0, 25).map(getName).filter(Boolean);
+  if (names.length)
+    lines.push("Records (first " + names.length + "): " + names.join(", ") +
+      (total > 25 ? " ... and " + (total - 25) + " more" : ""));
+  return lines.join("
+");
+}
+
 export default function RecordsView({ environment, object, onOpenRecord, initialFilter, session, autoCreate, onAutoCreateConsumed }) {
   // Make environment available to PeoplePicker without prop drilling
   useEffect(() => { _currentEnvId = environment?.id; }, [environment?.id]);
@@ -5260,6 +5289,10 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
     setRecords(filtered);
     setTotal(filterChip ? filtered.length : (r.pagination?.total||0));
     setLoading(false);
+    // Broadcast list summary to copilot so it can answer list questions
+    window.dispatchEvent(new CustomEvent("talentos:list-context", {
+      detail: buildListContext(object, filtered, filterChip ? filtered.length : (r.pagination?.total||0))
+    }));
   }, [object.id, environment.id, page, search, filterChip]);
 
   const handleColChange = (ids) => {

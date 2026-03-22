@@ -1521,6 +1521,7 @@ function App() {
     if (id.startsWith("dashboard")) setDashFlyout(true);
     // Clear active record context when leaving a record page
     if (!id.startsWith("record_")) { setActiveRecord(null); setActiveRecordObj(null); }
+    if (!id.startsWith("obj_") && !id.startsWith("record_")) { setListContext(null); }
     // Log nav-level pages to history
     const NAV_META = {
       dashboard:            { label: "Dashboard",   objectName: "Overview",   objectColor: "#4361EE" },
@@ -1561,6 +1562,7 @@ function App() {
   // Track active record for copilot context
   const [activeRecord,    setActiveRecord]    = useState(null); // { id, data, object }
   const [activeRecordObj, setActiveRecordObj] = useState(null);
+  const [listContext,     setListContext]     = useState(null); // current list summary for copilot
 
   const openRecord = (recordId, objectId) => {
     setActiveNav(`record_${recordId}_${objectId}`);
@@ -1592,15 +1594,30 @@ function App() {
   // Global event listener — dashboard fires talentos:open-report to open Reports with a preset
   useEffect(() => {
     const handler = (e) => {
-      const { objectSlug, ...config } = e.detail || {};
+      const { objectSlug: slugA, object: slugB, ...config } = e.detail || {};
+      const objectSlug = slugA || slugB;          // copilot sends 'object', dashboard sends 'objectSlug'
       if (!objectSlug) return;
       const obj = navObjects.find(o => o.slug === objectSlug);
-      setReportPreset({ objectId: obj?.id, objectSlug, ...config });
-      setActiveNav("reports");
+      const preset = { objectId: obj?.id, objectSlug, ...config };
+      if (activeNav === "reports") {
+        // Already on reports — force ReportsPage to react by clearing then resetting
+        setReportPreset(null);
+        setTimeout(() => setReportPreset(preset), 0);
+      } else {
+        setReportPreset(preset);
+        setActiveNav("reports");
+      }
     };
     window.addEventListener("talentos:open-report", handler);
     return () => window.removeEventListener("talentos:open-report", handler);
-  }, [navObjects]);
+  }, [navObjects, activeNav]);
+
+  // Listen for list context updates broadcast from RecordsView
+  useEffect(() => {
+    const handler = (e) => setListContext(e.detail || null);
+    window.addEventListener("talentos:list-context", handler);
+    return () => window.removeEventListener("talentos:list-context", handler);
+  }, []);
 
   // talentos:navigate — generic nav event (e.g. "← Dashboard" back button)
   useEffect(() => {
@@ -1895,6 +1912,7 @@ function App() {
           navObjects={navObjects}
           currentRecord={activeRecord}
           currentObject={activeRecordObj}
+          pageContext={listContext}
           onNavigateToRecord={(record) => {
             const obj = navObjects.find(o => o.slug === record.object_slug || o.id === record.object_id);
             if (!obj) return;

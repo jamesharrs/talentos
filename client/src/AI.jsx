@@ -469,7 +469,9 @@ You are always given the current page and record via "CURRENT PAGE CONTEXT:" in 
 - Reference people and jobs by name — never say "the current record" when you know their name
 - On a person record: proactively offer to summarise, draft emails, find matching jobs
 - On a job record: proactively offer to find matching candidates, summarise requirements
-- On a list page: offer to search, filter, or create a new record
+- On a list page: the context includes "LIST:" data — total count, status/dept breakdown,
+    first 25 record names. Use this directly to answer "how many people are in this list?",
+    "what statuses are shown?", "who is Active?". NEVER say you cannot see the list — the data is always injected.
 - On the dashboard: offer to explain the pipeline, find records, or take actions
 - NEVER claim you cannot see what page the user is on — you are always told via context
 
@@ -1504,15 +1506,17 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   const handleConfirmReport = () => {
     if (!pendingReport) return;
     const cfg = {
-      title:     pendingReport.title,
-      object:    pendingReport.object,
-      groupBy:   pendingReport.group_by,
-      chartType: pendingReport.chart_type || "bar",
-      sortBy:    pendingReport.sort_by,
-      sortDir:   pendingReport.sort_dir || "desc",
-      filters:   pendingReport.filters  || [],
-      formulas:  pendingReport.formulas || [],
-      autoRun:   true,
+      title:      pendingReport.title,
+      objectSlug: pendingReport.object,   // App handler requires objectSlug
+      object:     pendingReport.object,   // keep for backwards compat
+      groupBy:    pendingReport.group_by,
+      chartType:  pendingReport.chart_type || "bar",
+      sortBy:     pendingReport.sort_by,
+      sortDir:    pendingReport.sort_dir || "desc",
+      filters:    pendingReport.filters  || [],
+      formulas:   pendingReport.formulas || [],
+      autoRun:    true,
+      _ts:        Date.now(),             // force change even if already on reports
     };
     window.dispatchEvent(new CustomEvent("talentos:open-report", { detail: cfg }));
     setMessages(m=>[...m,{role:"assistant",content:`Opening **${pendingReport.title}** in Reports — it's running now. Adjust filters or save it from there.`,ts:new Date()}]);

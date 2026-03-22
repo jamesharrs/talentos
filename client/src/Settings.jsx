@@ -637,7 +637,37 @@ const RolesSection = ({ environment }) => {
                 : roleTab==="field_visibility"
                 ? <FieldVisibilityPanel role={selectedRole} environment={environment}/>
                 : <>
-                    <table style={{width:"100%",borderCollapse:"collapse"}}>
+                    {selectedRole.slug === 'super_admin' ? (
+                      <div>
+                        <div style={{padding:"14px 16px",borderRadius:10,background:"#f0fdf4",border:"1.5px solid #bbf7d0",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+                          <Ic n="check" s={16} c="#0ca678"/>
+                          <span style={{fontSize:13,fontWeight:600,color:"#065f46"}}>Super Admin has unrestricted access to all objects and actions. Permissions cannot be modified for this role.</span>
+                        </div>
+                        <table style={{width:"100%",borderCollapse:"collapse"}}>
+                          <thead>
+                            <tr style={{background:"#f8f9fc"}}>
+                              <th style={{padding:"8px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.05em"}}>Object</th>
+                              {ACTIONS.map(a=>(<th key={a} style={{padding:"8px 14px",textAlign:"center",fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.05em"}}>{a}</th>))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {OBJECTS.map(obj=>(
+                              <tr key={obj.slug} style={{borderBottom:`1px solid ${C.border}`}}>
+                                <td style={{padding:"12px 14px",fontSize:13,fontWeight:600,color:C.text1}}>{obj.label}</td>
+                                {ACTIONS.map(action=>(
+                                  <td key={action} style={{padding:"12px 14px",textAlign:"center"}}>
+                                    <div style={{width:24,height:24,borderRadius:6,border:`2px solid #0ca678`,background:"#0ca678",display:"inline-flex",alignItems:"center",justifyContent:"center",cursor:"not-allowed",opacity:0.7}}>
+                                      <Ic n="check" s={12} c="white"/>
+                                    </div>
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                    <><table style={{width:"100%",borderCollapse:"collapse"}}>
                       <thead>
                         <tr style={{background:"#f8f9fc"}}>
                           <th style={{padding:"8px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.05em",borderRadius:"8px 0 0 8px"}}>Object</th>
@@ -665,7 +695,8 @@ const RolesSection = ({ environment }) => {
                       </tbody>
                     </table>
                     {selectedRole.is_system && <p style={{fontSize:11,color:C.text3,marginTop:12,fontStyle:"italic"}}>System role permissions cannot be modified.</p>}
-                    <RoleBulkThreshold role={selectedRole}/>
+                    <RoleBulkThreshold role={selectedRole}/></>
+                    )}
                   </>
               }
             </div>
@@ -2589,7 +2620,33 @@ const FeatureAccessSection = ({ selectedRole }) => {
   if (loading) return <div style={{ padding:20, color:C.text3, fontSize:13 }}>Loading…</div>;
 
   const isSystem = selectedRole.is_system;
+  const isSuperAdmin = selectedRole.slug === 'super_admin';
   const roleColor = selectedRole.color || C.accent;
+
+  // Super admin — show all flags as permanently on and locked
+  if (isSuperAdmin) return (
+    <div>
+      <div style={{padding:"14px 16px",borderRadius:10,background:"#f0fdf4",border:"1.5px solid #bbf7d0",marginBottom:16,display:"flex",alignItems:"center",gap:10}}>
+        <Ic n="check" s={16} c="#0ca678"/>
+        <span style={{fontSize:13,fontWeight:600,color:"#065f46"}}>Super Admin has full access to every feature. These settings cannot be modified.</span>
+      </div>
+      {FEATURE_GROUPS_LIST.map(group => (
+        <div key={group} style={{ marginBottom:18 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6, paddingBottom:4, borderBottom:`1px solid ${C.border}` }}>{group}</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px 12px' }}>
+            {FEATURE_FLAGS_LIST.filter(f => f.group === group).map(feature => (
+              <div key={feature.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 10px', borderRadius:8, border:`1.5px solid #0ca67840`, background:'#0ca67808', opacity:0.8, cursor:'not-allowed' }}>
+                <span style={{ fontSize:12, fontWeight:600, color:C.text1 }}>{feature.label}</span>
+                <div style={{ flexShrink:0, width:32, height:18, borderRadius:99, background:'#0ca678', position:'relative' }}>
+                  <div style={{ position:'absolute', top:2, left:16, width:14, height:14, borderRadius:'50%', background:'white', boxShadow:'0 1px 3px rgba(0,0,0,.2)' }}/>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div>

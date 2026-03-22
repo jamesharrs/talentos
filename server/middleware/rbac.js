@@ -119,11 +119,6 @@ function getUserPermissions(user) {
 
 function seedDefaultPermissions(store) {
   if (!store.permissions) store.permissions = [];
-  // Re-seed if record action flags are missing (incremental addition)
-  const hasRecordFlags = store.permissions.some(p => p.object_slug === '__global__' && p.action === 'record_send_email');
-  if (store.permissions.length > 0 && hasRecordFlags) return;
-  // Clear existing global perms and re-seed all
-  store.permissions = store.permissions.filter(p => p.object_slug !== '__global__');
   const { v4: uuidv4 } = require('uuid');
   const now = new Date().toISOString();
   const ALL_RECORD = ['record_send_email','record_send_sms','record_log_call','record_view_comms','record_add_note','record_delete_note','record_upload_file','record_delete_file','record_parse_cv','record_extract_doc','record_add_to_pipeline','record_move_stage','record_run_workflow','record_schedule_interview','record_create_offer'];
@@ -135,7 +130,37 @@ function seedDefaultPermissions(store) {
     read_only:      { people:['view'], jobs:['view'], talent_pools:['view'], __global__:['access_dashboard','access_search','record_view_comms'] },
   };
 
+  // Always fully rebuild super_admin permissions so they can never be accidentally disabled
+  const superAdminRole = (store.roles || []).find(r => r.slug === 'super_admin');
+  if (superAdminRole) {
+    // Remove all existing super_admin permissions and rebuild from scratch
+    store.permissions = store.permissions.filter(p => p.role_id !== superAdminRole.id);
+    const saDefs = roleDefaults.super_admin;
+    for (const [objSlug, allowed] of Object.entries(saDefs)) {
+      const allActions = objSlug === '__global__' ? GLOBAL_ACTIONS : Object.values(ACTIONS);
+      for (const action of allActions) {
+        store.permissions.push({
+          id: uuidv4(), role_id: superAdminRole.id, object_slug: objSlug,
+          action, allowed: 1, created_at: now
+        });
+      }
+    }
+    console.log(`✅ Super Admin permissions rebuilt (${store.permissions.filter(p=>p.role_id===superAdminRole.id).length} rules)`);
+  }
+
+  // Seed other roles only if they have NO permissions at all
+  const hasRecordFlags = store.permissions.some(p => p.object_slug === '__global__' && p.action === 'record_send_email');
+  if (hasRecordFlags) return; // other roles already seeded
+
+  // Clear non-super-admin global perms and re-seed
+  if (superAdminRole) {
+    store.permissions = store.permissions.filter(p => p.role_id === superAdminRole.id);
+  } else {
+    store.permissions = [];
+  }
+
   for (const role of (store.roles || [])) {
+    if (role.slug === 'super_admin') continue; // already handled above
     const defaults = roleDefaults[role.slug];
     if (!defaults) continue;
     for (const [objSlug, allowed] of Object.entries(defaults)) {

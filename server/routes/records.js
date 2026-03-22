@@ -52,7 +52,7 @@ function resolveAutoNumbers(objectId, data) {
 // Permission gate — returns 403 if user lacks permission, null if OK
 function checkPerm(req, res, objectId, action) {
   const user = req.currentUser;
-  if (!user) return null; // no auth = allow (backward compat until full auth wired)
+  if (!user) { res.status(401).json({ error: "Authentication required", code: "UNAUTHENTICATED" }); return false; }
   const slug = getObjectSlug(objectId);
   if (!slug) return null; // unknown object = allow
   if (!hasPermission(user, slug, action)) {
@@ -64,7 +64,7 @@ function checkPerm(req, res, objectId, action) {
 
 function checkGlobal(req, res, action) {
   const user = req.currentUser;
-  if (!user) return null;
+  if (!user) { res.status(401).json({ error: "Authentication required", code: "UNAUTHENTICATED" }); return false; }
   if (!hasGlobalAction(user, action)) {
     res.status(403).json({ error: 'Permission denied', code: 'FORBIDDEN', required: { action } });
     return false;

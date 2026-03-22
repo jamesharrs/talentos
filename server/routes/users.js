@@ -3,7 +3,7 @@ const { hasGlobalAction } = require('../middleware/rbac');
 
 function checkGlobal(req, res, action) {
   const user = req.currentUser;
-  if (!user) return null;
+  if (!user) { res.status(401).json({ error: "Authentication required", code: "UNAUTHENTICATED" }); return false; }
   if (!hasGlobalAction(user, action)) {
     res.status(403).json({ error: 'Permission denied', code: 'FORBIDDEN', required: { action } });
     return false;

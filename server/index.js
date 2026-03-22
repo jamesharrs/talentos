@@ -51,6 +51,21 @@ app.use(express.json({ limit: '10mb' }));
 app.use(tenantMiddleware);
 app.use(attachUser); // attach current user to every request (non-blocking)
 
+// ── Global auth guard ─────────────────────────────────────────────────────────
+// All /api/* routes require authentication EXCEPT auth endpoints.
+const AUTH_EXEMPT = ['/api/auth/login', '/api/auth/me', '/api/health',
+  '/api/portals/public', '/api/superadmin'];
+app.use('/api', (req, res, next) => {
+  // Skip for exempt prefixes
+  if (AUTH_EXEMPT.some(p => req.path === p || req.path.startsWith(p + '/'))) return next();
+  // Skip for OPTIONS (CORS preflight)
+  if (req.method === 'OPTIONS') return next();
+  if (!req.currentUser) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHENTICATED' });
+  }
+  next();
+});
+
 app.use('/api/auth',        require('./routes/auth'));
 app.use('/api/field-visibility', require('./routes/field_visibility'));
 app.use('/api/environments', require('./routes/environments'));

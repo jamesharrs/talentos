@@ -1678,8 +1678,73 @@ function StagePill({ linkInfo, onStageChange }) {
   );
 }
 
+// ── InlineStatusPicker ─────────────────────────────────────────────────────────
+const InlineStatusPicker = ({ record, statusOptions, onUpdate }) => {
+  const [open, setOpen] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const ref = React.useRef(null);
+  const status = record.data?.status || "";
+  const colorMap = {
+    Active:"#0ca678", Open:"#0ca678", Passive:"#f59f00", Draft:"#6b7280",
+    "Not Looking":"#e03131", Filled:"#3b5bdb", "On Hold":"#f59f00",
+    Cancelled:"#e03131", Placed:"#7c3aed", Archived:"#9ca3af",
+  };
+  const color = colorMap[status] || "#6b7280";
+  React.useEffect(() => {
+    if (!open) return;
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+  const handleChange = async (newStatus) => {
+    setSaving(true); setOpen(false);
+    try {
+      const updated = await fetch(`/api/records/${record.id}`, {
+        method:"PATCH", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ data: { ...record.data, status: newStatus } })
+      }).then(r => r.json());
+      onUpdate?.(updated);
+    } catch(e) { console.error(e); }
+    setSaving(false);
+  };
+  if (!status || !statusOptions?.length) return null;
+  return (
+    <div ref={ref} style={{ position:"relative", display:"inline-flex" }} onClick={e => e.stopPropagation()}>
+      <button onClick={() => setOpen(o => !o)}
+        style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 8px", borderRadius:99,
+          fontSize:11, fontWeight:600, border:"none", cursor:"pointer",
+          background:`${color}18`, color, opacity: saving ? 0.6 : 1 }}>
+        <span style={{ width:6, height:6, borderRadius:"50%", background:color, flexShrink:0 }}/>
+        {saving ? "…" : status}<span style={{ fontSize:9, opacity:0.7 }}>▾</span>
+      </button>
+      {open && (
+        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:9999,
+          background:"white", borderRadius:10, boxShadow:"0 4px 20px rgba(0,0,0,.12)",
+          border:"1px solid #e5e7eb", overflow:"hidden", minWidth:130 }}>
+          {statusOptions.map(opt => (
+            <button key={opt} onClick={() => handleChange(opt)}
+              style={{ display:"flex", alignItems:"center", gap:8, width:"100%", padding:"8px 12px",
+                background: opt===status ? "#f5f3ff" : "transparent",
+                border:"none", cursor:"pointer", fontSize:12, fontWeight:500,
+                color: opt===status ? "#7c3aed" : "#374151", textAlign:"left" }}
+              onMouseEnter={e => { if(opt!==status) e.currentTarget.style.background="#f8f9fc"; }}
+              onMouseLeave={e => { if(opt!==status) e.currentTarget.style.background="transparent"; }}>
+              <span style={{ width:8, height:8, borderRadius:"50%", background:colorMap[opt]||"#6b7280", flexShrink:0 }}/>
+              {opt}
+              {opt===status && <span style={{ marginLeft:"auto", fontSize:10, color:"#7c3aed" }}>✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Enhanced TableView ─────────────────────────────────────────────────────────
-const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, onEdit, onDelete, onProfile, selectedIds, onToggleSelect, onToggleAll, sortBy, sortDir, onSort, onColumnFilter, colWidths, onResizeCol, visibleColOrder, onReorderCols, linkedJobs, onStageChange }) => {
+const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, onEdit, onDelete, onProfile, selectedIds, onToggleSelect, onToggleAll, sortBy, sortDir, onSort, onColumnFilter, colWidths, onResizeCol, visibleColOrder, onReorderCols, linkedJobs, onStageChange, onStatusUpdate }) => {
+  const [hoveredRow, setHoveredRow] = React.useState(null);
+  const statusField = fields.find(f => f.api_key === "status");
+  const statusOptions = statusField?.options || [];
   const listFields = visibleFieldIds
     ? visibleFieldIds.map(id => fields.find(f => f.id === id) || SYSTEM_COLS.find(s => s.id === id)).filter(Boolean)
     : fields.filter(f => f.show_in_list).slice(0, 6);
@@ -1790,8 +1855,8 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
             return (
               <tr key={record.id}
                 style={{ borderBottom:`1px solid ${C.border}`, transition:"background .1s", background: isSelected ? `${C.accent}08` : "transparent" }}
-                onMouseEnter={e=>{ if(!isSelected) e.currentTarget.style.background="#f8f9fc"; }}
-                onMouseLeave={e=>{ if(!isSelected) e.currentTarget.style.background="transparent"; }}>
+                onMouseEnter={e=>{ if(!isSelected) e.currentTarget.style.background="#f8f9fc"; setHoveredRow(record.id); }}
+                onMouseLeave={e=>{ if(!isSelected) e.currentTarget.style.background="transparent"; setHoveredRow(null); }}>
                 <td style={{ padding:"12px 12px" }}>
                   <input type="checkbox" checked={!!isSelected} onChange={() => onToggleSelect(record.id)}
                     style={{ width:15, height:15, cursor:"pointer", accentColor:C.accent }}/>
@@ -1829,7 +1894,14 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                   );
                 })}
                 <td style={{ padding:"12px 14px", textAlign:"right" }}>
-                  <div style={{ display:"flex", gap:4, justifyContent:"flex-end" }}>
+                  <div style={{ display:"flex", gap:4, justifyContent:"flex-end", alignItems:"center" }}>
+                    {hoveredRow===record.id && statusOptions.length > 0 && (
+                      <InlineStatusPicker
+                        record={record}
+                        statusOptions={statusOptions}
+                        onUpdate={r => onStatusUpdate?.(r)}
+                      />
+                    )}
                     {onEdit   && <Btn v="ghost" sz="sm" icon="edit"   onClick={()=>onEdit(record)}/>}
                     <Btn v="ghost" sz="sm" icon="expand" onClick={()=>onSelect(record)}/>
                     {onDelete && <Btn v="ghost" sz="sm" icon="trash"  onClick={()=>onDelete(record.id)} style={{color:"#ef4444"}}/>}
@@ -5918,6 +5990,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
             onSelect={r=>{setSelected(r);}}
             onEdit={can("edit") ? r=>setEditRecord(r) : null}
             onDelete={can("delete") ? handleDelete : null}
+            onStatusUpdate={updated => setRecords(prev => prev.map(r => r.id===updated.id ? updated : r))}
             selectedIds={selectedIds}
             onToggleSelect={id => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })}
             onToggleAll={() => setSelectedIds(prev => prev.size === displayedRecords.length ? new Set() : new Set(displayedRecords.map(r => r.id)))}

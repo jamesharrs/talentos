@@ -805,7 +805,57 @@ const CREATE_ACTIONS = [
   { id:"search",       icon:"search",    label:"Search records",  prompt:"Search for " },
 ];
 
+const SUGGESTED_ACTIONS = {
+  people: [
+    { label: "Schedule interview",   prompt: "Schedule an interview for this candidate" },
+    { label: "Draft outreach email", prompt: "Draft a warm outreach email to this candidate" },
+    { label: "Find matching jobs",   prompt: "Find the best matching jobs for this candidate" },
+    { label: "Add a note",           prompt: "Add a note to this candidate's record" },
+  ],
+  jobs: [
+    { label: "Find candidates",       prompt: "Find the best matching candidates for this job" },
+    { label: "Write job description", prompt: "Write a compelling job description for this role" },
+    { label: "Schedule interview",    prompt: "Schedule an interview for this role" },
+  ],
+  reports: [
+    { label: "Filter by status",   prompt: "Add a filter to show only active records" },
+    { label: "Group differently",  prompt: "Change the grouping of this report" },
+    { label: "Change chart type",  prompt: "Change this to a pie chart" },
+    { label: "Save this report",   prompt: "Save this report with a name" },
+  ],
+  default: [
+    { label: "Search records",  prompt: "Search for " },
+    { label: "Create a report", prompt: "I want to build a report" },
+    { label: "New person",      prompt: "I want to add a new person" },
+    { label: "New job",         prompt: "I want to create a new job" },
+  ],
+};
+
 /* ─── AI Copilot ─────────────────────────────────────────────────────────── */
+const SuggestedActions = ({ activeNav, currentObject, onSend, isLastMsg }) => {
+  if (!isLastMsg) return null;
+  const slug = currentObject?.slug;
+  const isReports = activeNav === 'reports';
+  const actions = isReports ? SUGGESTED_ACTIONS.reports
+    : slug && SUGGESTED_ACTIONS[slug] ? SUGGESTED_ACTIONS[slug]
+    : SUGGESTED_ACTIONS.default;
+  return (
+    <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:8, marginLeft:34 }}>
+      {actions.map((a, i) => (
+        <button key={i} onClick={() => onSend(a.prompt)}
+          style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"4px 10px",
+            borderRadius:99, border:"1.5px solid #ddd6fe", background:"white",
+            color:"#6d28d9", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit",
+            transition:"all .12s", whiteSpace:"nowrap" }}
+          onMouseEnter={e=>{ e.currentTarget.style.background="#f5f3ff"; e.currentTarget.style.borderColor="#a78bfa"; }}
+          onMouseLeave={e=>{ e.currentTarget.style.background="white"; e.currentTarget.style.borderColor="#ddd6fe"; }}>
+          {a.label} →
+        </button>
+      ))}
+    </div>
+  );
+};
+
 export const AICopilot = ({ environment, currentRecord, currentObject, onNavigateToRecord, activeNav, navObjects, pageContext }) => {
   const [open,         setOpen]         = useState(false);
   const [messages,     setMessages]     = useState([]);
@@ -1788,6 +1838,14 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                           <Ic n={copied===i?"check":"copy"} s={10}/>{copied===i?"Copied":"Copy"}
                         </button>
                       </div>
+                    )}
+                    {msg.role==="assistant"&&!msg.error&&(
+                      <SuggestedActions
+                        activeNav={activeNav}
+                        currentObject={currentObject}
+                        onSend={sendMessage}
+                        isLastMsg={i===messages.length-1}
+                      />
                     )}
                   </div>
                 </div>

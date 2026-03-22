@@ -232,12 +232,12 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
             <div style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:12}}>
               {(() => {
                 const slug = client.tenant_slug;
-                const tenantUrl = slug ? `${window.location.origin}?tenant=${slug}` : window.location.origin;
+                const tenantUrl = slug ? `https://${slug}.vercentic.com` : window.location.origin;
                 const latest = (client.provision_log||[]).slice(-1)[0];
                 const copyTxt = `Vercentic Login\nURL: ${tenantUrl}\nTenant: ${slug||'(default)'}\nEmail: ${latest?.admin_email||'(see provision log)'}\nPassword: Admin1234! (or as set during provisioning)`;
                 return (<>
                   <div style={{flex:1}}>
-                    <div style={{fontSize:12,color:C.text3,marginBottom:4}}>Login URL {slug && <code style={{background:'#EFF6FF',color:'#1D4ED8',padding:'1px 5px',borderRadius:3,fontSize:11}}>?tenant={slug}</code>}</div>
+                    <div style={{fontSize:12,color:C.text3,marginBottom:4}}>Login URL</div>
                     <a href={tenantUrl} target="_blank" rel="noreferrer"
                       style={{fontFamily:'monospace',fontSize:13,color:C.accent,textDecoration:'none',fontWeight:600}}>
                       {tenantUrl}
@@ -420,7 +420,7 @@ export function ProvisionWizard({ onDone, onCancel }) {
       {(() => {
         const slug = result.tenant_slug || result.credentials?.tenant_slug;
         const tenantUrl = slug
-          ? `${window.location.origin}?tenant=${slug}`
+          ? `https://${slug}.vercentic.com`
           : window.location.origin;
         return (
           <div style={{background:'#EFF6FF',borderRadius:12,border:'1px solid #BFDBFE',padding:14,marginBottom:16,textAlign:'left'}}>
@@ -447,7 +447,7 @@ export function ProvisionWizard({ onDone, onCancel }) {
           <div style={{fontSize:10,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em'}}>Credentials</div>
           <button onClick={()=>{
             const slug = result.tenant_slug || result.credentials?.tenant_slug;
-            const tenantUrl = slug ? `${window.location.origin}?tenant=${slug}` : window.location.origin;
+            const tenantUrl = slug ? `https://${slug}.vercentic.com` : window.location.origin;
             const txt = `Vercentic Login\nURL: ${tenantUrl}\nTenant: ${slug||'(default)'}\nEmail: ${result.credentials?.email}\nPassword: ${result.credentials?.password}`;
             navigator.clipboard.writeText(txt);
           }} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,cursor:'pointer',padding:'3px 8px',fontSize:10,fontWeight:700,color:C.text2}}>

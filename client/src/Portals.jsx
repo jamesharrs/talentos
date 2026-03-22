@@ -272,6 +272,9 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     align:"M17 10H3M21 6H3M21 14H3M17 18H3",
     mountain:"M3 18l4-8 4 4 4-6 5 10H3z",
     form:"M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8",
+    menu:"M3 12h18M3 6h18M3 18h18",
+    footer2:"M3 3h18v4H3zM3 17h18v4H3zM3 10h18v4H3z",
+    externalLink:"M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3",
     film:"M19.82 2H4.18A2.18 2.18 0 002 4.18v15.64A2.18 2.18 0 004.18 22h15.64A2.18 2.18 0 0022 19.82V4.18A2.18 2.18 0 0019.82 2zM7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5",
   };
   return (
@@ -677,6 +680,76 @@ const WidgetPreview = ({ cell, theme }) => {
   );
 };
 
+
+// ─── Multi-step Form Config ────────────────────────────────────────────────────
+const FIELD_TYPES = [
+  { value:"text", label:"Short text" }, { value:"email", label:"Email" },
+  { value:"phone", label:"Phone" }, { value:"textarea", label:"Long text" },
+  { value:"select", label:"Dropdown" }, { value:"radio", label:"Radio" },
+  { value:"checkbox", label:"Checkboxes" }, { value:"date", label:"Date" },
+  { value:"file", label:"File upload" },
+];
+const defaultStep  = (n) => ({ id:Math.random().toString(36).slice(2), title:`Step ${n}`, fields:[] });
+const defaultField = ()  => ({ id:Math.random().toString(36).slice(2), type:"text", label:"", placeholder:"", required:false, options:"" });
+
+const MultistepFormConfig = ({ cfg, set, inp, lbl }) => {
+  const [activeStep, setActiveStep] = useState(0);
+  const steps = cfg.steps || [defaultStep(1)];
+  const setSteps = (s) => set("steps", s);
+  const addStep = () => setSteps([...steps, defaultStep(steps.length+1)]);
+  const removeStep = (i) => { const s=[...steps]; s.splice(i,1); setSteps(s); if(activeStep>=s.length) setActiveStep(Math.max(0,s.length-1)); };
+  const updateStep = (i,p) => { const s=[...steps]; s[i]={...s[i],...p}; setSteps(s); };
+  const addField = () => { const s=[...steps]; s[activeStep]={...s[activeStep],fields:[...(s[activeStep].fields||[]),defaultField()]}; setSteps(s); };
+  const removeField = (fi) => { const s=[...steps]; const f=[...s[activeStep].fields]; f.splice(fi,1); s[activeStep]={...s[activeStep],fields:f}; setSteps(s); };
+  const updateField = (fi,p) => { const s=[...steps]; const f=[...s[activeStep].fields]; f[fi]={...f[fi],...p}; s[activeStep]={...s[activeStep],fields:f}; setSteps(s); };
+  const step = steps[activeStep]||steps[0];
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div>{lbl("Form title")}<input value={cfg.formTitle||""} onChange={e=>set("formTitle",e.target.value)} placeholder="Application Form" style={inp}/></div>
+      <div>{lbl("Submit button text")}<input value={cfg.submitText||""} onChange={e=>set("submitText",e.target.value)} placeholder="Submit" style={inp}/></div>
+      <div>{lbl("Success message")}<input value={cfg.successMessage||""} onChange={e=>set("successMessage",e.target.value)} placeholder="Thank you! We'll be in touch." style={inp}/></div>
+      <div style={{borderTop:`1px solid ${C.border}`,paddingTop:14}}>
+        {lbl("Steps")}
+        <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:10}}>
+          {steps.map((s,i)=>(
+            <button key={s.id} onClick={()=>setActiveStep(i)} style={{padding:"4px 10px",borderRadius:6,border:"1.5px solid",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:F,borderColor:i===activeStep?"#4361EE":"#E8ECF8",background:i===activeStep?"#EEF2FF":"transparent",color:i===activeStep?"#4361EE":"#6B7280"}}>{s.title}</button>
+          ))}
+          <button onClick={addStep} style={{padding:"4px 8px",borderRadius:6,border:"1.5px dashed #E8ECF8",background:"transparent",cursor:"pointer",color:"#9CA3AF",fontSize:11,fontFamily:F}}>+ Step</button>
+        </div>
+        {step&&(
+          <div style={{background:C.surface2,borderRadius:10,padding:12}}>
+            <div style={{display:"flex",gap:8,marginBottom:10}}>
+              <input value={step.title} onChange={e=>updateStep(activeStep,{title:e.target.value})} placeholder="Step title" style={{...inp,flex:1,background:"#fff",fontSize:12,padding:"5px 8px"}}/>
+              {steps.length>1&&<button onClick={()=>removeStep(activeStep)} style={{padding:"4px 8px",borderRadius:6,border:"1px solid #FCA5A5",background:"#FEF2F2",cursor:"pointer",color:"#EF4444",fontSize:11}}>Remove</button>}
+            </div>
+            {(step.fields||[]).map((f,fi)=>(
+              <div key={f.id} style={{background:"#fff",borderRadius:8,padding:"10px 12px",marginBottom:8,border:"1px solid #E8ECF8"}}>
+                <div style={{display:"flex",gap:6,marginBottom:6}}>
+                  <select value={f.type} onChange={e=>updateField(fi,{type:e.target.value})} style={{...inp,flex:"0 0 130px",fontSize:11,padding:"4px 6px",background:"#F8F9FC"}}>
+                    {FIELD_TYPES.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                  <input value={f.label} onChange={e=>updateField(fi,{label:e.target.value})} placeholder="Field label" style={{...inp,flex:1,fontSize:11,padding:"4px 8px"}}/>
+                  <button onClick={()=>removeField(fi)} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:14,padding:"0 4px"}}>✕</button>
+                </div>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <input value={f.placeholder||""} onChange={e=>updateField(fi,{placeholder:e.target.value})} placeholder="Placeholder" style={{...inp,flex:1,fontSize:11,padding:"4px 8px"}}/>
+                  <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#6B7280",flexShrink:0,cursor:"pointer"}}>
+                    <input type="checkbox" checked={!!f.required} onChange={e=>updateField(fi,{required:e.target.checked})} style={{width:13,height:13}}/>Required
+                  </label>
+                </div>
+                {(f.type==="select"||f.type==="radio"||f.type==="checkbox")&&(
+                  <input value={f.options||""} onChange={e=>updateField(fi,{options:e.target.value})} placeholder="Options, comma separated" style={{...inp,marginTop:6,fontSize:11,padding:"4px 8px"}}/>
+                )}
+              </div>
+            ))}
+            <button onClick={addField} style={{width:"100%",padding:"6px",borderRadius:8,border:"1.5px dashed #E8ECF8",background:"transparent",cursor:"pointer",fontSize:11,color:"#9CA3AF",fontFamily:F}}>+ Add field</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ─── Widget Config Panel ──────────────────────────────────────────────────────
 const WidgetConfigPanel = ({ cell, onUpdate, onClose }) => {
   const cfg = cell.widgetConfig || {};
@@ -761,6 +834,7 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose }) => {
           <div>{lbl("Form title")}<input value={cfg.title||""} onChange={e=>set("title",e.target.value)} placeholder="Apply Now" style={inp}/></div>
         </div>
       );
+      case "multistep_form": return <MultistepFormConfig cfg={cfg} set={set} inp={inp} lbl={lbl}/>;
       default: return <p style={{ fontSize:12, color:C.text3, margin:0 }}>No settings for this widget.</p>;
     }
   };
@@ -913,15 +987,16 @@ const RowSettings = ({ row, onChange, onClose }) => {
           <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>Background Image</div>
           <input value={row.bgImage||""} onChange={e=>set("bgImage",e.target.value)} placeholder="https://…" style={inp}/>
         </div>
-        {row.bgImage&&(
-          <div>
-            <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>
-              Image Overlay · {row.overlayOpacity||0}%
-            </div>
-            <input type="range" min="0" max="85" value={row.overlayOpacity||0}
-              onChange={e=>set("overlayOpacity",parseInt(e.target.value))} style={{width:"100%"}}/>
+        {row.bgImage&&(<div><div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>Image Overlay · {row.overlayOpacity||0}%</div><input type="range" min="0" max="85" value={row.overlayOpacity||0} onChange={e=>set("overlayOpacity",parseInt(e.target.value))} style={{width:"100%"}}/></div>)}
+        <div style={{borderTop:`1px solid ${C.border}`,paddingTop:12}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Conditional Visibility</div>
+          <div style={{fontSize:11,color:C.text3,marginBottom:8}}>Show this row only when a URL parameter matches.</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+            <input value={row.condition?.param||""} onChange={e=>set("condition",{...row.condition,param:e.target.value})} placeholder="URL param (e.g. dept)" style={inp}/>
+            <input value={row.condition?.value||""} onChange={e=>set("condition",{...row.condition,value:e.target.value})} placeholder="Value (e.g. engineering)" style={inp}/>
           </div>
-        )}
+          {(row.condition?.param||row.condition?.value)&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{fontSize:11,color:C.accent}}>Visible when ?{row.condition?.param}={row.condition?.value}</div><button onClick={()=>set("condition",null)} style={{background:"none",border:"none",cursor:"pointer",color:C.red,fontSize:10}}>Clear</button></div>}
+        </div>
       </div>
     </div>
   );
@@ -1093,15 +1168,186 @@ const PortalCanvas = ({ page, onUpdate, theme, isEditing }) => {
   );
 };
 
+
+const defaultNav = () => ({ logoText:'', logoUrl:'', bgColor:'', textColor:'', sticky:true,
+  links:[{id:'nl1',label:'Home',href:'/'},{id:'nl2',label:'Jobs',href:'#jobs'},{id:'nl3',label:'Apply',href:'/apply'}] });
+const defaultFooter = () => ({ bgColor:'#0F1729', textColor:'#F1F5F9',
+  bottomText:'© 2026 Your Company. All rights reserved.',
+  columns:[{id:'fc1',heading:'Company',links:[{label:'About',href:'#'},{label:'Careers',href:'#jobs'}]},{id:'fc2',heading:'Legal',links:[{label:'Privacy',href:'#'},{label:'Terms',href:'#'}]}] });
+
+const NavEditor = ({ nav, onChange, theme, onClose }) => {
+  const set=(k,v)=>onChange({...nav,[k]:v});
+  const inp={padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:F,outline:"none",color:C.text1,background:C.surface,width:"100%",boxSizing:"border-box"};
+  const lbl=t=><div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>{t}</div>;
+  const links=nav.links||[];
+  const addLink=()=>set("links",[...links,{id:Math.random().toString(36).slice(2),label:'New Link',href:'/'}]);
+  const removeLink=i=>{const l=[...links];l.splice(i,1);set("links",l);};
+  const updateLink=(i,p)=>{const l=[...links];l[i]={...l[i],...p};set("links",l);};
+  return(
+    <div style={{position:"fixed",top:0,right:0,width:340,height:"100vh",background:C.surface,borderLeft:`1px solid ${C.border}`,zIndex:500,display:"flex",flexDirection:"column",boxShadow:"-8px 0 40px rgba(0,0,0,.1)"}}>
+      <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}><Ic n="menu" s={15} c={C.accent}/><span style={{fontSize:15,fontWeight:800,color:C.text1}}>Navigation</span></div>
+        <button onClick={onClose} style={{background:C.surface2,border:`1px solid ${C.border}`,borderRadius:6,cursor:"pointer",color:C.text2,padding:"5px 10px",display:"flex",alignItems:"center",gap:4,fontSize:12,fontWeight:600,fontFamily:F}}><Ic n="x" s={12}/> Close</button>
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div>{lbl("Logo text")}<input value={nav.logoText||""} onChange={e=>set("logoText",e.target.value)} placeholder="Company name" style={inp}/></div>
+          <div>{lbl("Logo image URL")}<input value={nav.logoUrl||""} onChange={e=>set("logoUrl",e.target.value)} placeholder="https://…/logo.png" style={inp}/></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div>{lbl("Nav background")}<input type="color" value={nav.bgColor||theme?.bgColor||"#ffffff"} onChange={e=>set("bgColor",e.target.value)} style={{width:"100%",height:32,borderRadius:6,border:`1px solid ${C.border}`,cursor:"pointer",padding:2}}/></div>
+            <div>{lbl("Nav text")}<input type="color" value={nav.textColor||theme?.textColor||"#0F1729"} onChange={e=>set("textColor",e.target.value)} style={{width:"100%",height:32,borderRadius:6,border:`1px solid ${C.border}`,cursor:"pointer",padding:2}}/></div>
+          </div>
+          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}><input type="checkbox" checked={!!nav.sticky} onChange={e=>set("sticky",e.target.checked)} style={{width:14,height:14}}/>Sticky nav</label>
+          <div style={{borderTop:`1px solid ${C.border}`,paddingTop:14}}>
+            {lbl("Nav links")}
+            {links.map((lnk,i)=>(<div key={lnk.id} style={{background:C.surface2,borderRadius:8,padding:10,marginBottom:8,border:`1px solid ${C.border}`}}>
+              <div style={{display:"flex",gap:6,marginBottom:6}}><input value={lnk.label} onChange={e=>updateLink(i,{label:e.target.value})} placeholder="Label" style={{...inp,flex:1,fontSize:12,padding:"5px 8px"}}/><button onClick={()=>removeLink(i)} style={{background:"none",border:"none",cursor:"pointer",color:C.red,fontSize:14,padding:"0 4px"}}>✕</button></div>
+              <input value={lnk.href} onChange={e=>updateLink(i,{href:e.target.value})} placeholder="URL or #anchor" style={{...inp,fontSize:12,padding:"5px 8px"}}/>
+            </div>))}
+            <button onClick={addLink} style={{width:"100%",padding:"6px",borderRadius:8,border:`1.5px dashed ${C.border}`,background:"transparent",cursor:"pointer",fontSize:12,color:C.text3,fontFamily:F}}>+ Add link</button>
+          </div>
+        </div>
+      </div>
+      <div style={{padding:"12px 20px",borderTop:`1px solid ${C.border}`,flexShrink:0}}>
+        <div style={{padding:"10px 14px",borderRadius:8,background:nav.bgColor||"#fff",border:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:13,fontWeight:800,color:theme?.primaryColor||"#4361EE"}}>{nav.logoText||"Company"}</span>
+          <div style={{display:"flex",gap:10}}>{links.slice(0,3).map(l=><span key={l.id} style={{fontSize:11,color:nav.textColor||"#374151"}}>{l.label}</span>)}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const FooterEditor = ({ footer, onChange, onClose }) => {
+  const set=(k,v)=>onChange({...footer,[k]:v});
+  const inp={padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:F,outline:"none",color:C.text1,background:C.surface,width:"100%",boxSizing:"border-box"};
+  const lbl=t=><div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>{t}</div>;
+  const cols=footer.columns||[];
+  const addCol=()=>set("columns",[...cols,{id:Math.random().toString(36).slice(2),heading:'Column',links:[]}]);
+  const removeCol=i=>{const c=[...cols];c.splice(i,1);set("columns",c);};
+  const updateCol=(i,p)=>{const c=[...cols];c[i]={...c[i],...p};set("columns",c);};
+  const addColLink=ci=>{const c=[...cols];c[ci].links=[...(c[ci].links||[]),{label:'Link',href:'#'}];set("columns",c);};
+  const updateColLink=(ci,li,p)=>{const c=[...cols];const l=[...c[ci].links];l[li]={...l[li],...p};c[ci]={...c[ci],links:l};set("columns",c);};
+  const removeColLink=(ci,li)=>{const c=[...cols];const l=[...c[ci].links];l.splice(li,1);c[ci]={...c[ci],links:l};set("columns",c);};
+  return(
+    <div style={{position:"fixed",top:0,right:0,width:340,height:"100vh",background:C.surface,borderLeft:`1px solid ${C.border}`,zIndex:500,display:"flex",flexDirection:"column",boxShadow:"-8px 0 40px rgba(0,0,0,.1)"}}>
+      <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}><Ic n="footer2" s={15} c={C.accent}/><span style={{fontSize:15,fontWeight:800,color:C.text1}}>Footer</span></div>
+        <button onClick={onClose} style={{background:C.surface2,border:`1px solid ${C.border}`,borderRadius:6,cursor:"pointer",color:C.text2,padding:"5px 10px",display:"flex",alignItems:"center",gap:4,fontSize:12,fontWeight:600,fontFamily:F}}><Ic n="x" s={12}/> Close</button>
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div>{lbl("Background")}<input type="color" value={footer.bgColor||"#0F1729"} onChange={e=>set("bgColor",e.target.value)} style={{width:"100%",height:32,borderRadius:6,border:`1px solid ${C.border}`,cursor:"pointer",padding:2}}/></div>
+            <div>{lbl("Text colour")}<input type="color" value={footer.textColor||"#F1F5F9"} onChange={e=>set("textColor",e.target.value)} style={{width:"100%",height:32,borderRadius:6,border:`1px solid ${C.border}`,cursor:"pointer",padding:2}}/></div>
+          </div>
+          <div>{lbl("Copyright text")}<input value={footer.bottomText||""} onChange={e=>set("bottomText",e.target.value)} placeholder="© 2026 Your Company." style={inp}/></div>
+          <div style={{borderTop:`1px solid ${C.border}`,paddingTop:14}}>
+            {lbl("Link columns")}
+            {cols.map((col,ci)=>(<div key={col.id} style={{background:C.surface2,borderRadius:10,padding:10,marginBottom:10,border:`1px solid ${C.border}`}}>
+              <div style={{display:"flex",gap:6,marginBottom:8}}><input value={col.heading} onChange={e=>updateCol(ci,{heading:e.target.value})} placeholder="Heading" style={{...inp,flex:1,fontSize:12,padding:"5px 8px"}}/><button onClick={()=>removeCol(ci)} style={{background:"none",border:"none",cursor:"pointer",color:C.red,fontSize:14,padding:"0 4px"}}>✕</button></div>
+              {(col.links||[]).map((lnk,li)=>(<div key={li} style={{display:"flex",gap:5,marginBottom:5}}>
+                <input value={lnk.label} onChange={e=>updateColLink(ci,li,{label:e.target.value})} placeholder="Label" style={{...inp,flex:1,fontSize:11,padding:"4px 6px"}}/>
+                <input value={lnk.href}  onChange={e=>updateColLink(ci,li,{href:e.target.value})}  placeholder="URL" style={{...inp,flex:1,fontSize:11,padding:"4px 6px"}}/>
+                <button onClick={()=>removeColLink(ci,li)} style={{background:"none",border:"none",cursor:"pointer",color:C.red,fontSize:12}}>✕</button>
+              </div>))}
+              <button onClick={()=>addColLink(ci)} style={{fontSize:10,color:C.text3,background:"none",border:"none",cursor:"pointer",fontFamily:F}}>+ Link</button>
+            </div>))}
+            <button onClick={addCol} style={{width:"100%",padding:"6px",borderRadius:8,border:`1.5px dashed ${C.border}`,background:"transparent",cursor:"pointer",fontSize:12,color:C.text3,fontFamily:F}}>+ Add column</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+const uid2=()=>Math.random().toString(36).slice(2,10);
+const mk=(preset,cells,bg,pad)=>({id:uid2(),preset,bgColor:bg||"",bgImage:"",overlayOpacity:0,padding:pad||"lg",cells});
+const mkcell=(type,cfg)=>({id:uid2(),widgetType:type,widgetConfig:cfg||{}});
+const SECTION_LIBRARY=[
+  {category:"Hero",sections:[
+    {id:"hero-c",name:"Centred Hero",preview:[{type:"hero",w:"full"}],row:()=>mk("1",[mkcell("hero",{headline:"Find Your Next Opportunity",subheading:"Join a team building something meaningful.",ctaText:"See Open Roles",ctaHref:"#jobs"})],"","xl")},
+    {id:"hero-dark",name:"Dark Hero",preview:[{type:"hero",w:"full",dark:true}],row:()=>mk("1",[mkcell("hero",{headline:"Join Our Team",subheading:"We're hiring across engineering, product and design.",ctaText:"View Roles",ctaHref:"#jobs"})],"#0F1729","xl")},
+    {id:"hero-split",name:"Split Hero + Image",preview:[{type:"text",w:"half"},{type:"image",w:"half"}],row:()=>mk("2",[mkcell("text",{heading:"We're hiring for the future",content:"Join a fast-moving team where your work ships to millions."}),mkcell("image",{})],"","xl")},
+  ]},
+  {category:"Jobs",sections:[
+    {id:"jobs-full",name:"Full Job Board",preview:[{type:"jobs",w:"full"}],row:()=>mk("1",[mkcell("jobs",{heading:"Open Positions"})])},
+    {id:"jobs-featured",name:"Featured Roles",preview:[{type:"job_list",w:"full"}],row:()=>mk("1",[mkcell("job_list",{heading:"Featured Roles",limit:5})],"#F8F9FF")},
+  ]},
+  {category:"Stats",sections:[
+    {id:"stats-3",name:"3 Stats",preview:[{type:"stats",w:"full"}],row:()=>mk("1",[mkcell("stats",{stats:[{value:"500+",label:"Team Members"},{value:"12",label:"Offices"},{value:"4.8★",label:"Glassdoor"}]})],"#F8F9FF","md")},
+    {id:"stats-4",name:"4 Stats",preview:[{type:"stats",w:"full"}],row:()=>mk("1",[mkcell("stats",{stats:[{value:"500+",label:"Employees"},{value:"12",label:"Offices"},{value:"40+",label:"Nationalities"},{value:"4.8★",label:"Glassdoor"}]})],"","md")},
+  ]},
+  {category:"Content",sections:[
+    {id:"text-img",name:"Text + Image",preview:[{type:"text",w:"half"},{type:"image",w:"half"}],row:()=>mk("2",[mkcell("text",{heading:"Why work with us?",content:"We believe great work happens when talented people have the freedom to do their best."}),mkcell("image",{})])},
+    {id:"img-text",name:"Image + Text",preview:[{type:"image",w:"half"},{type:"text",w:"half"}],row:()=>mk("2",[mkcell("image",{}),mkcell("text",{heading:"Our Culture",content:"We move fast, stay curious, and support each other every step of the way."})])},
+    {id:"two-text",name:"Two Columns",preview:[{type:"text",w:"half"},{type:"text",w:"half"}],row:()=>mk("2",[mkcell("text",{heading:"Our Mission",content:"Making hiring human — fairer processes, clearer communication, faster decisions."}),mkcell("text",{heading:"Our Values",content:"Trust. Speed. Ownership. We hold ourselves to high standards."})])},
+    {id:"full-text",name:"Full Width Text",preview:[{type:"text",w:"full"}],row:()=>mk("1",[mkcell("text",{heading:"About Us",content:"We're a fast-growing company united by a shared belief that work should be meaningful."})])},
+  ]},
+  {category:"Team",sections:[
+    {id:"team-grid",name:"Team Grid",preview:[{type:"team",w:"full"}],row:()=>mk("1",[mkcell("team",{heading:"Meet the Team"})],"#F8F9FF")},
+    {id:"hm-prof",name:"HM Profile Cards",preview:[{type:"hm_profile",w:"full"}],row:()=>mk("1",[mkcell("hm_profile",{heading:"Meet Your Hiring Team",ctaText:"Schedule a call"})])},
+  ]},
+  {category:"CTA",sections:[
+    {id:"cta-dark",name:"Dark CTA Banner",preview:[{type:"text",w:"full",dark:true}],row:()=>mk("1",[mkcell("text",{heading:"Ready to apply?",content:"We review every application carefully. Our team will be in touch within 5 business days."})],"#0F1729")},
+    {id:"cta-light",name:"Light CTA Banner",preview:[{type:"text",w:"full",accent:true}],row:()=>mk("1",[mkcell("text",{heading:"Don't see the right role?",content:"Send us your CV — we're always looking for talented people."})],"#EEF2FF")},
+  ]},
+  {category:"Forms",sections:[
+    {id:"form-simple",name:"Application Form",preview:[{type:"form",w:"full"}],row:()=>mk("1",[mkcell("form",{title:"Apply Now"})])},
+    {id:"form-multi",name:"Multi-step Application",preview:[{type:"multistep_form",w:"full"}],row:()=>mk("1",[mkcell("multistep_form",{formTitle:"Application Form",submitText:"Submit",successMessage:"Thank you! We'll be in touch.",steps:[
+      {id:uid2(),title:"About You",fields:[{id:uid2(),type:"text",label:"First name",placeholder:"Jane",required:true},{id:uid2(),type:"text",label:"Last name",placeholder:"Smith",required:true},{id:uid2(),type:"email",label:"Email",placeholder:"jane@",required:true},{id:uid2(),type:"phone",label:"Phone",required:false}]},
+      {id:uid2(),title:"Experience",fields:[{id:uid2(),type:"text",label:"Current role",placeholder:"Senior Engineer",required:false},{id:uid2(),type:"select",label:"Years of experience",options:"0-2,3-5,6-10,10 plus",required:true},{id:uid2(),type:"textarea",label:"Why do you want to join?",placeholder:"Tell us",required:true}]},
+      {id:uid2(),title:"Documents",fields:[{id:uid2(),type:"file",label:"Upload CV",required:true},{id:uid2(),type:"textarea",label:"Anything else?",placeholder:"Optional",required:false}]},
+    ]})]) },
+  ]},
+];
+
+const SectionLibrary = ({ onInsert, onClose }) => {
+  const [cat,setCat]=useState(SECTION_LIBRARY[0].category);
+  const [hov,setHov]=useState(null);
+  const category=SECTION_LIBRARY.find(c=>c.category===cat);
+  const PBlock=({type,w,dark,accent})=>{const colors={hero:"#4361EE",text:"#E8ECF8",image:"#DDD",stats:"#EEF2FF",jobs:"#F0FDF4",job_list:"#F0FDF4",form:"#FEF9EE",team:"#FAF5FF",hm_profile:"#F0F9FF",multistep_form:"#FFF5F5"};return(<div style={{flex:w==="full"?1:"",width:w==="half"?"50%":"100%",height:24,borderRadius:4,background:dark?"#0F1729":accent?"#EEF2FF":(colors[type]||"#E8ECF8"),display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:7,color:dark?"rgba(255,255,255,.5)":"rgba(0,0,0,.3)",fontWeight:600}}>{type.replace("_"," ")}</span></div>);};
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(15,23,41,.45)",zIndex:850,display:"flex",alignItems:"center",justifyContent:"center",padding:24}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:C.surface,borderRadius:16,width:680,maxWidth:"100%",height:"80vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 64px rgba(0,0,0,.2)",overflow:"hidden"}}>
+        <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}><Ic n="library" s={15} c={C.accent}/><span style={{fontSize:15,fontWeight:800,color:C.text1}}>Section Library</span></div>
+          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:C.text3}}><Ic n="x" s={16}/></button>
+        </div>
+        <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+          <div style={{width:150,borderRight:`1px solid ${C.border}`,padding:"10px 8px",overflowY:"auto",flexShrink:0}}>
+            {SECTION_LIBRARY.map(c=>(<button key={c.category} onClick={()=>setCat(c.category)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"none",background:cat===c.category?C.accentLight:"transparent",color:cat===c.category?C.accent:C.text2,fontSize:12,fontWeight:cat===c.category?700:500,cursor:"pointer",fontFamily:F,textAlign:"left",marginBottom:2}}>{c.category}</button>))}
+          </div>
+          <div style={{flex:1,padding:"12px 14px",overflowY:"auto"}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              {(category?.sections||[]).map(sec=>(<div key={sec.id} onClick={()=>{onInsert(sec.row());onClose();}} onMouseEnter={()=>setHov(sec.id)} onMouseLeave={()=>setHov(null)} style={{borderRadius:10,border:`1.5px solid ${hov===sec.id?C.accent:C.border}`,background:hov===sec.id?C.accentLight:C.surface2,cursor:"pointer",overflow:"hidden",transition:"all .12s"}}>
+                <div style={{padding:"10px 10px 6px",display:"flex",gap:4,flexWrap:"wrap"}}>{sec.preview.map((p,i)=><PBlock key={i} {...p}/>)}</div>
+                <div style={{padding:"5px 10px 9px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:12,fontWeight:600,color:hov===sec.id?C.accent:C.text1}}>{sec.name}</span>{hov===sec.id&&<span style={{fontSize:10,color:C.accent,fontWeight:700}}>Insert ↵</span>}</div>
+              </div>))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Portal Builder (full-screen editor) ──────────────────────────────────────
 const PortalBuilder = ({ portal:init, onSave, onClose }) => {
   const [portal, setPortal] = useState({
     ...init,
     theme: init.theme||defaultTheme(),
     pages: init.pages?.length?init.pages:[defaultPage()],
+    nav:   init.nav   ||defaultNav(),
+    footer:init.footer||defaultFooter(),
   });
   const [activePageIdx, setActivePageIdx] = useState(0);
-  const [showTheme, setShowTheme] = useState(false);
+  const [showTheme,   setShowTheme]  = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [showNav,     setShowNav]    = useState(false);
+  const [showFooter,  setShowFooter] = useState(false);
+  const [activeTab,   setActiveTab]  = useState('canvas');
   const [isEditing, setIsEditing] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -1145,6 +1391,12 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
           <button onClick={addPage} style={{padding:"4px 7px",borderRadius:6,border:"none",background:"transparent",color:C.text3,cursor:"pointer"}}><Ic n="plus" s={11}/></button>
         </div>
         <div style={{width:1,height:24,background:C.border,margin:"0 12px"}}/>
+        <div style={{display:"flex",gap:2,background:C.surface2,borderRadius:7,padding:2,border:`1px solid ${C.border}`}}>
+          {[["canvas","Canvas"],["nav","Nav"],["footer","Footer"]].map(([id,l])=>(
+            <button key={id} onClick={()=>setActiveTab(id)} style={{padding:"4px 10px",borderRadius:5,border:"none",fontFamily:F,fontSize:11,fontWeight:600,cursor:"pointer",background:activeTab===id?C.surface:"transparent",color:activeTab===id?C.text1:C.text3,boxShadow:activeTab===id?"0 1px 3px rgba(0,0,0,.06)":"none"}}>{l}</button>
+          ))}
+        </div>
+        <div style={{width:1,height:24,background:C.border,margin:"0 12px"}}/>
         {/* Actions */}
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
           <button onClick={()=>setIsEditing(e=>!e)}
@@ -1157,6 +1409,7 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
               border:`1px solid ${C.border}`,background:showTheme?C.accentLight:"transparent",color:showTheme?C.accent:C.text2}}>
             <Ic n="palette" s={12} c={showTheme?C.accent:C.text2}/>Theme
           </button>
+          <Btn v="secondary" s="sm" icon="library" onClick={()=>setShowLibrary(true)}>Sections</Btn>
           <Btn v="primary" s="sm" onClick={handleSave} disabled={saving}>{saving?"Saving…":"Save"}</Btn>
           <Btn v={portal.status==="published"?"success":"secondary"} s="sm"
             onClick={async ()=>{
@@ -1194,6 +1447,7 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
         <PortalCanvas page={page} onUpdate={updatePage} theme={portal.theme} isEditing={isEditing}/>
       </div>
 
+      {showLibrary&&<SectionLibrary onInsert={row=>{const rows=[...page.rows];rows.push(row);updatePage({...page,rows});}} onClose={()=>setShowLibrary(false)}/>}
       {showTheme&&<>
         <div onClick={()=>setShowTheme(false)} style={{position:"fixed",inset:0,zIndex:499}}/>
         <ThemeDrawer theme={portal.theme} onChange={t=>setPortal(p=>({...p,theme:t}))} onClose={()=>setShowTheme(false)}/>
@@ -1203,7 +1457,7 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
 };
 
 // ─── Portal Card ──────────────────────────────────────────────────────────────
-const PortalCard = ({ portal, onEdit, onDelete, onDuplicate }) => {
+const PortalCard = ({ portal, onEdit, onDelete, onDuplicate, stats }) => {
   const t = portal.theme||defaultTheme();
   const pageCount = (portal.pages||[]).length||1;
   const widgetCount = (portal.pages||[]).reduce((a,pg)=>(pg.rows||[]).reduce((b,r)=>b+(r.cells||[]).filter(c=>c.widgetType).length,a),0);
@@ -1232,6 +1486,9 @@ const PortalCard = ({ portal, onEdit, onDelete, onDuplicate }) => {
           </span>
         </div>
       </div>
+      {stats&&<div style={{padding:"6px 14px",background:C.surface2,borderTop:`1px solid ${C.border}`,display:"flex",gap:16}}>
+        {[{label:"Views",val:stats.views_period},{label:"Clicks",val:stats.job_clicks},{label:"Apps",val:stats.applications},{label:"Conv.",val:stats.conversion_rate+"%"}].map(({label,val})=>(<div key={label} style={{textAlign:"center"}}><div style={{fontSize:14,fontWeight:800,color:C.text1}}>{val??'—'}</div><div style={{fontSize:9,color:C.text3}}>{label}</div></div>))}
+      </div>}
       {/* Footer */}
       <div style={{padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div>
@@ -1278,6 +1535,8 @@ export default function PortalsPage({ environment }) {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [analytics,setAnalytics]=useState({});
+  const loadStats=useCallback(async(list)=>{if(!list?.length)return;const res=await Promise.all(list.map(p=>api.get('/portal-analytics/'+p.id+'/stats?days=30').catch(()=>null)));const m={};list.forEach((p,i)=>{if(res[i])m[p.id]=res[i];});setAnalytics(m);},[]);
   const [newName, setNewName] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState(null); // null = blank
 
@@ -1285,8 +1544,10 @@ export default function PortalsPage({ environment }) {
     if (!environment?.id) return;
     setLoading(true);
     const data = await api.get(`/portals?environment_id=${environment.id}`);
-    setPortals(Array.isArray(data)?data:[]);
+    const list=Array.isArray(data)?data:[];
+    setPortals(list);
     setLoading(false);
+    loadStats(list);
   }, [environment?.id]);
 
   useEffect(()=>{ load(); },[load]);
@@ -1474,7 +1735,7 @@ export default function PortalsPage({ environment }) {
       ):(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
           {portals.map(p=>(
-            <PortalCard key={p.id} portal={p}
+            <PortalCard key={p.id} portal={p} stats={analytics[p.id]}
               onEdit={()=>setEditing(p)}
               onDelete={()=>handleDelete(p.id)}
               onDuplicate={()=>handleDuplicate(p)}/>

@@ -297,7 +297,59 @@ const FormWidget = ({ cfg, theme }) => {
   )
 }
 
-const Widget = ({ cell, theme, portal, api }) => {
+
+const MultistepFormWidget = ({ cfg, theme, portal, api, track }) => {
+  const steps = cfg.steps||[];
+  const [currentStep,setCurrentStep]=useState(0);
+  const [values,setValues]=useState({});
+  const [errors,setErrors]=useState({});
+  const [done,setDone]=useState(false);
+  const [submitting,setSub]=useState(false);
+  const step=steps[currentStep]; const isLast=currentStep===steps.length-1;
+  const btnStyle=getButtonStyle(theme);
+  const setValue=(id,val)=>setValues(v=>({...v,[id]:val}));
+  const validate=()=>{const e={};(step?.fields||[]).forEach(f=>{if(f.required&&!values[f.id])e[f.id]='Required';if(f.type==='email'&&values[f.id]&&!/\S+@\S+\.\S+/.test(values[f.id]))e[f.id]='Invalid email';});setErrors(e);return!Object.keys(e).length;};
+  const handleNext=()=>{if(!validate())return;if(currentStep===0)track&&track('form_start',{form:cfg.formTitle});if(isLast)handleSubmit();else setCurrentStep(s=>s+1);};
+  const handleSubmit=async()=>{if(!validate())return;setSub(true);try{const fm={};steps.forEach(s=>s.fields?.forEach(f=>{fm[f.id]=f.label;}));const nv=Object.fromEntries(Object.entries(values).map(([k,v])=>[fm[k]||k,v]));if(portal?.id){await api.post(`/portals/${portal.id}/apply`,{first_name:values[steps[0]?.fields?.find(f=>f.type==='text'&&f.label?.toLowerCase().includes('first'))?.id]||'',last_name:values[steps[0]?.fields?.find(f=>f.type==='text'&&f.label?.toLowerCase().includes('last'))?.id]||'',email:values[steps.flatMap(s=>s.fields||[]).find(f=>f.type==='email')?.id]||'',cover_note:JSON.stringify(nv,null,2)}).catch(()=>{});}track&&track('form_complete',{form:cfg.formTitle});setDone(true);}catch{}setSub(false);};
+  if(done)return(<div style={{textAlign:'center',padding:'48px 24px'}}><Icon path={ICONS.check} size={56} color={theme.primaryColor} style={{marginBottom:16}}/><h3 style={{fontSize:22,fontWeight:800,color:theme.textColor||'#0F1729',margin:'0 0 8px',fontFamily:theme.headingFont||theme.fontFamily}}>{cfg.successMessage||"Thank you! We'll be in touch."}</h3></div>);
+  if(!steps.length)return(<div style={{padding:'32px 24px',textAlign:'center',color:theme.textColor||'#9CA3AF',opacity:0.5,fontFamily:theme.fontFamily}}>No form steps configured.</div>);
+  const progress=Math.round((currentStep/steps.length)*100);
+  return(<div style={{maxWidth:560,margin:'0 auto',fontFamily:theme.fontFamily}}>
+    {cfg.formTitle&&<h2 style={{margin:'0 0 20px',fontSize:24,fontWeight:theme.headingWeight||700,color:theme.textColor||'#0F1729',fontFamily:theme.headingFont||theme.fontFamily}}>{cfg.formTitle}</h2>}
+    {steps.length>1&&(<div style={{marginBottom:24}}>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+        {steps.map((s,i)=>(<div key={i} style={{flex:1,textAlign:'center',position:'relative'}}>
+          {i>0&&<div style={{position:'absolute',top:12,right:'50%',left:'-50%',height:2,background:i<=currentStep?theme.primaryColor:'#E8ECF8',zIndex:0}}/>}
+          <div style={{width:26,height:26,borderRadius:'50%',margin:'0 auto 5px',display:'flex',alignItems:'center',justifyContent:'center',position:'relative',zIndex:1,background:i<currentStep?theme.primaryColor:i===currentStep?theme.primaryColor:'#E8ECF8',color:i<=currentStep?'#fff':'#9CA3AF',fontSize:11,fontWeight:700}}>{i<currentStep?'✓':i+1}</div>
+          <div style={{fontSize:11,color:i===currentStep?theme.primaryColor:'#9CA3AF',fontWeight:i===currentStep?700:400}}>{s.title}</div>
+        </div>))}
+      </div>
+      <div style={{height:4,background:'#E8ECF8',borderRadius:2,overflow:'hidden'}}>
+        <div style={{width:progress+'%',height:'100%',background:theme.primaryColor,borderRadius:2,transition:'width .3s'}}/>
+      </div>
+    </div>)}
+    <div style={{marginBottom:20}}>
+      {(step?.fields||[]).map(f=>{const err=errors[f.id];const val=values[f.id]||'';const opts=(f.options||'').split(',').map(o=>o.trim()).filter(Boolean);const fi={width:'100%',padding:'10px 14px',borderRadius:theme.borderRadius||8,border:`1.5px solid ${err?'#EF4444':'#E8ECF8'}`,fontSize:14,fontFamily:theme.fontFamily,outline:'none',boxSizing:'border-box',color:theme.textColor||'#0F1729',marginTop:4};
+        return(<div key={f.id} style={{marginBottom:14}}>
+          <label style={{fontSize:13,fontWeight:600,color:theme.textColor||'#374151',fontFamily:theme.fontFamily,display:'block'}}>{f.label}{f.required&&<span style={{color:'#EF4444',marginLeft:2}}>*</span>}</label>
+          {f.type==='textarea'&&<textarea value={val} onChange={e=>setValue(f.id,e.target.value)} placeholder={f.placeholder} rows={3} style={{...fi,resize:'vertical'}}/>}
+          {f.type==='select'&&<select value={val} onChange={e=>setValue(f.id,e.target.value)} style={fi}><option value="">Select…</option>{opts.map(o=><option key={o}>{o}</option>)}</select>}
+          {f.type==='radio'&&<div style={{marginTop:6}}>{opts.map(o=><label key={o} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,fontSize:13,color:theme.textColor||'#374151',cursor:'pointer'}}><input type="radio" name={f.id} value={o} checked={val===o} onChange={()=>setValue(f.id,o)}/>{o}</label>)}</div>}
+          {f.type==='checkbox'&&<div style={{marginTop:6}}>{opts.map(o=><label key={o} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,fontSize:13,color:theme.textColor||'#374151',cursor:'pointer'}}><input type="checkbox" checked={(val||[]).includes(o)} onChange={e=>{const c=val||[];setValue(f.id,e.target.checked?[...c,o]:c.filter(x=>x!==o));}}/>{o}</label>)}</div>}
+          {f.type==='file'&&<input type="file" onChange={e=>setValue(f.id,e.target.files[0]?.name)} style={{...fi,padding:'8px'}}/>}
+          {!['textarea','select','radio','checkbox','file'].includes(f.type)&&<input type={f.type} value={val} onChange={e=>setValue(f.id,e.target.value)} placeholder={f.placeholder} style={fi}/>}
+          {err&&<div style={{fontSize:11,color:'#EF4444',marginTop:3}}>{err}</div>}
+        </div>);
+      })}
+    </div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+      {currentStep>0?<button onClick={()=>setCurrentStep(s=>s-1)} style={{background:'none',border:'none',cursor:'pointer',color:theme.primaryColor,fontWeight:600,fontSize:14,fontFamily:theme.fontFamily,display:'flex',alignItems:'center',gap:6}}><Icon path={ICONS.arrowLeft} size={14} color={theme.primaryColor}/> Back</button>:<div/>}
+      <button onClick={handleNext} disabled={submitting} style={{...btnStyle,border:'none',cursor:'pointer',fontFamily:theme.fontFamily,fontSize:14,fontWeight:700,opacity:submitting?0.6:1}}>{submitting?'Submitting…':isLast?(cfg.submitText||'Submit'):'Next →'}</button>
+    </div>
+  </div>);
+};
+
+const Widget = ({ cell, theme, portal, api, track }) => {
   const cfg = cell.widgetConfig||{}
   switch (cell.widgetType) {
     case 'hero':    return <HeroWidget    cfg={cfg} theme={theme}/>
@@ -314,7 +366,8 @@ const Widget = ({ cell, theme, portal, api }) => {
   }
 }
 
-const PortalRow = ({ row, theme, portal, api }) => {
+const PortalRow = ({ row, theme, portal, api, track }) => {
+  if(row.condition?.param&&row.condition?.value){const p=new URLSearchParams(window.location.search);if((p.get(row.condition.param)||'').toLowerCase()!==row.condition.value.toLowerCase())return null;}
   const padding = PADDING_MAP[row.padding]||'56px'
   const cellFlex = (ci, total, preset) => {
     if (preset==='1') return '1 1 100%'
@@ -332,7 +385,7 @@ const PortalRow = ({ row, theme, portal, api }) => {
         <div style={{ display:'flex', gap:32, flexWrap:'wrap', alignItems:'flex-start' }}>
           {(row.cells||[]).map((cell, ci) => (
             <div key={cell.id} style={{ flex:cellFlex(ci,(row.cells||[]).length,row.preset), minWidth:0 }}>
-              {cell.widgetType&&<Widget cell={cell} theme={theme} portal={portal} api={api}/>}
+              {cell.widgetType&&<Widget cell={cell} theme={theme} portal={portal} api={api} track={track}/>}
             </div>
           ))}
         </div>
@@ -340,6 +393,24 @@ const PortalRow = ({ row, theme, portal, api }) => {
     </div>
   )
 }
+
+const PortalFooter = ({ portal, theme }) => {
+  const f=portal.footer||{}; const bg=f.bgColor||'#0F1729'; const fg=f.textColor||'#F1F5F9';
+  return(<footer style={{background:bg,padding:'48px 24px 24px',fontFamily:theme.fontFamily}}>
+    <div style={{maxWidth:theme.maxWidth||'1200px',margin:'0 auto'}}>
+      {(f.columns||[]).length>0&&(<div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min((f.columns||[]).length,4)},1fr)`,gap:32,marginBottom:40}}>
+        {(f.columns||[]).map(col=>(<div key={col.id}>
+          <div style={{fontSize:13,fontWeight:700,color:fg,marginBottom:12}}>{col.heading}</div>
+          {(col.links||[]).map((lnk,i)=>(<a key={i} href={lnk.href||'#'} style={{display:'block',fontSize:13,color:fg,opacity:0.65,marginBottom:8,textDecoration:'none'}}>{lnk.label}</a>))}
+        </div>))}
+      </div>)}
+      <div style={{borderTop:'1px solid rgba(255,255,255,.1)',paddingTop:20,display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
+        <span style={{fontSize:12,color:fg,opacity:0.5}}>{f.bottomText||'© 2026 Your Company. All rights reserved.'}</span>
+        <span style={{fontSize:11,color:fg,opacity:0.3}}>Powered by Vercentic</span>
+      </div>
+    </div>
+  </footer>);
+};
 
 const PortalNav = ({ portal, theme, currentPage, onNav, pages }) => (
   <nav style={{ position:'sticky', top:0, zIndex:100, background:theme.bgColor||'#fff', borderBottom:`1px solid ${theme.primaryColor}18`, boxShadow:'0 1px 8px rgba(0,0,0,.06)' }}>
@@ -360,6 +431,8 @@ export default function PortalPageRenderer({ portal, api }) {
   const theme = portal.theme || portal.branding || {}
   const pages = portal.pages || []
   const [currentPage, setCurrentPage] = useState(pages[0]||null)
+  const track=(event,data={})=>{if(!portal?.id)return;api.post(`/portal-analytics/${portal.id}/track`,{event,data}).catch(()=>{});};
+  useEffect(()=>{track('page_view',{page:currentPage?.slug||'/'});},[currentPage?.id]);
 
   useEffect(() => {
     const font = theme.fontFamily||theme.headingFont
@@ -381,10 +454,8 @@ export default function PortalPageRenderer({ portal, api }) {
   return (
     <div style={{ background:theme.bgColor||'#fff', minHeight:'100vh', color:theme.textColor||'#0F1729', fontFamily:theme.fontFamily||'sans-serif' }}>
       <PortalNav portal={portal} theme={theme} currentPage={currentPage} onNav={setCurrentPage} pages={pages}/>
-      {(currentPage.rows||[]).map(row => <PortalRow key={row.id} row={row} theme={theme} portal={portal} api={api}/>)}
-      <div style={{ padding:'20px 24px', textAlign:'center', borderTop:`1px solid ${theme.primaryColor}15`, fontFamily:theme.fontFamily }}>
-        <span style={{ fontSize:11, color:theme.textColor||'#9CA3AF', opacity:0.5 }}>Powered by Vercentic</span>
-      </div>
+      {(currentPage.rows||[]).map(row => <PortalRow key={row.id} row={row} theme={theme} portal={portal} api={api} track={track}/>)}
+      <PortalFooter portal={portal} theme={theme}/>
     </div>
   )
 }

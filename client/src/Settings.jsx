@@ -2319,6 +2319,17 @@ export default function SettingsPage({ currentUser, environment }) {
   const [activeSection, setActiveSection] = useState(null);
   const [search, setSearch]               = useState("");
   const [collapsed, setCollapsed]         = useState({});
+  const [sideCollapsed, setSideCollapsed] = useState(
+    () => localStorage.getItem('vrc_settings_nav_collapsed') === 'true'
+  );
+  const [sideHovered, setSideHovered]     = useState(false);
+  const sideExpanded = !sideCollapsed || sideHovered;
+  const SIDE_W = sideExpanded ? 210 : 44;
+  const toggleSide = () => setSideCollapsed(v => {
+    const next = !v;
+    localStorage.setItem('vrc_settings_nav_collapsed', String(next));
+    return next;
+  });
   const toggleGroup = (id) => setCollapsed(p => ({ ...p, [id]: !p[id] }));
 
   const q = search.trim().toLowerCase();
@@ -2330,10 +2341,39 @@ export default function SettingsPage({ currentUser, environment }) {
   return (
     <div style={{display:"flex",gap:0,minHeight:"100%"}}>
       {/* Settings sidebar */}
-      <div style={{width:210,flexShrink:0,paddingRight:20,display:"flex",flexDirection:"column"}}>
-        <h1 onClick={()=>setActiveSection(null)} style={{margin:"0 0 14px",fontSize:18,fontWeight:700,color:C.text1,fontFamily:"'Space Grotesk', sans-serif",letterSpacing:"-0.4px",cursor:"pointer"}} title="Back to settings overview">Settings</h1>
+      <div
+        onMouseEnter={() => sideCollapsed && setSideHovered(true)}
+        onMouseLeave={() => setSideHovered(false)}
+        style={{width:SIDE_W,flexShrink:0,paddingRight:sideExpanded?20:0,display:"flex",flexDirection:"column",
+          overflow:"hidden",transition:"width 0.2s cubic-bezier(0.4,0,0.2,1)"}}>
 
-        {/* Search */}
+        {/* Header row — title + collapse button */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,minHeight:28}}>
+          {sideExpanded && (
+            <h1 onClick={()=>setActiveSection(null)}
+              style={{margin:0,fontSize:18,fontWeight:700,color:C.text1,fontFamily:"'Space Grotesk', sans-serif",
+                letterSpacing:"-0.4px",cursor:"pointer",whiteSpace:"nowrap"}}
+              title="Back to settings overview">Settings</h1>
+          )}
+          <button
+            onClick={toggleSide}
+            title={sideCollapsed ? "Expand settings nav" : "Collapse settings nav"}
+            style={{width:24,height:24,borderRadius:6,background:"transparent",border:"1px solid transparent",
+              display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",
+              flexShrink:0,color:C.text3,transition:"all .15s",marginLeft:sideExpanded?"auto":0}}
+            onMouseEnter={e=>{e.currentTarget.style.background=C.surface2;e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text1;}}
+            onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor="transparent";e.currentTarget.style.color=C.text3;}}>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              {sideExpanded
+                ? <><path d="M15 18l-6-6 6-6"/><line x1="19" y1="6" x2="19" y2="18"/></>
+                : <><path d="M9 18l6-6-6-6"/><line x1="5" y1="6" x2="5" y2="18"/></>
+              }
+            </svg>
+          </button>
+        </div>
+
+        {/* Search — hidden when collapsed */}
+        {sideExpanded && (
         <div style={{position:"relative",marginBottom:12}}>
           <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",display:"flex"}}>
             <Ic n="search" s={13} c={C.text3}/>
@@ -2351,6 +2391,7 @@ export default function SettingsPage({ currentUser, environment }) {
             </button>
           )}
         </div>
+        )}
 
         {/* Groups */}
         <div style={{display:"flex",flexDirection:"column",gap:2,overflowY:"auto",flex:1}}>
@@ -2366,7 +2407,8 @@ export default function SettingsPage({ currentUser, environment }) {
                 <button onClick={()=>!q&&toggleGroup(group.id)}
                   style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",
                     padding:"5px 6px 4px",background:"none",border:"none",
-                    cursor:q?"default":"pointer",borderRadius:6}}>
+                    cursor:q?"default":"pointer",borderRadius:6,
+                    opacity: sideExpanded ? 1 : 0, height: sideExpanded ? undefined : 0, overflow:"hidden", transition:"opacity 0.15s, height 0.15s"}}>
                   <span style={{fontSize:10,fontWeight:700,letterSpacing:"0.07em",
                     textTransform:"uppercase",color:C.text3}}>{group.label}</span>
                   {!q && (
@@ -2379,8 +2421,11 @@ export default function SettingsPage({ currentUser, environment }) {
                 </button>
                 {isOpen && group.items.map(s => (
                   <button key={s.id} onClick={()=>setActiveSection(s.id)}
-                    style={{display:"flex",alignItems:"center",gap:9,padding:"7px 10px",borderRadius:8,
-                      border:"none",cursor:"pointer",width:"100%",marginBottom:1,
+                    title={!sideExpanded ? s.label : undefined}
+                    style={{display:"flex",alignItems:"center",gap:sideExpanded?9:0,
+                      padding:sideExpanded?"7px 10px":"7px 0",
+                      justifyContent:sideExpanded?"flex-start":"center",
+                      borderRadius:8,border:"none",cursor:"pointer",width:"100%",marginBottom:1,
                       background:activeSection===s.id?C.accentLight:"transparent",
                       color:activeSection===s.id?C.accent:C.text2,
                       fontSize:13,fontWeight:activeSection===s.id?600:400,
@@ -2388,7 +2433,7 @@ export default function SettingsPage({ currentUser, environment }) {
                     onMouseEnter={e=>{if(activeSection!==s.id)e.currentTarget.style.background=C.bg;}}
                     onMouseLeave={e=>{if(activeSection!==s.id)e.currentTarget.style.background="transparent";}}>
                     <Ic n={s.icon} s={14} c={activeSection===s.id?C.accent:C.text3}/>
-                    <span style={{lineHeight:1.4}}>{s.label}</span>
+                    {sideExpanded && <span style={{lineHeight:1.4,whiteSpace:"nowrap",overflow:"hidden"}}>{s.label}</span>}
                   </button>
                 ))}
               </div>

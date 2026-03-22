@@ -1,3 +1,4 @@
+import { tFetch } from "../apiClient.js";
 // client/src/settings/GroupsSection.jsx
 // Settings panel for managing user groups — used in sharing
 import { useState, useEffect } from "react";
@@ -209,8 +210,8 @@ export default function GroupsSection({ environment }) {
   const load = async () => {
     setLoading(true);
     const [g, u] = await Promise.all([
-      fetch(`/api/groups?environment_id=${environment?.id}`).then(r=>r.json()).catch(()=>[]),
-      fetch('/api/users').then(r=>r.json()).catch(()=>[]),
+      tFetch(`/api/groups?environment_id=${environment?.id}`).then(r=>r.json()).catch(()=>[]),
+      tFetch('/api/users').then(r=>r.json()).catch(()=>[]),
     ]);
     setGroups(Array.isArray(g)?g:[]);
     setUsers(Array.isArray(u)?u:[]);
@@ -221,7 +222,7 @@ export default function GroupsSection({ environment }) {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this group? It will be removed from all sharing configurations.')) return;
-    await fetch(`/api/groups/${id}`, { method:'DELETE' });
+    await tFetch(`/api/groups/${id}`, { method:'DELETE' });
     load();
   };
 

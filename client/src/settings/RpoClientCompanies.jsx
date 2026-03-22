@@ -1,3 +1,4 @@
+import { tFetch } from "../apiClient.js";
 // client/src/settings/RpoClientCompanies.jsx
 import { useState, useEffect } from "react";
 import CompanySetupWizard from "../CompanySetupWizard";
@@ -122,7 +123,7 @@ export default function RpoClientCompanies({ environment }) {
 
   useEffect(() => {
     if (!envId) return;
-    fetch(`/api/rpo-clients?environment_id=${envId}`)
+    tFetch(`/api/rpo-clients?environment_id=${envId}`)
       .then(r=>r.ok?r.json():{clients:[],rpo_mode:false})
       .then(data=>{setClients(data.clients||[]);setRpoMode(data.rpo_mode||false);})
       .catch(()=>setClients([]))
@@ -130,7 +131,7 @@ export default function RpoClientCompanies({ environment }) {
   }, [envId]);
 
   const saveAll = async (updatedClients, newRpoMode) => {
-    await fetch('/api/rpo-clients',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({environment_id:envId,clients:updatedClients,rpo_mode:newRpoMode??rpoMode})});
+    await tFetch('/api/rpo-clients',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({environment_id:envId,clients:updatedClients,rpo_mode:newRpoMode??rpoMode})});
   };
 
   const handleAdd = async (form) => {
@@ -147,7 +148,7 @@ export default function RpoClientCompanies({ environment }) {
   const handleToggleRpo = async () => { const next=!rpoMode; setRpoMode(next); await saveAll(clients,next); };
 
   const handleWizardComplete = async (clientId) => {
-    const r = await fetch(`/api/company-research?environment_id=rpo_client_${clientId}`);
+    const r = await tFetch(`/api/company-research?environment_id=rpo_client_${clientId}`);
     const profileData = r.ok ? await r.json() : null;
     if (profileData) {
       const updated = clients.map(c=>c.id===clientId?{...c,profile:profileData,industry:profileData.industry}:c);

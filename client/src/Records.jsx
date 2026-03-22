@@ -16,6 +16,14 @@ import { ScorecardPanel } from "./Scorecards.jsx";
 import AiBadge, { isAiGenerated } from "./AiBadge.jsx";
 
 import api from './apiClient.js';
+import { authHeaders } from './apiClient.js';
+
+// Bare fetch wrapper that always includes X-Tenant-Slug + X-User-Id headers.
+// Use this instead of raw fetch() anywhere in this file.
+const tFetch = (url, opts = {}) => {
+  const h = { ...authHeaders(), ...(opts.headers || {}) };
+  return fetch(url, { ...opts, headers: h });
+};
 
 const F  = "'Geist', -apple-system, sans-serif";
 const C  = {
@@ -654,7 +662,7 @@ const DatasetPicker = ({ field, value, onChange }) => {
     if (!field.dataset_id) return;
     const cacheKey = field.dataset_id;
     if (_datasetCache[cacheKey]) { setOptions(_datasetCache[cacheKey]); return; }
-    fetch(`/api/datasets/${cacheKey}`).then(r=>r.json()).then(d => {
+    tFetch(`/api/datasets/${cacheKey}`).then(r=>r.json()).then(d => {
       const opts = (d.options||[]).filter(o=>o.is_active!==false).map(o=>({ id: o.id, label: o.label, color: o.color }));
       _datasetCache[cacheKey] = opts;
       setOptions(opts);
@@ -742,7 +750,7 @@ const SkillsPicker = ({ field, value, onChange, environment }) => {
     if (!envId) return;
     const cacheKey = `skills_${envId}_${(allowedCats||[]).join(",")}`;
     if (_skillsCache[cacheKey]) { setSkills(_skillsCache[cacheKey]); return; }
-    fetch(`/api/enterprise/skills?environment_id=${envId}`).then(r=>r.json()).then(d => {
+    tFetch(`/api/enterprise/skills?environment_id=${envId}`).then(r=>r.json()).then(d => {
       let all = Array.isArray(d) ? d.filter(s=>s.is_active!==false) : [];
       if (allowedCats) all = all.filter(s => allowedCats.includes(s.category));
       _skillsCache[cacheKey] = all;
@@ -1599,7 +1607,7 @@ function StagePill({ linkInfo, onStageChange }) {
     setSaving(true);
     setOpen(false);
     try {
-      await fetch(`/api/workflows/people-links/${linkInfo.link_id}`, {
+      await tFetch(`/api/workflows/people-links/${linkInfo.link_id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stage_id: step.id, stage_name: step.name }),
@@ -2375,14 +2383,14 @@ function ReportingPanel({ record, environment }) {
   const load = useCallback(async () => {
     if (!record?.id || !environment?.id) return;
     const [r, pplObj] = await Promise.all([
-      fetch(`/api/relationships?environment_id=${environment.id}&record_id=${record.id}`).then(r=>r.json()),
-      fetch(`/api/objects?environment_id=${environment.id}`).then(r=>r.json()),
+      tFetch(`/api/relationships?environment_id=${environment.id}&record_id=${record.id}`).then(r=>r.json()),
+      tFetch(`/api/objects?environment_id=${environment.id}`).then(r=>r.json()),
     ]);
     setRels(Array.isArray(r) ? r : []);
     // Find people objects with relationships enabled
     const personObj = (Array.isArray(pplObj) ? pplObj : []).find(o => o.slug === "people");
     if (personObj) {
-      const ppl = await fetch(`/api/records?object_id=${personObj.id}&environment_id=${environment.id}&limit=200`).then(r=>r.json());
+      const ppl = await tFetch(`/api/records?object_id=${personObj.id}&environment_id=${environment.id}&limit=200`).then(r=>r.json());
       setAllPeople(Array.isArray(ppl?.records) ? ppl.records : []);
     }
   }, [record?.id, environment?.id]);
@@ -2404,7 +2412,7 @@ function ReportingPanel({ record, environment }) {
   const handleAdd = async () => {
     if (!form.to_record_id) return;
     setSaving(true);
-    await fetch("/api/relationships", {
+    await tFetch("/api/relationships", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ from_record_id: record.id, to_record_id: form.to_record_id,
         type: form.type, environment_id: environment.id }),
@@ -2414,7 +2422,7 @@ function ReportingPanel({ record, environment }) {
   };
 
   const handleDelete = async (id) => {
-    await fetch(`/api/relationships/${id}`, { method:"DELETE" });
+    await tFetch(`/api/relationships/${id}`, { method:"DELETE" });
     load();
   };
 
@@ -2693,7 +2701,7 @@ const JobQuestionsPanel = ({ record, environment }) => {
 
   const save = async (ids) => {
     setSaving(true);
-    await fetch(`/api/question-bank/jobs/${record.id}`, {
+    await tFetch(`/api/question-bank/jobs/${record.id}`, {
       method:"PUT", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ question_ids: ids }),
     });
@@ -2720,7 +2728,7 @@ const JobQuestionsPanel = ({ record, environment }) => {
     const d = record.data || {};
     setGenerating(true);
     try {
-      const res = await fetch(`/api/question-bank/jobs/${record.id}/generate`, {
+      const res = await tFetch(`/api/question-bank/jobs/${record.id}/generate`, {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ job_title: d.job_title||d.name, department: d.department, description: d.description, skills: d.skills, count: genCount }),
       });
@@ -2744,7 +2752,7 @@ const JobQuestionsPanel = ({ record, environment }) => {
       let libraryIds = [];
       if (libraryQs.length) {
         const saved = await Promise.all(libraryQs.map(q =>
-          fetch("/api/question-bank/questions", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(q) }).then(r=>r.json())
+          tFetch("/api/question-bank/questions", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(q) }).then(r=>r.json())
         ));
         libraryIds = saved.map(q => q.id).filter(Boolean);
       }
@@ -2752,7 +2760,7 @@ const JobQuestionsPanel = ({ record, environment }) => {
       // Assign library questions to the job
       if (libraryIds.length) {
         const ids = [...assigned.map(q=>q.id), ...libraryIds];
-        await fetch(`/api/question-bank/jobs/${record.id}`, {
+        await tFetch(`/api/question-bank/jobs/${record.id}`, {
           method:"PUT", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({ question_ids: ids }),
         });
@@ -2760,7 +2768,7 @@ const JobQuestionsPanel = ({ record, environment }) => {
 
       // Job-only questions: save directly on the job (no library entry)
       if (jobOnlyQs.length) {
-        await fetch(`/api/question-bank/jobs/${record.id}/direct`, {
+        await tFetch(`/api/question-bank/jobs/${record.id}/direct`, {
           method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({ questions: jobOnlyQs }),
         });
@@ -2844,7 +2852,7 @@ const JobQuestionsPanel = ({ record, environment }) => {
                           <button onClick={async ()=>{
                             if (q._job_only) {
                               // Remove job-only question via the direct endpoint
-                              await fetch(`/api/question-bank/jobs/${record.id}/direct/${q.id}`, {method:"DELETE"});
+                              await tFetch(`/api/question-bank/jobs/${record.id}/direct/${q.id}`, {method:"DELETE"});
                               load();
                             } else {
                               const ids=assigned.filter(a=>a.id!==q.id&&!a._job_only).map(a=>a.id);
@@ -2950,14 +2958,14 @@ const CoordinationPanel = ({ record, environment }) => {
   const appUrl = window.location.origin;
   const load = useCallback(async () => {
     setLoading(true);
-    try { const r = await fetch(`/api/interview-coordinator/runs?candidate_id=${record.id}`).then(r=>r.json()); setRuns(Array.isArray(r)?r:[]); } catch(e){}
+    try { const r = await tFetch(`/api/interview-coordinator/runs?candidate_id=${record.id}`).then(r=>r.json()); setRuns(Array.isArray(r)?r:[]); } catch(e){}
     setLoading(false);
   }, [record.id]);
   useEffect(() => { load(); }, [load]);
   const startNew = async () => {
     setStarting(true);
     try {
-      const r = await fetch("/api/interview-coordinator/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({candidate_id:record.id,environment_id:environment?.id})}).then(r=>r.json());
+      const r = await tFetch("/api/interview-coordinator/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({candidate_id:record.id,environment_id:environment?.id})}).then(r=>r.json());
       if (r.ok) await load(); else window.__toast?.alert(r.error||"Failed");
     } catch(e){window.__toast?.alert(e.message);}
     setStarting(false);
@@ -3077,7 +3085,7 @@ const FormsPanel = ({ record, environment, objectSlug }) => {
   const handleSubmit = async () => {
     if (!activeForm) return;
     setSubmitting(true);
-    const res = await fetch(`/api/forms/${activeForm.id}/submissions`, {
+    const res = await tFetch(`/api/forms/${activeForm.id}/submissions`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ record_id:record.id, record_name:record.data?.first_name ? `${record.data.first_name} ${record.data.last_name||''}`.trim() : record.id, data: formData, environment_id: environment?.id, submitted_by:'Admin' }),
     });
@@ -4043,16 +4051,149 @@ const GroupCard = ({ ids, overSlot, overZone, openPanels, setOpenPanels, openPan
   );
 };
 
+
+// ── FormPickerModal — lets user link an existing form to a record ─────────────
+const FormPickerModal = ({ environment, record, onClose, onLinked }) => {
+  const [forms, setForms]     = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [linking, setLinking] = useState(null);
+
+  useEffect(() => {
+    if (!environment?.id) return;
+    api.get(`/forms?environment_id=${environment.id}`)
+      .then(d => { setForms(Array.isArray(d) ? d : d?.forms || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [environment?.id]);
+
+  const linkForm = async (formId) => {
+    setLinking(formId);
+    try {
+      await api.post(`/forms/${formId}/responses`, {
+        record_id: record?.id,
+        environment_id: environment?.id,
+        data: {},
+      });
+      onLinked?.();
+    } catch (e) {
+      console.error('Link form error:', e);
+    }
+    setLinking(null);
+  };
+
+  return (
+    <div style={{
+      position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:2000,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:24,
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        background:"var(--t-surface)",borderRadius:14,width:"100%",maxWidth:440,
+        boxShadow:"0 16px 48px rgba(0,0,0,0.18)",maxHeight:"80vh",
+        display:"flex",flexDirection:"column",overflow:"hidden",
+      }}>
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+          padding:"16px 20px",borderBottom:"1px solid var(--t-border)"}}>
+          <div>
+            <div style={{fontSize:15,fontWeight:700,color:"var(--t-text1)"}}>Add Form</div>
+            <div style={{fontSize:12,color:"var(--t-text3)",marginTop:2}}>
+              Select a form to link to this record
+            </div>
+          </div>
+          <button onClick={onClose}
+            style={{background:"none",border:"none",cursor:"pointer",
+              padding:4,borderRadius:6,color:"var(--t-text3)",display:"flex"}}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{overflowY:"auto",flex:1,padding:"8px 0"}}>
+          {loading && (
+            <div style={{padding:"32px",textAlign:"center",color:"var(--t-text3)",fontSize:13}}>
+              Loading forms…
+            </div>
+          )}
+          {!loading && forms.length === 0 && (
+            <div style={{padding:"32px",textAlign:"center"}}>
+              <div style={{fontSize:14,fontWeight:600,color:"var(--t-text1)",marginBottom:6}}>
+                No forms available
+              </div>
+              <div style={{fontSize:12,color:"var(--t-text3)"}}>
+                Create forms in Settings → Forms first.
+              </div>
+            </div>
+          )}
+          {!loading && forms.map(f => (
+            <div key={f.id}
+              style={{display:"flex",alignItems:"center",gap:12,
+                padding:"10px 20px",borderBottom:"1px solid var(--t-border2)",
+                transition:"background .1s"}}
+              onMouseEnter={e=>e.currentTarget.style.background="var(--t-surface2)"}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <div style={{
+                width:34,height:34,borderRadius:9,flexShrink:0,
+                background:"var(--t-accentLight,#eef2ff)",
+                display:"flex",alignItems:"center",justifyContent:"center",
+              }}>
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="none"
+                  stroke="var(--t-accent,#4361EE)" strokeWidth={1.8} strokeLinecap="round">
+                  <rect x="9" y="2" width="6" height="4" rx="1"/>
+                  <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/>
+                  <path d="M9 12h6M9 16h4"/>
+                </svg>
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:600,color:"var(--t-text1)",
+                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {f.name}
+                </div>
+                {f.description && (
+                  <div style={{fontSize:11,color:"var(--t-text3)",marginTop:1,
+                    overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    {f.description}
+                  </div>
+                )}
+                <div style={{fontSize:10,color:"var(--t-text3)",marginTop:2}}>
+                  {(f.fields||[]).length} fields
+                  {f.category ? ` · ${f.category}` : ""}
+                </div>
+              </div>
+              <button
+                onClick={() => linkForm(f.id)}
+                disabled={linking === f.id}
+                style={{
+                  padding:"6px 14px",borderRadius:7,
+                  background: linking===f.id ? "var(--t-surface2)" : "var(--t-accent,#4361EE)",
+                  color: linking===f.id ? "var(--t-text3)" : "white",
+                  border:"none",cursor:linking===f.id?"default":"pointer",
+                  fontSize:12,fontWeight:700,fontFamily:"inherit",flexShrink:0,
+                  transition:"all .15s",
+                }}>
+                {linking === f.id ? "Adding…" : "Add"}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const RecordDetail = ({ record, fields, allObjects, environment, objectName, objectColor, onClose, fullPage, onToggleFullPage, onUpdate, onDelete, onNavigate }) => {
   const _permCtx = usePermCtx();
   const canRecord = (flag) => _permCtx ? _permCtx.canGlobal(flag) : true;
   // ── Job context — Person records only ────────────────────────────────────
+  const [showFormPicker, setShowFormPicker] = useState(false);
+  const [availableForms, setAvailableForms]  = useState([]);
   const [activeJobContext, setActiveJobContext] = useState(null); // null=General, string=job record id
   const [linkedJobRecords, setLinkedJobRecords] = useState([]);
   useEffect(() => {
     if (objectName !== "Person") return;
     if (!record?.id || !environment?.id) return;
-    fetch(`/api/records/linked-jobs?person_id=${record.id}&environment_id=${environment.id}`)
+    tFetch(`/api/records/linked-jobs?person_id=${record.id}&environment_id=${environment.id}`)
       .then(r => r.json())
       .then(d => setLinkedJobRecords(Array.isArray(d) ? d : []))
       .catch(() => {});
@@ -4255,7 +4396,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       formData.append('file_type_name', ft?.name || 'Other');
       formData.append('uploaded_by',    'Admin');
       formData.append('environment_id', currentObject.environment_id || environment?.id || '');
-      const res = await fetch('/api/attachments/upload', { method:'POST', body: formData });
+      const res = await tFetch('/api/attachments/upload', { method:'POST', body: formData });
       const att = await res.json();
       if (res.ok) {
         load();
@@ -4278,7 +4419,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const handleCvParse = async (att) => {
     setCvParseAtt(att); setCvParsing(true); setCvParseResult(null);
     try {
-      const res  = await fetch(`/api/cv-parse`, {
+      const res  = await tFetch(`/api/cv-parse`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ attachment_id: att.id }),
@@ -4308,7 +4449,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     setDocExtractAtt(att); setDocExtractMappings(ft.mappings);
     setDocExtracting(true); setDocExtractResult(null);
     try {
-      const res = await fetch('/api/doc-extract', {
+      const res = await tFetch('/api/doc-extract', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ attachment_id: att.id, file_type_id: att.file_type_id, mappings: ft.mappings }),
       });
@@ -4643,7 +4784,34 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
     if (id==="workflows") return <RecordWorkflows record={record} objectId={record.object_id} environment={environment} objectName={objectName} onNavigate={onNavigate}/>;
     if (id==="tasks")     return <TasksEventsPanel record={record} environment={environment}/>;
-    if (id==="forms")     return <RecordFormPanel record={record} objectSlug={currentObject.slug||'people'} environment={environment} currentUser={null}/>;
+    if (id==="forms")     return <div>
+          <div style={{
+            display:"flex", alignItems:"center", justifyContent:"space-between",
+            marginBottom:10,
+          }}>
+            <span style={{fontSize:11,fontWeight:700,color:"var(--t-text3)",
+              textTransform:"uppercase",letterSpacing:"0.06em"}}>
+              Linked Forms
+            </span>
+            <button
+              onClick={() => { if(window.__openFormPicker) window.__openFormPicker(record?.id); }}
+              style={{
+                display:"inline-flex", alignItems:"center", gap:4,
+                padding:"4px 10px", borderRadius:7,
+                background:"var(--t-accentLight,#eef2ff)",
+                border:"1px solid var(--t-accent,#4361EE)",
+                color:"var(--t-accent,#4361EE)",
+                fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+              }}>
+              <svg width={10} height={10} viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth={3} strokeLinecap="round">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+              Add Form
+            </button>
+          </div>
+          <RecordFormPanel record={record} objectSlug={currentObject.slug||'people'} environment={environment} currentUser={null}/>
+        </div>;
     if (id==="linked") return <LinkedRecordsPanel record={record} environment={environment} onNavigate={onNavigate}/>;
     if (id==="reporting") return <ReportingPanel record={record} environment={environment}/>;
     if (id==="user") return <UserPanel record={record}/>;

@@ -1,3 +1,4 @@
+import { tFetch } from "./apiClient.js";
 // client/src/CompanySetupWizard.jsx
 import { useState } from "react";
 
@@ -124,7 +125,7 @@ export default function CompanySetupWizard({ environmentId, environmentName, onC
     if (!query.trim()) return;
     setLoading(true); setError(null);
     try {
-      const res = await fetch('/api/company-research/research', {
+      const res = await tFetch('/api/company-research/research', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ company_name: query, environment_id: environmentId })
       });
@@ -144,7 +145,7 @@ export default function CompanySetupWizard({ environmentId, environmentName, onC
     setSaving(true);
     try {
       const selectedTpls = emailTemplates.filter((_,i)=>selectedTemplates.has(i));
-      const res = await fetch('/api/company-research/save', {
+      const res = await tFetch('/api/company-research/save', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ environment_id:environmentId, profile:editedProfile, email_templates:selectedTpls, apply_templates:selectedTpls.length>0 })
       });

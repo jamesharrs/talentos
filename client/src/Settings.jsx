@@ -1,3 +1,4 @@
+import { tFetch } from "./apiClient.js";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import SettingsDashboard from "./SettingsDashboard.jsx";
 import { usePermissions, Gate } from "./PermissionContext.jsx";
@@ -30,11 +31,11 @@ function getAuthHeaders(extra = {}) {
 }
 
 const api = {
-  get:   p     => fetch(`/api${p}`, { headers: getAuthHeaders() }).then(r=>r.json()),
-  post:  (p,b) => fetch(`/api${p}`,{method:"POST",   headers:getAuthHeaders(), body:JSON.stringify(b)}).then(r=>r.json()),
-  put:   (p,b) => fetch(`/api${p}`,{method:"PUT",    headers:getAuthHeaders(), body:JSON.stringify(b)}).then(r=>r.json()),
-  patch: (p,b) => fetch(`/api${p}`,{method:"PATCH",  headers:getAuthHeaders(), body:JSON.stringify(b)}).then(r=>r.json()),
-  del:   p     => fetch(`/api${p}`,{method:"DELETE",  headers:getAuthHeaders()}).then(r=>r.json()),
+  get:   p     => tFetch(`/api${p}`, { headers: getAuthHeaders() }).then(r=>r.json()),
+  post:  (p,b) => tFetch(`/api${p}`,{method:"POST",   headers:getAuthHeaders(), body:JSON.stringify(b)}).then(r=>r.json()),
+  put:   (p,b) => tFetch(`/api${p}`,{method:"PUT",    headers:getAuthHeaders(), body:JSON.stringify(b)}).then(r=>r.json()),
+  patch: (p,b) => tFetch(`/api${p}`,{method:"PATCH",  headers:getAuthHeaders(), body:JSON.stringify(b)}).then(r=>r.json()),
+  del:   p     => tFetch(`/api${p}`,{method:"DELETE",  headers:getAuthHeaders()}).then(r=>r.json()),
 };
 
 const F = "'Geist', -apple-system, sans-serif";
@@ -1037,7 +1038,7 @@ const PersonTypeConfig = ({ object, onUpdate }) => {
 
   const save = async (opts) => {
     setSaving(true);
-    const updated = await fetch(`/api/objects/${object.id}`, {
+    const updated = await tFetch(`/api/objects/${object.id}`, {
       method:"PATCH", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ person_type_options: opts }),
     }).then(r=>r.json());
@@ -1317,8 +1318,8 @@ const DataModelSection = () => {
     // Load datasets + skill categories when modal opens
     useEffect(() => {
       if (selEnv?.id) {
-        fetch(`/api/datasets?environment_id=${selEnv.id}`).then(r=>r.json()).then(d=>setDatasets(Array.isArray(d)?d:[]));
-        fetch(`/api/enterprise/skills/categories?environment_id=${selEnv.id}`).then(r=>r.json()).then(d=>setSkillsCats(Array.isArray(d)?d.map(c=>c.category):[]));
+        tFetch(`/api/datasets?environment_id=${selEnv.id}`).then(r=>r.json()).then(d=>setDatasets(Array.isArray(d)?d:[]));
+        tFetch(`/api/enterprise/skills/categories?environment_id=${selEnv.id}`).then(r=>r.json()).then(d=>setSkillsCats(Array.isArray(d)?d.map(c=>c.category):[]));
       }
     }, [selEnv?.id]);
     const set = (k,v) => setForm(f=>({...f,[k]:v}));
@@ -1681,7 +1682,7 @@ const ConfigSection = ({ environment }) => {
     setStatus({ type:'info', msg:'Validating config file…' }); setDiff(null); setPending(null);
     try {
       const json = JSON.parse(await file.text());
-      const res  = await fetch(`/api/config/preview?environment_id=${envId}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(json) });
+      const res  = await tFetch(`/api/config/preview?environment_id=${envId}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(json) });
       const data = await res.json();
       if (!res.ok) { setStatus({ type:'error', msg: data.error||'Invalid config file.' }); return; }
       setDiff(data.diff); setDiffMeta(data.meta); setPending(json);
@@ -1693,7 +1694,7 @@ const ConfigSection = ({ environment }) => {
   const handleApply = async () => {
     if (!pending) return; setApplying(true);
     try {
-      const res  = await fetch(`/api/config/import?environment_id=${envId}&mode=${mode}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(pending) });
+      const res  = await tFetch(`/api/config/import?environment_id=${envId}&mode=${mode}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(pending) });
       const data = await res.json();
       if (!res.ok) { setStatus({ type:'error', msg: data.error||'Import failed.' }); return; }
       const summary = Object.entries(data.results).filter(([,v])=>v>0).map(([k,v])=>`${v} ${k}`).join(', ');
@@ -1951,7 +1952,7 @@ function CompanyProfilePanel({ environment }) {
   // Load profile on mount
   useEffect(() => {
     if (!envId) return;
-    fetch(`/api/company-research?environment_id=${envId}`)
+    tFetch(`/api/company-research?environment_id=${envId}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => { setProfile(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -1973,7 +1974,7 @@ function CompanyProfilePanel({ environment }) {
     setSaving(true);
     try {
       const merged = { ...(profile || {}), ...patch, environment_id: envId };
-      const r = await fetch('/api/company-research/save', {
+      const r = await tFetch('/api/company-research/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ environment_id: envId, profile: merged, apply_templates: false }),

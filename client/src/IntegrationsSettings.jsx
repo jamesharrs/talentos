@@ -1,3 +1,4 @@
+import { tFetch } from "./apiClient.js";
 import { IntegrationMonitor } from "./IntegrationMonitor.jsx";
 import FlowBuilder from "./FlowBuilder.jsx";
 // client/src/IntegrationsSettings.jsx
@@ -304,7 +305,7 @@ function SetupModal({provider,existing,environmentId,onClose,onSaved}){
       const providerKey=provider.slug==='inbound_webhooks'?'webhook':provider.slug;
       const res=await api.post(`/api/integrations`,{environment_id:environmentId,provider_slug:provider.slug,config:form,enabled:true});
       // Also apply to env via old endpoint
-      await fetch(`/api/integrations/${providerKey}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)}).catch(()=>{});
+      await tFetch(`/api/integrations/${providerKey}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)}).catch(()=>{});
       if(res.error){setErr(res.error);setSaving(false);return;}
       onSaved(res);return;
     }
@@ -315,7 +316,7 @@ function SetupModal({provider,existing,environmentId,onClose,onSaved}){
   const handleTest=async()=>{
     if(!existing?.id){setErr('Save first before testing');return;}
     setTesting(true);setTestResult(null);
-    const r=await fetch(`/api/integrations/${existing.id}/test`,{method:'POST'}).then(x=>x.json()).catch(e=>({ok:false,message:e.message}));
+    const r=await tFetch(`/api/integrations/${existing.id}/test`,{method:'POST'}).then(x=>x.json()).catch(e=>({ok:false,message:e.message}));
     setTestResult(r);setTesting(false);
   };
 
@@ -467,7 +468,7 @@ export default function IntegrationsSettings({environment}){
     setConfiguring(null);
   };
   const handleRetest=async(id)=>{
-    try { await fetch(`/api/integrations/${id}/test`,{method:'POST'}); await load(); }
+    try { await tFetch(`/api/integrations/${id}/test`,{method:'POST'}); await load(); }
     catch(e){ console.warn('retest failed',e); }
   };
   const handleToggle=async(conn)=>{const u=await api.patch(`/api/integrations/${conn.id}`,{enabled:!conn.enabled});if(!u.error)setConnections(prev=>prev.map(c=>c.id===conn.id?u:c));};

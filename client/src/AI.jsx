@@ -11,6 +11,7 @@ const C = {
 };
 
 import api from './apiClient.js';
+import { tFetch } from './apiClient.js';
 
 
 const Ic = ({ n, s=16, c="currentColor" }) => {
@@ -1007,7 +1008,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   };
 
   const parseModifyReport = (text) => {
-    const m = text.match(/<MODIFY_REPORT>([sS]*?)</MODIFY_REPORT>/);
+    const m = text.match(/<MODIFY_REPORT>([\s\S]*?)<\/MODIFY_REPORT>/);
     if (!m) return null;
     try { return JSON.parse(m[1].trim()); } catch { return null; }
   };
@@ -1070,11 +1071,11 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       if (slug) {
         const obj = objects.find(o => o.slug === slug);
         if (obj) {
-          const r = await fetch(`/api/records?object_id=${obj.id}&environment_id=${environment.id}&search=${encodeURIComponent(q)}&limit=8`).then(r=>r.json());
+          const r = await tFetch(`/api/records?object_id=${obj.id}&environment_id=${environment.id}&search=${encodeURIComponent(q)}&limit=8`).then(r=>r.json());
           return (r.records||[]).map(rec => ({ ...rec, object_name: obj.name, object_slug: obj.slug, object_color: obj.color }));
         }
       }
-      const data = await fetch(`/api/records/search?q=${encodeURIComponent(q)}&environment_id=${environment.id}&limit=8`).then(r=>r.json());
+      const data = await tFetch(`/api/records/search?q=${encodeURIComponent(q)}&environment_id=${environment.id}&limit=8`).then(r=>r.json());
       return Array.isArray(data) ? data : [];
     } catch { return []; }
   };
@@ -1409,10 +1410,10 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     if (!parsedPerson || !environment?.id) return;
     setCreating(true);
     try {
-      const objs = await fetch(`/api/objects?environment_id=${environment.id}`).then(r=>r.json());
+      const objs = await tFetch(`/api/objects?environment_id=${environment.id}`).then(r=>r.json());
       const peopleObj = (Array.isArray(objs)?objs:[]).find(o=>o.slug==='people'||o.name?.toLowerCase().includes('person')||o.name?.toLowerCase().includes('people'));
       if (!peopleObj) throw new Error('People object not found');
-      const rec = await fetch('/api/records',{method:'POST',headers:{'Content-Type':'application/json'},
+      const rec = await tFetch('/api/records',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({object_id:peopleObj.id,environment_id:environment.id,data:{
           first_name:parsedPerson.first_name||'',last_name:parsedPerson.last_name||'',
           email:parsedPerson.email||'',phone:parsedPerson.phone||'',
@@ -1433,10 +1434,10 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     if (!parsedJob || !environment?.id) return;
     setCreating(true);
     try {
-      const objs = await fetch(`/api/objects?environment_id=${environment.id}`).then(r=>r.json());
+      const objs = await tFetch(`/api/objects?environment_id=${environment.id}`).then(r=>r.json());
       const jobObj = (Array.isArray(objs)?objs:[]).find(o=>o.slug==='jobs'||o.name?.toLowerCase().includes('job'));
       if (!jobObj) throw new Error('Jobs object not found');
-      const rec2 = await fetch('/api/records',{method:'POST',headers:{'Content-Type':'application/json'},
+      const rec2 = await tFetch('/api/records',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({object_id:jobObj.id,environment_id:environment.id,data:{
           job_title:parsedJob.job_title||'',department:parsedJob.department||'',
           location:parsedJob.location||'',work_type:parsedJob.work_type||'',
@@ -1461,7 +1462,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
       // ── Add / update a note on a record ────────────────────────────────────
       if (action_type === 'add_note' && payload?.record_id && payload?.content) {
-        await fetch('/api/notes', {
+        await tFetch('/api/notes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1474,8 +1475,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
       // ── Update a single field on a record ───────────────────────────────────
       } else if (action_type === 'update_field' && payload?.record_id && payload?.field) {
-        const rec = await fetch(`/api/records/${payload.record_id}`).then(r => r.json());
-        await fetch(`/api/records/${payload.record_id}`, {
+        const rec = await tFetch(`/api/records/${payload.record_id}`).then(r => r.json());
+        await tFetch(`/api/records/${payload.record_id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ data: { ...rec.data, [payload.field]: payload.value } }),
@@ -1484,8 +1485,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
       // ── Legacy: status_change (alias for update_field) ──────────────────────
       } else if (action_type === 'status_change' && payload?.record_id && payload?.field && payload?.value) {
-        const rec = await fetch(`/api/records/${payload.record_id}`).then(r => r.json());
-        await fetch(`/api/records/${payload.record_id}`, {
+        const rec = await tFetch(`/api/records/${payload.record_id}`).then(r => r.json());
+        await tFetch(`/api/records/${payload.record_id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ data: { ...rec.data, [payload.field]: payload.value } }),
@@ -1494,7 +1495,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
       // ── Log a communication (call / email / sms) ────────────────────────────
       } else if (action_type === 'log_comm' && payload?.record_id) {
-        await fetch('/api/comms', {
+        await tFetch('/api/comms', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1512,7 +1513,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
       // ── Move a person through a pipeline stage ──────────────────────────────
       } else if (action_type === 'pipeline_move' && payload?.link_id && payload?.new_stage) {
-        await fetch(`/api/people-links/${payload.link_id}`, {
+        await tFetch(`/api/people-links/${payload.link_id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ current_stage: payload.new_stage }),
@@ -1521,8 +1522,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
       // ── Assign a record to a user / recruiter ───────────────────────────────
       } else if (action_type === 'assign' && payload?.record_id) {
-        const rec = await fetch(`/api/records/${payload.record_id}`).then(r => r.json());
-        await fetch(`/api/records/${payload.record_id}`, {
+        const rec = await tFetch(`/api/records/${payload.record_id}`).then(r => r.json());
+        await tFetch(`/api/records/${payload.record_id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ data: { ...rec.data, assigned_to: payload.assigned_to, recruiter: payload.assigned_to } }),
@@ -1532,7 +1533,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       // ── Bulk update multiple records ────────────────────────────────────────
       } else if (action_type === 'bulk_op' && payload?.record_ids?.length) {
         await Promise.all(payload.record_ids.map(id =>
-          fetch(`/api/records/${id}`, {
+          tFetch(`/api/records/${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ data: payload.data }),
@@ -1542,7 +1543,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
       // ── Delete a record ─────────────────────────────────────────────────────
       } else if (action_type === 'delete' && payload?.record_id) {
-        await fetch(`/api/records/${payload.record_id}`, { method: 'DELETE' });
+        await tFetch(`/api/records/${payload.record_id}`, { method: 'DELETE' });
         resultMsg = `✅ Record deleted`;
 
       } else {

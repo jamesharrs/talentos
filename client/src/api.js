@@ -9,10 +9,27 @@ function getSession() {
   catch { return {}; }
 }
 
+function getTenantSlug() {
+  // 1. Session (most reliable — set at login)
+  try {
+    const sess = JSON.parse(localStorage.getItem('talentos_session') || 'null');
+    if (sess?.tenant_slug && sess.tenant_slug !== 'master') return sess.tenant_slug;
+  } catch {}
+  // 2. URL ?tenant= param (used before session exists, e.g. during login)
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tenant')) return params.get('tenant');
+  } catch {}
+  return null;
+}
+
 function headers(extra = {}) {
   const session = getSession();
   const h = { 'Content-Type': 'application/json', ...extra };
-  const uid = session.userId || session.user?.id; if (uid) h['X-User-Id'] = uid;
+  const uid  = session.userId || session.user?.id;
+  const slug = getTenantSlug();
+  if (uid)  h['X-User-Id']     = uid;
+  if (slug) h['X-Tenant-Slug'] = slug;
   return h;
 }
 

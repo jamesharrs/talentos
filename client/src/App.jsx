@@ -1433,6 +1433,8 @@ function App() {
 
   useEffect(() => {
     if (apiOnline !== true) return;
+    // Re-runs when userId changes (i.e. after login) so we always fetch
+    // environments in the correct tenant context.
     api.get("/environments").then(data => {
       const envs = Array.isArray(data) ? data : [];
       setEnvironments(envs);
@@ -1445,7 +1447,8 @@ function App() {
       if (def) setSelectedEnv(def);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, [apiOnline]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiOnline, userId]);
 
   useEffect(() => {
     if (!selectedEnv?.id) return;

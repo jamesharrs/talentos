@@ -1,3 +1,4 @@
+import { tFetch } from "./apiClient.js";
 // client/src/Inbox.jsx
 import { useState, useEffect, useCallback, useRef } from "react";
 
@@ -442,7 +443,7 @@ export function useInboxUnreadCount(environmentId) {
   useEffect(() => {
     if (!environmentId) return;
     const poll = async () => {
-      try { const d = await fetch(`/api/inbox/unread-count?environment_id=${environmentId}`).then(r => r.json()); setCount(d.count || 0); } catch {}
+      try { const d = await tFetch(`/api/inbox/unread-count?environment_id=${environmentId}`).then(r => r.json()); setCount(d.count || 0); } catch {}
     };
     poll();
     const i = setInterval(poll, 30000);

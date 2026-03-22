@@ -52,3 +52,9 @@ const api = {
 
 export default api;
 export { authHeaders, jsonHeaders, getTenantSlug, getSession };
+
+// Bare fetch wrapper — use instead of raw fetch() so tenant + user headers are always sent.
+export function tFetch(url, opts = {}) {
+  const h = { ...authHeaders(), ...(opts.headers || {}) };
+  return fetch(url, { ...opts, headers: h });
+}

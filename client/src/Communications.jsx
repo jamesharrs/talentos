@@ -4,6 +4,7 @@ import AiBadge, { isAiGenerated } from "./AiBadge.jsx";
 
 // ─── Shared helpers (inline to avoid circular imports) ───────────────────────
 import api from './apiClient.js';
+import { tFetch } from './apiClient.js';
 
 
 
@@ -93,7 +94,7 @@ function AIComposeModal({ type, record, objectName, template, onUse, onClose }) 
 The recipient is ${personName}. Keep it professional, warm and concise.
 ${type==="email" ? "Return JSON: {\"subject\":\"...\",\"body\":\"...\"}." : "Return JSON: {\"body\":\"...\"}." }
 No markdown, no preamble, just the JSON object.`;
-      const r = await fetch(`/api/ai/chat`, {
+      const r = await tFetch(`/api/ai/chat`, {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ messages:[{role:"user", content: prompt || `Write a follow-up ${type} to ${personName}`}], system: systemPrompt })
@@ -169,7 +170,7 @@ function ComposeModal({ type, record, environment, onSave, onClose, defaultRelat
   useEffect(() => {
     if (!record?.id || !environment?.id) return;
     // Fetch people_links for this person, then get job record names
-    fetch(`/api/records/linked-jobs?person_id=${record.id}&environment_id=${environment.id}`)
+    tFetch(`/api/records/linked-jobs?person_id=${record.id}&environment_id=${environment.id}`)
       .then(r => r.json())
       .then(d => setLinkedJobs(Array.isArray(d) ? d : []))
       .catch(() => setLinkedJobs([]));
@@ -504,7 +505,7 @@ export default function CommunicationsPanel({ record, environment, externalCompo
   // Load linked jobs for context filter tabs
   useEffect(() => {
     if (!record?.id || !environment?.id) return;
-    fetch(`/api/records/linked-jobs?person_id=${record.id}&environment_id=${environment.id}`)
+    tFetch(`/api/records/linked-jobs?person_id=${record.id}&environment_id=${environment.id}`)
       .then(r => r.json())
       .then(d => setLinkedJobs(Array.isArray(d) ? d : []))
       .catch(() => setLinkedJobs([]));

@@ -1,3 +1,4 @@
+import { tFetch } from "./apiClient.js";
 import { useState, useEffect, useCallback } from "react";
 
 const PRIORITY = {
@@ -37,12 +38,12 @@ function QuickTaskModal({ task, defaultDate, envId, recId, recName, onDone }) {
     if(!title.trim()) return;
     setSaving(true);
     const body={title,due_date:due||null,priority,status,environment_id:envId,record_id:recId,record_name:recName};
-    if(task) await fetch(`/api/calendar/tasks/${task.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(task) await tFetch(`/api/calendar/tasks/${task.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     else await fetch("/api/calendar/tasks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     setSaving(false); onDone();
   };
   const handleDelete = async () => {
-    await fetch(`/api/calendar/tasks/${task.id}`,{method:"DELETE"});
+    await tFetch(`/api/calendar/tasks/${task.id}`,{method:"DELETE"});
     onDone();
   };
 
@@ -90,8 +91,8 @@ export function TasksEventsPanel({ record, environment }) {
     if(!recId) return;
     setLoading(true);
     const [t,e] = await Promise.all([
-      fetch(`/api/calendar/tasks?record_id=${recId}`).then(r=>r.json()),
-      fetch(`/api/calendar/events?record_id=${recId}`).then(r=>r.json()),
+      tFetch(`/api/calendar/tasks?record_id=${recId}`).then(r=>r.json()),
+      tFetch(`/api/calendar/events?record_id=${recId}`).then(r=>r.json()),
     ]);
     setTasks(Array.isArray(t)?t:[]); setEvents(Array.isArray(e)?e:[]); setLoading(false);
   }, [recId]);
@@ -99,10 +100,10 @@ export function TasksEventsPanel({ record, environment }) {
   useEffect(()=>{load();}, [load]);
 
   const handleToggle = async task => {
-    await fetch(`/api/calendar/tasks/${task.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:task.status==="done"?"todo":"done"})});
+    await tFetch(`/api/calendar/tasks/${task.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:task.status==="done"?"todo":"done"})});
     load();
   };
-  const handleDeleteEvent = async id => { await fetch(`/api/calendar/events/${id}`,{method:"DELETE"}); load(); };
+  const handleDeleteEvent = async id => { await tFetch(`/api/calendar/events/${id}`,{method:"DELETE"}); load(); };
 
   const todayStr = new Date().toISOString().slice(0,10);
   const tasksDue = tasks.filter(t=>t.status!=="done");

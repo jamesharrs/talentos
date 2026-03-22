@@ -1,3 +1,4 @@
+import { tFetch } from "./apiClient.js";
 import { IntegrationMonitor } from "./IntegrationMonitor.jsx";
 // client/src/Integrations.jsx
 import { useState, useEffect, useCallback } from "react";
@@ -83,7 +84,7 @@ function SetupModal({provider,existing,environmentId,onClose,onSaved}){
     if(!existing?.id){setError('Save first before testing');return;}
     setTesting(true);setTestResult(null);
     try{
-      const r=await fetch(`/api/integrations/${existing.id}/test`,{method:'POST'}).then(x=>x.json());
+      const r=await tFetch(`/api/integrations/${existing.id}/test`,{method:'POST'}).then(x=>x.json());
       setTestResult(r); setTesting(false);
     }catch(e){setTestResult({ok:false,message:e.message});setTesting(false);}
   };
@@ -313,7 +314,7 @@ export default function IntegrationsPage({environment}){
   };
   const handleRetest=async(id)=>{
     try {
-      const result = await fetch(`/api/integrations/${id}/test`,{method:'POST'}).then(r=>r.json());
+      const result = await tFetch(`/api/integrations/${id}/test`,{method:'POST'}).then(r=>r.json());
       await load();
       return result;
     } catch(e) { console.warn('retest failed',e); }

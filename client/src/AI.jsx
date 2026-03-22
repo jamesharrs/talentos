@@ -1048,7 +1048,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         if(!recs.length) return;
         const found = [];
         const now = Date.now();
-        const SEVEN_DAYS = 7*24*60*60*1000;
+        const SEVEN_DAYS = 1 * 60 * 1000; // TEST: 1 minute (change back to 7*24*60*60*1000)
 
         if(objSlug === 'people') {
           // Nudge: candidates not contacted in 7 days
@@ -1072,7 +1072,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
         } else if(objSlug === 'jobs') {
           // Nudge: open jobs older than 30 days
-          const stale = recs.filter(r => r.data?.status === 'Open' && (now - new Date(r.created_at).getTime()) > 30*24*60*60*1000);
+          const stale = recs.filter(r => r.data?.status === 'Open' && (now - new Date(r.created_at).getTime()) > 1 * 60 * 1000); // TEST: 1 min
           if(stale.length > 0)
             found.push({ icon:"alert-triangle", color:"#e03131", text:`${stale.length} open job${stale.length>1?"s have":" has"} been open for 30+ days`, action:"Show me jobs open for more than 30 days" });
 

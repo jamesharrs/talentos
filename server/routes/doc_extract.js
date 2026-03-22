@@ -1,5 +1,6 @@
 const express = require('express');
 const router  = express.Router();
+const { trackAIUsage } = require('./admin_dashboard');
 const multer  = require('multer');
 const path    = require('path');
 const fs      = require('fs');
@@ -139,7 +140,19 @@ router.post('/', (req, res, next) => {
     console.log(`[doc-extract] response: ${rawText.slice(0, 200)}`);
     const parsed = JSON.parse(rawText.replace(/```json|```/g, '').trim());
     if (cleanupPath) try { fs.unlinkSync(cleanupPath); } catch {}
-
+    // Track AI usage
+    try {
+      trackAIUsage({
+        user_id:        req.body?.user_id        || 'anonymous',
+        user_name:      req.body?.user_name      || 'Unknown',
+        user_email:     req.body?.user_email     || '',
+        feature:        'doc_extract',
+        tokens_in:      claudeResponse.usage?.input_tokens  || 0,
+        tokens_out:     claudeResponse.usage?.output_tokens || 0,
+        model:          'claude-opus-4-6',
+        environment_id: req.body?.environment_id || '',
+      });
+    } catch(_e) {}
     res.json({ parsed, used_vision: useVision, file_type: fileTypeName, mappings_count: mappings.length });
   } catch(e) {
     console.error('[doc-extract] error:', e.message);

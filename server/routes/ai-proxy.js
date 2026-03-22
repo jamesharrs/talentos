@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { trackAIUsage } = require('./admin_dashboard');
 
 router.post('/chat', async (req, res) => {
   const { messages, system } = req.body;
@@ -25,6 +26,20 @@ router.post('/chat', async (req, res) => {
 
     const data = await response.json();
     if (data.error) return res.status(400).json({ error: data.error.message });
+    // Track AI usage
+    try {
+      const b = req.body || {};
+      trackAIUsage({
+        user_id:        b.user_id        || b.userId        || 'anonymous',
+        user_name:      b.user_name      || b.userName      || 'Unknown',
+        user_email:     b.user_email     || b.userEmail     || '',
+        feature:        b.feature        || 'copilot',
+        tokens_in:      data.usage?.input_tokens  || 0,
+        tokens_out:     data.usage?.output_tokens || 0,
+        model:          b.model          || 'claude-sonnet-4-6',
+        environment_id: b.environment_id || b.environmentId || '',
+      });
+    } catch(_e) {}
     res.json({ content: data.content?.[0]?.text || '' });
   } catch (err) {
     console.error('AI proxy error:', err);

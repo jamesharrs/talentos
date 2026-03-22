@@ -1,5 +1,6 @@
 const express = require('express');
 const router  = express.Router();
+const { trackAIUsage } = require('./admin_dashboard');
 
 router.post('/', async (req, res) => {
   const { targetLanguage, targetCode, strings } = req.body;
@@ -45,6 +46,16 @@ Rules:
     const text = data.content?.find(b => b.type === 'text')?.text || '';
     const clean = text.replace(/```json|```/g, '').trim();
     const translated = JSON.parse(clean);
+    // Track AI usage
+    try {
+      trackAIUsage({
+        user_id:   req.body?.user_id || 'anonymous',
+        feature:   'translation',
+        tokens_in:  data.usage?.input_tokens  || 0,
+        tokens_out: data.usage?.output_tokens || 0,
+        model:     'claude-opus-4-6',
+      });
+    } catch(_e) {}
     res.json({ translated });
   } catch (e) {
     console.error('Translation error:', e);

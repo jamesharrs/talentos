@@ -1,5 +1,6 @@
 const express  = require('express');
 const router   = express.Router();
+const { trackAIUsage } = require('./admin_dashboard');
 const multer   = require('multer');
 const path     = require('path');
 const fs       = require('fs');
@@ -140,6 +141,19 @@ IMPORTANT: The skills array and work_history array should be populated even if e
 
     const data   = await response.json();
     const text   = data.content?.find(b => b.type === 'text')?.text || '';
+    // Track AI usage
+    try {
+      trackAIUsage({
+        user_id:        req.body?.user_id        || 'anonymous',
+        user_name:      req.body?.user_name      || 'Unknown',
+        user_email:     req.body?.user_email     || '',
+        feature:        'cv_parse',
+        tokens_in:      data.usage?.input_tokens  || 0,
+        tokens_out:     data.usage?.output_tokens || 0,
+        model:          'claude-opus-4-6',
+        environment_id: req.body?.environment_id || '',
+      });
+    } catch(_e) {}
     console.log(`[cv-parse] Claude raw response: ${text.slice(0,300)}`);
     const clean  = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);

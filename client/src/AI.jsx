@@ -1034,62 +1034,75 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
   // Generate proactive nudges when the copilot opens on a list page
   useEffect(()=>{
-    if(!open || !environment?.id || currentRecord) return; // only on list pages, not record detail
+    if(!open || !environment?.id || currentRecord) return;
+    // Need objects to be loaded — if empty, skip (will re-run when objects loads)
+    if(!objects.length) return;
+
     setNudges([]);
-    const objSlug = navObjects?.find(o => 'obj_'+o.id === activeNav)?.slug;
-    if(!objSlug) return;
+    // Match active nav to an object slug
+    const activeObj = navObjects?.find(o => 'obj_'+o.id === activeNav);
+    const objSlug = activeObj?.slug;
+    // Also allow if we're just on a list page with any known slug
+    const knownSlug = objSlug || (activeNav?.startsWith('obj_') ? null : null);
+    if(!knownSlug) return;
+
+    const obj = objects.find(o => o.slug === knownSlug);
+    if(!obj) return;
 
     const analyzeData = async () => {
       try {
-        const obj = objects.find(o => o.slug === objSlug);
-        if(!obj) return;
         const r = await api.get(`/records?object_id=${obj.id}&environment_id=${environment.id}&limit=200`);
         const recs = r.records || [];
         if(!recs.length) return;
         const found = [];
         const now = Date.now();
-        const SEVEN_DAYS = 1 * 60 * 1000; // TEST: 1 minute (change back to 7*24*60*60*1000)
+        const STALE_MS = 1 * 60 * 1000; // TEST: 1 min — change to 7*24*60*60*1000 for production
 
-        if(objSlug === 'people') {
-          // Nudge: candidates not contacted in 7 days
-          const uncontacted = recs.filter(r => {
-            if(r.data?.status === 'Archived' || r.data?.status === 'Placed') return false;
-            const lastContact = r.updated_at ? new Date(r.updated_at).getTime() : new Date(r.created_at).getTime();
-            return (now - lastContact) > SEVEN_DAYS;
+        if(knownSlug === 'people') {
+          const uncontacted = recs.filter(rec => {
+            if(rec.data?.status === 'Archived' || rec.data?.status === 'Placed') return false;
+            const t = rec.updated_at || rec.created_at;
+            return t && (now - new Date(t).getTime()) > STALE_MS;
           });
           if(uncontacted.length > 0)
-            found.push({ icon:"mail", color:"#f59f00", text:`${uncontacted.length} candidate${uncontacted.length>1?"s haven't":" hasn't"} been updated in 7+ days`, action:"Show me candidates not updated in 7 days" });
+            found.push({ icon:"mail", color:"#f59f00",
+              text:`${uncontacted.length} candidate${uncontacted.length>1?"s haven't":" hasn't"} been updated in 1+ min`,
+              action:"Show me candidates not updated recently" });
 
-          // Nudge: active candidates with no status
-          const noStatus = recs.filter(r => !r.data?.status || r.data.status === '');
+          const noStatus = recs.filter(rec => !rec.data?.status);
           if(noStatus.length > 0)
-            found.push({ icon:"alert-triangle", color:"#e03131", text:`${noStatus.length} candidate${noStatus.length>1?"s have":" has"} no status set`, action:`Show me candidates with no status` });
+            found.push({ icon:"alert-triangle", color:"#e03131",
+              text:`${noStatus.length} candidate${noStatus.length>1?"s have":" has"} no status set`,
+              action:"Show me candidates with no status" });
 
-          // Nudge: high rated candidates with passive/not looking status
-          const dormantStars = recs.filter(r => Number(r.data?.rating||0) >= 4 && (r.data?.status === 'Passive' || r.data?.status === 'Not Looking'));
+          const dormantStars = recs.filter(rec => Number(rec.data?.rating||0) >= 4 && (rec.data?.status === 'Passive' || rec.data?.status === 'Not Looking'));
           if(dormantStars.length > 0)
-            found.push({ icon:"star", color:"#7c3aed", text:`${dormantStars.length} highly-rated candidate${dormantStars.length>1?"s are":" is"} passive or not looking`, action:"Show me high-rated passive candidates" });
+            found.push({ icon:"star", color:"#7c3aed",
+              text:`${dormantStars.length} highly-rated candidate${dormantStars.length>1?"s are":" is"} passive or not looking`,
+              action:"Show me high-rated passive candidates" });
 
-        } else if(objSlug === 'jobs') {
-          // Nudge: open jobs older than 30 days
-          const stale = recs.filter(r => r.data?.status === 'Open' && (now - new Date(r.created_at).getTime()) > 1 * 60 * 1000); // TEST: 1 min
+        } else if(knownSlug === 'jobs') {
+          const stale = recs.filter(rec => rec.data?.status === 'Open' && (now - new Date(rec.created_at).getTime()) > STALE_MS);
           if(stale.length > 0)
-            found.push({ icon:"alert-triangle", color:"#e03131", text:`${stale.length} open job${stale.length>1?"s have":" has"} been open for 30+ days`, action:"Show me jobs open for more than 30 days" });
+            found.push({ icon:"alert-triangle", color:"#e03131",
+              text:`${stale.length} open job${stale.length>1?"s have":" has"} been open for 1+ min`,
+              action:"Show me jobs that have been open a long time" });
 
-          // Nudge: jobs with no department set
-          const noDept = recs.filter(r => r.data?.status === 'Open' && !r.data?.department);
+          const noDept = recs.filter(rec => rec.data?.status === 'Open' && !rec.data?.department);
           if(noDept.length > 0)
-            found.push({ icon:"edit", color:"#f59f00", text:`${noDept.length} open job${noDept.length>1?"s have":" has"} no department set`, action:"Show me open jobs with no department" });
+            found.push({ icon:"edit", color:"#f59f00",
+              text:`${noDept.length} open job${noDept.length>1?"s have":" has"} no department set`,
+              action:"Show me open jobs with no department" });
         }
 
-        setNudges(found.slice(0,3)); // max 3 nudges
-      } catch(e) {}
+        if(found.length) setNudges(found.slice(0,3));
+      } catch(e) { console.warn('[nudges] error:', e); }
     };
 
-    // Small delay so it doesn't fire instantly on every keystroke nav
-    const t = setTimeout(analyzeData, 1200);
+    // Fire after a short delay
+    const t = setTimeout(analyzeData, 800);
     return () => clearTimeout(t);
-  },[open, activeNav, environment?.id, objects]);
+  },[open, activeNav, environment?.id, objects, navObjects]);
 
   const parseCreateRecord = (text) => {
     const match = text.match(/<CREATE_RECORD>([\s\S]*?)<\/CREATE_RECORD>/);

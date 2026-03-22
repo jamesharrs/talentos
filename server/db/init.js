@@ -160,7 +160,40 @@ function listTenants() {
 // ── initDB — seeds master store if empty ──────────────────────────────────────
 // Same logic as before — only touches the master store.
 async function initDB() {
-  loadTenantStore(null); // Ensure master store is loaded
+  // 1. Bootstrap PG schema if DATABASE_URL is set
+  if (process.env.DATABASE_URL) {
+    try {
+      pg.getPool(); // force pool creation
+      const ok = await pg.bootstrap();
+      if (ok) console.log('[PG] Connected and schema ready');
+    } catch (e) {
+      console.error('[PG] Bootstrap failed, falling back to JSON:', e.message);
+    }
+  }
+
+  // 2. Try loading master store from PG first, then JSON fallback
+  if (pg.isEnabled()) {
+    try {
+      const pgStore = await pg.loadTenant('master');
+      if (pgStore && Object.keys(pgStore).length > 0) {
+        const base = { ...EMPTY_STORE() };
+        storeCache['master'] = { ...base, ...pgStore };
+        console.log('[PG] Master store loaded from PostgreSQL');
+      } else {
+        // PG is empty — load from JSON and migrate up
+        loadTenantStore(null);
+        console.log('[PG] PostgreSQL empty — migrating from JSON file...');
+        await pg.migrateFromJson(DATA_DIR);
+        console.log('[PG] Migration complete');
+      }
+    } catch (e) {
+      console.error('[PG] Load failed, falling back to JSON:', e.message);
+      loadTenantStore(null);
+    }
+  } else {
+    loadTenantStore(null);
+  }
+
   const store = storeCache['master'];
   
   if (store.environments && store.environments.length > 0) {

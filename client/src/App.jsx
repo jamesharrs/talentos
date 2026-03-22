@@ -3,26 +3,39 @@ import InboxModule, { useInboxUnreadCount } from "./Inbox";
 import { MobileShell, useIsMobile } from "./MobileApp.jsx";
 
 // Heavy modules — loaded on demand only when navigated to
-const SettingsPage    = lazy(() => import("./Settings.jsx"));
-const OrgChart        = lazy(() => import("./OrgChart.jsx"));
-const SearchPage      = lazy(() => import("./Search.jsx"));
-const Dashboard          = lazy(() => import("./Dashboard.jsx"));
-const AdminDashboard     = lazy(() => import("./AdminDashboard.jsx"));
-const InterviewDashboard = lazy(() => import("./InterviewDashboard.jsx"));
-const OfferDashboard     = lazy(() => import("./OfferDashboard.jsx"));
-const ObjectApp       = lazy(() => import("./ObjectApp.jsx"));
+// Chunk-load error handler — reloads once when a lazy chunk fails (stale deployment cache)
+const lazyWithRetry = (factory) => lazy(() =>
+  factory().catch((err) => {
+    // Only auto-reload once per session to avoid infinite loops
+    const reloadKey = "vrc_chunk_reload";
+    if (!sessionStorage.getItem(reloadKey)) {
+      sessionStorage.setItem(reloadKey, "1");
+      window.location.reload();
+    }
+    return { default: () => null };
+  })
+);
+
+const SettingsPage    = lazyWithRetry(() => import("./Settings.jsx"));
+const OrgChart        = lazyWithRetry(() => import("./OrgChart.jsx"));
+const SearchPage      = lazyWithRetry(() => import("./Search.jsx"));
+const Dashboard          = lazyWithRetry(() => import("./Dashboard.jsx"));
+const AdminDashboard     = lazyWithRetry(() => import("./AdminDashboard.jsx"));
+const InterviewDashboard = lazyWithRetry(() => import("./InterviewDashboard.jsx"));
+const OfferDashboard     = lazyWithRetry(() => import("./OfferDashboard.jsx"));
+const ObjectApp       = lazyWithRetry(() => import("./ObjectApp.jsx"));
 import PortalApp from "./PortalApp.jsx";
 import InterviewSession from "./InterviewSession.jsx";
-const WorkflowsPage   = lazy(() => import("./Workflows.jsx"));
-const PortalsPage     = lazy(() => import("./Portals.jsx"));
-const ReportsPage     = lazy(() => import("./Reports.jsx"));
-const Interviews      = lazy(() => import("./Interviews.jsx"));
-const OffersModule    = lazy(() => import("./Offers.jsx"));
-const SuperAdminConsole = lazy(() => import("./SuperAdminConsole.jsx"));
-const AgentsModule      = lazy(() => import("./Agents.jsx"));
-const IntegrationsPage  = lazy(() => import("./IntegrationsSettings.jsx"));
-const HelpPage          = lazy(() => import("./Help.jsx"));
-const CompanySetupWizard = lazy(() => import("./CompanySetupWizard.jsx"));
+const WorkflowsPage   = lazyWithRetry(() => import("./Workflows.jsx"));
+const PortalsPage     = lazyWithRetry(() => import("./Portals.jsx"));
+const ReportsPage     = lazyWithRetry(() => import("./Reports.jsx"));
+const Interviews      = lazyWithRetry(() => import("./Interviews.jsx"));
+const OffersModule    = lazyWithRetry(() => import("./Offers.jsx"));
+const SuperAdminConsole = lazyWithRetry(() => import("./SuperAdminConsole.jsx"));
+const AgentsModule      = lazyWithRetry(() => import("./Agents.jsx"));
+const IntegrationsPage  = lazyWithRetry(() => import("./IntegrationsSettings.jsx"));
+const HelpPage          = lazyWithRetry(() => import("./Help.jsx"));
+const CompanySetupWizard = lazyWithRetry(() => import("./CompanySetupWizard.jsx"));
 
 // Records loaded eagerly — used everywhere for record detail navigation
 import RecordsView, { RecordDetail } from "./Records.jsx";

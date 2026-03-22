@@ -179,7 +179,7 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
       const objects  = Array.isArray(objRes) ? objRes : [];
       const activity = Array.isArray(actRes) ? actRes : [];
 
-      const recordFetches  = objects.map(o => api.get(`/records?object_id=${o.id}&environment_id=${environment.id}&page=1&limit=50`));
+      const recordFetches  = objects.map(o => api.get(`/records?object_id=${o.id}&environment_id=${environment.id}&page=1&limit=200`));
       const recordResults  = await Promise.all(recordFetches);
       const objectData     = objects.map((o, i) => {
         const res = recordResults[i];
@@ -240,7 +240,7 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
 
       _cache = result; _cacheEnv = environment.id;
       if (isMounted.current) { setData(result); setLoading(false); }
-    } catch { if (isMounted.current) setLoading(false); }
+    } catch(e) { console.error('[Dashboard] load error:', e); if (isMounted.current) setLoading(false); }
   }, [environment?.id]);
 
   useEffect(() => { isMounted.current = true; load(); return () => { isMounted.current = false; }; }, [load]);
@@ -248,8 +248,10 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
   const goTo = (slug, key, val) => window.dispatchEvent(new CustomEvent("talentos:filter-navigate", { detail: { objectSlug: slug, fieldKey: key, fieldValue: val } }));
   const openRpt = (cfg) => { if (onReport) onReport(cfg); else window.dispatchEvent(new CustomEvent("talentos:open-report", { detail: cfg })); };
 
-  const activeCandidates = data?.people?.records.filter(r => !r.deleted_at && !["hired","rejected","withdrawn"].includes((r.data?.status || "").toLowerCase())).length ?? 0;
-  const openRoles        = data?.jobs?.records.filter(r => !r.deleted_at && !["filled","closed"].includes((r.data?.status || "").toLowerCase())).length ?? 0;
+  const activeCandidates = data?.people?.records.filter(r => !r.deleted_at && !["hired","rejected","withdrawn","placed"].includes((r.data?.status || "").toLowerCase())).length ?? 0;
+  const totalCandidates  = data?.people?.total ?? 0;
+  const openRoles        = data?.jobs?.records.filter(r => !r.deleted_at && !["filled","closed","cancelled"].includes((r.data?.status || "").toLowerCase())).length ?? 0;
+  const totalJobs        = data?.jobs?.total ?? 0;
   const poolCount        = data?.pools?.total ?? 0;
   const totalPlacements  = data?.people?.records.filter(r => (r.data?.status || "").toLowerCase() === "hired").length ?? 0;
 
@@ -303,7 +305,7 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
       {/* ── 4 KPI cards ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 16 }}>
         <KpiCard
-          label="Total candidates" value={activeCandidates.toLocaleString()}
+          label="Total candidates" value={totalCandidates.toLocaleString()}
           sub={`${activeCandidates} active`} sub2="vs last month"
           tag={momP !== null ? (momP >= 0 ? `+${momP}%` : `${momP}%`) : null} tagUp={momP >= 0}
           color={V.purple}
@@ -313,7 +315,7 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
         />
         <KpiCard
           label="Open jobs" value={openRoles.toLocaleString()}
-          sub={`${openRoles} total roles`} sub2="vs last month"
+          sub={`${totalJobs} total roles`} sub2="vs last month"
           tag={momJ !== null ? (momJ >= 0 ? `+${momJ}%` : `${momJ}%`) : null} tagUp={momJ >= 0}
           color={V.rose}
           iconPath={<><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></>}

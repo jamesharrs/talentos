@@ -139,7 +139,7 @@ No markdown, no preamble, just the JSON object.`;
 }
 
 // ─── Compose Modal (Email / SMS / WhatsApp / Call log) ──────────────────────
-function ComposeModal({ type, record, environment, onSave, onClose }) {
+function ComposeModal({ type, record, environment, onSave, onClose, defaultRelatedRecordId }) {
   const [subject, setSubject]   = useState("");
   const [body, setBody]         = useState("");
   const [to, setTo]             = useState(() => {
@@ -156,9 +156,9 @@ function ComposeModal({ type, record, environment, onSave, onClose }) {
   const [showAI, setShowAI]     = useState(false);
   const [saving, setSaving]     = useState(false);
   const [providerStatus, setProviderStatus] = useState(null);
-  // Related job — for application context
+  // Related job — pre-selected from job context bar, or chosen manually
   const [linkedJobs, setLinkedJobs] = useState([]);
-  const [relatedRecordId, setRelatedRecordId] = useState("");
+  const [relatedRecordId, setRelatedRecordId] = useState(defaultRelatedRecordId || "");
   const meta = TYPE_META[type] || {};
 
   useEffect(() => {
@@ -477,12 +477,12 @@ function FilterBar({ activeType, setActiveType, search, setSearch, total, counts
 }
 
 // ─── Main CommunicationsPanel export ─────────────────────────────────────────
-export default function CommunicationsPanel({ record, environment, externalCompose, onExternalComposeDone }) {
+export default function CommunicationsPanel({ record, environment, externalCompose, onExternalComposeDone, initialJobContext }) {
   const [items, setItems]       = useState([]);
   const [total, setTotal]       = useState(0);
   const [loading, setLoading]   = useState(true);
   const [activeType, setActiveType] = useState("all");
-  const [activeContext, setActiveContext] = useState("all"); // all | general | <job record id>
+  const [activeContext, setActiveContext] = useState(initialJobContext || "all"); // all | general | <job record id>
   const [linkedJobs, setLinkedJobs] = useState([]);
   const [search, setSearch]     = useState("");
   const [compose, setCompose]   = useState(null);
@@ -494,6 +494,12 @@ export default function CommunicationsPanel({ record, environment, externalCompo
   useEffect(() => {
     if (externalCompose) { setCompose(externalCompose); }
   }, [externalCompose]);
+
+  // Sync context when parent job context bar changes
+  useEffect(() => {
+    setActiveContext(initialJobContext || "all");
+    setPage(1);
+  }, [initialJobContext]);
 
   // Load linked jobs for context filter tabs
   useEffect(() => {
@@ -549,6 +555,7 @@ export default function CommunicationsPanel({ record, environment, externalCompo
       {/* Compose modal */}
       {compose && (
         <ComposeModal type={compose} record={record} environment={environment}
+          defaultRelatedRecordId={initialJobContext || ""}
           onSave={()=>{ setCompose(null); onExternalComposeDone?.(); setPage(1); load(); }}
           onClose={()=>{ setCompose(null); onExternalComposeDone?.(); }}/>
       )}

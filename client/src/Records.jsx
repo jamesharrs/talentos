@@ -4046,6 +4046,17 @@ const GroupCard = ({ ids, overSlot, overZone, openPanels, setOpenPanels, openPan
 export const RecordDetail = ({ record, fields, allObjects, environment, objectName, objectColor, onClose, fullPage, onToggleFullPage, onUpdate, onDelete, onNavigate }) => {
   const _permCtx = usePermCtx();
   const canRecord = (flag) => _permCtx ? _permCtx.canGlobal(flag) : true;
+  // ── Job context — Person records only ────────────────────────────────────
+  const [activeJobContext, setActiveJobContext] = useState(null); // null=General, string=job record id
+  const [linkedJobRecords, setLinkedJobRecords] = useState([]);
+  useEffect(() => {
+    if (objectName !== "Person") return;
+    if (!record?.id || !environment?.id) return;
+    fetch(`/api/records/linked-jobs?person_id=${record.id}&environment_id=${environment.id}`)
+      .then(r => r.json())
+      .then(d => setLinkedJobRecords(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, [record?.id, environment?.id, objectName]);
   const [tab, setTab]           = useState("fields");
   const [editing, setEditing]   = useState({});
   const [notes, setNotes]       = useState([]);
@@ -4530,7 +4541,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   // ── Panel content renderer ── (useCallback so identity is stable between renders)
   const PanelContent = useCallback(({ id }) => {
     if (id==="comms") return canRecord('record_view_comms') ? (
-      <CommunicationsPanel record={record} environment={environment} externalCompose={composeType} onExternalComposeDone={()=>setComposeType(null)}/>
+      <CommunicationsPanel record={record} environment={environment} externalCompose={composeType} onExternalComposeDone={()=>setComposeType(null)} initialJobContext={activeJobContext}/>
     ) : <AccessDeniedPanel label="Communications"/>;
     if (id==="coordination") return (
       <CoordinationPanel record={record} environment={environment}/>
@@ -5001,6 +5012,46 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       {objectName !== "Person" && (
         <div style={{ flexShrink:0, borderBottom:`1px solid ${C.border}` }}>
           <PeoplePipelineWidget record={record} objectId={record.object_id} environment={environment} onNavigate={onNavigate}/>
+        </div>
+      )}
+      {/* Job context switcher — Person records with linked jobs */}
+      {objectName === "Person" && linkedJobRecords.length > 0 && (
+        <div style={{ flexShrink:0, borderBottom:`1px solid ${C.border}`, background:C.surface,
+          display:"flex", alignItems:"center", gap:6, padding:"8px 16px", overflowX:"auto" }}>
+          <span style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase",
+            letterSpacing:"0.06em", whiteSpace:"nowrap", marginRight:2 }}>Context</span>
+          {/* General tab */}
+          <button onClick={() => setActiveJobContext(null)}
+            style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"4px 12px",
+              borderRadius:99, border:"none", fontFamily:F, fontSize:12, fontWeight:600,
+              whiteSpace:"nowrap", flexShrink:0, cursor:"pointer", transition:"all .15s",
+              background: !activeJobContext ? C.accent : C.bg,
+              color: !activeJobContext ? "white" : C.text2,
+              boxShadow: !activeJobContext ? "0 1px 4px rgba(0,0,0,.15)" : "none" }}>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"/>
+            </svg>
+            General
+          </button>
+          {/* One tab per linked job */}
+          {linkedJobRecords.map(job => {
+            const isActive = activeJobContext === job.id;
+            const title = job.title || job.data?.job_title || job.data?.name || "Untitled";
+            return (
+              <button key={job.id} onClick={() => setActiveJobContext(job.id)} title={title}
+                style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"4px 12px",
+                  borderRadius:99, border:"none", fontFamily:F, fontSize:12, fontWeight:600,
+                  whiteSpace:"nowrap", flexShrink:0, cursor:"pointer", maxWidth:180, transition:"all .15s",
+                  background: isActive ? C.accent : C.bg,
+                  color: isActive ? "white" : C.text2,
+                  boxShadow: isActive ? "0 1px 4px rgba(0,0,0,.15)" : "none" }}>
+                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                  <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/>
+                </svg>
+                <span style={{ overflow:"hidden", textOverflow:"ellipsis" }}>{title}</span>
+              </button>
+            );
+          })}
         </div>
       )}
       {/* 2-col body */}

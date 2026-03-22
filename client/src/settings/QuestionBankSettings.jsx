@@ -63,6 +63,16 @@ const TYPE_COLORS = {
   file_upload:     "#14B8A6",
 };
 
+const CATEGORY_COLORS = {
+  General:     "#4361EE",
+  Technology:  "#7C3AED",
+  Management:  "#0CAF77",
+  Culture:     "#F79009",
+  Sales:       "#EC4899",
+  Operations:  "#14B8A6",
+  Custom:      "#6366F1",
+};
+
 const Btn = ({children,onClick,v="primary",sz="md",icon,disabled,style={}})=>{
   const base={display:"inline-flex",alignItems:"center",gap:6,fontFamily:F,fontWeight:700,cursor:disabled?"not-allowed":"pointer",borderRadius:9,transition:"all .12s",border:"none",opacity:disabled?0.5:1,...(sz==="sm"?{padding:"5px 10px",fontSize:11}:{padding:"8px 16px",fontSize:13})};
   const vs={primary:{background:C.accent,color:"#fff"},secondary:{background:"#f1f5f9",color:C.text2},ghost:{background:"transparent",color:C.text2,border:`1px solid ${C.border}`},danger:{background:"#fef2f2",color:C.red,border:`1px solid #fecaca`},green:{background:C.green,color:"#fff"}};

@@ -40,9 +40,16 @@ export default function LoginPage({ onLogin }) {
       const loginUrl = tenantParam ? `/api/users/login?tenant=${encodeURIComponent(tenantParam)}` : "/api/users/login";
       const data = await api.post(loginUrl, { email, password });
       const { role, permissions, tenant_slug, ...user } = data;
-      setSession({ user, role, permissions, tenant_slug });
+      // Only keep tenant_slug if the login explicitly used a tenant param
+      // (don't inherit a stale ?tenant= from the URL for master admins)
+      const resolvedTenant = tenant_slug && tenant_slug !== 'master' ? tenant_slug : null;
+      setSession({ user, role, permissions, tenant_slug: resolvedTenant });
       loadMyPermissions().catch(() => {});
-      onLogin({ user, role, permissions, tenant_slug });
+      // Strip ?tenant= from URL after login so it doesn't persist
+      if (window.location.search) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+      onLogin({ user, role, permissions, tenant_slug: resolvedTenant });
     } catch (e) {
       setError(e.message === "Failed to fetch" ? "Cannot reach the server. Please check your connection." : e.message || "Invalid credentials");
     } finally {

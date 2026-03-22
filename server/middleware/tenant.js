@@ -2,7 +2,7 @@
 // Sets the tenant context for each request via AsyncLocalStorage.
 // getStore() in db/init.js handles lazy loading automatically.
 
-const { tenantStorage } = require('../db/init');
+const { tenantStorage, getStore } = require('../db/init');
 
 function slugFromHost(host) {
   if (!host) return null;
@@ -29,8 +29,32 @@ function tenantMiddleware(req, res, next) {
     slugFromHost(req.hostname) ||
     null;
 
-  // Run request within tenant context — getStore() lazy-loads the store if needed
-  tenantStorage.run(slug || 'master', next);
+  if (!slug || slug === 'master') {
+    // No tenant — use master store
+    tenantStorage.run('master', next);
+    return;
+  }
+
+  // Validate: check the user exists in the requested tenant store.
+  // If user is in master but not in the tenant, fall back to master.
+  // This prevents ?tenant= param from locking out master admins.
+  const userId = req.headers['x-user-id'];
+  if (userId) {
+    tenantStorage.run(slug, () => {
+      const tenantStore = getStore();
+      const userInTenant = (tenantStore.users || []).find(u => u.id === userId);
+      if (!userInTenant) {
+        // User not found in tenant store — fall back to master
+        tenantStorage.run('master', next);
+        return;
+      }
+      next();
+    });
+    return;
+  }
+
+  // No user ID yet (pre-auth requests like login) — use the requested tenant
+  tenantStorage.run(slug, next);
 }
 
 module.exports = tenantMiddleware;

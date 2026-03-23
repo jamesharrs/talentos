@@ -1410,7 +1410,7 @@ function App() {
   // Super Admin route — completely separate from main app
   // Portal routes: /portal/slug (legacy) OR /slug (clean URL e.g. /careers)
   const _path = window.location.pathname;
-  const _appRoutes = /^\/(superadmin|availability|bot|interview|api|dashboard|people|jobs|talent-pools|search|interviews|offers|reports|calendar|org-chart|settings|workflows|portals|record)(\/|$)/;
+  const _appRoutes = /^\/(superadmin|availability|bot|interview|api|dashboard|people|jobs|talent-pools|search|interviews|offers|reports|calendar|org-chart|settings|workflows|portals|inbox|admin-stats|client-hub|org-chart|record)(\/|$)/;
   // Legacy /portal/slug route
   const portalSlug = _path.match(/^\/portal\/(.+)$/)?.[1];
   if (portalSlug) return <PortalApp slug={portalSlug}/>
@@ -1734,15 +1734,19 @@ function App() {
     return () => window.removeEventListener('popstate', handler);
   }, [navObjects]);
 
+  // Keep a ref to openRecord so event listeners always get the latest version
+  const openRecordRef = useRef(openRecord);
+  useEffect(() => { openRecordRef.current = openRecord; });
+
   // Global event listener — anything can fire talentos:openRecord to navigate to a record page
   useEffect(() => {
     const handler = (e) => {
       const { recordId, objectId } = e.detail || {};
-      if (recordId && objectId) openRecord(recordId, objectId);
+      if (recordId && objectId) openRecordRef.current(recordId, objectId);
     };
     window.addEventListener("talentos:openRecord", handler);
     return () => window.removeEventListener("talentos:openRecord", handler);
-  }, []);
+  }, []); // safe — uses ref, not stale closure
 
   // Global event listener — dashboard fires talentos:open-report to open Reports with a preset
   useEffect(() => {

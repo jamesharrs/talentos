@@ -431,7 +431,7 @@ const PortalRow = ({ row, theme, portal, api, track }) => {
   if (row.bgColor) bgStyle.background = row.bgColor
   if (row.bgImage) { bgStyle.backgroundImage=`url(${row.bgImage})`; bgStyle.backgroundSize='cover'; bgStyle.backgroundPosition='center' }
   return (
-    <div style={{ position:'relative', ...bgStyle }}>
+    <div id={row.anchorId||undefined} style={{ position:'relative', ...bgStyle }}>
       {row.bgImage&&(row.overlayOpacity||0)>0&&<div style={{ position:'absolute', inset:0, background:`rgba(0,0,0,${(row.overlayOpacity||0)/100})`, pointerEvents:'none' }}/>}
       <div style={{ position:'relative', maxWidth:theme.maxWidth||'1200px', margin:'0 auto', padding:`${padding} 24px`, boxSizing:'border-box' }}>
         <div style={{ display:'flex', gap:32, flexWrap:'wrap', alignItems:'flex-start' }}>
@@ -511,6 +511,30 @@ export default function PortalPageRenderer({ portal, api }) {
   const [currentPage, setCurrentPage] = useState(pages[0]||null)
   const track=(event,data={})=>{if(!portal?.id)return;api.post(`/portal-analytics/${portal.id}/track`,{event,data}).catch(()=>{});};
   useEffect(()=>{track('page_view',{page:currentPage?.slug||'/'});},[currentPage?.id]);
+
+  // ── SEO meta injection ──────────────────────────────────────────────────────
+  useEffect(() => {
+    const seo = currentPage?.seo || {};
+    const portalName = portal.branding?.company_name || portal.name || 'Careers';
+    const title = seo.title || portalName;
+    const desc  = seo.description || `Explore open opportunities at ${portalName}.`;
+    const ogImg = seo.ogImage || '';
+    document.title = title;
+    const setMeta = (name, content, attr='name') => {
+      let el = document.querySelector(`meta[${attr}="${name}"]`);
+      if (!el) { el = document.createElement('meta'); el.setAttribute(attr, name); document.head.appendChild(el); }
+      el.setAttribute('content', content);
+    };
+    setMeta('description', desc);
+    setMeta('og:title',       title,   'property');
+    setMeta('og:description', desc,    'property');
+    setMeta('og:type',        'website','property');
+    if (ogImg) setMeta('og:image', ogImg, 'property');
+    setMeta('twitter:card',        'summary_large_image');
+    setMeta('twitter:title',       title);
+    setMeta('twitter:description', desc);
+    if (ogImg) setMeta('twitter:image', ogImg);
+  }, [currentPage?.id, portal.name]);
 
   useEffect(() => {
     const font = theme.fontFamily||theme.headingFont

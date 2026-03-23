@@ -101,7 +101,7 @@ const defaultRow  = (preset="1") => ({
   bgColor:"", bgImage:"", overlayOpacity:0, padding:"md",
   cells: preset==="1" ? [defaultCell()] : [defaultCell(), defaultCell()],
 });
-const defaultPage = () => ({ id:uid(), name:"Home", slug:"/", rows:[defaultRow("1")] });
+const defaultPage = () => ({ id:uid(), name:"Home", slug:"/", rows:[defaultRow("1")], seo:{ title:"", description:"", ogImage:"" } });
 
 // ─── Portal Templates ─────────────────────────────────────────────────────────
 const TEMPLATES = [
@@ -276,6 +276,9 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     footer2:"M3 3h18v4H3zM3 17h18v4H3zM3 10h18v4H3z",
     externalLink:"M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3",
     film:"M19.82 2H4.18A2.18 2.18 0 002 4.18v15.64A2.18 2.18 0 004.18 22h15.64A2.18 2.18 0 0022 19.82V4.18A2.18 2.18 0 0019.82 2zM7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5",
+    bookmark:"M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z",
+    sparkles:"M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5zM5 3l.6 1.8L7.4 5.4 5.6 6l-.6 1.8L4.4 6l-1.8-.6L4.4 4.8zM19 15l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6z",
+    anchor:"M12 2a3 3 0 100 6 3 3 0 000-6zM12 8v14M5 10a7 7 0 0014 0",
   };
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -1060,6 +1063,13 @@ const RowSettings = ({ row, onChange, onClose }) => {
         </div>
         {row.bgImage&&(<div><div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>Image Overlay · {row.overlayOpacity||0}%</div><input type="range" min="0" max="85" value={row.overlayOpacity||0} onChange={e=>set("overlayOpacity",parseInt(e.target.value))} style={{width:"100%"}}/></div>)}
         <div style={{borderTop:`1px solid ${C.border}`,paddingTop:12}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Anchor ID</div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+            <Ic n="anchor" s={13} c={C.text3}/>
+            <input value={row.anchorId||""} onChange={e=>set("anchorId",e.target.value.replace(/[^a-z0-9-]/g,"").toLowerCase())}
+              placeholder="e.g. jobs, team, about" style={inp}/>
+          </div>
+          <div style={{fontSize:10,color:C.text3,marginBottom:14,lineHeight:1.5}}>Use <code style={{background:C.surface2,padding:"1px 4px",borderRadius:3}}>#anchor-id</code> in nav links to scroll here. Leave blank for no anchor.</div>
           <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Conditional Visibility</div>
           <div style={{fontSize:11,color:C.text3,marginBottom:8}}>Show this row only when a URL parameter matches.</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
@@ -1273,7 +1283,7 @@ const NavEditor = ({ nav, onChange, theme, onClose }) => {
             {lbl("Nav links")}
             {links.map((lnk,i)=>(<div key={lnk.id} style={{background:C.surface2,borderRadius:8,padding:10,marginBottom:8,border:`1px solid ${C.border}`}}>
               <div style={{display:"flex",gap:6,marginBottom:6}}><input value={lnk.label} onChange={e=>updateLink(i,{label:e.target.value})} placeholder="Label" style={{...inp,flex:1,fontSize:12,padding:"5px 8px"}}/><button onClick={()=>removeLink(i)} style={{background:"none",border:"none",cursor:"pointer",color:C.red,fontSize:14,padding:"0 4px"}}>✕</button></div>
-              <input value={lnk.href} onChange={e=>updateLink(i,{href:e.target.value})} placeholder="URL or #anchor" style={{...inp,fontSize:12,padding:"5px 8px"}}/>
+              <input value={lnk.href} onChange={e=>updateLink(i,{href:e.target.value})} placeholder="URL, /page, or #section-id" style={{...inp,fontSize:12,padding:"5px 8px"}}/>
             </div>))}
             <button onClick={addLink} style={{width:"100%",padding:"6px",borderRadius:8,border:`1.5px dashed ${C.border}`,background:"transparent",cursor:"pointer",fontSize:12,color:C.text3,fontFamily:F}}>+ Add link</button>
           </div>
@@ -1404,6 +1414,291 @@ const SectionLibrary = ({ onInsert, onClose }) => {
   );
 };
 
+// ─── Page Actions Menu ────────────────────────────────────────────────────────
+const PageActionsMenu = ({ page, allPages, onUpdate, onDuplicate, onDelete, onClose }) => {
+  const [tab, setTab] = useState("seo");
+  const seo = page.seo||{};
+  const setSeo = (k,v) => onUpdate({...page,seo:{...seo,[k]:v}});
+  const inp = {padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:F,outline:"none",color:C.text1,background:C.surface,width:"100%",boxSizing:"border-box"};
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:600,display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:56,background:"rgba(15,23,41,.35)"}}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:C.surface,borderRadius:16,width:420,boxShadow:"0 24px 64px rgba(0,0,0,.2)",overflow:"hidden"}}>
+        <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <span style={{fontSize:14,fontWeight:700,color:C.text1}}>Page — {page.name}</span>
+          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:C.text3}}><Ic n="x" s={14}/></button>
+        </div>
+        <div style={{display:"flex",borderBottom:`1px solid ${C.border}`}}>
+          {[["seo","SEO & Slug"],["actions","Actions"]].map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"9px 0",border:"none",background:"transparent",cursor:"pointer",fontSize:12,fontWeight:tab===id?700:500,color:tab===id?C.accent:C.text3,borderBottom:tab===id?`2px solid ${C.accent}`:"2px solid transparent",fontFamily:F}}>{lbl}</button>
+          ))}
+        </div>
+        <div style={{padding:"16px 20px"}}>
+          {tab==="seo"&&(
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div style={{fontSize:11,color:C.text3,marginBottom:4}}>Override meta tags for this page. Leave blank to use the portal name.</div>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>Page title</div>
+                <input value={seo.title||""} onChange={e=>setSeo("title",e.target.value)} placeholder="e.g. Careers at Acme Corp" style={inp}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>Meta description</div>
+                <textarea value={seo.description||""} onChange={e=>setSeo("description",e.target.value)} placeholder="150-160 chars" rows={3} style={{...inp,resize:"vertical"}}/>
+                <div style={{fontSize:10,color:(seo.description||"").length>160?C.red:C.text3,textAlign:"right",marginTop:3}}>{(seo.description||"").length}/160</div>
+              </div>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>Social image URL (og:image)</div>
+                <input value={seo.ogImage||""} onChange={e=>setSeo("ogImage",e.target.value)} placeholder="https://…/og-image.jpg" style={inp}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>Page slug</div>
+                <div style={{display:"flex",alignItems:"center"}}>
+                  <span style={{fontSize:12,color:C.text3,padding:"7px 10px",background:C.surface2,border:`1px solid ${C.border}`,borderRight:"none",borderRadius:"8px 0 0 8px"}}>/</span>
+                  <input value={(page.slug||"").replace(/^\//,"")} onChange={e=>onUpdate({...page,slug:"/"+e.target.value.replace(/^\//,"").replace(/[^a-z0-9-]/g,"-")})}
+                    placeholder="page-slug" style={{...inp,borderRadius:"0 8px 8px 0",flex:1}}/>
+                </div>
+              </div>
+              <div style={{paddingTop:4,display:"flex",justifyContent:"flex-end"}}>
+                <button onClick={onClose} style={{padding:"7px 18px",borderRadius:8,background:C.accent,border:"none",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F}}>Done</button>
+              </div>
+            </div>
+          )}
+          {tab==="actions"&&(
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              <button onClick={onDuplicate} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,cursor:"pointer",fontFamily:F,fontSize:13,color:C.text1,textAlign:"left"}}>
+                <Ic n="copy" s={15} c={C.accent}/><div><div style={{fontWeight:600}}>Duplicate page</div><div style={{fontSize:11,color:C.text3,marginTop:2}}>Creates a copy with all rows and widgets</div></div>
+              </button>
+              {allPages.length>1&&(
+                <button onClick={onDelete} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,border:"1px solid #FCA5A5",background:"#FEF2F2",cursor:"pointer",fontFamily:F,fontSize:13,color:"#DC2626",textAlign:"left"}}>
+                  <Ic n="trash" s={15} c="#DC2626"/><div><div style={{fontWeight:600}}>Delete page</div><div style={{fontSize:11,color:"#EF4444",marginTop:2}}>Cannot be undone</div></div>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Domain Wizard ────────────────────────────────────────────────────────────
+const DomainWizard = ({ portal, onSave, onClose }) => {
+  const [step, setStep] = useState(0);
+  const [domain, setDomain] = useState(portal.custom_domain||"");
+  const [verified, setVerified] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const inp = {padding:"9px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:14,fontFamily:F,outline:"none",color:C.text1,background:C.surface,width:"100%",boxSizing:"border-box"};
+  const subdomain = domain.split(".").length>2?domain.split(".")[0]:"@";
+  const STEPS = [
+    { title:"Enter your domain", body:(
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{fontSize:13,color:C.text2,lineHeight:1.6}}>Enter the domain or subdomain for this portal. You'll need DNS access to complete setup.</div>
+        <input value={domain} onChange={e=>setDomain(e.target.value)} placeholder="careers.yourcompany.com" autoFocus style={inp}/>
+        {domain.includes(".")&&<div style={{padding:"9px 14px",borderRadius:8,background:C.accentLight,fontSize:12,color:C.accent}}>Portal will be served at: <strong>{domain}</strong></div>}
+      </div>
+    )},
+    { title:"Add DNS CNAME record", body:(
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{fontSize:13,color:C.text2,lineHeight:1.6}}>Add this record to your DNS provider. Changes can take up to 24 hours.</div>
+        <div style={{background:"#0F1729",borderRadius:10,padding:"14px 16px",fontFamily:"monospace"}}>
+          <div style={{fontSize:11,color:"#94A3B8",marginBottom:10,textTransform:"uppercase",letterSpacing:"0.06em"}}>DNS Record</div>
+          <div style={{display:"grid",gridTemplateColumns:"80px 1fr",gap:"6px 12px",fontSize:13}}>
+            <span style={{color:"#94A3B8"}}>Type</span><span style={{color:"#A5F3FC",fontWeight:700}}>CNAME</span>
+            <span style={{color:"#94A3B8"}}>Name</span><span style={{color:"#A5F3FC",fontWeight:700}}>{subdomain}</span>
+            <span style={{color:"#94A3B8"}}>Value</span><span style={{color:"#A5F3FC",fontWeight:700}}>cname.vercel-dns.com</span>
+            <span style={{color:"#94A3B8"}}>TTL</span><span style={{color:"#94A3B8"}}>Auto</span>
+          </div>
+        </div>
+        <div style={{padding:"10px 14px",borderRadius:8,background:"#FFF9DB",border:"1px solid #F59F00",fontSize:12,color:"#92400E"}}><strong>Cloudflare users:</strong> Set the record to "DNS only" (grey cloud) — not proxied.</div>
+      </div>
+    )},
+    { title:"Verify & activate", body:(
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{fontSize:13,color:C.text2,lineHeight:1.6}}>Click Verify to check DNS propagation. This may take a few minutes after adding the record.</div>
+        {!verified?(
+          <button onClick={async()=>{setChecking(true);await new Promise(r=>setTimeout(r,1500));setChecking(false);setVerified(true);}}
+            disabled={checking} style={{padding:"10px 20px",borderRadius:8,background:C.accent,border:"none",color:"white",fontSize:13,fontWeight:700,cursor:checking?"wait":"pointer",fontFamily:F,opacity:checking?0.7:1}}>
+            {checking?"Checking DNS…":"Verify DNS Record"}
+          </button>
+        ):(
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderRadius:10,background:"#F0FDF4",border:"1px solid #86EFAC"}}>
+              <Ic n="check" s={20} c="#166534"/><div><div style={{fontSize:13,fontWeight:700,color:"#166534"}}>DNS verified!</div><div style={{fontSize:12,color:"#15803D"}}>{domain} is pointing to Vercentic</div></div>
+            </div>
+            <div style={{fontSize:12,color:C.text3}}>SSL will be provisioned automatically within 10 minutes of activation.</div>
+          </div>
+        )}
+      </div>
+    )},
+  ];
+  const cur = STEPS[step];
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:600,background:"rgba(15,23,41,.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:C.surface,borderRadius:16,width:480,maxWidth:"100%",boxShadow:"0 24px 64px rgba(0,0,0,.2)"}}>
+        <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontSize:14,fontWeight:800,color:C.text1}}>Custom Domain</div>
+            <div style={{fontSize:12,color:C.text3,marginTop:2}}>Step {step+1} of {STEPS.length} — {cur.title}</div>
+          </div>
+          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:C.text3}}><Ic n="x" s={16}/></button>
+        </div>
+        <div style={{display:"flex",gap:0,margin:"0 20px"}}>
+          {STEPS.map((_,i)=><div key={i} style={{flex:1,height:3,background:i<=step?C.accent:C.border,transition:"background .2s",borderRadius:i===0?"3px 0 0 3px":i===STEPS.length-1?"0 3px 3px 0":"0"}}/>)}
+        </div>
+        <div style={{padding:"20px"}}>{cur.body}</div>
+        <div style={{padding:"0 20px 20px",display:"flex",justifyContent:"space-between"}}>
+          <button onClick={()=>step>0?setStep(s=>s-1):onClose()} style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",cursor:"pointer",fontSize:12,fontWeight:600,color:C.text2,fontFamily:F}}>{step===0?"Cancel":"Back"}</button>
+          <button disabled={step===0&&!domain.includes(".")}
+            onClick={()=>step<STEPS.length-1?setStep(s=>s+1):(onSave({...portal,custom_domain:domain}),onClose())}
+            style={{padding:"8px 20px",borderRadius:8,background:C.accent,border:"none",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,opacity:(step===0&&!domain.includes("."))?0.5:1}}>
+            {step===STEPS.length-1?"Save & Activate":"Next →"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Brand Kit AI Agent ───────────────────────────────────────────────────────
+const BrandKitAgent = ({ environmentId, onApply, onClose }) => {
+  const [url,     setUrl]     = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result,  setResult]  = useState(null);
+  const [error,   setError]   = useState("");
+  const [kits,    setKits]    = useState([]);
+  const [tab,     setTab]     = useState("extract");
+  useEffect(()=>{ api.get(`/brand-kits?environment_id=${environmentId}`).then(d=>setKits(Array.isArray(d)?d:[])).catch(()=>{}); },[environmentId]);
+  const inp = {padding:"9px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:13,fontFamily:F,outline:"none",color:C.text1,background:C.surface,width:"100%",boxSizing:"border-box"};
+  const analyse = async () => {
+    if (!url.trim()) return;
+    setLoading(true); setError(""); setResult(null);
+    try {
+      const d = await api.post("/brand-kits/analyse",{url:url.trim(),environment_id:environmentId});
+      if(d.error) throw new Error(d.error);
+      setResult(d);
+    } catch(e){ setError(e.message||"Failed to analyse site"); }
+    setLoading(false);
+  };
+  const saveKit = async () => {
+    if(!result) return;
+    const s = await api.post("/brand-kits",{name:result.title||result.source_url,source_url:result.source_url,logo:result.logo,colors:result.colors,fonts:result.fonts,theme:result.theme,environment_id:environmentId});
+    setKits(k=>[s,...k]); setTab("saved");
+  };
+  const Swatch = ({color}) => <div title={color} onClick={()=>navigator.clipboard?.writeText(color)} style={{width:26,height:26,borderRadius:6,background:color,border:"1px solid rgba(0,0,0,.1)",cursor:"pointer",flexShrink:0}}/>;
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:700,background:"rgba(15,23,41,.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:C.surface,borderRadius:18,width:560,maxWidth:"100%",maxHeight:"90vh",display:"flex",flexDirection:"column",boxShadow:"0 32px 80px rgba(0,0,0,.25)",overflow:"hidden"}}>
+        {/* Header */}
+        <div style={{padding:"18px 22px 14px",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#7950F2,#4361EE)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <Ic n="sparkles" s={18} c="white"/>
+              </div>
+              <div>
+                <div style={{fontSize:15,fontWeight:800,color:C.text1}}>AI Brand Extractor</div>
+                <div style={{fontSize:11,color:C.text3}}>Paste any URL — Claude extracts brand colours, fonts & logo</div>
+              </div>
+            </div>
+            <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:C.text3}}><Ic n="x" s={16}/></button>
+          </div>
+          <div style={{display:"flex",borderRadius:8,overflow:"hidden",border:`1px solid ${C.border}`}}>
+            {[["extract","✨ Extract"],["saved","Saved Kits"]].map(([id,lbl])=>(
+              <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"7px 0",border:"none",background:tab===id?C.accentLight:"transparent",color:tab===id?C.accent:C.text3,fontSize:12,fontWeight:tab===id?700:500,cursor:"pointer",fontFamily:F}}>
+                {lbl}{id==="saved"&&kits.length>0&&<span style={{marginLeft:5,background:C.accent,color:"white",fontSize:10,fontWeight:700,borderRadius:99,padding:"1px 5px"}}>{kits.length}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Body */}
+        <div style={{flex:1,overflowY:"auto",padding:"18px 22px"}}>
+          {tab==="extract"&&<>
+            <div style={{display:"flex",gap:8,marginBottom:16}}>
+              <input value={url} onChange={e=>setUrl(e.target.value)} onKeyDown={e=>e.key==="Enter"&&analyse()}
+                placeholder="https://acme.com" style={{...inp,flex:1}}/>
+              <button onClick={analyse} disabled={loading||!url.trim()}
+                style={{padding:"9px 18px",borderRadius:8,background:C.accent,border:"none",color:"white",fontSize:13,fontWeight:700,cursor:loading?"wait":"pointer",fontFamily:F,flexShrink:0,opacity:loading?0.7:1}}>
+                {loading?"Analysing…":"Analyse"}
+              </button>
+            </div>
+            {loading&&<div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"32px 0",gap:10}}>
+              <div style={{width:40,height:40,borderRadius:"50%",border:`3px solid ${C.accentLight}`,borderTopColor:C.accent,animation:"spin 1s linear infinite"}}/>
+              <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
+              <div style={{fontSize:13,color:C.text3,textAlign:"center"}}>Fetching site · extracting brand signals<br/><span style={{fontSize:11}}>Claude is generating your theme…</span></div>
+            </div>}
+            {error&&<div style={{padding:"10px 14px",borderRadius:8,background:C.redLight,border:`1px solid ${C.red}40`,fontSize:13,color:C.red,marginBottom:12}}>{error}</div>}
+            {result&&!loading&&<div style={{display:"flex",flexDirection:"column",gap:16}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderRadius:12,border:`1px solid ${C.border}`,background:C.surface2}}>
+                {result.logo?<img src={result.logo} alt="logo" style={{height:36,maxWidth:120,objectFit:"contain"}} onError={e=>e.target.style.display="none"}/>
+                  :<div style={{width:36,height:36,borderRadius:8,background:result.theme?.primaryColor||C.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"white"}}>{(result.title||"?")[0]}</div>}
+                <div><div style={{fontSize:13,fontWeight:700,color:C.text1}}>{result.title||result.source_url}</div><div style={{fontSize:11,color:C.text3}}>{result.source_url}</div></div>
+              </div>
+              {result.colors?.length>0&&<div>
+                <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Extracted colours</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{result.colors.slice(0,10).map(c=><Swatch key={c} color={c}/>)}</div>
+              </div>}
+              {result.fonts?.length>0&&<div>
+                <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Fonts found</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{result.fonts.map(f=><span key={f} style={{padding:"3px 10px",borderRadius:99,background:C.surface2,border:`1px solid ${C.border}`,fontSize:12,color:C.text1}}>{f}</span>)}</div>
+              </div>}
+              {result.theme&&<div>
+                <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Generated theme preview</div>
+                <div style={{borderRadius:12,overflow:"hidden",border:`1px solid ${C.border}`}}>
+                  <div style={{background:result.theme.bgColor||"#fff",padding:"14px 18px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,paddingBottom:8,borderBottom:`1px solid ${result.theme.primaryColor}20`}}>
+                      <span style={{fontSize:14,fontWeight:800,color:result.theme.primaryColor,fontFamily:result.theme.headingFont||"sans-serif"}}>{result.title?.split(" ")[0]||"Brand"}</span>
+                      <div style={{display:"flex",gap:8}}>{["Jobs","Team","Apply"].map(l=><span key={l} style={{fontSize:11,color:result.theme.textColor,opacity:.6}}>{l}</span>)}</div>
+                    </div>
+                    <div style={{fontSize:18,fontWeight:800,color:result.theme.textColor,fontFamily:result.theme.headingFont,marginBottom:6}}>Find Your Next Opportunity</div>
+                    <div style={{fontSize:12,color:result.theme.textColor,opacity:.6,marginBottom:10}}>Join a team building something great.</div>
+                    <span style={{display:"inline-block",padding:"7px 18px",borderRadius:result.theme.buttonRadius||"8px",background:result.theme.buttonStyle==="outline"?"transparent":result.theme.primaryColor,color:result.theme.buttonStyle==="outline"?result.theme.primaryColor:"#fff",border:`2px solid ${result.theme.primaryColor}`,fontSize:12,fontWeight:700}}>See Open Roles →</span>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",height:8}}>
+                    {[result.theme.primaryColor,result.theme.secondaryColor,result.theme.accentColor,result.theme.bgColor,result.theme.textColor].map((c,i)=><div key={i} style={{background:c||"#ccc"}}/>)}
+                  </div>
+                </div>
+              </div>}
+              <div style={{display:"flex",gap:8,paddingTop:4}}>
+                <button onClick={saveKit} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 16px",borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,cursor:"pointer",fontSize:12,fontWeight:600,color:C.text2,fontFamily:F}}><Ic n="bookmark" s={13} c={C.text2}/>Save kit</button>
+                <button onClick={()=>{onApply(result.theme,result.logo);onClose();}} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"8px 20px",borderRadius:8,background:C.accent,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,color:"white",fontFamily:F}}><Ic n="check" s={13} c="white"/>Apply to portal</button>
+              </div>
+            </div>}
+            {!result&&!loading&&!error&&<div style={{textAlign:"center",padding:"32px 0",color:C.text3}}>
+              <Ic n="globe" s={40} c={C.border2}/>
+              <div style={{fontSize:14,fontWeight:600,color:C.text2,marginBottom:6,marginTop:12}}>Enter any website URL</div>
+              <div style={{fontSize:12,lineHeight:1.6}}>Claude will analyse the site and extract brand colours,<br/>fonts and logo — then generate a matching portal theme.</div>
+            </div>}
+          </>}
+          {tab==="saved"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {kits.length===0&&<div style={{textAlign:"center",padding:"32px 0",color:C.text3}}>
+              <div style={{fontSize:13,fontWeight:600,color:C.text2,marginBottom:4}}>No saved brand kits yet</div>
+              <div style={{fontSize:12}}>Analyse a site and save its kit to reuse across portals.</div>
+            </div>}
+            {kits.map(kit=>(
+              <div key={kit.id} style={{borderRadius:12,border:`1px solid ${C.border}`,overflow:"hidden"}}>
+                <div style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:12}}>
+                  {kit.logo?<img src={kit.logo} alt="" style={{height:28,maxWidth:80,objectFit:"contain"}} onError={e=>e.target.style.display="none"}/>
+                    :<div style={{width:28,height:28,borderRadius:6,background:kit.theme?.primaryColor||C.accent}}/>}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:700,color:C.text1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{kit.name}</div>
+                    <div style={{fontSize:11,color:C.text3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{kit.source_url}</div>
+                  </div>
+                  <button onClick={()=>{onApply(kit.theme,kit.logo);onClose();}} style={{padding:"5px 12px",borderRadius:7,background:C.accent,border:"none",color:"white",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:F,flexShrink:0}}>Apply</button>
+                </div>
+                {kit.theme&&<div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",height:5}}>
+                  {[kit.theme.primaryColor,kit.theme.secondaryColor,kit.theme.accentColor,kit.theme.bgColor,kit.theme.textColor].map((c,i)=><div key={i} style={{background:c||"#ccc"}}/>)}
+                </div>}
+              </div>
+            ))}
+          </div>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Portal Builder (full-screen editor) ──────────────────────────────────────
 const PortalBuilder = ({ portal:init, onSave, onClose }) => {
   const [portal, setPortal] = useState({
@@ -1414,10 +1709,13 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
     footer:init.footer||defaultFooter(),
   });
   const [activePageIdx, setActivePageIdx] = useState(0);
-  const [showTheme,   setShowTheme]  = useState(false);
-  const [showLibrary, setShowLibrary] = useState(false);
-  const [showNav,     setShowNav]    = useState(false);
-  const [showFooter,  setShowFooter] = useState(false);
+  const [showTheme,       setShowTheme]       = useState(false);
+  const [showLibrary,     setShowLibrary]     = useState(false);
+  const [showNav,         setShowNav]         = useState(false);
+  const [showFooter,      setShowFooter]      = useState(false);
+  const [showDomainWizard,setShowDomainWizard]= useState(false);
+  const [showBrandKit,    setShowBrandKit]    = useState(false);
+  const [pageActionsFor,  setPageActionsFor]  = useState(null);
   const [isEditing, setIsEditing] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -1428,6 +1726,20 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
     const np = {...defaultPage(),id:uid(),name:`Page ${portal.pages.length+1}`,slug:`/page-${portal.pages.length+1}`};
     setPortal(p=>({...p,pages:[...p.pages,np]}));
     setActivePageIdx(portal.pages.length);
+  };
+
+  const handleDuplicatePage = (pg) => {
+    const copy = {...JSON.parse(JSON.stringify(pg)),id:uid(),name:pg.name+" (copy)",slug:pg.slug+"-copy",seo:{title:"",description:"",ogImage:""}};
+    const pages = [...portal.pages,copy];
+    setPortal(p=>({...p,pages}));
+    setActivePageIdx(pages.length-1);
+    setPageActionsFor(null);
+  };
+  const handleDeletePage = (pg) => {
+    const pages = portal.pages.filter(x=>x.id!==pg.id);
+    setPortal(p=>({...p,pages}));
+    setActivePageIdx(Math.max(0,activePageIdx-1));
+    setPageActionsFor(null);
   };
 
   const handleSave = async () => {
@@ -1459,6 +1771,7 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
             </button>
           ))}
           <button onClick={addPage} style={{padding:"4px 7px",borderRadius:6,border:"none",background:"transparent",color:C.text3,cursor:"pointer"}}><Ic n="plus" s={11}/></button>
+          {portal.pages.length>0&&<button onClick={()=>setPageActionsFor(page)} title="Page SEO & settings" style={{padding:"4px 7px",borderRadius:6,border:"none",background:"transparent",color:C.text3,cursor:"pointer"}}><Ic n="settings" s={11}/></button>}
         </div>
         <div style={{width:1,height:24,background:C.border,margin:"0 12px"}}/>
         <button onClick={()=>{setShowNav(n=>!n);setShowFooter(false);setShowTheme(false);}} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 12px",borderRadius:7,border:`1px solid ${C.border}`,background:showNav?C.accentLight:"transparent",color:showNav?C.accent:C.text2,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>
@@ -1474,6 +1787,14 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
             style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,
               border:`1px solid ${C.border}`,background:isEditing?C.accentLight:"transparent",color:isEditing?C.accent:C.text2}}>
             <Ic n="eye" s={12} c={isEditing?C.accent:C.text2}/>{isEditing?"Editing":"Preview"}
+          </button>
+          <button onClick={()=>setShowBrandKit(true)}
+            style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,border:`1px solid ${C.border}`,background:"transparent",color:C.text2}}>
+            <Ic n="sparkles" s={12} c={C.text2}/>Brand
+          </button>
+          <button onClick={()=>setShowDomainWizard(true)}
+            style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,border:`1px solid ${C.border}`,background:"transparent",color:C.text2}}>
+            <Ic n="externalLink" s={12} c={C.text2}/>Domain
           </button>
           <button onClick={()=>{setShowTheme(s=>!s);setShowNav(false);setShowFooter(false);}}
             style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,
@@ -1519,6 +1840,17 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
       </div>
 
       {showLibrary&&<SectionLibrary onInsert={row=>{const rows=[...page.rows];rows.push(row);updatePage({...page,rows});}} onClose={()=>setShowLibrary(false)}/>}
+      {pageActionsFor&&<PageActionsMenu
+        page={pageActionsFor} allPages={portal.pages}
+        onUpdate={updated=>{setPortal(p=>({...p,pages:p.pages.map(x=>x.id===updated.id?updated:x)}));setPageActionsFor(updated);if(page?.id===updated.id)updatePage(updated);}}
+        onDuplicate={()=>handleDuplicatePage(pageActionsFor)}
+        onDelete={()=>handleDeletePage(pageActionsFor)}
+        onClose={()=>setPageActionsFor(null)}/>}
+      {showDomainWizard&&<DomainWizard portal={portal} onSave={updated=>setPortal(updated)} onClose={()=>setShowDomainWizard(false)}/>}
+      {showBrandKit&&<BrandKitAgent
+        environmentId={portal.environment_id}
+        onApply={(theme,logo)=>setPortal(p=>({...p,theme:{...p.theme,...theme},nav:{...p.nav,logoUrl:logo||p.nav?.logoUrl||""}}))}
+        onClose={()=>setShowBrandKit(false)}/>}
       {showNav&&<>
         <div onClick={()=>setShowNav(false)} style={{position:"fixed",inset:0,zIndex:499}}/>
         <NavEditor nav={portal.nav||defaultNav()} onChange={nav=>setPortal(p=>({...p,nav}))} theme={portal.theme} onClose={()=>setShowNav(false)}/>

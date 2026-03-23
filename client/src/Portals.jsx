@@ -875,7 +875,7 @@ const ListWidgetConfig = ({ cfg, set, inp, lbl, environmentId }) => {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
       <div>{lbl("Object type")}
-        <select value={cfg.objectId||""} onChange={e => { set("objectId", e.target.value); set("savedListId", ""); set("savedList", ""); }}
+        <select value={cfg.objectId||""} onChange={e => { onUpdate({ ...cell, widgetConfig: { ...cfg, objectId: e.target.value, savedListId: "", savedList: "" } }); }}
           style={inp}>
           <option value="">Select an object…</option>
           {objects.map(o => <option key={o.id} value={o.id}>{o.plural_name || o.name}</option>)}

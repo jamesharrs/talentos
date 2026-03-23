@@ -264,7 +264,7 @@ export default function AgentLibrary({ onUseTemplate, onClose }) {
   const [preview,   setPreview]   = useState(null);
 
   useEffect(() => {
-    api.get("/api/agents/templates")
+    api.get("/agents/templates")
       .then(d => { setTemplates(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);

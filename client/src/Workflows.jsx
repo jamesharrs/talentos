@@ -1967,7 +1967,14 @@ export function LinkedRecordsPanel({ record, environment, onNavigate }) {
       )}
       {filteredLinks.length === 0 && links.length === 0 && (
         <div style={{ textAlign:"center", padding:"28px 0", color:C.text3, fontSize:13 }}>
-          <div style={{ fontSize:28, marginBottom:8 }}>🔗</div>
+          <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}>
+            <div style={{ width:44, height:44, borderRadius:12, background:"#EEF2FF", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4361EE" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+              </svg>
+            </div>
+          </div>
           <div style={{ fontWeight:600, marginBottom:4 }}>No linked records</div>
           <div style={{ fontSize:12 }}>Link this person to a job, talent pool, or any other record.</div>
         </div>

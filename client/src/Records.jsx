@@ -4537,53 +4537,6 @@ const SuggestedActions = ({ record, environment, onAction }) => {
     </div>
   );
 };
-) => {
-  const [actions, setActions] = useState([]);
-  const [dismissed, setDismissed] = useState(new Set());
-  const [expanded, setExpanded] = useState(false);
-  const SaIc = ({name,size=13,color="currentColor"}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d={SA_ICONS[name]||""}/></svg>;
-  useEffect(() => {
-    if (!record?.id) return;
-    let cancelled = false;
-    setDismissed(new Set());
-    fetch(`/api/records/${record.id}/suggested-actions?environment_id=${environment?.id||''}`, {
-      headers:{'x-user-id':localStorage.getItem('talentos_user_id')||'','x-tenant-slug':localStorage.getItem('talentos_tenant')||''}
-    }).then(r=>r.ok?r.json():[]).then(d=>{ if(!cancelled) setActions(Array.isArray(d)?d:[]); }).catch(()=>{});
-    return () => { cancelled = true; };
-  }, [record?.id, environment?.id]);
-  const handleCta = (action) => {
-    if (action.cta === 'compose_email') { onCompose?.('email'); return; }
-    if (action.cta === 'log_call') { onCompose?.('call'); return; }
-    window.dispatchEvent(new CustomEvent('talentos:openCopilot', { detail:{ prompt: action.copilot_prompt || `Help me: ${action.description||action.label}` } }));
-  };
-  const visible = actions.filter(a => !dismissed.has(a.id));
-  if (!visible.length) return null;
-  const shown = expanded ? visible : visible.slice(0, 3);
-  return (
-    <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 16px",background:"linear-gradient(90deg,#fefce8,#fff7ed)",borderBottom:"1px solid #fde68a",flexWrap:"wrap",flexShrink:0}}>
-      <div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:700,color:"#92400e",marginRight:4,flexShrink:0}}>
-        <SaIc name="sparkles" size={12} color="#d97706"/> Suggested
-      </div>
-      {shown.map(action => (
-        <div key={action.id} style={{display:"flex",alignItems:"center",gap:0}}>
-          <button onClick={()=>handleCta(action)} title={action.description||action.label}
-            style={{display:"flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:"7px 0 0 7px",border:`1px solid ${action.color}40`,background:`${action.color}12`,color:action.color,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
-            <SaIc name={action.icon} size={12} color={action.color}/> {action.label}
-          </button>
-          <button onClick={()=>setDismissed(p=>new Set([...p,action.id]))} title="Dismiss"
-            style={{display:"flex",alignItems:"center",justifyContent:"center",width:20,padding:"4px 3px",borderRadius:"0 7px 7px 0",border:`1px solid ${action.color}40`,borderLeft:"none",background:`${action.color}08`,color:`${action.color}80`,cursor:"pointer",fontFamily:"inherit"}}>
-            <SaIc name="x" size={9} color="currentColor"/>
-          </button>
-        </div>
-      ))}
-      {!expanded && visible.length > 3 && (
-        <button onClick={()=>setExpanded(true)} style={{padding:"4px 8px",borderRadius:7,border:"1px dashed #d97706",background:"transparent",color:"#92400e",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-          +{visible.length-3} more
-        </button>
-      )}
-    </div>
-  );
-};
 
 export const RecordDetail = ({ record, fields, allObjects, environment, objectName, objectColor, onClose, fullPage, onToggleFullPage, onUpdate, onDelete, onNavigate }) => {
   const _permCtx = usePermCtx();

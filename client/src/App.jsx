@@ -772,10 +772,12 @@ const EnvironmentBadge = ({ env, selected, onClick }) => (
 );
 
 // ─── Global Search Bar ────────────────────────────────────────────────────────
-const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateToRecord, onCreateRecord, onNavigateToCalendar, historySlot }) => {
+const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateToRecord, onCreateRecord, onNavigateToCalendar, historySlot, activeDashTab, onDashboardNav }) => {
   const [query,       setQuery]       = useState("");
   const [results,     setResults]     = useState([]);
   const [open,        setOpen]        = useState(false);
+  const [dashOpen,    setDashOpen]    = useState(false);
+  const dashRef = useRef(null);
   // Notifications
   const [notifs,      setNotifs]      = useState([]);
   const [unread,      setUnread]      = useState(0);
@@ -799,6 +801,12 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
   const ref       = useRef(null);
   const createRef = useRef(null);
   const timer     = useRef(null);
+
+  useEffect(() => {
+    const h = (e) => { if (dashRef.current && !dashRef.current.contains(e.target)) setDashOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
 
   useEffect(() => {
     const h = (e) => { if (createRef.current && !createRef.current.contains(e.target)) setShowCreate(false); };
@@ -903,6 +911,50 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
 
   return (
     <div ref={ref} style={{ position: "sticky", top: 0, zIndex: 600, background: "var(--t-surface)", borderBottom: "1px solid var(--t-border)", padding: "8px 20px", display: "flex", alignItems: "center", gap: 10 }}>
+
+      {/* Dashboard dropdown */}
+      <div ref={dashRef} style={{ position: "relative", flexShrink: 0 }}>
+        <button onClick={() => setDashOpen(o => !o)} style={{
+          display: "flex", alignItems: "center", gap: 6, padding: "7px 12px",
+          borderRadius: 9, border: `1.5px solid ${dashOpen ? "var(--t-accent)" : "var(--t-border)"}`,
+          background: dashOpen ? "var(--t-accent-light, #EEF2FF)" : "var(--t-surface2)",
+          color: dashOpen ? "var(--t-accent)" : "var(--t-text2)",
+          fontSize: 13, fontWeight: 600, fontFamily: "var(--t-font, inherit)",
+          cursor: "pointer", transition: "all .15s", whiteSpace: "nowrap",
+        }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          Dashboards
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: dashOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }}><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        {dashOpen && (
+          <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, background: "var(--t-surface)", borderRadius: 12, border: "1px solid var(--t-border)", boxShadow: "0 8px 32px rgba(0,0,0,.14)", zIndex: 700, overflow: "hidden", minWidth: 190 }}>
+            {[
+              { id: "overview",    label: "Overview",    icon: "🏠", desc: "Hiring summary" },
+              { id: "interviews",  label: "Interviews",  icon: "📅", desc: "Scheduling & pipeline" },
+              { id: "offers",      label: "Offers",      icon: "💰", desc: "Acceptance & approvals" },
+              { id: "admin",       label: "Admin",       icon: "⚙️", desc: "Platform stats" },
+            ].map(item => {
+              const active = activeDashTab === item.id || (!activeDashTab && item.id === "overview");
+              return (
+                <div key={item.id} onClick={() => { onDashboardNav(item.id); setDashOpen(false); }}
+                  style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10,
+                    background: active ? "var(--t-accent-light, #EEF2FF)" : "transparent",
+                    transition: "background .1s" }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = "var(--t-surface2)"; }}
+                  onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
+                  <span style={{ fontSize: 16, width: 22, textAlign: "center" }}>{item.icon}</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? "var(--t-accent)" : "var(--t-text1)" }}>{item.label}</div>
+                    <div style={{ fontSize: 11, color: "var(--t-text3)" }}>{item.desc}</div>
+                  </div>
+                  {active && <svg style={{ marginLeft: "auto" }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t-accent)" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Search — capped width */}
       <div style={{ position: "relative", flex: 1, maxWidth: 400 }}>
         {/* Input */}
@@ -1979,7 +2031,13 @@ function App() {
       {/* Main content */}
       <div style={{ marginLeft: NAV_W, flex: 1, minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--t-bg)", paddingRight: historyOpen ? 300 : 0, transition: "margin-left 0.2s cubic-bezier(0.4,0,0.2,1), padding-right 0.25s cubic-bezier(0.4,0,0.2,1)" }}>
         {/* Top bar */}
-        <GlobalSearch selectedEnv={selectedEnv} navObjects={navObjects} onNavigateToSearch={(q) => {
+        <GlobalSearch selectedEnv={selectedEnv} navObjects={navObjects}
+             activeDashTab={activeNav === "dashboard" ? "overview" : activeNav.startsWith("dashboard_") ? activeNav.replace("dashboard_","") : null}
+             onDashboardNav={(tab) => {
+               const navId = tab === "overview" ? "dashboard" : `dashboard_${tab}`;
+               switchNav(navId);
+             }}
+             onNavigateToSearch={(q) => {
             setActiveNav("search");
             if (q) {
               sessionStorage.setItem("talentos_search_query", q);

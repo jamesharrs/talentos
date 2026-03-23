@@ -12,10 +12,10 @@ const C = {
 const F = "'Geist', -apple-system, sans-serif";
 
 const api = {
-  get: (url) => fetch(url).then(r => r.json()),
-  post: (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()),
-  patch: (url, body) => fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()),
-  delete: (url) => fetch(url, { method: 'DELETE' }).then(r => r.json()),
+  get: (url) => fetch(`/api${url}`).then(r => r.json()),
+  post: (url, body) => fetch(`/api${url}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()),
+  patch: (url, body) => fetch(`/api${url}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()),
+  delete: (url) => fetch(`/api${url}`, { method: 'DELETE' }).then(r => r.json()),
 };
 
 const PATHS = {
@@ -443,7 +443,7 @@ export function useInboxUnreadCount(environmentId) {
   useEffect(() => {
     if (!environmentId) return;
     const poll = async () => {
-      try { const d = await tFetch(`/inbox/unread-count?environment_id=${environmentId}`).then(r => r.json()); setCount(d.count || 0); } catch {}
+      try { const d = await tFetch(`/api/inbox/unread-count?environment_id=${environmentId}`).then(r => r.json()); setCount(d.count || 0); } catch {}
     };
     poll();
     const i = setInterval(poll, 30000);

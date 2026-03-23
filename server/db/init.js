@@ -229,6 +229,23 @@ async function initDB() {
         store.fields.push({ id: uuidv4(), object_id: jobsObj.id, environment_id: jobsObj.environment_id, name: 'Interviewers', api_key: 'interviewers', field_type: 'multi_lookup', is_required: 0, is_unique: 0, is_system: 1, show_in_list: 0, show_in_form: 1, sort_order: maxOrder + 1, options: null, lookup_object_id: peopleObj ? peopleObj.id : null, default_value: null, placeholder: 'Search people…', help_text: null, condition_field: null, condition_value: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
       }
     }
+    // Deduplicate roles — keep first occurrence of each slug, remove non-system strays
+    const VALID_SLUGS = new Set(['super_admin','admin','recruiter','hiring_manager','read_only']);
+    const seenSlugs = new Set();
+    store.roles = (store.roles || []).filter(r => {
+      if (!VALID_SLUGS.has(r.slug)) return false; // remove non-system roles like 'test'
+      if (seenSlugs.has(r.slug)) return false;    // remove duplicate slugs
+      seenSlugs.add(r.slug);
+      return true;
+    });
+    // Deduplicate users by email — keep first occurrence
+    const seenEmails = new Set();
+    store.users = (store.users || []).filter(u => {
+      if (seenEmails.has(u.email)) return false;
+      seenEmails.add(u.email);
+      return true;
+    });
+
     await seedPersonTypeFields('master');
     await seedUsersAndRoles('master');
     saveStore('master');
@@ -322,7 +339,11 @@ async function seedPersonTypeFields(tenantKey) {
 
 async function seedUsersAndRoles(tenantKey) {
   const store = storeCache[tenantKey || 'master'];
-  if (!store || (store.roles && store.roles.length > 0)) return;
+  if (!store) return;
+  // Guard: only seed if ALL 5 system roles are missing — prevents duplicates on restart
+  const SYSTEM_SLUGS = ['super_admin', 'admin', 'recruiter', 'hiring_manager', 'read_only'];
+  const existingSlugs = new Set((store.roles || []).map(r => r.slug));
+  if (SYSTEM_SLUGS.every(s => existingSlugs.has(s))) return;
   const crypto = require('crypto');
   const hashPassword = (pw) => crypto.createHash('sha256').update(pw + 'talentos_salt').digest('hex');
   const roles = [
@@ -332,7 +353,12 @@ async function seedUsersAndRoles(tenantKey) {
     { id:uuidv4(), name:'Hiring Manager', slug:'hiring_manager', description:'View and provide feedback', is_system:1, color:'#0ca678' },
     { id:uuidv4(), name:'Read Only', slug:'read_only', description:'View data only', is_system:1, color:'#868e96' },
   ];
-  for (const role of roles) insert('roles', { ...role, created_at:new Date().toISOString(), updated_at:new Date().toISOString() });
+  for (const role of roles) {
+    // Skip if slug already exists (prevents duplicates on partial seeds)
+    if (!existingSlugs.has(role.slug)) {
+      insert('roles', { ...role, created_at:new Date().toISOString(), updated_at:new Date().toISOString() });
+    }
+  }
   const superAdminRole = roles.find(r => r.slug === 'super_admin');
   insert('users', { id:uuidv4(), email:'admin@talentos.io', first_name:'Admin', last_name:'User', password_hash:hashPassword('Admin1234!'), role_id:superAdminRole.id, status:'active', auth_provider:'local', mfa_enabled:0, must_change_password:1, last_login:null, last_login_ip:null, login_count:0, created_at:new Date().toISOString(), updated_at:new Date().toISOString() });
   if (!store.security_settings) {

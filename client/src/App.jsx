@@ -23,6 +23,7 @@ const Dashboard          = lazyWithRetry(() => import("./Dashboard.jsx"));
 const AdminDashboard     = lazyWithRetry(() => import("./AdminDashboard.jsx"));
 const InterviewDashboard = lazyWithRetry(() => import("./InterviewDashboard.jsx"));
 const OfferDashboard     = lazyWithRetry(() => import("./OfferDashboard.jsx"));
+const DashboardHub       = lazyWithRetry(() => import("./DashboardHub.jsx"));
 const ObjectApp       = lazyWithRetry(() => import("./ObjectApp.jsx"));
 import PortalApp from "./PortalApp.jsx";
 import InterviewSession from "./InterviewSession.jsx";
@@ -1529,7 +1530,6 @@ function App() {
   };
   const { history: navHistory, pinned, push: pushHistory, clear: clearHistory, togglePin, isPinned } = useHistory();
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [dashFlyout, setDashFlyout] = useState(false);
   const [navObjects, setNavObjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [apiOnline, setApiOnline] = useState(null);
@@ -1662,8 +1662,7 @@ function App() {
   const switchNav = (id) => {
     if (!id.startsWith("obj_") || id !== activeNav) setFilterPreset(null);
     if (id !== "reports") setReportPreset(null);
-    if (!id.startsWith("dashboard")) setDashFlyout(false);
-    if (id.startsWith("dashboard")) setDashFlyout(true);
+
     if (!id.startsWith("record_")) { setActiveRecord(null); setActiveRecordObj(null); }
     if (!id.startsWith("obj_") && !id.startsWith("record_")) { setListContext(null); }
     const NAV_META = {
@@ -1921,12 +1920,12 @@ function App() {
               <div style={{ fontSize: 10, fontWeight: 700, color: "var(--t-text3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6, paddingLeft: 4, height: navExpanded ? undefined : 0, overflow: "hidden", opacity: navExpanded ? 1 : 0, transition: "opacity 0.15s, height 0.15s" }}>{section.label}</div>
               {section.items.map(item => {
                 const isDashboard = item.id === "dashboard";
-                const dashActive = activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers";
+                const dashActive = activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers" || activeNav === "dashboard_admin";
                 const isActive = isDashboard ? dashActive : (activeNav === item.id || (activeObjectId && item.id === `obj_${activeObjectId}`));
                 return (
-                  <div key={item.id} style={{ position: "relative" }}>
+                  <div key={item.id}>
                     <button
-                      onClick={() => isDashboard ? (setDashFlyout(o => !o), switchNav("dashboard")) : switchNav(item.id)}
+                      onClick={() => switchNav(item.id)}
                       title={!navExpanded ? item.label : undefined}
                       style={{
                         width: "100%", display: "flex", alignItems: "center", gap: navExpanded ? 9 : 0,
@@ -1939,34 +1938,10 @@ function App() {
                       }}>
                       <Icon name={item.icon} size={15} color={isActive ? "var(--t-nav-active-c)" : "var(--t-text3)"} />
                       <span style={{ flex: 1, overflow: "hidden", opacity: navExpanded ? 1 : 0, width: navExpanded ? undefined : 0, transition: "opacity 0.1s", whiteSpace: "nowrap" }}>{item.label}</span>
-                      {item.badge ? (
+                      {item.badge && (
                         <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 99, background: "var(--t-accent, #4361EE)", color: "white", minWidth: 16, textAlign: "center" }}>{item.badge}</span>
-                      ) : isDashboard && (
-                        <span style={{ fontSize: 9, color: isActive ? "var(--t-nav-active-c)" : "var(--t-text3)", opacity: 0.6, transform: dashFlyout ? "rotate(180deg)" : "none", transition: "transform .2s", display: "inline-block" }}>▼</span>
                       )}
                     </button>
-                    {/* Dashboard flyout sub-items */}
-                    {isDashboard && dashFlyout && (
-                      <div style={{ marginLeft: 14, marginBottom: 4, borderLeft: "2px solid var(--t-border)", paddingLeft: 10 }}>
-                        {[
-                          { id: "dashboard",             icon: "home",     label: "Overview" },
-                          { id: "dashboard_interviews",  icon: "calendar", label: "Interviews" },
-                          { id: "dashboard_offers",      icon: "dollar",   label: "Offers" },
-                        ].map(sub => (
-                          <button key={sub.id} onClick={() => switchNav(sub.id)} style={{
-                            width: "100%", display: "flex", alignItems: "center", gap: 8,
-                            padding: "6px 8px", borderRadius: 7, border: "none", cursor: "pointer",
-                            background: activeNav === sub.id ? "var(--t-nav-active)" : "transparent",
-                            color: activeNav === sub.id ? "var(--t-nav-active-c)" : "var(--t-nav-text)",
-                            fontSize: 12, fontWeight: activeNav === sub.id ? 700 : 500,
-                            fontFamily: "inherit", textAlign: "left", transition: "all 0.12s", marginBottom: 1
-                          }}>
-                            <Icon name={sub.icon} size={13} color={activeNav === sub.id ? "var(--t-nav-active-c)" : "var(--t-text3)"} />
-                            {sub.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -2038,17 +2013,19 @@ function App() {
         <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}>
         { activeNav === "inbox" ? (
           <InboxModule environment={selectedEnv} onNavigate={openRecord} />
-        ) : activeNav === "dashboard" ? (
-          <Dashboard environment={selectedEnv} session={session} onOpenRecord={openRecord} onNavigate={(slug) => {
-            if (slug === "matching") { setActiveNav("matching"); return; }
-            if (slug === "search")   { setActiveNav("search");   return; }
-            const obj = navObjects.find(o => o.slug === slug || o.plural_name.toLowerCase() === slug);
-            if (obj) setActiveNav(`obj_${obj.id}`);
-          }}/>
-        ) : activeNav === "dashboard_interviews" ? (
-          <InterviewDashboard environment={selectedEnv} session={session} onNavigate={(id) => setActiveNav(id)}/>
-        ) : activeNav === "dashboard_offers" ? (
-          <OfferDashboard environment={selectedEnv} session={session} onNavigate={(id) => setActiveNav(id)}/>
+        ) : activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers" || activeNav === "dashboard_admin" ? (
+          <DashboardHub
+            tab={activeNav === "dashboard" ? "overview" : activeNav.replace("dashboard_", "")}
+            onTabChange={(tab) => setActiveNav(tab === "overview" ? "dashboard" : `dashboard_${tab}`)}
+            environment={selectedEnv} session={session}
+            onOpenRecord={openRecord}
+            onNavigate={(slug) => {
+              if (slug === "matching") { setActiveNav("matching"); return; }
+              if (slug === "search")   { setActiveNav("search");   return; }
+              const obj = navObjects.find(o => o.slug === slug || o.plural_name.toLowerCase() === slug);
+              if (obj) setActiveNav(`obj_${obj.id}`);
+            }}
+          />
         ) : activeNav.startsWith("obj_") ? (() => {
           const _obj = navObjects.find(o => `obj_${o.id}` === activeNav);
           if (!_obj) return <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>;

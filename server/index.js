@@ -59,7 +59,9 @@ const AUTH_EXEMPT_PATHS = [
   '/users/login', '/users/auth/login', // login in users.js
   '/health',                           // health check
   '/environments',                     // needed before login to resolve tenant
-  '/portals/public',                   // public portal renderer
+  '/portals/public',                   // public portal renderer + application status
+  '/portals/slug',                     // public portal slug lookup (career sites etc.)
+  '/portal-analytics',                 // analytics tracking from public portals (unauthenticated)
   '/superadmin',                       // super admin console
   '/bot',                              // bot/interview routes (public)
   '/tenant-reset',                     // tenant data reset (password protected)
@@ -67,7 +69,11 @@ const AUTH_EXEMPT_PATHS = [
 app.use('/api', (req, res, next) => {
   // Skip for exempt prefixes
   if (AUTH_EXEMPT_PATHS.some(p => req.path === p || req.path.startsWith(p + '/'))) return next();
-  // Skip for OPTIONS (CORS preflight)
+  // Skip portal apply + objects/records endpoints (public — unauthenticated portal visitors)
+  if (req.path.match(/^\/portals\/[^/]+\/apply$/)) return next();
+  // Objects + records are read-only and needed by portal job widgets
+  if (req.method === 'GET' && (req.path.startsWith('/objects') || req.path.startsWith('/records'))) return next();
+  // Skip OPTIONS (CORS preflight)
   if (req.method === 'OPTIONS') return next();
   if (!req.currentUser) {
     return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHENTICATED' });

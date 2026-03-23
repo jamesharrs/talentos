@@ -143,9 +143,11 @@ const SpacerWidget = ({ cfg }) => {
 }
 
 const JobsWidget = ({ cfg, theme, portal, api }) => {
-  const [jobs, setJobs] = useState([])
-  const [search, setSearch] = useState('')
-  const [dept, setDept] = useState('all')
+  const [jobs,     setJobs]     = useState([])
+  const [search,   setSearch]   = useState('')
+  const [dept,     setDept]     = useState('all')
+  const [location, setLocation] = useState('all')
+  const [workType, setWorkType] = useState('all')
   const [selected, setSelected] = useState(null)
   const [applying, setApplying] = useState(false)
 
@@ -174,10 +176,14 @@ const JobsWidget = ({ cfg, theme, portal, api }) => {
       .catch(() => {})
   }, [portal?.environment_id, cfg.savedList, cfg.limit])
 
-  const depts = ['all', ...new Set(jobs.map(j => j.data?.department).filter(Boolean))]
+  const depts     = ['all', ...new Set(jobs.map(j => j.data?.department).filter(Boolean))]
+  const locations = ['all', ...new Set(jobs.map(j => j.data?.location).filter(Boolean))]
+  const workTypes = ['all', ...new Set(jobs.map(j => j.data?.work_type).filter(Boolean))]
   const filtered = jobs.filter(j => {
     const d = j.data || {}
-    if (dept !== 'all' && d.department !== dept) return false
+    if (dept     !== 'all' && d.department !== dept)       return false
+    if (location !== 'all' && d.location   !== location)   return false
+    if (workType !== 'all' && d.work_type  !== workType)   return false
     if (search && !`${d.job_title} ${d.department} ${d.location}`.toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
@@ -194,11 +200,29 @@ const JobsWidget = ({ cfg, theme, portal, api }) => {
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search roles…"
             style={{ width:'100%', padding:'10px 16px 10px 38px', borderRadius:theme.borderRadius||8, border:'1.5px solid #E8ECF8', fontSize:14, fontFamily:theme.fontFamily, outline:'none', color:theme.textColor||'#0F1729', background:'#fff', boxSizing:'border-box' }}/>
         </div>
-        {depts.length > 2 && (
+        {depts.length > 2 && cfg.showFilters !== false && (
           <select value={dept} onChange={e=>setDept(e.target.value)}
             style={{ padding:'10px 16px', borderRadius:theme.borderRadius||8, border:'1.5px solid #E8ECF8', fontSize:14, fontFamily:theme.fontFamily, outline:'none', color:theme.textColor||'#0F1729', background:'#fff', cursor:'pointer' }}>
             {depts.map(d => <option key={d} value={d}>{d==='all'?'All departments':d}</option>)}
           </select>
+        )}
+        {locations.length > 2 && cfg.showLocationFilter && (
+          <select value={location} onChange={e=>setLocation(e.target.value)}
+            style={{ padding:'10px 16px', borderRadius:theme.borderRadius||8, border:'1.5px solid #E8ECF8', fontSize:14, fontFamily:theme.fontFamily, outline:'none', color:theme.textColor||'#0F1729', background:'#fff', cursor:'pointer' }}>
+            {locations.map(l => <option key={l} value={l}>{l==='all'?'All locations':l}</option>)}
+          </select>
+        )}
+        {workTypes.length > 2 && cfg.showWorkTypeFilter && (
+          <select value={workType} onChange={e=>setWorkType(e.target.value)}
+            style={{ padding:'10px 16px', borderRadius:theme.borderRadius||8, border:'1.5px solid #E8ECF8', fontSize:14, fontFamily:theme.fontFamily, outline:'none', color:theme.textColor||'#0F1729', background:'#fff', cursor:'pointer' }}>
+            {workTypes.map(w => <option key={w} value={w}>{w==='all'?'All work types':w}</option>)}
+          </select>
+        )}
+        {(dept!=='all'||location!=='all'||workType!=='all'||search) && (
+          <button onClick={()=>{setDept('all');setLocation('all');setWorkType('all');setSearch('');}}
+            style={{ padding:'10px 14px', borderRadius:theme.borderRadius||8, border:'1.5px solid #E8ECF8', background:'transparent', fontSize:13, color:'#9CA3AF', cursor:'pointer', fontFamily:theme.fontFamily, whiteSpace:'nowrap' }}>
+            Clear filters
+          </button>
         )}
       </div>
       <p style={{ fontSize:13, color:theme.textColor||'#6B7280', opacity:0.6, marginBottom:16, fontFamily:theme.fontFamily }}>{filtered.length} open position{filtered.length!==1?'s':''}</p>
@@ -268,14 +292,25 @@ const ApplyForm = ({ job, portal, theme, api, onBack, onSuccess }) => {
     try {
       const res = await api.post(`/portals/${portal.id}/apply`, { ...form, job_id:job.id, job_title:d.job_title||'' })
       if (res.error) { setErr(res.error); setBusy(false); return }
-      setDone(true); setTimeout(onSuccess, 2500)
+      // Store personId in localStorage so candidate can return to check status
+      if (res.person_id) {
+        try { localStorage.setItem(`vc_app_${portal.id}`, res.person_id); } catch {}
+      }
+      setDone(res.person_id ? { personId: res.person_id } : true)
+      setTimeout(onSuccess, 4000)
     } catch { setErr('Something went wrong. Please try again.'); setBusy(false) }
   }
   if (done) return (
     <div style={{ textAlign:'center', padding:'60px 24px' }}>
       <Icon path={ICONS.check} size={64} color={theme.primaryColor} style={{ marginBottom:16 }}/>
       <h2 style={{ fontSize:24, fontWeight:800, color:theme.textColor||'#0F1729', marginBottom:8, fontFamily:theme.headingFont||theme.fontFamily }}>Application Submitted!</h2>
-      <p style={{ color:theme.textColor||'#6B7280', opacity:0.7, fontFamily:theme.fontFamily }}>Thank you {form.first_name}. We'll be in touch soon.</p>
+      <p style={{ color:theme.textColor||'#6B7280', opacity:0.7, fontFamily:theme.fontFamily, marginBottom:20 }}>Thank you {form.first_name}. We'll be in touch soon.</p>
+      {done.personId && (
+        <a href={`${window.location.origin}${window.location.pathname.split('/').slice(0,-0).join('/')}/application/${done.personId}`}
+          style={{ display:'inline-block', padding:'10px 24px', borderRadius:theme.buttonRadius||8, background:`${theme.primaryColor}15`, color:theme.primaryColor, fontSize:13, fontWeight:700, textDecoration:'none', fontFamily:theme.fontFamily }}>
+          Track your application →
+        </a>
+      )}
     </div>
   )
   return (
@@ -665,12 +700,15 @@ export default function PortalPageRenderer({ portal, api }) {
   const track=(event,data={})=>{if(!portal?.id)return;api.post(`/portal-analytics/${portal.id}/track`,{event,data}).catch(()=>{});};
   useEffect(()=>{track('page_view',{page:currentPage?.slug||'/'});},[currentPage?.id]);
 
-  // ── Check for application status route /portal/application/:id ────────────
+  // ── Check for application status route /portal/…/application/:id ─────────
   useEffect(() => {
     const m = window.location.pathname.match(/\/application\/([a-f0-9-]{36})$/i);
-    if (!m) return;
+    // Also check localStorage for returning candidates
+    const storedId = !m ? (() => { try { return localStorage.getItem(`vc_app_${portal.id}`); } catch { return null; } })() : null;
+    const personId = m?.[1] || storedId;
+    if (!personId) return;
     setAppLoading(true);
-    api.get(`/portals/public/application/${m[1]}`).then(d => {
+    api.get(`/portals/public/application/${personId}`).then(d => {
       setAppStatus(d);
       setAppLoading(false);
     }).catch(() => setAppLoading(false));

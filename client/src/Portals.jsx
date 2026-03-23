@@ -947,8 +947,11 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose }) => {
           <div>{lbl("Section heading")}<input value={cfg.heading||""} onChange={e=>set("heading",e.target.value)} placeholder="Open Positions" style={inp}/></div>
           <div>{lbl("Filter by Saved List name (blank = all open jobs)")}<input value={cfg.savedList||""} onChange={e=>set("savedList",e.target.value)} placeholder="e.g. Engineering Roles" style={inp}/></div>
           <div>{lbl("Max jobs to show (blank = unlimited)")}<input type="number" value={cfg.limit||""} onChange={e=>set("limit",e.target.value)} placeholder="All" style={inp}/></div>
-          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}><input type="checkbox" checked={cfg.showSearch!==false} onChange={e=>set("showSearch",e.target.checked)} style={{width:14,height:14}}/>Show search bar</label>
-          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}><input type="checkbox" checked={cfg.showFilters!==false} onChange={e=>set("showFilters",e.target.checked)} style={{width:14,height:14}}/>Show department filter</label>
+          <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:4}}>Filters shown to candidates</div>
+          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}><input type="checkbox" checked={cfg.showSearch!==false} onChange={e=>set("showSearch",e.target.checked)} style={{width:14,height:14}}/>Search bar</label>
+          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}><input type="checkbox" checked={cfg.showFilters!==false} onChange={e=>set("showFilters",e.target.checked)} style={{width:14,height:14}}/>Department filter</label>
+          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}><input type="checkbox" checked={!!cfg.showLocationFilter} onChange={e=>set("showLocationFilter",e.target.checked)} style={{width:14,height:14}}/>Location filter</label>
+          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}><input type="checkbox" checked={!!cfg.showWorkTypeFilter} onChange={e=>set("showWorkTypeFilter",e.target.checked)} style={{width:14,height:14}}/>Work type filter (Remote/Hybrid/On-site)</label>
           <div>{lbl("Empty state message")}<input value={cfg.emptyText||""} onChange={e=>set("emptyText",e.target.value)} placeholder="No open roles right now." style={inp}/></div>
         </div>
       );

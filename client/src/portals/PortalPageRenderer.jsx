@@ -398,6 +398,149 @@ const MultistepFormWidget = ({ cfg, theme, portal, api, track }) => {
   </div>);
 };
 
+// ── Testimonials Widget ──────────────────────────────────────────────────────
+const TestimonialsWidget = ({ cfg, theme }) => {
+  const [active, setActive] = useState(0);
+  const items = cfg.items || [
+    { name:'Sarah Chen', role:'Engineering Lead', quote:'The best place I have ever worked. Genuinely supportive culture and amazing growth opportunities.', avatar:'' },
+    { name:'Marcus Reed', role:'Product Manager', quote:'I joined as a grad and grew into a leadership role within three years. This company invests in people.', avatar:'' },
+    { name:'Priya Nair', role:'Data Scientist', quote:'Flexible working, brilliant colleagues, and meaningful work. I could not ask for more.', avatar:'' },
+  ];
+  const current = items[active] || {};
+  const heading = cfg.heading || 'What our team says';
+  const pr = theme.primaryColor || '#3B5BDB';
+  const ff = theme.fontFamily || 'inherit';
+
+  return (
+    <div style={{ padding:'48px 24px', textAlign:'center', fontFamily:ff }}>
+      {heading && <h2 style={{ margin:'0 0 40px', fontSize:28, fontWeight:800, color:theme.textColor||'#0F1729' }}>{heading}</h2>}
+      <div style={{ maxWidth:640, margin:'0 auto', position:'relative' }}>
+        {/* Quote */}
+        <div style={{ fontSize:48, color:pr, lineHeight:1, marginBottom:8, opacity:0.3 }}>"</div>
+        <p style={{ fontSize:18, lineHeight:1.7, color:theme.textColor||'#374151', margin:'0 0 28px', minHeight:80 }}>
+          {current.quote}
+        </p>
+        {/* Avatar + name */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12 }}>
+          {current.avatar
+            ? <img src={current.avatar} alt={current.name} style={{ width:48, height:48, borderRadius:'50%', objectFit:'cover' }}/>
+            : <div style={{ width:48, height:48, borderRadius:'50%', background:pr, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:700, color:'white' }}>
+                {(current.name||'?')[0]}
+              </div>
+          }
+          <div style={{ textAlign:'left' }}>
+            <div style={{ fontWeight:700, color:theme.textColor||'#0F1729' }}>{current.name}</div>
+            <div style={{ fontSize:13, color:'#6B7280' }}>{current.role}</div>
+          </div>
+        </div>
+        {/* Dots */}
+        {items.length > 1 && (
+          <div style={{ display:'flex', justifyContent:'center', gap:8, marginTop:28 }}>
+            {items.map((_,i) => (
+              <button key={i} onClick={()=>setActive(i)} style={{ width:i===active?24:8, height:8, borderRadius:4, border:'none', cursor:'pointer', background:i===active?pr:'#D1D5DB', transition:'all .2s', padding:0 }}/>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ── Rich Text Widget ─────────────────────────────────────────────────────────
+const RichTextWidget = ({ cfg, theme }) => {
+  const ff = theme.fontFamily || 'inherit';
+  const tc = theme.textColor  || '#374151';
+  const pr = theme.primaryColor || '#3B5BDB';
+  // Simple markdown-lite renderer (bold, italic, headings, lists, links)
+  const renderMd = (md = '') => {
+    if (!md) return null;
+    const lines = md.split('\n');
+    const elements = [];
+    let listItems = [];
+    const flushList = () => {
+      if (listItems.length) {
+        elements.push(<ul key={elements.length} style={{ margin:'0 0 16px', paddingLeft:20 }}>
+          {listItems.map((li,i)=><li key={i} style={{ marginBottom:6, lineHeight:1.7 }} dangerouslySetInnerHTML={{ __html:li }}/>)}
+        </ul>);
+        listItems = [];
+      }
+    };
+    lines.forEach((line, i) => {
+      const inline = line
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/\[(.+?)\]\((.+?)\)/g, `<a href="$2" style="color:${pr}"  target="_blank" rel="noreferrer">$1</a>`);
+      if (/^### (.+)/.test(line)) { flushList(); elements.push(<h3 key={i} style={{ margin:'24px 0 8px', fontSize:18, fontWeight:700, color:tc }}>{line.slice(4)}</h3>); }
+      else if (/^## (.+)/.test(line)) { flushList(); elements.push(<h2 key={i} style={{ margin:'32px 0 12px', fontSize:22, fontWeight:800, color:tc }}>{line.slice(3)}</h2>); }
+      else if (/^# (.+)/.test(line))  { flushList(); elements.push(<h1 key={i} style={{ margin:'0 0 16px', fontSize:28, fontWeight:800, color:tc }}>{line.slice(2)}</h1>); }
+      else if (/^[-*] (.+)/.test(line)) { listItems.push(inline.slice(2)); }
+      else if (line.trim()==='') { flushList(); }
+      else { flushList(); elements.push(<p key={i} style={{ margin:'0 0 16px', lineHeight:1.75 }} dangerouslySetInnerHTML={{ __html:inline }}/>); }
+    });
+    flushList();
+    return elements;
+  };
+
+  const align = cfg.align || 'left';
+  return (
+    <div style={{ maxWidth: cfg.maxWidth||'800px', margin:'0 auto', padding:'40px 24px', fontFamily:ff, color:tc, textAlign:align }}>
+      {cfg.label && <div style={{ fontSize:12, fontWeight:700, color:pr, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>{cfg.label}</div>}
+      {renderMd(cfg.content || '## Welcome to our team\n\nWe are a group of passionate people building something meaningful together. **Our culture** is built on trust, growth, and collaboration.\n\nLearn more about what makes us tick below.')}
+    </div>
+  );
+};
+
+// ── Map Embed Widget ─────────────────────────────────────────────────────────
+const MapEmbedWidget = ({ cfg }) => {
+  if (!cfg.embedUrl && !cfg.address) return (
+    <div style={{ height:300, background:'#F3F4F6', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:8, color:'#6B7280' }}>
+      <div style={{ fontSize:32 }}>📍</div>
+      <div style={{ fontSize:14 }}>Add an address or Google Maps embed URL in widget settings</div>
+    </div>
+  );
+  const src = cfg.embedUrl ||
+    `https://maps.google.com/maps?q=${encodeURIComponent(cfg.address)}&output=embed&z=15`;
+  return (
+    <div style={{ height: cfg.height || 400, position:'relative' }}>
+      <iframe src={src} width="100%" height="100%" style={{ border:'none', display:'block' }}
+        loading="lazy" referrerPolicy="no-referrer-when-downgrade" title="Office location"/>
+    </div>
+  );
+};
+
+// ── CTA Banner Widget ────────────────────────────────────────────────────────
+const CtaBannerWidget = ({ cfg, theme }) => {
+  const pr  = theme.primaryColor  || '#3B5BDB';
+  const bg  = cfg.bgColor || pr;
+  const tc  = cfg.textColor || '#FFFFFF';
+  const br  = theme.buttonRadius   || '8px';
+  const ff  = theme.fontFamily     || 'inherit';
+  return (
+    <div style={{ background:bg, padding:'48px 32px', textAlign:'center', fontFamily:ff }}>
+      <div style={{ maxWidth:720, margin:'0 auto' }}>
+        {cfg.eyebrow && <div style={{ fontSize:12, fontWeight:700, color:`${tc}99`, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>{cfg.eyebrow}</div>}
+        <h2 style={{ margin:'0 0 16px', fontSize:clamp(cfg.fontSize||32), fontWeight:800, color:tc, lineHeight:1.2 }}>
+          {cfg.heading || "Ready to join our team?"}
+        </h2>
+        {cfg.subheading && <p style={{ margin:'0 0 32px', fontSize:18, color:`${tc}cc`, lineHeight:1.6 }}>{cfg.subheading}</p>}
+        <div style={{ display:'flex', gap:12, justifyContent:'center', flexWrap:'wrap' }}>
+          {cfg.primaryCta && (
+            <a href={cfg.primaryCtaLink||'#'} style={{ display:'inline-block', padding:'14px 32px', borderRadius:br, background:'#FFFFFF', color:pr, fontWeight:700, fontSize:16, textDecoration:'none', fontFamily:ff }}>
+              {cfg.primaryCta}
+            </a>
+          )}
+          {cfg.secondaryCta && (
+            <a href={cfg.secondaryCtaLink||'#'} style={{ display:'inline-block', padding:'14px 32px', borderRadius:br, background:'transparent', color:tc, fontWeight:700, fontSize:16, textDecoration:'none', border:`2px solid ${tc}`, fontFamily:ff }}>
+              {cfg.secondaryCta}
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+function clamp(n) { return Math.min(Math.max(Number(n)||32, 16), 64); }
+
 const Widget = ({ cell, theme, portal, api, track }) => {
   const cfg = cell.widgetConfig||{}
   switch (cell.widgetType) {
@@ -414,9 +557,14 @@ const Widget = ({ cell, theme, portal, api, track }) => {
     case 'job_list':       return <JobsWidget    cfg={{...cfg, compact:true}} theme={theme} portal={portal} api={api} track={track}/>
     case 'hm_profile':     return <TeamWidget    cfg={cfg} theme={theme} portal={portal} api={api}/>
     case 'multistep_form': return <MultistepFormWidget cfg={cfg} theme={theme} portal={portal} api={api} track={track}/>
+    case 'testimonials':   return <TestimonialsWidget cfg={cfg} theme={theme}/>
+    case 'rich_text':      return <RichTextWidget     cfg={cfg} theme={theme}/>
+    case 'map_embed':      return <MapEmbedWidget     cfg={cfg}/>
+    case 'cta_banner':     return <CtaBannerWidget    cfg={cfg} theme={theme}/>
     default:        return null
   }
 }
+
 
 const PortalRow = ({ row, theme, portal, api, track }) => {
   if(row.condition?.param&&row.condition?.value){const p=new URLSearchParams(window.location.search);if((p.get(row.condition.param)||'').toLowerCase()!==row.condition.value.toLowerCase())return null;}
@@ -508,9 +656,40 @@ const PortalNav = ({ portal, theme, currentPage, onNav, pages }) => {
 export default function PortalPageRenderer({ portal, api }) {
   const theme = portal.theme || portal.branding || {}
   const pages = portal.pages || []
-  const [currentPage, setCurrentPage] = useState(pages[0]||null)
+  const [currentPage,   setCurrentPage]   = useState(pages[0]||null)
+  const [consentGiven,  setConsentGiven]  = useState(()=>!!localStorage.getItem('vc_consent_'+portal.id))
+  const [showConsent,   setShowConsent]   = useState(false)
+  const [appStatus,     setAppStatus]     = useState(null)  // application status page state
+  const [appLoading,    setAppLoading]    = useState(false)
+
   const track=(event,data={})=>{if(!portal?.id)return;api.post(`/portal-analytics/${portal.id}/track`,{event,data}).catch(()=>{});};
   useEffect(()=>{track('page_view',{page:currentPage?.slug||'/'});},[currentPage?.id]);
+
+  // ── Check for application status route /portal/application/:id ────────────
+  useEffect(() => {
+    const m = window.location.pathname.match(/\/application\/([a-f0-9-]{36})$/i);
+    if (!m) return;
+    setAppLoading(true);
+    api.get(`/portals/public/application/${m[1]}`).then(d => {
+      setAppStatus(d);
+      setAppLoading(false);
+    }).catch(() => setAppLoading(false));
+  }, []);
+
+  // ── GDPR consent banner ────────────────────────────────────────────────────
+  const gdpr = portal.gdpr || {};
+  useEffect(() => {
+    if (gdpr.enabled && !consentGiven) {
+      const t = setTimeout(() => setShowConsent(true), 1200);
+      return () => clearTimeout(t);
+    }
+  }, [gdpr.enabled, consentGiven]);
+
+  const acceptConsent = () => {
+    localStorage.setItem('vc_consent_'+portal.id, '1');
+    setConsentGiven(true); setShowConsent(false);
+  };
+  const declineConsent = () => { setShowConsent(false); };
 
   // ── SEO meta injection ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -545,6 +724,62 @@ export default function PortalPageRenderer({ portal, api }) {
     link.rel = 'stylesheet'; document.head.appendChild(link)
   }, [theme.fontFamily])
 
+  const pr  = theme.primaryColor || '#3B5BDB';
+  const bg  = theme.bgColor      || '#FFFFFF';
+  const tc  = theme.textColor    || '#0F1729';
+  const ff  = theme.fontFamily   || 'sans-serif';
+  const br  = theme.buttonRadius || '8px';
+
+  // Application status page
+  if (appLoading) return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:bg, fontFamily:ff }}>
+      <div style={{ width:36, height:36, borderRadius:'50%', border:`3px solid ${pr}40`, borderTopColor:pr, animation:'spin 1s linear infinite' }}/>
+      <style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style>
+    </div>
+  );
+
+  if (appStatus) return (
+    <div style={{ minHeight:'100vh', background:bg, fontFamily:ff, color:tc }}>
+      <PortalNav portal={portal} theme={theme} currentPage={currentPage} onNav={setCurrentPage} pages={pages}/>
+      <div style={{ maxWidth:640, margin:'0 auto', padding:'60px 24px' }}>
+        <div style={{ textAlign:'center', marginBottom:40 }}>
+          <div style={{ width:64, height:64, borderRadius:'50%', background:`${pr}15`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+            <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={pr} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <h1 style={{ margin:'0 0 8px', fontSize:26, fontWeight:800, color:tc }}>Hi {appStatus.person?.first_name} 👋</h1>
+          <p style={{ margin:0, fontSize:16, color:'#6B7280' }}>Here's your application status</p>
+        </div>
+
+        {(appStatus.applications || []).length === 0 ? (
+          <div style={{ textAlign:'center', padding:'40px 0', color:'#9CA3AF' }}>No applications found.</div>
+        ) : (appStatus.applications||[]).map((app, i) => (
+          <div key={i} style={{ background:'#F9FAFB', borderRadius:16, padding:'24px', marginBottom:16, border:'1px solid #E5E7EB' }}>
+            <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:16, flexWrap:'wrap', gap:8 }}>
+              <div>
+                <div style={{ fontWeight:700, fontSize:17, color:tc }}>{app.job_title || 'Open application'}</div>
+                <div style={{ fontSize:13, color:'#9CA3AF', marginTop:3 }}>Applied {new Date(app.applied_at).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</div>
+              </div>
+              <span style={{ padding:'4px 12px', borderRadius:99, background:`${pr}15`, color:pr, fontSize:12, fontWeight:700 }}>
+                {app.status}
+              </span>
+            </div>
+            {app.stage && (
+              <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', background:'white', borderRadius:10, border:'1px solid #E5E7EB' }}>
+                <div style={{ width:8, height:8, borderRadius:'50%', background:pr, flexShrink:0 }}/>
+                <span style={{ fontSize:14, color:tc }}><strong>Current stage:</strong> {app.stage}</span>
+              </div>
+            )}
+          </div>
+        ))}
+
+        <p style={{ textAlign:'center', fontSize:13, color:'#9CA3AF', marginTop:32 }}>
+          Questions? Contact the recruitment team at <a href={`mailto:${portal.branding?.contact_email||'careers@company.com'}`} style={{ color:pr }}>{portal.branding?.contact_email||'careers@company.com'}</a>
+        </p>
+      </div>
+      <PortalFooter portal={portal} theme={theme}/>
+    </div>
+  );
+
   if (!pages.length||!currentPage) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', fontFamily:'sans-serif', color:'#9CA3AF', flexDirection:'column', gap:8 }}>
       <Icon path={ICONS.building} size={40} color="#9CA3AF"/>
@@ -554,10 +789,29 @@ export default function PortalPageRenderer({ portal, api }) {
   )
 
   return (
-    <div style={{ background:theme.bgColor||'#fff', minHeight:'100vh', color:theme.textColor||'#0F1729', fontFamily:theme.fontFamily||'sans-serif' }}>
+    <div style={{ background:bg, minHeight:'100vh', color:tc, fontFamily:ff }}>
       <PortalNav portal={portal} theme={theme} currentPage={currentPage} onNav={setCurrentPage} pages={pages}/>
       {(currentPage.rows||[]).map(row => <PortalRow key={row.id} row={row} theme={theme} portal={portal} api={api} track={track}/>)}
       <PortalFooter portal={portal} theme={theme}/>
+
+      {/* GDPR Consent Banner */}
+      {showConsent && (
+        <div style={{ position:'fixed', bottom:0, left:0, right:0, zIndex:9999, background:gdpr.bannerBg||'#0F1729', color:gdpr.bannerText||'#F9FAFB', padding:'16px 24px', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12, boxShadow:'0 -4px 20px rgba(0,0,0,.2)', fontFamily:ff }}>
+          <p style={{ margin:0, flex:1, minWidth:200, fontSize:14, lineHeight:1.5, opacity:0.9 }}>
+            {gdpr.message || 'We use cookies to improve your experience on this career site. By continuing, you agree to our use of analytics cookies.'}
+            {gdpr.privacyUrl && <> <a href={gdpr.privacyUrl} target="_blank" rel="noreferrer" style={{ color:pr, marginLeft:4 }}>Privacy policy</a></>}
+          </p>
+          <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+            <button onClick={declineConsent} style={{ padding:'8px 16px', borderRadius:br, border:'1px solid rgba(255,255,255,.3)', background:'transparent', color:'inherit', cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:ff }}>
+              {gdpr.declineText || 'Decline'}
+            </button>
+            <button onClick={acceptConsent} style={{ padding:'8px 20px', borderRadius:br, border:'none', background:pr, color:'white', cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:ff }}>
+              {gdpr.acceptText || 'Accept cookies'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+

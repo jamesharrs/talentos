@@ -172,3 +172,53 @@ router.post('/:id/apply', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// GET /api/portals/public/application/:personId
+// Returns application status for a candidate — public endpoint (no auth)
+router.get('/public/application/:personId', (req, res) => {
+  try {
+    const store = getStore();
+    const person = (store.records || []).find(r => r.id === req.params.personId);
+    if (!person) return res.status(404).json({ error: 'Application not found' });
+
+    // Find applications (activity entries for this person)
+    const applications = (store.activity || [])
+      .filter(a => a.record_id === person.id && a.action === 'applied')
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    // For each application find the job and pipeline stage
+    const enriched = applications.map(app => {
+      const { job_id, job_title, portal_name } = app.details || {};
+      // Find pipeline stage if linked
+      const links = (store.people_links || [])
+        .filter(l => l.person_id === person.id && (!job_id || l.record_id === job_id));
+      const stageLink = links[0];
+      let stageLabel = null;
+      if (stageLink) {
+        // Look up the workflow step name
+        const wf = (store.workflows || []).find(w => w.id === stageLink.workflow_id);
+        const step = (wf?.steps || []).find(s => s.id === stageLink.stage_id);
+        stageLabel = step?.name || stageLink.stage_id;
+      }
+      return {
+        applied_at: app.created_at,
+        job_id, job_title, portal_name,
+        stage: stageLabel,
+        status: stageLabel ? 'In progress' : 'Under review',
+      };
+    });
+
+    res.json({
+      person: {
+        first_name: person.data?.first_name || '',
+        last_name:  person.data?.last_name  || '',
+        email:      person.data?.email      || '',
+      },
+      applications: enriched,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+module.exports = router;

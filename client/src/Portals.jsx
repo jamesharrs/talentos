@@ -28,16 +28,20 @@ const COLUMN_PRESETS = [
 ];
 
 const WIDGET_TYPES = [
-  { type:"hero",     label:"Hero",       icon:"mountain", desc:"Headline, subheading & CTA" },
-  { type:"text",     label:"Rich Text",  icon:"align",    desc:"Copy & content blocks" },
-  { type:"image",    label:"Image",      icon:"image",    desc:"Photo or illustration" },
-  { type:"jobs",     label:"Job Board",  icon:"briefcase",desc:"Live jobs from Vercentic" },
-  { type:"form",     label:"Form",       icon:"form",     desc:"Linked to any object" },
-  { type:"stats",    label:"Stats",      icon:"bar2",     desc:"Numbers & social proof" },
-  { type:"team",     label:"Team",       icon:"users2",   desc:"People from records" },
-  { type:"video",    label:"Video",      icon:"play",     desc:"YouTube or Vimeo embed" },
-  { type:"divider",  label:"Divider",    icon:"minus",    desc:"Horizontal separator" },
-  { type:"spacer",   label:"Spacer",     icon:"square",   desc:"Blank vertical space" },
+  { type:"hero",         label:"Hero",          icon:"mountain",  desc:"Headline, subheading & CTA" },
+  { type:"text",         label:"Rich Text",      icon:"align",     desc:"Copy & content blocks" },
+  { type:"rich_text",    label:"Article",        icon:"fileText",  desc:"Markdown content with headings" },
+  { type:"image",        label:"Image",          icon:"image",     desc:"Photo or illustration" },
+  { type:"jobs",         label:"Job Board",      icon:"briefcase", desc:"Live jobs from Vercentic" },
+  { type:"form",         label:"Form",           icon:"form",      desc:"Linked to any object" },
+  { type:"stats",        label:"Stats",          icon:"bar2",      desc:"Numbers & social proof" },
+  { type:"testimonials", label:"Testimonials",   icon:"quote",     desc:"Employee quotes & stories" },
+  { type:"team",         label:"Team",           icon:"users2",    desc:"People from records" },
+  { type:"video",        label:"Video",          icon:"play",      desc:"YouTube or Vimeo embed" },
+  { type:"map_embed",    label:"Map",            icon:"map",       desc:"Google Maps office location" },
+  { type:"cta_banner",   label:"CTA Banner",     icon:"megaphone", desc:"Full-width call to action" },
+  { type:"divider",      label:"Divider",        icon:"minus",     desc:"Horizontal separator" },
+  { type:"spacer",       label:"Spacer",         icon:"square",    desc:"Blank vertical space" },
 ];
 
 const FONT_OPTS = [
@@ -279,6 +283,10 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     bookmark:"M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z",
     sparkles:"M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5zM5 3l.6 1.8L7.4 5.4 5.6 6l-.6 1.8L4.4 6l-1.8-.6L4.4 4.8zM19 15l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6z",
     anchor:"M12 2a3 3 0 100 6 3 3 0 000-6zM12 8v14M5 10a7 7 0 0014 0",
+    fileText:"M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8",
+    quote:"M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1zM15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z",
+    map:"M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16",
+    megaphone:"M3 11l19-9-9 19-2-8-8-2zM11 13l1.5 5.5",
   };
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -510,6 +518,81 @@ const ThemeDrawer = ({ theme, onChange, onClose }) => {
             Call to action
           </span>
         </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Portal Settings Drawer (GDPR, branding info, embed) ─────────────────────
+const PortalSettingsDrawer = ({ portal, onChange, onClose }) => {
+  const [tab, setTab] = useState("branding");
+  const gdpr = portal.gdpr || {};
+  const br = portal.branding || {};
+  const setG = (k,v) => onChange({ ...portal, gdpr: { ...gdpr, [k]: v } });
+  const setBr = (k,v) => onChange({ ...portal, branding: { ...br, [k]: v } });
+  const inp = {padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:F,outline:"none",color:C.text1,background:C.surface,width:"100%",boxSizing:"border-box"};
+  const lbl = t => <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>{t}</div>;
+  const portalUrl = `${window.location.origin}/${(portal.slug||"careers").replace(/^\//,"")}`;
+  const embedCode = `<script src="${window.location.origin}/portal-embed.js" data-portal="${portal.id}"></script>`;
+  return (
+    <div style={{position:"fixed",top:0,right:0,width:340,height:"100vh",background:C.surface,borderLeft:`1px solid ${C.border}`,zIndex:500,display:"flex",flexDirection:"column",boxShadow:"-8px 0 40px rgba(0,0,0,.1)"}}>
+      <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <Ic n="settings" s={16} c={C.accent}/>
+          <span style={{fontSize:15,fontWeight:800,color:C.text1}}>Portal Settings</span>
+        </div>
+        <button onClick={onClose} style={{background:C.surface2,border:`1px solid ${C.border}`,borderRadius:6,cursor:"pointer",color:C.text2,padding:"5px 10px",display:"flex",alignItems:"center",gap:4,fontSize:12,fontWeight:600,fontFamily:F}}>
+          <Ic n="x" s={12}/> Close
+        </button>
+      </div>
+      <div style={{display:"flex",borderBottom:`1px solid ${C.border}`}}>
+        {[["branding","Branding"],["gdpr","GDPR"],["embed","Embed"]].map(([id,l])=>(
+          <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"9px 0",border:"none",background:"transparent",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,color:tab===id?C.accent:C.text3,borderBottom:tab===id?`2px solid ${C.accent}`:"2px solid transparent"}}>{l}</button>
+        ))}
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:"16px 20px",display:"flex",flexDirection:"column",gap:14}}>
+        {tab==="branding"&&<>
+          {lbl("Company name")}<input value={br.company_name||""} onChange={e=>setBr("company_name",e.target.value)} placeholder="Acme Corp" style={inp}/>
+          {lbl("Contact email (shown on app status page)")}<input value={br.contact_email||""} onChange={e=>setBr("contact_email",e.target.value)} placeholder="careers@acme.com" style={inp}/>
+          {lbl("Company logo URL")}<input value={portal.nav?.logoUrl||""} onChange={e=>onChange({...portal,nav:{...(portal.nav||{}),logoUrl:e.target.value}})} placeholder="https://…/logo.svg" style={inp}/>
+          {(portal.nav?.logoUrl)&&<img src={portal.nav.logoUrl} alt="logo preview" style={{maxHeight:40,maxWidth:160,objectFit:"contain",borderRadius:4}} onError={e=>e.target.style.display="none"}/>}
+          {lbl("Tagline / description")}<input value={br.tagline||""} onChange={e=>setBr("tagline",e.target.value)} placeholder="Building the future, one hire at a time" style={inp}/>
+          {lbl("Portal name (internal)")}<input value={portal.name||""} onChange={e=>onChange({...portal,name:e.target.value})} style={inp}/>
+        </>}
+        {tab==="gdpr"&&<>
+          <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
+            <div onClick={()=>setG("enabled",!gdpr.enabled)} style={{width:36,height:20,borderRadius:10,background:gdpr.enabled?C.green:C.border,position:"relative",cursor:"pointer",transition:"background .2s"}}>
+              <div style={{width:16,height:16,borderRadius:"50%",background:"white",position:"absolute",top:2,left:gdpr.enabled?18:2,transition:"left .2s"}}/>
+            </div>
+            <span style={{fontSize:13,fontWeight:600,color:C.text1}}>Show consent banner</span>
+          </label>
+          <div style={{fontSize:12,color:C.text3}}>A banner asking candidates to accept cookies before using the portal. Stored in localStorage so it only shows once per visitor.</div>
+          {lbl("Banner message")}<textarea value={gdpr.message||""} onChange={e=>setG("message",e.target.value)} rows={3} placeholder="We use cookies to improve your experience. By continuing you agree to our privacy policy." style={{...inp,resize:"vertical"}}/>
+          {lbl("Accept button text")}<input value={gdpr.acceptText||""} onChange={e=>setG("acceptText",e.target.value)} placeholder="Accept cookies" style={inp}/>
+          {lbl("Decline button text")}<input value={gdpr.declineText||""} onChange={e=>setG("declineText",e.target.value)} placeholder="Decline" style={inp}/>
+          {lbl("Privacy policy URL")}<input value={gdpr.privacyUrl||""} onChange={e=>setG("privacyUrl",e.target.value)} placeholder="https://acme.com/privacy" style={inp}/>
+          {lbl("Banner background colour")}
+          <div style={{display:"flex",gap:8,alignItems:"center"}}><input type="color" value={gdpr.bannerBg||"#0F1729"} onChange={e=>setG("bannerBg",e.target.value)} style={{width:34,height:28,padding:0,border:"none",cursor:"pointer",borderRadius:4}}/><input value={gdpr.bannerBg||""} onChange={e=>setG("bannerBg",e.target.value)} placeholder="#0F1729" style={{...inp,flex:1}}/></div>
+        </>}
+        {tab==="embed"&&<>
+          <div style={{fontSize:13,color:C.text2,lineHeight:1.6}}>Embed this portal — or just the job board — on any existing website with a single script tag.</div>
+          {lbl("Full portal URL")}
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <code style={{flex:1,padding:"8px 10px",borderRadius:8,background:C.surface2,fontSize:12,color:C.text1,border:`1px solid ${C.border}`,wordBreak:"break-all"}}>{portalUrl}</code>
+            <button onClick={()=>navigator.clipboard?.writeText(portalUrl)} style={{padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,cursor:"pointer",flexShrink:0,fontFamily:F,fontSize:12,color:C.text2}}>Copy</button>
+          </div>
+          {lbl("Application status page")}
+          <div style={{fontSize:12,color:C.text3,marginBottom:4}}>After applying, candidates can view their status at:</div>
+          <code style={{display:"block",padding:"8px 10px",borderRadius:8,background:C.surface2,fontSize:11,color:C.text1,border:`1px solid ${C.border}`,wordBreak:"break-all"}}>{portalUrl}/application/&#123;person_id&#125;</code>
+          <div style={{fontSize:11,color:C.text3}}>The <code>person_id</code> is returned in the apply API response and should be stored client-side (e.g. in localStorage) to show the candidate their status later.</div>
+          {lbl("Embed snippet (job board only)")}
+          <div style={{fontSize:12,color:C.text3,marginBottom:6}}>Paste this anywhere on your website to show live job listings:</div>
+          <div style={{display:"flex",gap:6,alignItems:"flex-start"}}>
+            <code style={{flex:1,padding:"8px 10px",borderRadius:8,background:"#0F1729",fontSize:11,color:"#A5F3FC",border:"none",wordBreak:"break-all",lineHeight:1.6}}>{embedCode}</code>
+            <button onClick={()=>navigator.clipboard?.writeText(embedCode)} style={{padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,cursor:"pointer",flexShrink:0,fontFamily:F,fontSize:12,color:C.text2,marginTop:2}}>Copy</button>
+          </div>
+          <div style={{padding:"10px 12px",borderRadius:8,background:"#FFFBEB",border:"1px solid #FCD34D",fontSize:12,color:"#92400E"}}>The embed script is served from <strong>vercentic.com</strong>. The job board updates live as you publish changes in the portal builder.</div>
+        </>}
       </div>
     </div>
   );
@@ -909,6 +992,52 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose }) => {
         </div>
       );
       case "multistep_form": return <MultistepFormConfig cfg={cfg} set={set} inp={inp} lbl={lbl}/>;
+      case "testimonials": return (
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {lbl("Section heading")}<input value={cfg.heading||""} onChange={e=>set("heading",e.target.value)} placeholder="What our team says" style={inp}/>
+          {lbl("Testimonials")}
+          {(cfg.items||[{name:"",role:"",quote:"",avatar:""}]).map((item,i)=>(
+            <div key={i} style={{padding:12,borderRadius:10,border:`1px solid ${C.border}`,background:C.surface2,display:"flex",flexDirection:"column",gap:6}}>
+              <input value={item.name||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],name:e.target.value};set("items",it);}} placeholder="Name" style={{...inp,fontSize:11,padding:"5px 8px"}}/>
+              <input value={item.role||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],role:e.target.value};set("items",it);}} placeholder="Role / Title" style={{...inp,fontSize:11,padding:"5px 8px"}}/>
+              <textarea value={item.quote||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],quote:e.target.value};set("items",it);}} placeholder="Quote text…" rows={2} style={{...inp,fontSize:11,padding:"5px 8px",resize:"vertical"}}/>
+              <input value={item.avatar||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],avatar:e.target.value};set("items",it);}} placeholder="Avatar photo URL (optional)" style={{...inp,fontSize:11,padding:"5px 8px"}}/>
+              {(cfg.items||[]).length>1&&<button onClick={()=>set("items",(cfg.items||[]).filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:C.red,cursor:"pointer",fontSize:11,textAlign:"left"}}>Remove</button>}
+            </div>
+          ))}
+          <button onClick={()=>set("items",[...(cfg.items||[]),{name:"",role:"",quote:"",avatar:""}])} style={{padding:"6px",borderRadius:8,border:`1.5px dashed ${C.border}`,background:"transparent",cursor:"pointer",fontSize:12,color:C.text3,fontFamily:F}}>+ Add testimonial</button>
+        </div>
+      );
+      case "rich_text": return (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {lbl("Label / eyebrow (optional)")}<input value={cfg.label||""} onChange={e=>set("label",e.target.value)} placeholder="Our Story" style={inp}/>
+          {lbl("Content (Markdown supported)")}
+          <textarea value={cfg.content||""} onChange={e=>set("content",e.target.value)} rows={10} placeholder={"## Heading\n\nBody text with **bold** and *italic*.\n\n- List item\n- Another item\n\n[Link text](https://…)"} style={{...inp,resize:"vertical",fontFamily:"monospace",fontSize:12}}/>
+          {lbl("Text alignment")}
+          <div style={{display:"flex",gap:6}}>{["left","center","right"].map(a=><button key={a} onClick={()=>set("align",a)} style={{flex:1,padding:"6px",borderRadius:8,border:`1.5px solid ${cfg.align===a?C.accent:C.border}`,background:cfg.align===a?C.accentLight:"transparent",cursor:"pointer",fontSize:12,color:cfg.align===a?C.accent:C.text2,fontFamily:F}}>{a[0].toUpperCase()+a.slice(1)}</button>)}</div>
+        </div>
+      );
+      case "map_embed": return (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {lbl("Office address (for Google Maps)")}<input value={cfg.address||""} onChange={e=>set("address",e.target.value)} placeholder="1 Infinite Loop, Cupertino, CA" style={inp}/>
+          <div style={{fontSize:11,color:C.text3}}>Or paste a full Google Maps embed URL below (takes priority over address).</div>
+          {lbl("Embed URL (optional)")}<input value={cfg.embedUrl||""} onChange={e=>set("embedUrl",e.target.value)} placeholder="https://maps.google.com/maps?q=…&output=embed" style={inp}/>
+          {lbl("Map height")}<input type="number" value={cfg.height||400} onChange={e=>set("height",Number(e.target.value))} min={200} max={800} style={inp}/>
+        </div>
+      );
+      case "cta_banner": return (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {lbl("Eyebrow text (small label)")}<input value={cfg.eyebrow||""} onChange={e=>set("eyebrow",e.target.value)} placeholder="Join us" style={inp}/>
+          {lbl("Heading")}<input value={cfg.heading||""} onChange={e=>set("heading",e.target.value)} placeholder="Ready to join our team?" style={inp}/>
+          {lbl("Subheading")}<input value={cfg.subheading||""} onChange={e=>set("subheading",e.target.value)} placeholder="We'd love to hear from you." style={inp}/>
+          {lbl("Primary CTA text")}<input value={cfg.primaryCta||""} onChange={e=>set("primaryCta",e.target.value)} placeholder="See Open Roles" style={inp}/>
+          {lbl("Primary CTA link")}<input value={cfg.primaryCtaLink||""} onChange={e=>set("primaryCtaLink",e.target.value)} placeholder="#jobs" style={inp}/>
+          {lbl("Secondary CTA text (optional)")}<input value={cfg.secondaryCta||""} onChange={e=>set("secondaryCta",e.target.value)} placeholder="Learn about us" style={inp}/>
+          {lbl("Secondary CTA link")}<input value={cfg.secondaryCtaLink||""} onChange={e=>set("secondaryCtaLink",e.target.value)} placeholder="/about" style={inp}/>
+          {lbl("Background colour")}
+          <div style={{display:"flex",gap:8,alignItems:"center"}}><input type="color" value={cfg.bgColor||"#3B5BDB"} onChange={e=>set("bgColor",e.target.value)} style={{width:36,height:28,padding:0,border:"none",cursor:"pointer",borderRadius:4}}/><input value={cfg.bgColor||""} onChange={e=>set("bgColor",e.target.value)} placeholder="#3B5BDB or use theme primary" style={{...inp,flex:1}}/></div>
+        </div>
+      );
       default: return <p style={{ fontSize:12, color:C.text3, margin:0 }}>No settings for this widget.</p>;
     }
   };
@@ -1371,8 +1500,19 @@ const SECTION_LIBRARY=[
     {id:"hm-prof",name:"HM Profile Cards",preview:[{type:"hm_profile",w:"full"}],row:()=>mk("1",[mkcell("hm_profile",{heading:"Meet Your Hiring Team",ctaText:"Schedule a call"})])},
   ]},
   {category:"CTA",sections:[
-    {id:"cta-dark",name:"Dark CTA Banner",preview:[{type:"text",w:"full",dark:true}],row:()=>mk("1",[mkcell("text",{heading:"Ready to apply?",content:"We review every application carefully. Our team will be in touch within 5 business days."})],"#0F1729")},
-    {id:"cta-light",name:"Light CTA Banner",preview:[{type:"text",w:"full",accent:true}],row:()=>mk("1",[mkcell("text",{heading:"Don't see the right role?",content:"Send us your CV — we're always looking for talented people."})],"#EEF2FF")},
+    {id:"cta-banner",name:"CTA Banner",preview:[{type:"cta_banner",w:"full"}],row:()=>mk("1",[mkcell("cta_banner",{heading:"Ready to join our team?",subheading:"We'd love to hear from you. Browse our open roles below.",primaryCta:"See Open Roles",primaryCtaLink:"#jobs",bgColor:"#4361EE"})])},
+    {id:"cta-dark",name:"Dark CTA",preview:[{type:"text",w:"full",dark:true}],row:()=>mk("1",[mkcell("text",{heading:"Ready to apply?",content:"We review every application carefully. Our team will be in touch within 5 business days."})],"#0F1729")},
+    {id:"cta-light",name:"Light CTA",preview:[{type:"text",w:"full",accent:true}],row:()=>mk("1",[mkcell("text",{heading:"Don't see the right role?",content:"Send us your CV — we're always looking for talented people."})],"#EEF2FF")},
+  ]},
+  {category:"Content",sections:[
+    {id:"testimonials-3",name:"Employee Testimonials",preview:[{type:"testimonials",w:"full"}],row:()=>mk("1",[mkcell("testimonials",{heading:"What our team says",items:[
+      {name:"Sarah Chen",role:"Engineering Lead",quote:"The best place I've ever worked. Genuinely supportive culture and amazing growth opportunities.",avatar:""},
+      {name:"Marcus Reed",role:"Product Manager",quote:"I joined as a grad and grew into a leadership role within three years. This company invests in people.",avatar:""},
+      {name:"Priya Nair",role:"Data Scientist",quote:"Flexible working, brilliant colleagues, and meaningful work. I could not ask for more.",avatar:""},
+    ]})])},
+    {id:"rich-text-article",name:"Article / Blog Post",preview:[{type:"rich_text",w:"full"}],row:()=>mk("1",[mkcell("rich_text",{label:"Our Story",content:"## Why we exist\n\nWe started this company because we believe hiring should be better — for candidates and companies alike.\n\n**Our approach** is built on transparency, speed, and respect for everyone's time.\n\n- Clear expectations from day one\n- Fast, communicative process\n- Feedback at every stage"})])},
+    {id:"rich-img",name:"Article + Image",preview:[{type:"rich_text",w:"half"},{type:"image",w:"half"}],row:()=>mk("2",[mkcell("rich_text",{label:"Life at Acme",content:"## A place to grow\n\nWe invest in every person who joins. From **day one** you'll have a dedicated buddy, a learning budget, and a manager who actually cares.\n\n- €2,000 annual learning budget\n- Flexible remote working\n- 30 days holiday"}),mkcell("image",{})])},
+    {id:"map-section",name:"Office Location Map",preview:[{type:"map_embed",w:"full"}],row:()=>mk("1",[mkcell("map_embed",{address:"1 Infinite Loop, Cupertino, CA",height:400})])},
   ]},
   {category:"Forms",sections:[
     {id:"form-simple",name:"Application Form",preview:[{type:"form",w:"full"}],row:()=>mk("1",[mkcell("form",{title:"Apply Now"})])},
@@ -1388,7 +1528,7 @@ const SectionLibrary = ({ onInsert, onClose }) => {
   const [cat,setCat]=useState(SECTION_LIBRARY[0].category);
   const [hov,setHov]=useState(null);
   const category=SECTION_LIBRARY.find(c=>c.category===cat);
-  const PBlock=({type,w,dark,accent})=>{const colors={hero:"#4361EE",text:"#E8ECF8",image:"#DDD",stats:"#EEF2FF",jobs:"#F0FDF4",job_list:"#F0FDF4",form:"#FEF9EE",team:"#FAF5FF",hm_profile:"#F0F9FF",multistep_form:"#FFF5F5"};return(<div style={{flex:w==="full"?1:"",width:w==="half"?"50%":"100%",height:24,borderRadius:4,background:dark?"#0F1729":accent?"#EEF2FF":(colors[type]||"#E8ECF8"),display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:7,color:dark?"rgba(255,255,255,.5)":"rgba(0,0,0,.3)",fontWeight:600}}>{type.replace("_"," ")}</span></div>);};
+  const PBlock=({type,w,dark,accent})=>{const colors={hero:"#4361EE",text:"#E8ECF8",image:"#DDD",stats:"#EEF2FF",jobs:"#F0FDF4",job_list:"#F0FDF4",form:"#FEF9EE",team:"#FAF5FF",hm_profile:"#F0F9FF",multistep_form:"#FFF5F5",testimonials:"#FFF5EB",rich_text:"#F0FDF4",map_embed:"#E8F5E9",cta_banner:"#4361EE",cta_banner_dark:"#0F1729"};return(<div style={{flex:w==="full"?1:"",width:w==="half"?"50%":"100%",height:24,borderRadius:4,background:dark?"#0F1729":accent?"#EEF2FF":(colors[type]||"#E8ECF8"),display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:7,color:dark?"rgba(255,255,255,.5)":"rgba(0,0,0,.3)",fontWeight:600}}>{type.replace(/_/g," ")}</span></div>);};
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(15,23,41,.45)",zIndex:850,display:"flex",alignItems:"center",justifyContent:"center",padding:24}} onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{background:C.surface,borderRadius:16,width:680,maxWidth:"100%",height:"80vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 64px rgba(0,0,0,.2)",overflow:"hidden"}}>
@@ -1717,8 +1857,9 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
   const [showLibrary,     setShowLibrary]     = useState(false);
   const [showNav,         setShowNav]         = useState(false);
   const [showFooter,      setShowFooter]      = useState(false);
-  const [showDomainWizard,setShowDomainWizard]= useState(false);
-  const [showBrandKit,    setShowBrandKit]    = useState(false);
+  const [showDomainWizard, setShowDomainWizard] = useState(false);
+  const [showBrandKit,     setShowBrandKit]     = useState(false);
+  const [showPortalSettings, setShowPortalSettings] = useState(false);
   const [pageActionsFor,  setPageActionsFor]  = useState(null);
   const [isEditing, setIsEditing] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1764,17 +1905,27 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
         <input value={portal.name} onChange={e=>setPortal(p=>({...p,name:e.target.value}))}
           style={{border:"none",outline:"none",fontSize:14,fontWeight:700,color:C.text1,background:"transparent",fontFamily:F,minWidth:160}}/>
         <div style={{flex:1}}/>
-        {/* Page tabs */}
+        {/* Page tabs — draggable to reorder */}
         <div style={{display:"flex",gap:2,background:C.surface2,borderRadius:8,padding:3,border:`1px solid ${C.border}`}}>
           {portal.pages.map((pg,i)=>(
             <button key={pg.id} onClick={()=>setActivePageIdx(i)}
-              style={{padding:"4px 12px",borderRadius:6,border:"none",fontFamily:F,fontSize:12,fontWeight:600,cursor:"pointer",
+              draggable
+              onDragStart={e=>{e.dataTransfer.setData("pageIdx",String(i));}}
+              onDragOver={e=>e.preventDefault()}
+              onDrop={e=>{
+                e.preventDefault();
+                const from=parseInt(e.dataTransfer.getData("pageIdx"));
+                if(isNaN(from)||from===i) return;
+                setPortal(p=>{const pages=[...p.pages];const[moved]=pages.splice(from,1);pages.splice(i,0,moved);return{...p,pages};});
+                setActivePageIdx(i);
+              }}
+              style={{padding:"4px 12px",borderRadius:6,border:"none",fontFamily:F,fontSize:12,fontWeight:600,cursor:"grab",
                 background:activePageIdx===i?C.surface:"transparent",color:activePageIdx===i?C.text1:C.text3,
-                boxShadow:activePageIdx===i?"0 1px 3px rgba(0,0,0,.06)":"none"}}>
+                boxShadow:activePageIdx===i?"0 1px 3px rgba(0,0,0,.06)":"none",userSelect:"none"}}>
               {pg.name}
             </button>
           ))}
-          <button onClick={addPage} style={{padding:"4px 7px",borderRadius:6,border:"none",background:"transparent",color:C.text3,cursor:"pointer"}}><Ic n="plus" s={11}/></button>
+          <button onClick={addPage} title="Add page" style={{padding:"4px 7px",borderRadius:6,border:"none",background:"transparent",color:C.text3,cursor:"pointer"}}><Ic n="plus" s={11}/></button>
           {portal.pages.length>0&&<button onClick={()=>setPageActionsFor(page)} title="Page SEO & settings" style={{padding:"4px 7px",borderRadius:6,border:"none",background:"transparent",color:C.text3,cursor:"pointer"}}><Ic n="settings" s={11}/></button>}
         </div>
         <div style={{width:1,height:24,background:C.border,margin:"0 12px"}}/>
@@ -1799,6 +1950,10 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
           <button onClick={()=>setShowDomainWizard(true)}
             style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,border:`1px solid ${C.border}`,background:"transparent",color:C.text2}}>
             <Ic n="externalLink" s={12} c={C.text2}/>Domain
+          </button>
+          <button onClick={()=>{setShowPortalSettings(s=>!s);setShowTheme(false);setShowNav(false);setShowFooter(false);}}
+            style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,border:`1px solid ${C.border}`,background:showPortalSettings?C.accentLight:"transparent",color:showPortalSettings?C.accent:C.text2}}>
+            <Ic n="settings" s={12} c={showPortalSettings?C.accent:C.text2}/>Settings
           </button>
           <button onClick={()=>{setShowTheme(s=>!s);setShowNav(false);setShowFooter(false);}}
             style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,
@@ -1851,6 +2006,7 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
         onDelete={()=>handleDeletePage(pageActionsFor)}
         onClose={()=>setPageActionsFor(null)}/>}
       {showDomainWizard&&<DomainWizard portal={portal} onSave={updated=>setPortal(updated)} onClose={()=>setShowDomainWizard(false)}/>}
+      {showPortalSettings&&<PortalSettingsDrawer portal={portal} onChange={updated=>setPortal(updated)} onClose={()=>setShowPortalSettings(false)}/>}
       {showBrandKit&&<BrandKitAgent
         environmentId={portal.environment_id}
         onApply={(theme,logo)=>setPortal(p=>({...p,theme:{...p.theme,...theme},nav:{...p.nav,logoUrl:logo||p.nav?.logoUrl||""}}))}

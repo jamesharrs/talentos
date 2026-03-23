@@ -2072,12 +2072,8 @@ const PortalCard = ({ portal, onEdit, onDelete, onDuplicate, stats }) => {
         <div style={{display:"flex",gap:4}}>
           {portal.status==="published" && (
             <button onClick={()=>{
-              // In dev portal renderer is on :5173; in prod it's the same origin
-              const base = window.location.hostname === 'localhost'
-                ? window.location.origin.replace(':3000', ':5173')
-                : window.location.origin;
               const slug = (portal.slug||'').replace(/^\/+/,'');
-              const portalUrl = `${base}/${slug}`;
+              const portalUrl = `${window.location.origin}/${slug}`;
               navigator.clipboard.writeText(portalUrl).catch(()=>{});
               window.__toast?.alert(`Copied: ${portalUrl}`);
             }} title="Copy portal link"

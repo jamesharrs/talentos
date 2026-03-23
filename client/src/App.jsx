@@ -1362,10 +1362,15 @@ function App() {
   // Super Admin route — completely separate from main app
   // Portal routes: /portal/slug (legacy) OR /slug (clean URL e.g. /careers)
   const _path = window.location.pathname;
-  const _appRoutes = /^\/(superadmin|availability|bot|interview|api|dashboard|people|jobs|talent-pools|search|interviews|offers|reports|calendar|org-chart|settings|workflows|portals|record)(\/|$)/;
-  // Only treat as portal if it matches /portal/slug explicitly
+  const _appRoutes = /^\/(superadmin|availability|bot|interview|api|dashboard|people|jobs|talent-pools|search|interviews|offers|reports|calendar|org-chart|settings|workflows|portals|record|new-one)(\/|$)/;
+  // Legacy /portal/slug route
   const portalSlug = _path.match(/^\/portal\/(.+)$/)?.[1];
   if (portalSlug) return <PortalApp slug={portalSlug}/>
+  // Clean URL: any path that isn't a known app route and isn't root → try as portal
+  if (_path !== '/' && !_appRoutes.test(_path)) {
+    const cleanSlug = _path.replace(/^\//, '');
+    if (cleanSlug && !cleanSlug.includes('.')) return <PortalApp slug={cleanSlug}/>
+  }
 
   if (window.location.pathname === '/superadmin') {
     return <SuperAdminConsole />;

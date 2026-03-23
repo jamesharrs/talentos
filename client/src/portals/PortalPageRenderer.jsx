@@ -51,15 +51,40 @@ const ErrorScreen = ({ message }) => (
 
 const HeroWidget = ({ cfg, theme }) => {
   const btnStyle = getButtonStyle(theme)
+  const outlineStyle = { ...btnStyle, background:'transparent', color:theme.primaryColor,
+    border:`2px solid ${theme.primaryColor}`, marginLeft:12 }
+  const hasBg = !!cfg.bgImage
   return (
-    <div style={{ padding:'60px 24px', textAlign:'center', background:`linear-gradient(135deg,${theme.primaryColor}22,${theme.secondaryColor||theme.primaryColor}0a)` }}>
-      <h1 style={{ margin:'0 0 16px', fontSize:'clamp(28px,5vw,52px)', fontWeight:theme.headingWeight||800, color:theme.textColor||'#0F1729', fontFamily:theme.headingFont||theme.fontFamily }}>
-        {cfg.headline||'Your Compelling Headline'}
-      </h1>
-      <p style={{ margin:'0 0 28px', fontSize:18, color:theme.textColor||'#0F1729', opacity:0.7, maxWidth:600, marginLeft:'auto', marginRight:'auto', fontFamily:theme.fontFamily, lineHeight:1.6 }}>
-        {cfg.subheading||'A short description that tells visitors what to expect here.'}
-      </p>
-      {cfg.ctaText && <a href={cfg.ctaHref||'#jobs'} style={{ ...btnStyle, textDecoration:'none' }}>{cfg.ctaText}</a>}
+    <div style={{
+      padding:'80px 24px', textAlign: cfg.align||'center',
+      background: hasBg
+        ? `url(${cfg.bgImage}) center/cover no-repeat`
+        : `linear-gradient(135deg,${theme.primaryColor}22,${theme.secondaryColor||theme.primaryColor}0a)`,
+      position:'relative', overflow:'hidden'
+    }}>
+      {hasBg && (cfg.overlayOpacity||0) > 0 && (
+        <div style={{position:'absolute',inset:0,background:`rgba(0,0,0,${(cfg.overlayOpacity||0)/100})`}}/>
+      )}
+      <div style={{position:'relative', maxWidth:theme.maxWidth||'900px', margin:'0 auto'}}>
+        {cfg.eyebrow && <div style={{ fontSize:13, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase',
+          color:theme.primaryColor, marginBottom:14, fontFamily:theme.fontFamily }}>{cfg.eyebrow}</div>}
+        <h1 style={{ margin:'0 0 16px', fontSize:'clamp(28px,5vw,52px)', fontWeight:theme.headingWeight||800,
+          color: hasBg && (cfg.overlayOpacity||0) > 20 ? '#fff' : (theme.textColor||'#0F1729'),
+          fontFamily:theme.headingFont||theme.fontFamily }}>
+          {cfg.headline||'Your Compelling Headline'}
+        </h1>
+        <p style={{ margin:'0 0 32px', fontSize:18,
+          color: hasBg && (cfg.overlayOpacity||0) > 20 ? 'rgba(255,255,255,.85)' : (theme.textColor||'#0F1729'),
+          opacity:0.75, maxWidth:600, marginLeft: cfg.align==='center'?'auto':0,
+          marginRight: cfg.align==='center'?'auto':0,
+          fontFamily:theme.fontFamily, lineHeight:1.6 }}>
+          {cfg.subheading||'A short description that tells visitors what to expect here.'}
+        </p>
+        <div style={{display:'flex', gap:12, justifyContent: cfg.align==='center'?'center':'flex-start', flexWrap:'wrap'}}>
+          {cfg.ctaText && <a href={cfg.ctaHref||'#jobs'} style={{ ...btnStyle, textDecoration:'none' }}>{cfg.ctaText}</a>}
+          {cfg.cta2Text && <a href={cfg.cta2Href||'#'} style={{ ...outlineStyle, textDecoration:'none' }}>{cfg.cta2Text}</a>}
+        </div>
+      </div>
     </div>
   )
 }

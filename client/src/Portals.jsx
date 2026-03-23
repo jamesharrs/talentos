@@ -644,14 +644,26 @@ const WidgetPreview = ({ cell, theme }) => {
   };
 
   if (cell.widgetType==="hero") return (
-    <div style={{padding:"32px 24px",textAlign:"center",background:`linear-gradient(135deg,${t.primaryColor}18,${t.secondaryColor}0a)`}}>
-      <div style={{fontSize:22,fontWeight:parseInt(t.headingWeight)||700,color:t.textColor,fontFamily:t.headingFont,marginBottom:6}}>
-        {cfg.headline||"Your Compelling Headline"}
+    <div style={{
+      padding:"32px 24px", textAlign: cfg.align||"center",
+      background: cfg.bgImage ? `url(${cfg.bgImage}) center/cover no-repeat`
+        : `linear-gradient(135deg,${t.primaryColor}18,${t.secondaryColor}0a)`,
+      position:"relative", borderRadius:8, overflow:"hidden"
+    }}>
+      {cfg.bgImage&&(cfg.overlayOpacity||0)>0&&<div style={{position:"absolute",inset:0,background:`rgba(0,0,0,${(cfg.overlayOpacity||0)/100})`}}/>}
+      <div style={{position:"relative"}}>
+        {cfg.eyebrow&&<div style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:t.primaryColor,marginBottom:8,fontFamily:t.fontFamily}}>{cfg.eyebrow}</div>}
+        <div style={{fontSize:20,fontWeight:parseInt(t.headingWeight)||700,color: cfg.bgImage&&(cfg.overlayOpacity||0)>20?"#fff":t.textColor,fontFamily:t.headingFont,marginBottom:6}}>
+          {cfg.headline||"Your Compelling Headline"}
+        </div>
+        <div style={{fontSize:12,color: cfg.bgImage&&(cfg.overlayOpacity||0)>20?"rgba(255,255,255,.8)":t.textColor,opacity:0.65,marginBottom:14,fontFamily:t.fontFamily,lineHeight:1.6}}>
+          {cfg.subheading||"A short description that tells visitors what to expect here."}
+        </div>
+        <div style={{display:"flex",gap:8,justifyContent:cfg.align==="center"?"center":"flex-start",flexWrap:"wrap"}}>
+          <span style={btnStyle}>{cfg.ctaText||"Get Started"}</span>
+          {cfg.cta2Text&&<span style={{...btnStyle,background:"transparent",color:t.primaryColor,border:`2px solid ${t.primaryColor}`}}>{cfg.cta2Text}</span>}
+        </div>
       </div>
-      <div style={{fontSize:13,color:t.textColor,opacity:0.65,marginBottom:16,fontFamily:t.fontFamily}}>
-        {cfg.subheading||"A short description that tells visitors what to expect here."}
-      </div>
-      <span style={btnStyle}>{cfg.ctaText||"Get Started"}</span>
     </div>
   );
 
@@ -855,11 +867,23 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose }) => {
   const renderFields = () => {
     switch (cell.widgetType) {
       case "hero": return (
-        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          <div>{lbl("Eyebrow text")}<input value={cfg.eyebrow||""} onChange={e=>set("eyebrow",e.target.value)} placeholder="We're hiring" style={inp}/></div>
           <div>{lbl("Headline")}<input value={cfg.headline||""} onChange={e=>set("headline",e.target.value)} placeholder="Your Compelling Headline" style={inp}/></div>
           <div>{lbl("Subheading")}<textarea value={cfg.subheading||""} onChange={e=>set("subheading",e.target.value)} rows={3} placeholder="A short description…" style={{...inp,resize:"vertical"}}/></div>
-          <div>{lbl("Button text")}<input value={cfg.ctaText||""} onChange={e=>set("ctaText",e.target.value)} placeholder="Get Started" style={inp}/></div>
-          <div>{lbl("Button link")}<input value={cfg.ctaHref||""} onChange={e=>set("ctaHref",e.target.value)} placeholder="#jobs or /apply" style={inp}/></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <div>{lbl("Button 1 text")}<input value={cfg.ctaText||""} onChange={e=>set("ctaText",e.target.value)} placeholder="View Jobs" style={inp}/></div>
+            <div>{lbl("Button 1 link")}<input value={cfg.ctaHref||""} onChange={e=>set("ctaHref",e.target.value)} placeholder="#jobs" style={inp}/></div>
+            <div>{lbl("Button 2 text")}<input value={cfg.cta2Text||""} onChange={e=>set("cta2Text",e.target.value)} placeholder="Learn More (optional)" style={inp}/></div>
+            <div>{lbl("Button 2 link")}<input value={cfg.cta2Href||""} onChange={e=>set("cta2Href",e.target.value)} placeholder="/about" style={inp}/></div>
+          </div>
+          <div>{lbl("Text alignment")}
+            <select value={cfg.align||"center"} onChange={e=>set("align",e.target.value)} style={inp}>
+              <option value="center">Center</option><option value="left">Left</option>
+            </select>
+          </div>
+          <div>{lbl("Background image URL")}<input value={cfg.bgImage||""} onChange={e=>set("bgImage",e.target.value)} placeholder="https://… (optional)" style={inp}/></div>
+          {cfg.bgImage&&<div>{lbl(`Overlay opacity: ${cfg.overlayOpacity||0}%`)}<input type="range" min={0} max={80} value={cfg.overlayOpacity||0} onChange={e=>set("overlayOpacity",Number(e.target.value))} style={{width:"100%"}}/></div>}
         </div>
       );
       case "text": return (

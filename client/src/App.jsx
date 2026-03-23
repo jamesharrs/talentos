@@ -1564,7 +1564,8 @@ function App() {
       // Re-resolve activeNav now that we have objects — handles direct URL loads
       // e.g. someone navigates directly to /people/abc123
       const resolved = navFromPath(window.location.pathname, objs);
-      if (resolved !== activeNav && activeNav === navFromPath(window.location.pathname, [])) {
+      // Always re-resolve — handles direct URL loads and back/forward navigation
+      if (resolved !== activeNav) {
         setActiveNav(resolved);
       }
     });
@@ -2034,17 +2035,22 @@ function App() {
           <InterviewDashboard environment={selectedEnv} session={session} onNavigate={(id) => setActiveNav(id)}/>
         ) : activeNav === "dashboard_offers" ? (
           <OfferDashboard environment={selectedEnv} session={session} onNavigate={(id) => setActiveNav(id)}/>
-        ) : activeNav.startsWith("obj_") ? (
+        ) : activeNav.startsWith("obj_") ? (() => {
+          const _obj = navObjects.find(o => `obj_${o.id}` === activeNav);
+          if (!_obj) return <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>;
+          return (
           <RecordsView
-            object={navObjects.find(o => `obj_${o.id}` === activeNav)}
+            object={_obj}
             environment={selectedEnv}
             onOpenRecord={openRecord}
             initialFilter={filterPreset}
-            autoCreate={createTarget?.id === navObjects.find(o => `obj_${o.id}` === activeNav)?.id ? createTarget : null}
+            autoCreate={createTarget?.id === _obj?.id ? createTarget : null}
             onAutoCreateConsumed={() => setCreateTarget(null)}
             session={session}
           />
-        ) : activeNav.startsWith("record_") ? (() => {
+          );
+        })()
+        : activeNav.startsWith("record_") ? (() => {
           const parts = activeNav.split("_"); const recordId = parts[1]; const objectId = parts[2];
           const obj = navObjects.find(o => o.id === objectId);
           return <RecordPage recordId={recordId} objectId={objectId} environment={selectedEnv} allObjects={navObjects} onBack={() => { setActiveRecord(null); setActiveRecordObj(null); setActiveNav(obj ? `obj_${obj.id}` : "dashboard"); }} onNavigate={openRecord} onHistoryUpdate={pushHistory}

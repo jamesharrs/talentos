@@ -41,3 +41,4 @@ server/Search.jsx
 npm-debug.log*
 .vercel
 client/.vercel
+server/talentos

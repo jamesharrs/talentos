@@ -18,6 +18,7 @@ import EnterpriseSettings from "./EnterpriseSettings.jsx";
 import OrgChart from "./OrgChart.jsx";
 import WorkflowsPage from "./Workflows.jsx";
 import PortalsPage from "./Portals.jsx";
+import SandboxManager from "./SandboxManager.jsx";
 import { useTheme, SCHEMES, FONTS, DENSITIES } from "./Theme.jsx";
 import { useI18n, LANGUAGES } from "./i18n/I18nContext.jsx";
 
@@ -1750,7 +1751,6 @@ const ConfigSection = ({ environment }) => {
     <div style={{ maxWidth:720 }}>
       <h2 style={{ margin:'0 0 4px', fontSize:18, fontWeight:700, color:C.text1, fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.4px" }}>Import / Export</h2>
       <p style={{ margin:'0 0 20px', fontSize:13, color:C.text3 }}>Export your platform configuration or import from another environment.</p>
-import SandboxManager from "./SandboxManager.jsx";
 
       {status && (
         <div style={{ padding:'10px 14px', borderRadius:10, marginBottom:14, fontSize:13, fontWeight:500,
@@ -2345,8 +2345,9 @@ const NAV_GROUPS = [
     id: "system",
     label: "System",
     items: [
-      { id:"superadmin", icon:"zap",     label:"Integrations" },
-      { id:"config",     icon:"refresh", label:"Import / Export" },
+      { id:"superadmin", icon:"zap",       label:"Integrations" },
+      { id:"sandbox",    icon:"gitBranch", label:"Sandbox Manager" },
+      { id:"config",     icon:"refresh",  label:"Import / Export" },
     ],
   },
 ];
@@ -2511,6 +2512,7 @@ export default function SettingsPage({ currentUser, environment, initialSection,
         {activeSection==="questions"  && <QuestionBankSettings/>}
         {activeSection==="agents"     && <AgentsSettings environment={environment}/>}
         {activeSection==="superadmin"  && <IntegrationsSettings environment={environment}/>}
+        {activeSection==="sandbox"     && <SandboxManager environment={environment}/>}
         {activeSection==="config"      && <ConfigSection environment={environment}/>}
         {activeSection==="datasets"    && <DatasetsSection environment={environment}/>}
         {activeSection==="enterprise"  && <EnterpriseSettings environment={environment}/>}

@@ -33,7 +33,13 @@ export default function PortalApp({ slug }) {
     if (!slug) { setError('No portal provided.'); setLoading(false); return; }
     // Strip any leading slashes so both /careers and careers work
     const cleanSlug = slug.replace(/^\/+/, '');
-    api.get(`/portals/slug/${cleanSlug}`)
+    // Try to get environment_id from user session for scoped lookup
+    let envParam = '';
+    try {
+      const sess = JSON.parse(sessionStorage.getItem('talentos_session') || '{}');
+      if (sess.environment?.id) envParam = `?environment_id=${sess.environment.id}`;
+    } catch {}
+    api.get(`/portals/slug/${cleanSlug}${envParam}`)
       .then(async p => {
         setPortal(p)
         document.title = p.branding?.company_name || p.name || 'Portal'

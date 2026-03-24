@@ -44,14 +44,21 @@ router.get('/:id', (req, res) => {
 router.get('/slug/:slug', (req, res) => {
   ensure();
   const store = getStore();
-  // Normalise slug — strip leading slash if present, allow lookup either way
   const slug = req.params.slug.startsWith('/') ? req.params.slug : '/' + req.params.slug;
-  const portal = (store.portals || []).find(p =>
+  const envId = req.query.environment_id; // optional — scopes lookup to specific environment
+
+  const matches = (store.portals || []).filter(p =>
     (p.slug === slug || p.slug === req.params.slug) && p.status === 'published' && !p.deleted_at
+    && (!envId || p.environment_id === envId)
   );
-  if (!portal) return res.status(404).json({ error: 'Not found or unpublished' });
-  // Expose branding alias so portal renderer works whether theme or branding is set
-  // Default type to 'career_site' if not set — covers legacy portals
+
+  if (matches.length === 0) return res.status(404).json({ error: 'Not found or unpublished' });
+
+  // If multiple matches and no environment filter, return the most recently updated
+  const portal = matches.sort((a, b) =>
+    new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0)
+  )[0];
+
   res.json({ ...portal, branding: portal.theme || portal.branding || {}, type: portal.type || 'career_site' });
 });
 
@@ -63,9 +70,18 @@ router.post('/', (req, res) => {
   if (!environment_id || !name) return res.status(400).json({ error: 'environment_id and name required' });
   const store = getStore();
   const now = new Date().toISOString();
+  const finalSlug = slug || `/${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+
+  // Enforce unique slug within environment
+  const existing = (store.portals || []).find(p =>
+    p.environment_id === environment_id && !p.deleted_at &&
+    (p.slug === finalSlug || p.slug === finalSlug.replace(/^\//, ''))
+  );
+  if (existing) return res.status(409).json({ error: `Slug "${finalSlug}" already exists in this environment`, existing_id: existing.id });
+
   const rec = {
     id: uid(), environment_id, name,
-    slug: slug || `/${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+    slug: finalSlug,
     description: description || '',
     status: status || 'draft',
     theme: theme || {},
@@ -85,6 +101,18 @@ router.patch('/:id', (req, res) => {
   const store = getStore();
   const idx = (store.portals || []).findIndex(p => p.id === req.params.id && !p.deleted_at);
   if (idx === -1) return res.status(404).json({ error: 'Portal not found' });
+
+  // If slug is being changed, enforce uniqueness within environment
+  if (req.body.slug) {
+    const portal = store.portals[idx];
+    const newSlug = req.body.slug;
+    const conflict = (store.portals || []).find(p =>
+      p.id !== req.params.id && p.environment_id === portal.environment_id && !p.deleted_at &&
+      (p.slug === newSlug || p.slug === newSlug.replace(/^\//, '') || ('/' + p.slug.replace(/^\//, '')) === newSlug)
+    );
+    if (conflict) return res.status(409).json({ error: `Slug "${newSlug}" already exists in this environment`, existing_id: conflict.id });
+  }
+
   const allowed = ['name', 'slug', 'description', 'status', 'theme', 'pages', 'nav', 'footer', 'branding', 'gdpr', 'config', 'custom_domain', 'type'];
   const updates = { updated_at: new Date().toISOString() };
   allowed.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
@@ -125,6 +153,34 @@ router.delete('/:id', (req, res) => {
   store.portals[idx].deleted_at = new Date().toISOString();
   saveStore();
   res.json({ deleted: true });
+});
+
+// POST /cleanup — deduplicate portals within each environment (keeps most recently updated)
+router.post('/cleanup', (req, res) => {
+  if (_checkGA(req, res, 'manage_portals') === false) return;
+  ensure();
+  const store = getStore();
+  const portals = (store.portals || []).filter(p => !p.deleted_at);
+  const seen = {};
+  const removed = [];
+  portals.forEach(p => {
+    const key = `${p.environment_id}::${(p.slug || '').replace(/^\//, '').toLowerCase()}`;
+    if (!seen[key]) seen[key] = [];
+    seen[key].push(p);
+  });
+  Object.values(seen).forEach(group => {
+    if (group.length <= 1) return;
+    group.sort((a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0));
+    for (let i = 1; i < group.length; i++) {
+      const idx = store.portals.findIndex(p => p.id === group[i].id);
+      if (idx !== -1) {
+        store.portals[idx].deleted_at = new Date().toISOString();
+        removed.push({ id: group[i].id, name: group[i].name, slug: group[i].slug });
+      }
+    }
+  });
+  if (removed.length > 0) saveStore();
+  res.json({ cleaned: removed.length, removed });
 });
 
 module.exports = router;
@@ -242,5 +298,3 @@ router.get('/public/application/:personId', (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-
-module.exports = router;

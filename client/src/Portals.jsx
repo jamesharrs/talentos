@@ -525,6 +525,61 @@ const ThemeDrawer = ({ theme, onChange, onClose }) => {
   );
 };
 
+// ─── Portal Data Tab (saved list picker for jobs widget) ─────────────────────
+const PortalDataTab = ({ portal, onChange, lbl, inp }) => {
+  const [savedLists, setSavedLists] = useState([]);
+  const [objects, setObjects] = useState([]);
+  const cfg = portal.config || {};
+  const setCfg = (k, v) => onChange({ ...portal, config: { ...cfg, [k]: v } });
+
+  useEffect(() => {
+    if (!portal.environment_id) return;
+    api.get(`/objects?environment_id=${portal.environment_id}`).then(d => {
+      const objs = Array.isArray(d) ? d : [];
+      setObjects(objs);
+      const jobObj = objs.find(o => o.slug === 'jobs');
+      if (jobObj) {
+        api.get(`/saved-views?object_id=${jobObj.id}&environment_id=${portal.environment_id}`)
+          .then(v => setSavedLists(Array.isArray(v) ? v : []));
+      }
+    });
+  }, [portal.environment_id]);
+
+  const jobObj = objects.find(o => o.slug === 'jobs');
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.6 }}>
+        Control which records appear on your portal. Use a saved list to show a filtered subset of jobs.
+      </div>
+      {lbl("Job source")}
+      <select value={cfg.saved_view_id || ""} onChange={e => setCfg("saved_view_id", e.target.value)} style={inp}>
+        <option value="">All open jobs</option>
+        {savedLists.map(l => (
+          <option key={l.id} value={l.id}>
+            {l.name}{l.filter_chip ? ` (${l.filter_chip.fieldLabel}: ${l.filter_chip.fieldValue})` : l.filters?.length ? ` (${l.filters.length} filters)` : ""}
+          </option>
+        ))}
+      </select>
+      {!savedLists.length && jobObj && (
+        <div style={{ fontSize: 12, color: C.text3, fontStyle: "italic", padding: "8px 10px", background: C.surface2, borderRadius: 8 }}>
+          No saved lists found for Jobs. Go to the Jobs list, apply filters, then click Lists → Save current list.
+        </div>
+      )}
+      {cfg.saved_view_id && (
+        <div style={{ fontSize: 12, color: C.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+          <Ic n="check" s={12} c={C.green}/> Portal will show only jobs matching this saved list
+        </div>
+      )}
+      {!cfg.saved_view_id && (
+        <div style={{ fontSize: 12, color: C.text3 }}>
+          All jobs with status "Open" will be shown on the portal.
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Portal Settings Drawer (GDPR, branding info, embed) ─────────────────────
 const PortalSettingsDrawer = ({ portal, onChange, onClose }) => {
   const [tab, setTab] = useState("branding");
@@ -548,7 +603,7 @@ const PortalSettingsDrawer = ({ portal, onChange, onClose }) => {
         </button>
       </div>
       <div style={{display:"flex",borderBottom:`1px solid ${C.border}`}}>
-        {[["branding","Branding"],["gdpr","GDPR"],["embed","Embed"]].map(([id,l])=>(
+        {[["branding","Branding"],["data","Data"],["gdpr","GDPR"],["embed","Embed"]].map(([id,l])=>(
           <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"9px 0",border:"none",background:"transparent",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,color:tab===id?C.accent:C.text3,borderBottom:tab===id?`2px solid ${C.accent}`:"2px solid transparent"}}>{l}</button>
         ))}
       </div>
@@ -561,6 +616,7 @@ const PortalSettingsDrawer = ({ portal, onChange, onClose }) => {
           {lbl("Tagline / description")}<input value={br.tagline||""} onChange={e=>setBr("tagline",e.target.value)} placeholder="Building the future, one hire at a time" style={inp}/>
           {lbl("Portal name (internal)")}<input value={portal.name||""} onChange={e=>onChange({...portal,name:e.target.value})} style={inp}/>
         </>}
+        {tab==="data"&&<PortalDataTab portal={portal} onChange={onChange} lbl={lbl} inp={inp}/>}
         {tab==="gdpr"&&<>
           <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
             <div onClick={()=>setG("enabled",!gdpr.enabled)} style={{width:36,height:20,borderRadius:10,background:gdpr.enabled?C.green:C.border,position:"relative",cursor:"pointer",transition:"background .2s"}}>

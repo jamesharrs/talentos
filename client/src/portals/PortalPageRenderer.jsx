@@ -178,28 +178,63 @@ const JobsWidget = ({ cfg, theme, portal, api }) => {
 
   useEffect(() => {
     if (!portal?.environment_id) return
-    api.get(`/objects?environment_id=${portal.environment_id}`)
-      .then(objs => {
+    const loadJobs = async () => {
+      try {
+        const objs = await api.get(`/objects?environment_id=${portal.environment_id}`)
         const obj = (Array.isArray(objs)?objs:[]).find(o => o.slug==='jobs')
-        if (!obj) return null
+        if (!obj) return
         const limitParam = cfg.limit ? `&limit=${cfg.limit}` : '&limit=200'
-        return api.get(`/records?object_id=${obj.id}&environment_id=${portal.environment_id}${limitParam}`)
-      })
-      .then(data => {
-        if (!data) return
+        const data = await api.get(`/records?object_id=${obj.id}&environment_id=${portal.environment_id}${limitParam}`)
         let all = (data?.records||data||[]).filter(r => r.data?.status !== 'Closed' && r.data?.status !== 'Filled')
-        // Filter by savedList name if configured
-        if (cfg.savedList) {
-          const listName = cfg.savedList.toLowerCase()
-          all = all.filter(r => {
-            const lists = Array.isArray(r.saved_lists) ? r.saved_lists : []
-            return lists.some(l => (l.name||l||'').toLowerCase() === listName)
-          })
+
+        // Apply saved list filters if configured
+        if (cfg.savedListId) {
+          try {
+            const views = await api.get(`/saved-views?object_id=${obj.id}&environment_id=${portal.environment_id}`)
+            const savedView = (Array.isArray(views) ? views : []).find(v => v.id === cfg.savedListId)
+            if (savedView) {
+              // Apply filter_chip (pill-click filter)
+              if (savedView.filter_chip) {
+                const fc = savedView.filter_chip
+                if (fc.fieldKey === '__ids__') {
+                  const ids = fc.fieldValue.split(',').map(s => s.trim()).filter(Boolean)
+                  all = all.filter(r => ids.includes(r.id))
+                } else {
+                  all = all.filter(r => {
+                    const v = r.data?.[fc.fieldKey]
+                    if (Array.isArray(v)) return v.some(i => String(i).toLowerCase() === fc.fieldValue.toLowerCase())
+                    return String(v || '').toLowerCase() === fc.fieldValue.toLowerCase()
+                  })
+                }
+              }
+              // Apply advanced filters (fieldId-based)
+              if (savedView.filters?.length) {
+                const fields = await api.get(`/fields?object_id=${obj.id}`)
+                const fieldMap = {}
+                if (Array.isArray(fields)) fields.forEach(f => { fieldMap[f.id] = f.api_key })
+                all = all.filter(record => savedView.filters.every(filt => {
+                  const apiKey = fieldMap[filt.fieldId] || ''
+                  const rawVal = record.data?.[apiKey]
+                  const op = filt.op, fv = filt.value
+                  if (op === 'is empty') return !rawVal
+                  if (op === 'is not empty') return !!rawVal
+                  const sv = String(rawVal ?? '').toLowerCase()
+                  const sfv = String(fv ?? '').toLowerCase()
+                  if (op === 'contains') return sv.includes(sfv)
+                  if (op === 'is') return sv === sfv
+                  if (op === 'is not') return sv !== sfv
+                  if (op === 'includes') return Array.isArray(rawVal) ? rawVal.some(v => String(v).toLowerCase() === sfv) : sv === sfv
+                  return true
+                }))
+              }
+            }
+          } catch (e) { console.warn('Failed to load saved list filters:', e) }
         }
         setJobs(all)
-      })
-      .catch(() => {})
-  }, [portal?.environment_id, cfg.savedList, cfg.limit])
+      } catch (e) { console.error('Failed to load jobs:', e) }
+    }
+    loadJobs()
+  }, [portal?.environment_id, cfg.savedListId, cfg.limit])
 
   const depts     = ['all', ...new Set(jobs.map(j => j.data?.department).filter(Boolean))]
   const locations = ['all', ...new Set(jobs.map(j => j.data?.location).filter(Boolean))]

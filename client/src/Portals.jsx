@@ -894,6 +894,8 @@ const ListWidgetConfig = ({ cfg, set, setMany, inp, lbl, environmentId }) => {
             const list = savedLists.find(l => l.id === e.target.value);
             console.log('[ListWidget] Selected saved list:', e.target.value, list?.name);
             setMany({ savedListId: e.target.value, savedList: list?.name || "" });
+            // Force immediate save — the state chain can be unreliable
+            setTimeout(() => window.dispatchEvent(new CustomEvent('talentos:portal-force-save')), 500);
           }} style={inp}>
             <option value="">All {selObj?.plural_name || "records"}</option>
             {loadingLists && <option disabled>Loading…</option>}
@@ -2258,6 +2260,21 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
     return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [portal]);
+
+  // Force-save listener — widgets can request an immediate save
+  useEffect(() => {
+    const handler = async () => {
+      const p = portalRef.current;
+      console.log('[Portal Force-save] triggered, savedListId on first jobs widget:', 
+        p.pages?.[0]?.rows?.[0]?.cells?.[0]?.widgetConfig?.savedListId);
+      if (p.id && !String(p.id).startsWith("new_")) {
+        await onSaveRef.current(p);
+        console.log('[Portal Force-save] done');
+      }
+    };
+    window.addEventListener('talentos:portal-force-save', handler);
+    return () => window.removeEventListener('talentos:portal-force-save', handler);
+  }, []);
   const [activePageIdx, setActivePageIdx] = useState(0);
   const [showTheme,       setShowTheme]       = useState(false);
   const [showLibrary,     setShowLibrary]     = useState(false);

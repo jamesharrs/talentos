@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import InboxModule, { useInboxUnreadCount } from "./Inbox";
 import { MobileShell, useIsMobile } from "./MobileApp.jsx";
+import MaintenanceOverlay from "./MaintenanceOverlay";
 
 // Heavy modules — loaded on demand only when navigated to
 // Chunk-load error handler — reloads once when a lazy chunk fails (stale deployment cache)

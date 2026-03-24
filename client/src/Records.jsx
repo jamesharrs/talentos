@@ -979,7 +979,7 @@ const RecordFormModal = ({ fields, record, objectName, onSave, onClose }) => {
 };
 
 /* ─── Saved Lists ────────────────────────────────────────────────────────────── */
-const SavedViewsDropdown = ({ objectId, environmentId, userId, currentFilters, currentVisibleFieldIds, currentViewMode, fields, onLoad, onClose }) => {
+const SavedViewsDropdown = ({ objectId, environmentId, userId, currentFilters, currentFilterChip, currentVisibleFieldIds, currentViewMode, fields, onLoad, onClose }) => {
   const [views, setViews]       = useState([]);
   const [saving, setSaving]     = useState(false);
   const [showSave, setShowSave] = useState(false);
@@ -1012,6 +1012,7 @@ const SavedViewsDropdown = ({ objectId, environmentId, userId, currentFilters, c
       is_shared: saveSharing.visibility === "everyone",
       sharing: saveSharing,
       filters: currentFilters,
+      filter_chip: currentFilterChip || null,
       visible_field_ids: currentVisibleFieldIds || [],
       view_mode: currentViewMode,
     });
@@ -1062,6 +1063,26 @@ const SavedViewsDropdown = ({ objectId, environmentId, userId, currentFilters, c
           <input value={saveName} onChange={e => setSaveName(e.target.value)} placeholder="View name…" style={ibs} autoFocus
             onKeyDown={e => e.key === "Enter" && handleSave()}/>
           <SharePicker value={saveSharing} onChange={setSaveSharing} environmentId={environmentId} compact={false}/>
+          {/* Show what filters will be saved */}
+          {(currentFilters.length > 0 || currentFilterChip) && (
+            <div style={{ padding:"6px 8px", background:"#EEF2FF", borderRadius:6, fontSize:11, color:C.accent }}>
+              <span style={{ fontWeight:700 }}>Filters to save: </span>
+              {currentFilterChip && <span style={{ background:"white", padding:"1px 6px", borderRadius:4, marginRight:4 }}>
+                {currentFilterChip.fieldLabel || currentFilterChip.fieldKey}: {currentFilterChip.fieldValue}
+              </span>}
+              {currentFilters.map((f,i) => {
+                const fd = fields.find(x => x.id === f.fieldId);
+                return <span key={i} style={{ background:"white", padding:"1px 6px", borderRadius:4, marginRight:4 }}>
+                  {fd?.name || "?"} {f.op} {f.value}
+                </span>;
+              })}
+            </div>
+          )}
+          {!currentFilters.length && !currentFilterChip && (
+            <div style={{ padding:"6px 8px", background:"#FEF3C7", borderRadius:6, fontSize:11, color:"#92400E" }}>
+              No filters active — this list will show all records
+            </div>
+          )}
           <div style={{ display:"flex", gap:6 }}>
             <button onClick={() => { setShowSave(false); setSaveName(""); }} style={{ flex:1, padding:"5px", borderRadius:7, border:`1px solid ${C.border}`, background:"transparent", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F, color:C.text2 }}>Cancel</button>
             <button onClick={handleSave} disabled={saving || !saveName.trim()} style={{ flex:2, padding:"5px", borderRadius:7, border:"none", background:C.accent, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:F, opacity:(!saveName.trim()||saving)?0.5:1 }}>
@@ -1085,7 +1106,11 @@ const SavedViewsDropdown = ({ objectId, environmentId, userId, currentFilters, c
               <div style={{ fontSize:13, fontWeight:600, color:C.text1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{view.name}</div>
               <div style={{ fontSize:10, color:C.text3, marginTop:1, display:"flex", alignItems:"center", gap:6 }}>
                 <span>Table</span>
-                {view.filters?.length > 0 && <span>· {view.filters.length} filter{view.filters.length !== 1 ? "s" : ""}</span>}
+                {(view.filters?.length > 0 || view.filter_chip) && <span>· {
+                  [view.filters?.length > 0 && `${view.filters.length} filter${view.filters.length !== 1 ? "s" : ""}`,
+                   view.filter_chip && `${view.filter_chip.fieldLabel || view.filter_chip.fieldKey}: ${view.filter_chip.fieldValue}`
+                  ].filter(Boolean).join(", ")
+                }</span>}
                 {(() => {
                   const sh = view.sharing;
                   if (!sh) return view.is_shared ? <span style={{ color:"#0ca678", fontWeight:600 }}>· Everyone</span> : <span style={{ color:C.text3 }}>· Private</span>;
@@ -6041,7 +6066,8 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
     if (view.filters)           setActiveFilters(view.filters);
     if (view.visible_field_ids?.length) { setVisibleFieldIds(view.visible_field_ids); try { localStorage.setItem(colStorageKey, JSON.stringify(view.visible_field_ids)); } catch {} }
     if (view.view_mode)         setView(view.view_mode);
-    setFilterChip(null);
+    // Restore filterChip if saved, otherwise clear it
+    setFilterChip(view.filter_chip || null);
     setPage(1);
     setReloadKey(k => k + 1);
   };
@@ -6183,6 +6209,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
               environmentId={environment.id}
               userId={userId}
               currentFilters={activeFilters}
+              currentFilterChip={filterChip}
               currentVisibleFieldIds={visibleFieldIds}
               currentViewMode={view}
               fields={fields}

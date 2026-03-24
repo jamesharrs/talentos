@@ -32,7 +32,7 @@ router.get('/', (req, res) => {
 // POST /api/saved-views
 router.post('/', (req, res) => {
   ensureTable();
-  const { name, object_id, environment_id, created_by, is_shared, filters, visible_field_ids, view_mode } = req.body;
+  const { name, object_id, environment_id, created_by, is_shared, filters, filter_chip, visible_field_ids, view_mode } = req.body;
   if (!name || !object_id || !environment_id) return res.status(400).json({ error: 'name, object_id, environment_id required' });
   const view = insert('saved_views', {
     id: uuidv4(), name, object_id, environment_id,
@@ -40,6 +40,7 @@ router.post('/', (req, res) => {
     is_shared: !!is_shared, // legacy compat
     sharing: req.body.sharing || { visibility: is_shared ? 'everyone' : 'private', user_ids: [], group_ids: [] },
     filters: filters || [],
+    filter_chip: filter_chip || null,
     visible_field_ids: visible_field_ids || [],
     view_mode: view_mode || 'table',
     created_at: new Date().toISOString(),

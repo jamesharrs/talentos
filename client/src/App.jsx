@@ -1917,8 +1917,8 @@ function App() {
   return (
     <PermissionProvider userId={userId}>
     <div style={{ minHeight: "100vh", background: "var(--t-bg)", fontFamily: "var(--t-font)", display: "flex" }}>
+      <MaintenanceOverlay />
       {/* Theme Panel */}
-      {showTheme && <ThemePanel onClose={() => setShowTheme(false)} />}
       {/* Sidebar */}
       <div
         onMouseEnter={() => navCollapsed && setNavHovered(true)}

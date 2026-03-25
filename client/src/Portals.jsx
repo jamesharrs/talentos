@@ -2428,9 +2428,9 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
   };
 
   return (
-    <div style={{display:"flex",flexDirection:"column",height:"100vh",fontFamily:F,background:C.bg}}>
+    <div style={{display:"flex",flexDirection:"column",height:"100vh",fontFamily:F,background:C.bg,position:"fixed",inset:0,zIndex:150}}>
       {/* Top bar */}
-      <div style={{height:48,background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:0,flexShrink:0,padding:"0 12px",overflow:"hidden"}}>
+      <div style={{height:48,background:C.surface,borderBottom:`1px solid ${C.border}`,zIndex:200,position:"relative",display:"flex",alignItems:"center",gap:0,flexShrink:0,padding:"0 12px",overflow:"hidden"}}>
         <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:C.text3,display:"flex",alignItems:"center",gap:5,padding:"4px 8px",borderRadius:6,fontFamily:F,fontSize:13}}
           onMouseEnter={e=>e.currentTarget.style.color=C.text1} onMouseLeave={e=>e.currentTarget.style.color=C.text3}>
           <Ic n="arrowL" s={14}/> Portals
@@ -2492,8 +2492,8 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
               <Ic n="more" s={13} c={showMoreMenu?C.accent:C.text2}/>
             </button>
             {showMoreMenu&&<>
-              <div onClick={()=>setShowMoreMenu(false)} style={{position:"fixed",inset:0,zIndex:299}}/>
-              <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,background:C.surface,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,.15)",border:`1px solid ${C.border}`,zIndex:300,minWidth:160,padding:4}}>
+              <div onClick={()=>setShowMoreMenu(false)} style={{position:"fixed",inset:0,zIndex:699}}/>
+              <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,background:C.surface,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,.15)",border:`1px solid ${C.border}`,zIndex:700,minWidth:160,padding:4}}>
                 {[
                   {icon:"sparkles",label:"Brand Kit",onClick:()=>{setShowBrandKit(true);setShowMoreMenu(false);}},
                   {icon:"externalLink",label:"Domain",onClick:()=>{setShowDomainWizard(true);setShowMoreMenu(false);}},

@@ -69,6 +69,7 @@ const AUTH_EXEMPT_PATHS = [
   '/bot',                              // bot/interview routes (public)
   '/tenant-reset',                     // tenant data reset (password protected)
   '/cleanup-seeds',                    // one-shot seed data cleanup
+  '/seed-dashboards',                  // one-shot dashboard seed
   '/error-logs',                       // allow error reporting without auth
   '/ai',                               // AI proxy — session user is optional, key is server-side
   '/translate',                        // translation proxy
@@ -146,7 +147,65 @@ app.post('/api/cleanup-seeds', (req, res) => {
   saveStore();
   res.json({ deleted: results, total: Object.values(results).reduce((a,b)=>a+b, 0) });
 });
-app.use('/api/file-types',         require('./routes/file_types'));
+
+// One-shot dashboard seed — password protected, idempotent
+app.post('/api/seed-dashboards', (req, res) => {
+  const pw = req.query.pw || req.body?.pw;
+  if (pw !== 'talentos-internal-2026') return res.status(401).json({ error: 'bad password' });
+  const { getStore, saveStore, insert } = require('./db/init');
+  const { v4: uuidv4 } = require('uuid');
+  const store = getStore();
+  const ENV_ID    = 'c0c64e3b-113d-48b8-bc3c-684769849742';
+  const PEOPLE_OBJ = store.objects?.find(o => o.slug === 'people' && o.environment_id === ENV_ID)?.id;
+  const JOBS_OBJ   = store.objects?.find(o => o.slug === 'jobs'   && o.environment_id === ENV_ID)?.id;
+  if (!PEOPLE_OBJ) return res.status(404).json({ error: 'People object not found for Production env' });
+  const existing = { interviews: (store.interviews||[]).filter(i=>i.environment_id===ENV_ID).length, offers: (store.offers||[]).filter(o=>o.environment_id===ENV_ID).length };
+  if (existing.interviews >= 15 && existing.offers >= 10) return res.json({ skipped: true, existing });
+  const rnd=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=arr=>arr[Math.floor(Math.random()*arr.length)];
+  const dOff=d=>new Date(Date.now()-d*86400000).toISOString(), dAhead=d=>new Date(Date.now()+d*86400000).toISOString();
+  const FIRST=['James','Sarah','Priya','Ahmed','Emma','Marcus','Lila','Omar','Zoe','Raj','Fatima','Alex','Nina','Carlos','Aisha'];
+  const LAST=['Harrison','Chen','Patel','Al-Rashidi','Johnson','Williams','Santos','Hassan','Kim','Sharma'];
+  const TITLES=['Software Engineer','Product Manager','UX Designer','Data Analyst','DevOps Engineer','Marketing Manager','HR Business Partner','Sales Executive'];
+  const DEPTS=['Engineering','Product','Design','Data','Operations','Marketing','HR','Sales'];
+  const SOURCES=['LinkedIn','Indeed','Referral','Direct','Glassdoor','Agency'];
+  const LOCS=['Dubai, UAE','Abu Dhabi, UAE','London, UK','New York, USA','Singapore'];
+  const SCREEN=['Applied','Screening','Pending Review','Reviewed','Shortlisted'];
+  const AI_RES=['approved','approved','rejected','pending',null,null];
+  const INT_T=['Phone Screen','Video Interview','Technical Assessment','Panel Interview','Final Interview'];
+  const FMTS=['video','phone','in_person','panel'];
+  const OUT=['Strong Yes','Yes','Yes','No','Strong No'];
+  const OFF_S=['draft','pending_approval','sent','sent','accepted','accepted','accepted','declined'];
+  // Get existing people
+  const people = (store.records||[]).filter(r=>r.object_id===PEOPLE_OBJ&&!r.deleted_at);
+  const jobs   = JOBS_OBJ ? (store.records||[]).filter(r=>r.object_id===JOBS_OBJ&&!r.deleted_at) : [];
+  const added = { people:0, interviews:0, offers:0 };
+  // Add people if thin
+  const newPeople = [];
+  for (let i=0; i<Math.max(0, 20-people.length); i++) {
+    const fn=pick(FIRST), ln=pick(LAST), id=uuidv4();
+    insert('records',{ id, object_id:PEOPLE_OBJ, environment_id:ENV_ID, created_by:'seed', created_at:dOff(rnd(1,45)), updated_at:new Date().toISOString(), data:{ first_name:fn, last_name:ln, email:`${fn.toLowerCase()}.${ln.toLowerCase()}${i}@example.com`, current_title:pick(TITLES), department:pick(DEPTS), location:pick(LOCS), source:pick(SOURCES), status:pick(SCREEN), ai_screening_result:pick(AI_RES), years_experience:rnd(1,12), rating:rnd(2,5), person_type:'Candidate' } });
+    newPeople.push({ id, data:{ first_name:fn, last_name:ln } }); added.people++;
+  }
+  const allPeople = [...people, ...newPeople];
+  // Interviews
+  for (let i=0; i<Math.max(0, 25-existing.interviews); i++) {
+    const p=pick(allPeople), j=jobs.length?pick(jobs):null, daysOff=rnd(-21,28), isPast=daysOff<0;
+    const status=isPast?pick(['completed','completed','cancelled']):'scheduled';
+    const intDate=new Date(Date.now()+daysOff*86400000).toISOString().slice(0,10);
+    insert('interviews',{ id:uuidv4(), environment_id:ENV_ID, candidate_id:p?.id, candidate_name:`${p?.data?.first_name||''} ${p?.data?.last_name||''}`.trim()||'Candidate', job_id:j?.id||null, job_title:j?.data?.job_title||j?.data?.title||pick(TITLES), type_name:pick(INT_T), date:intDate, time:`${rnd(9,17).toString().padStart(2,'0')}:00`, duration_minutes:pick([30,45,60]), format:pick(FMTS), status, outcome:status==='completed'?pick(OUT):null, notes:status==='completed'?'Completed.':null, created_at:dOff(rnd(1,30)), updated_at:new Date().toISOString() });
+    added.interviews++;
+  }
+  // Offers
+  for (let i=0; i<Math.max(0, 18-existing.offers); i++) {
+    const p=pick(allPeople), j=jobs.length?pick(jobs):null, status=pick(OFF_S), sal=rnd(60,200)*1000;
+    const startDate=dAhead(rnd(14,90));
+    insert('offers',{ id:uuidv4(), environment_id:ENV_ID, candidate_id:p?.id, candidate_name:`${p?.data?.first_name||''} ${p?.data?.last_name||''}`.trim()||'Candidate', job_id:j?.id||null, job_title:j?.data?.job_title||j?.data?.title||pick(TITLES), status, currency:'USD', base_salary:sal, bonus:Math.round(sal*0.1), start_date:startDate, expiry_date:dAhead(rnd(7,21)), approvers:[], notes:'Seeded.', data:{ start_date:startDate, docs_status:status==='accepted'?pick(['complete','pending']):'pending', job_title:j?.data?.job_title||pick(TITLES) }, created_at:dOff(rnd(1,45)), updated_at:new Date().toISOString() });
+    added.offers++;
+  }
+  saveStore();
+  res.json({ ok:true, added, totals:{ interviews:(store.interviews||[]).filter(i=>i.environment_id===ENV_ID).length, offers:(store.offers||[]).filter(o=>o.environment_id===ENV_ID).length, people:allPeople.length } });
+});
+
 app.use('/api/cv-parse',           require('./routes/cv_parse'));
 app.use('/api/doc-extract',        require('./routes/doc_extract'));
 app.use('/api/forms',              require('./routes/forms'));

@@ -844,6 +844,7 @@ export default function PortalPageRenderer({ portal, api }) {
       <PortalNav portal={portal} theme={theme} currentPage={currentPage} onNav={setCurrentPage} pages={pages}/>
       {(currentPage.rows||[]).map(row => <PortalRow key={row.id} row={row} theme={theme} portal={portal} api={api} track={track}/>)}
       <PortalFooter portal={portal} theme={theme}/>
+      <FeedbackWidget portal={portal} currentPageSlug={currentPage?.slug || "/"} api={api}/>
 
       {/* GDPR Consent Banner */}
       {showConsent && (

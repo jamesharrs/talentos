@@ -1,4 +1,4 @@
-const { hasGlobalAction: _hasGA } = require('../middleware/rbac');
+const { hasGlobalAction: _hasGA, hasPermission: _hasPerm, isSuperAdmin: _isSA } = require('../middleware/rbac');
 function _checkGA(req, res, action) {
   const user = req.currentUser;
   if (!user) { res.status(401).json({ error: "Authentication required", code: "UNAUTHENTICATED" }); return false; }
@@ -26,6 +26,9 @@ router.get('/', (req, res) => {
   let rows = query('interviews', i => i.environment_id === environment_id && !i.deleted_at);
   if (candidate_id) rows = rows.filter(i => i.candidate_id === candidate_id);
   if (job_id)       rows = rows.filter(i => i.job_id === job_id);
+  // RBAC: filter interviews — user must be able to view people object
+  const _user = req.currentUser;
+  if (_user && !_isSA(_user) && !_hasPerm(_user, 'people', 'view')) rows = [];
   res.json(rows.sort((a,b) => {
     const da = new Date(`${a.date}T${a.time||'00:00'}`);
     const db = new Date(`${b.date}T${b.time||'00:00'}`);

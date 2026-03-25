@@ -1,4 +1,5 @@
 const { hasGlobalAction } = require("../middleware/rbac");
+const { seedPermissionsForNewObject } = require("../middleware/rbac");
 function checkGlobal(req,res,action){const u=req.currentUser;if(!u)return null;if(!hasGlobalAction(u,action)){res.status(403).json({error:"Permission denied",code:"FORBIDDEN",required:{action}});return false;}return null;}
 const express = require('express');
 const router = express.Router();
@@ -30,7 +31,10 @@ router.post('/', (req, res) => {
   if (!environment_id||!name||!slug) return res.status(400).json({error:'environment_id, name, slug required'});
   if (findOne('objects', o=>o.environment_id===environment_id&&o.slug===slug)) return res.status(409).json({error:'Slug exists'});
   const maxOrder = Math.max(0, ...query('objects', o=>o.environment_id===environment_id).map(o=>o.sort_order));
-  res.status(201).json(insert('objects', {id:uuidv4(),environment_id,name,plural_name:plural_name||name+'s',slug,icon:icon||'circle',color:color||'#3b5bdb',description:description||null,is_system:0,sort_order:maxOrder+1,created_at:new Date().toISOString(),updated_at:new Date().toISOString()}));
+  const newObj = insert('objects', {id:uuidv4(),environment_id,name,plural_name:plural_name||name+'s',slug,icon:icon||'circle',color:color||'#3b5bdb',description:description||null,is_system:0,sort_order:maxOrder+1,created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+  // Auto-seed permissions for all roles on the new object
+  seedPermissionsForNewObject(slug);
+  res.status(201).json(newObj);
 });
 
 router.patch('/:id', (req, res) => {

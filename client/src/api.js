@@ -79,19 +79,19 @@ export function getPermCache() { return _permCache; }
 
 /**
  * Check if current user can perform `action` on `objectSlug`.
- * Returns true optimistically until cache is loaded.
+ * RBAC FIX: Returns false (restrictive) until cache is loaded.
  */
 export function can(objectSlug, action) {
-  if (!_permCache) return true;
+  if (!_permCache) return false;
   if (_permCache.objects['*']?.[action]) return true;
   return Boolean(_permCache.objects[objectSlug]?.[action]);
 }
 
 /**
  * Check a global platform action (e.g. 'manage_users', 'run_reports').
- * Returns true optimistically until cache is loaded.
+ * RBAC FIX: Returns false (restrictive) until cache is loaded.
  */
 export function canGlobal(action) {
-  if (!_permCache) return true;
+  if (!_permCache) return false;
   return Boolean(_permCache.global?.[action]);
 }

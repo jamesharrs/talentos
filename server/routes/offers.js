@@ -1,4 +1,4 @@
-const { hasGlobalAction: _hasGA } = require('../middleware/rbac');
+const { hasGlobalAction: _hasGA, hasPermission: _hasPerm, isSuperAdmin: _isSA } = require('../middleware/rbac');
 function _checkGA(req, res, action) {
   const user = req.currentUser;
   if (!user) { res.status(401).json({ error: "Authentication required", code: "UNAUTHENTICATED" }); return false; }
@@ -38,6 +38,11 @@ router.get('/', (req, res) => {
   if (job_id)       rows = rows.filter(o => o.job_id === job_id);
   if (status) rows = rows.filter(o => o.status === status);
   rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  // RBAC: filter offers — user must be able to view the people object
+  const _user = req.currentUser;
+  if (_user && !_isSA(_user)) {
+    if (!_hasPerm(_user, 'people', 'view')) rows = [];
+  }
   res.json(rows);
 });
 

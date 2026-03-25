@@ -75,14 +75,13 @@ export default function ScreeningDashboard({ environment, onNavigate }) {
     setLoading(true);
     setError(null);
     try {
-      const [objRes, recRes] = await Promise.all([
-        api.get(`/api/objects?environment_id=${environment.id}`),
-        api.get(`/api/records?environment_id=${environment.id}&limit=200`),
-      ]);
+      const objRes = await api.get(`/api/objects?environment_id=${environment.id}`);
       const objects = Array.isArray(objRes) ? objRes : (objRes?.objects || objRes?.data || []);
+      const peopleObj = objects.find(o=>o.slug==='people'||o.name?.toLowerCase().includes('people')||o.name?.toLowerCase().includes('candidate'));
+      if (!peopleObj) { setData({ people:[], awaitingReview:[], aiApproved:[], aiRejected:[], aiPending:[], reviewed:[], bySource:[], funnel:[], recent:[], peopleObj:null }); return; }
+      const recRes = await api.get(`/api/records?object_id=${peopleObj.id}&environment_id=${environment.id}&limit=200`);
       const allRecords = Array.isArray(recRes) ? recRes : (recRes?.records || recRes?.data || []);
-      const peopleObj = objects.find(o=>o.slug==='people'||o.name?.toLowerCase().includes('people'));
-      const people = peopleObj ? allRecords.filter(r=>r.object_id===peopleObj.id) : allRecords;
+      const people = allRecords;
 
       const awaitingReview = people.filter(p=>{ const s=(p.data?.status||'').toLowerCase(); return ['applied','new','received','pending','screening','pending review'].includes(s); });
       const aiApproved = people.filter(p=>p.data?.ai_screening_result==='approved'||p.data?.ai_status==='approved');

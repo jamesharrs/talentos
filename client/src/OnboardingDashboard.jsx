@@ -72,16 +72,15 @@ export default function OnboardingDashboard({ environment, onNavigate }) {
     setLoading(true);
     setError(null);
     try {
-      const [objRes, recRes, offerRes] = await Promise.all([
-        api.get(`/api/objects?environment_id=${environment.id}`),
-        api.get(`/api/records?environment_id=${environment.id}&limit=200`),
-        api.get(`/api/offers?environment_id=${environment.id}&limit=200`).catch(()=>[]),
-      ]);
+      const objRes = await api.get(`/api/objects?environment_id=${environment.id}`);
       const objects = Array.isArray(objRes) ? objRes : (objRes?.objects || objRes?.data || []);
-      const allRecords = Array.isArray(recRes) ? recRes : (recRes?.records || recRes?.data || []);
-      const allOffers = Array.isArray(offerRes) ? offerRes : (offerRes?.offers || offerRes?.data || []);
-      const peopleObj = objects.find(o=>o.slug==='people'||o.name?.toLowerCase().includes('people'));
-      const people = peopleObj ? allRecords.filter(r=>r.object_id===peopleObj.id) : allRecords;
+      const peopleObj = objects.find(o=>o.slug==='people'||o.name?.toLowerCase().includes('people')||o.name?.toLowerCase().includes('candidate'));
+      const allOffers = await api.get(`/api/offers?environment_id=${environment.id}&limit=200`).catch(()=>[]).then(r=>Array.isArray(r)?r:(r?.offers||r?.data||[]));
+      let people = [];
+      if (peopleObj) {
+        const recRes = await api.get(`/api/records?object_id=${peopleObj.id}&environment_id=${environment.id}&limit=200`);
+        people = Array.isArray(recRes) ? recRes : (recRes?.records || recRes?.data || []);
+      }
 
       const acceptedOffers = allOffers.filter(o=>o.status==='accepted');
       const startingThisMonth = acceptedOffers.filter(o=>{ const d=daysUntil(o.data?.start_date||o.start_date); return d!=null&&d>=0&&d<=30; });

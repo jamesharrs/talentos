@@ -930,6 +930,130 @@ const MultistepFormConfig = ({ cfg, set, inp, lbl }) => {
 // Module-level portal context for direct widget config saves
 let _activePortalCtx = { id: null, pages: null };
 
+
+// ─── Detail & List Field Configuration for portal list widgets ────────────────
+const DetailFieldsConfig = ({ objectId, environmentId, detailFields, listFields, onChange, onListChange, inp, lbl }) => {
+  const [fields, setFields] = useState([]);
+  const [tab, setTab] = useState("detail"); // "detail" | "list"
+  const [dragIdx, setDragIdx] = useState(null);
+
+  useEffect(() => {
+    if (!objectId) return;
+    api.get("/fields?object_id=" + objectId).then(d => setFields(Array.isArray(d) ? d : []));
+  }, [objectId]);
+
+  const HIDDEN_KEYS = ["id", "created_at", "updated_at", "deleted_at", "object_id", "environment_id"];
+
+  const availableFields = fields.filter(f => !HIDDEN_KEYS.includes(f.api_key));
+
+  // Currently selected keys
+  const activeKeys = tab === "detail" ? (detailFields || []) : (listFields || []);
+  const setActive = tab === "detail" ? onChange : onListChange;
+
+  const isSelected = (apiKey) => activeKeys.some(f => (typeof f === "string" ? f : f.key) === apiKey);
+
+  const toggle = (field) => {
+    const key = field.api_key;
+    if (isSelected(key)) {
+      setActive(activeKeys.filter(f => (typeof f === "string" ? f : f.key) !== key));
+    } else {
+      setActive([...activeKeys, { key, label: field.name }]);
+    }
+  };
+
+  const moveField = (from, to) => {
+    const arr = [...activeKeys];
+    const [moved] = arr.splice(from, 1);
+    arr.splice(to, 0, moved);
+    setActive(arr);
+  };
+
+  const selectedList = activeKeys.map(f => {
+    const key = typeof f === "string" ? f : f.key;
+    const label = typeof f === "string" ? f.replace(/_/g, " ") : f.label;
+    const fieldDef = fields.find(fd => fd.api_key === key);
+    return { key, label: label || fieldDef?.name || key, type: fieldDef?.field_type || "text" };
+  }).filter(f => f.key);
+
+  if (!fields.length) return null;
+
+  return (
+    <div style={{ borderTop: "1px solid " + C.border, paddingTop: 14, marginTop: 6 }}>
+      {/* Tab switcher */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
+        {[["detail", "Detail View"], ["list", "List Preview"]].map(([id, label]) => (
+          <button key={id} onClick={() => setTab(id)}
+            style={{
+              flex: 1, padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: tab === id ? 700 : 400,
+              border: "1.5px solid " + (tab === id ? C.accent : C.border), fontFamily: F,
+              background: tab === id ? C.accentLight : "transparent",
+              color: tab === id ? C.accent : C.text3, cursor: "pointer"
+            }}>{label}</button>
+        ))}
+      </div>
+
+      <div style={{ fontSize: 10, color: C.text3, marginBottom: 8, lineHeight: 1.4 }}>
+        {tab === "detail"
+          ? "Choose which fields visitors see when they click a record. Drag to reorder."
+          : "Choose which fields show in each row of the list. Drag to reorder."}
+      </div>
+
+      {/* Selected fields — reorderable */}
+      {selectedList.length > 0 && (
+        <div style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 3 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.accent, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>
+            Active ({selectedList.length})
+          </div>
+          {selectedList.map((f, i) => (
+            <div key={f.key}
+              draggable
+              onDragStart={() => setDragIdx(i)}
+              onDragOver={e => e.preventDefault()}
+              onDrop={() => { if (dragIdx !== null && dragIdx !== i) moveField(dragIdx, i); setDragIdx(null); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
+                background: C.accentLight, borderRadius: 7, border: "1px solid " + C.accent + "30",
+                cursor: "grab", fontSize: 12, color: C.text1,
+              }}>
+              <span style={{ color: C.text3, fontSize: 10, cursor: "grab" }}>⠿</span>
+              <span style={{ flex: 1, fontWeight: 600 }}>{f.label}</span>
+              <span style={{ fontSize: 9, color: C.text3, textTransform: "uppercase" }}>{f.type}</span>
+              <button onClick={() => toggle({ api_key: f.key, name: f.label })}
+                style={{ background: "none", border: "none", cursor: "pointer", color: C.red, fontSize: 14, padding: 0, lineHeight: 1 }}>
+                <Ic n="x" s={11} c={C.red}/>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Available fields */}
+      <div style={{ fontSize: 10, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>
+        Available fields
+      </div>
+      <div style={{ maxHeight: 200, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
+        {availableFields.filter(f => !isSelected(f.api_key)).map(f => (
+          <div key={f.api_key} onClick={() => toggle(f)}
+            style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "5px 10px",
+              borderRadius: 6, cursor: "pointer", fontSize: 12, color: C.text2,
+              border: "1px solid " + C.border, transition: "all .1s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.background = C.accentLight; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = "transparent"; }}>
+            <Ic n="plus" s={11} c={C.accent}/>
+            <span style={{ flex: 1 }}>{f.name}</span>
+            <span style={{ fontSize: 9, color: C.text3, textTransform: "uppercase" }}>{f.field_type}</span>
+          </div>
+        ))}
+        {availableFields.filter(f => !isSelected(f.api_key)).length === 0 && (
+          <div style={{ padding: 12, textAlign: "center", color: C.text3, fontSize: 11 }}>All fields selected</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ─── List Widget Config (needs hooks for API calls) ───────────────────────────
 const ListWidgetConfig = ({ cfg, set, setMany, inp, lbl, environmentId, cellId, defaultSlug }) => {
   const [objects, setObjects] = useState([]);
@@ -1034,6 +1158,20 @@ const ListWidgetConfig = ({ cfg, set, setMany, inp, lbl, environmentId, cellId, 
       <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}><input type="checkbox" checked={cfg.showFilters!==false} onChange={e=>set("showFilters",e.target.checked)} style={{width:14,height:14}}/>Category / department filter</label>
       <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}><input type="checkbox" checked={!!cfg.showLocationFilter} onChange={e=>set("showLocationFilter",e.target.checked)} style={{width:14,height:14}}/>Location filter</label>
       <div>{lbl("Empty state message")}<input value={cfg.emptyText||""} onChange={e=>set("emptyText",e.target.value)} placeholder="No records found." style={inp}/></div>
+
+      {/* ── Detail View Field Configuration ── */}
+      {cfg.objectId && (
+        <DetailFieldsConfig
+          objectId={cfg.objectId}
+          environmentId={environmentId}
+          detailFields={cfg.detailFields || []}
+          listFields={cfg.listFields || []}
+          onChange={(detailFields) => set("detailFields", detailFields)}
+          onListChange={(listFields) => set("listFields", listFields)}
+          inp={inp}
+          lbl={lbl}
+        />
+      )}
     </div>
   );
 };

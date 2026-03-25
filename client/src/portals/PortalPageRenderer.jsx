@@ -324,6 +324,7 @@ const SpacerWidget = ({ cfg }) => {
 const JobsWidget = ({ cfg, theme, portal, api, track, defaultSlug }) => {
   const [records, setRecords] = useState([]);
   const [objMeta, setObjMeta] = useState(null);
+  const [objFields, setObjFields] = useState([]);
   const [search, setSearch] = useState('');
   const [dept, setDept] = useState('all');
   const [location, setLocation] = useState('all');
@@ -344,6 +345,7 @@ const JobsWidget = ({ cfg, theme, portal, api, track, defaultSlug }) => {
           : (Array.isArray(objs)?objs:[]).find(o => o.slug===(cfg._objectSlug||defaultSlug||'jobs'));
         if (!obj) return;
         setObjMeta({ slug: obj.slug, name: obj.name, plural_name: obj.plural_name });
+        try { const flds = await api.get('/fields?object_id='+obj.id); setObjFields(Array.isArray(flds)?flds:[]); } catch(e) {}
         const data = await api.get('/records?object_id='+obj.id+'&environment_id='+portal.environment_id+'&limit='+(cfg.limit||200));
         let all = (data?.records||data||[]);
         if (obj.slug === 'jobs') all = all.filter(r => r.data?.status !== 'Closed' && r.data?.status !== 'Filled');
@@ -385,6 +387,39 @@ const JobsWidget = ({ cfg, theme, portal, api, track, defaultSlug }) => {
   const getName = (r) => { const d=r.data||{}; if(isPeople) return [d.first_name,d.last_name].filter(Boolean).join(' ')||d.email||'Unnamed'; return d.job_title||d.name||d.title||d.pool_name||'Record'; };
   const getSub = (r) => { const d=r.data||{}; if(isPeople) return d.current_title||d.department||''; return d.department||d.category||''; };
 
+  // Configurable detail view — uses cfg.detailFields if set
+  const renderDetailFields = (d) => {
+    const configured = cfg.detailFields?.length > 0;
+    const fieldList = configured
+      ? cfg.detailFields.map(f => {
+          const key = typeof f === 'string' ? f : f.key;
+          const label = typeof f === 'string' ? f.replace(/_/g,' ') : f.label;
+          const fieldDef = objFields.find(fd => fd.api_key === key);
+          return { key, label: label || fieldDef?.name || key, type: fieldDef?.field_type || 'text' };
+        })
+      : Object.keys(d).filter(k => !['id','created_at','updated_at','deleted_at','object_id','environment_id'].includes(k)).slice(0,12).map(k => {
+          const fieldDef = objFields.find(fd => fd.api_key === k);
+          return { key: k, label: fieldDef?.name || k.replace(/_/g,' '), type: fieldDef?.field_type || 'text' };
+        });
+    return (
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:12 }}>
+        {fieldList.map(f => {
+          const v = d[f.key];
+          if (v === undefined || v === null || v === '') return null;
+          const isLong = f.type === 'textarea' || f.type === 'rich_text' || (typeof v === 'string' && v.length > 120);
+          return (
+            <div key={f.key} style={{ padding:'10px 0', borderBottom:'1px solid #F1F5F9', ...(isLong ? { gridColumn:'1 / -1' } : {}) }}>
+              <div style={{ fontSize:11, fontWeight:600, color:tc, opacity:0.5, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:3 }}>{f.label}</div>
+              <div style={{ fontSize:14, color:tc, lineHeight:1.6, ...(isLong ? { whiteSpace:'pre-wrap' } : {}) }}>
+                {Array.isArray(v) ? v.join(', ') : f.type === 'rating' ? '★'.repeat(Number(v)) : String(v)}
+              </div>
+            </div>
+          );
+        }).filter(Boolean)}
+      </div>
+    );
+  };
+
   if (selected && isJobs) {
     const d = selected.data || {};
     return (
@@ -392,16 +427,18 @@ const JobsWidget = ({ cfg, theme, portal, api, track, defaultSlug }) => {
         <button onClick={() => setSelected(null)} style={{ background:'none', border:'none', cursor:'pointer', color:pr, fontSize:13, fontWeight:600, fontFamily:ff, padding:0, marginBottom:12 }}>← Back</button>
         <h2 style={{ margin:'0 0 6px', fontSize:22, fontWeight:700, color:tc }}>{d.job_title || d.name || 'Untitled'}</h2>
         <div style={{ fontSize:13, color:tc+'99', marginBottom:16 }}>{[d.department, d.location, d.work_type].filter(Boolean).join(' · ')}</div>
-        {d.description && <div style={{ fontSize:14, color:tc, lineHeight:1.7, whiteSpace:'pre-wrap', marginBottom:20 }}>{d.description}</div>}
-        {!applying ? (
-          <button onClick={() => { setApplying(true); if(track) track('job_click', { job_id: selected.id, title: d.job_title }); }}
-            style={{ padding:'12px 28px', borderRadius:br, background:pr, color:'white', border:'none', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:ff }}>Apply Now</button>
-        ) : (
-          <div style={{ padding:16, background:pr+'08', borderRadius:br, border:'1px solid '+pr+'20' }}>
-            <p style={{ margin:'0 0 8px', fontSize:14, fontWeight:600, color:tc }}>Application submitted!</p>
-            <p style={{ margin:0, fontSize:13, color:tc+'80' }}>Thank you. We'll be in touch.</p>
-          </div>
-        )}
+        {renderDetailFields(d)}
+        <div style={{ marginTop:20 }}>
+          {!applying ? (
+            <button onClick={() => { setApplying(true); if(track) track('job_click', { job_id: selected.id, title: d.job_title }); }}
+              style={{ padding:'12px 28px', borderRadius:br, background:pr, color:'white', border:'none', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:ff }}>Apply Now</button>
+          ) : (
+            <div style={{ padding:16, background:pr+'08', borderRadius:br, border:'1px solid '+pr+'20' }}>
+              <p style={{ margin:'0 0 8px', fontSize:14, fontWeight:600, color:tc }}>Application submitted!</p>
+              <p style={{ margin:0, fontSize:13, color:tc+'80' }}>Thank you. We'll be in touch.</p>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -418,14 +455,7 @@ const JobsWidget = ({ cfg, theme, portal, api, track, defaultSlug }) => {
             {getSub(selected) && <div style={{ fontSize:14, color:tc+'80', marginTop:4 }}>{getSub(selected)}</div>}
           </div>
         </div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:12 }}>
-          {Object.entries(d).filter(([k])=>!['id','created_at','updated_at'].includes(k)).slice(0,12).map(([k,v])=>(
-            <div key={k} style={{ padding:'10px 0', borderBottom:'1px solid #F1F5F9' }}>
-              <div style={{ fontSize:11, fontWeight:600, color:tc, opacity:0.5, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:3 }}>{k.replace(/_/g,' ')}</div>
-              <div style={{ fontSize:14, color:tc }}>{Array.isArray(v)?v.join(', '):String(v||'—')}</div>
-            </div>
-          ))}
-        </div>
+        {renderDetailFields(d)}
       </div>
     );
   }
@@ -448,14 +478,25 @@ const JobsWidget = ({ cfg, theme, portal, api, track, defaultSlug }) => {
           <div key={r.id} onClick={()=>setSelected(r)}
             style={{ padding:'12px 16px', borderBottom:'1px solid #f0f0f0', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', transition:'background .1s' }}
             onMouseEnter={e=>e.currentTarget.style.background=pr+'08'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0 }}>
               {isPeople && <div style={{ width:36, height:36, borderRadius:'50%', background:pr+'18', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, color:pr, flexShrink:0 }}>{getName(r).split(' ').map(w=>w[0]).join('').slice(0,2)}</div>}
-              <div>
+              <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontSize:14, fontWeight:600, color:tc }}>{getName(r)}</div>
-                <div style={{ fontSize:12, color:tc+'80' }}>{[getSub(r), d.location].filter(Boolean).join(' · ')}</div>
+                {cfg.listFields?.length > 0 ? (
+                  <div style={{ fontSize:12, color:tc+'80', display:'flex', gap:8, flexWrap:'wrap', marginTop:2 }}>
+                    {cfg.listFields.slice(0,4).map(f => {
+                      const key = typeof f === 'string' ? f : f.key;
+                      const v = d[key];
+                      if (!v) return null;
+                      return <span key={key}>{Array.isArray(v)?v.join(', '):String(v)}</span>;
+                    }).filter(Boolean)}
+                  </div>
+                ) : (
+                  <div style={{ fontSize:12, color:tc+'80' }}>{[getSub(r), d.location].filter(Boolean).join(' · ')}</div>
+                )}
               </div>
             </div>
-            <span style={{ fontSize:12, color:pr, fontWeight:600, flexShrink:0 }}>{isJobs ? 'View →' : 'View →'}</span>
+            <span style={{ fontSize:12, color:pr, fontWeight:600, flexShrink:0 }}>View →</span>
           </div>
         );
       })}

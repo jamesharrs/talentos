@@ -1467,7 +1467,7 @@ function App() {
   // Super Admin route — completely separate from main app
   // Portal routes: /portal/slug (legacy) OR /slug (clean URL e.g. /careers)
   const _path = window.location.pathname;
-  const _appRoutes = /^\/(superadmin|availability|bot|interview|api|dashboard|dashboard_interviews|dashboard_offers|people|jobs|talent-pools|search|interviews|offers|reports|calendar|org-chart|org_chart|settings|workflows|portals|inbox|admin_stats|admin-stats|client-hub|client_hub|help|matching|record)(\/|$)/;
+  const _appRoutes = /^\/(superadmin|availability|bot|interview|api|dashboard|dashboard_interviews|dashboard_offers|dashboard_screening|dashboard_onboarding|dashboard_admin|dashboard_agents|people|jobs|talent-pools|search|interviews|offers|reports|calendar|org-chart|org_chart|settings|workflows|portals|inbox|admin_stats|admin-stats|client-hub|client_hub|help|matching|record)(\/|$)/;
   // Legacy /portal/slug route
   const portalSlug = _path.match(/^\/portal\/(.+)$/)?.[1];
   if (portalSlug) return <PortalApp slug={portalSlug}/>
@@ -1535,6 +1535,7 @@ function App() {
     // Named pages (settings sub-pages use seg0 only — section handled inside Settings)
     const named = [
       'dashboard','dashboard_interviews','dashboard_offers','dashboard_agents',
+      'dashboard_screening','dashboard_onboarding','dashboard_admin',
       'search','interviews','offers','reports','calendar',
       'org-chart','org_chart','settings','workflows','portals',
       'inbox','admin_stats','admin-stats','client-hub','client_hub',

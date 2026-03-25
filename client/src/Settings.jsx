@@ -2487,13 +2487,13 @@ export default function SettingsPage({ currentUser, environment, initialSection,
   })).filter(g => g.items.length > 0);
 
   return (
-    <div style={{display:"flex",gap:0,minHeight:"100%"}}>
+    <div style={{display:"flex",gap:0,minHeight:"100%",height:fullScreenMode?"100%":undefined,overflow:fullScreenMode?"hidden":undefined}}>
       {/* Settings sidebar */}
       <div
         onMouseEnter={() => sideCollapsed && setSideHovered(true)}
         data-settings-sidebar="1"
         onMouseLeave={() => setSideHovered(false)}
-        style={{width:SIDE_W,flexShrink:0,paddingRight:sideExpanded?20:0,display:"flex",flexDirection:"column",
+        style={{width:SIDE_W,flexShrink:0,paddingRight:fullScreenMode?0:sideExpanded?20:0,display:"flex",flexDirection:"column",pointerEvents:fullScreenMode?"none":"auto",
           overflow:"hidden",transition:"width 0.2s cubic-bezier(0.4,0,0.2,1)"}}>
 
         {/* Header row — title + collapse button */}
@@ -2592,7 +2592,7 @@ export default function SettingsPage({ currentUser, environment, initialSection,
       </div>
 
       {/* Content */}
-      <div style={{flex:1,minWidth:0}}>
+      <div style={{flex:1,minWidth:0,overflow:fullScreenMode?"hidden":undefined}}>
         {!activeSection && (
           <SettingsDashboard
             onNavigate={(id) => setActiveSection(id)}

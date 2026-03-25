@@ -2465,7 +2465,7 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
   };
 
   return (
-    <div style={{display:"flex",flexDirection:"column",height:"100vh",fontFamily:F,background:C.bg}}>
+    <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",flexDirection:"column",height:"100vh",fontFamily:F,background:C.bg}}>
       {/* Top bar */}
       <div style={{height:48,background:C.surface,borderBottom:`1px solid ${C.border}`,zIndex:200,position:"relative",display:"flex",alignItems:"center",gap:0,flexShrink:0,padding:"0 12px"}}>
         <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:C.text3,display:"flex",alignItems:"center",gap:5,padding:"4px 8px",borderRadius:6,fontFamily:F,fontSize:13}}

@@ -2776,6 +2776,39 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
             <div ref={bottomRef}/>
           </div>
 
+          {/* ── Persistent context actions strip — always visible, updates on nav ── */}
+          {(()=>{
+            // On a record: show record-specific actions; elsewhere: show page context actions
+            const actions = (currentRecord && currentObject)
+              ? (RECORD_ACTIONS[currentObject.slug] || RECORD_ACTIONS.people).slice(0, 4)
+              : getContextActions(activeNav, settingsSection, navObjects).slice(0, 5);
+            const col = (currentRecord && currentObject)
+              ? (currentObject.color || "#7c3aed")
+              : "#7c3aed";
+            return (
+              <div style={{
+                padding:"8px 14px 6px",
+                borderTop:"1px solid rgba(124,58,237,.08)",
+                display:"flex", gap:5, flexShrink:0, background:"white",
+                overflowX:"auto", scrollbarWidth:"none",
+              }}>
+                {actions.map(a=>(
+                  <button key={a.id} onClick={()=>sendMessage(a.prompt)}
+                    style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 10px",
+                      borderRadius:99, border:`1px solid ${col}28`,
+                      background:`${col}08`, color:col,
+                      fontSize:11, fontWeight:600, cursor:"pointer",
+                      fontFamily:F, whiteSpace:"nowrap", flexShrink:0, transition:"all .12s"}}
+                    onMouseEnter={e=>{ e.currentTarget.style.background=`${col}18`; e.currentTarget.style.borderColor=`${col}50`; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.background=`${col}08`; e.currentTarget.style.borderColor=`${col}28`; }}>
+                    <Ic n={a.icon} s={10} c={col}/>
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
+
           {/* Input */}
           <div
             style={{padding:"12px 14px",borderTop:`1.5px solid ${dragOver?"rgba(124,58,237,.5)":"rgba(124,58,237,.1)"}`,display:"flex",gap:8,alignItems:"flex-end",flexShrink:0,background:dragOver?"rgba(124,58,237,.04)":"white",transition:"all .15s"}}

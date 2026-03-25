@@ -2356,6 +2356,7 @@ export default function SettingsPage({ currentUser, environment, initialSection,
   const [activeSection, setActiveSectionState] = useState(initialSection || null);
 
   const setActiveSection = (id) => {
+    window.dispatchEvent(new CustomEvent("talentos:settings-section", { detail: id }));
     setActiveSectionState(id);
     if (onSectionChange) onSectionChange(id);
   };

@@ -940,6 +940,11 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     });
   },[environment?.id]);
 
+  useEffect(()=>{
+    const h = e => setSettingsSection(e.detail);
+    window.addEventListener("talentos:settings-section", h);
+    return () => window.removeEventListener("talentos:settings-section", h);
+  },[]);
   // Build rich page context from everything we know
   useEffect(()=>{
     const parts=[];

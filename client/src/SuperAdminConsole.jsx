@@ -362,7 +362,7 @@ export default function SuperAdminConsole() {
           <ProvisionWizard onDone={()=>{ setSection('clients'); setClientView('list'); }} onCancel={()=>setSection('clients')}/>
         )}
         {section === 'perf' && <Performance/>}
-        {section === 'activity' && <ActivityReport clientId={clientView==='detail'?selectedClient?.id:null} clientName={selectedClient?.name}/>}
+        {section === 'activity' && <ActivityReport clientId={clientView==='detail'?selectedClientId:null}/>}
         {section === 'demo' && <DemoDataManager/>}
         {section === 'errors' && <ErrorLogViewer/>}
         {section === 'release_notes' && <ReleaseNotesAdmin />}

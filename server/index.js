@@ -70,6 +70,8 @@ const AUTH_EXEMPT_PATHS = [
   '/tenant-reset',                     // tenant data reset (password protected)
   '/cleanup-seeds',                    // one-shot seed data cleanup
   '/error-logs',                       // allow error reporting without auth
+  '/ai',                               // AI proxy — session user is optional, key is server-side
+  '/translate',                        // translation proxy
 ];
 app.use('/api', (req, res, next) => {
   // Skip for exempt prefixes

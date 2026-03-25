@@ -1,10 +1,12 @@
 import { Suspense, lazy } from "react";
 
-const Dashboard          = lazy(() => import("./Dashboard.jsx"));
-const InterviewDashboard = lazy(() => import("./InterviewDashboard.jsx"));
-const OfferDashboard     = lazy(() => import("./OfferDashboard.jsx"));
-const AdminDashboard     = lazy(() => import("./AdminDashboard.jsx"));
-const AgentDashboard     = lazy(() => import("./AgentDashboard.jsx"));
+const Dashboard           = lazy(() => import("./Dashboard.jsx"));
+const InterviewDashboard  = lazy(() => import("./InterviewDashboard.jsx"));
+const OfferDashboard      = lazy(() => import("./OfferDashboard.jsx"));
+const AdminDashboard      = lazy(() => import("./AdminDashboard.jsx"));
+const AgentDashboard      = lazy(() => import("./AgentDashboard.jsx"));
+const ScreeningDashboard  = lazy(() => import("./ScreeningDashboard.jsx"));
+const OnboardingDashboard = lazy(() => import("./OnboardingDashboard.jsx"));
 
 const F = "'DM Sans', -apple-system, sans-serif";
 const Loader = () => (
@@ -18,10 +20,7 @@ export default function DashboardHub({ tab = "overview", onTabChange, environmen
   return (
     <Suspense fallback={<Loader/>}>
       {tab === "overview" && (
-        <Dashboard
-          environment={environment} session={session}
-          onOpenRecord={onOpenRecord} onNavigate={onNavigate}
-        />
+        <Dashboard environment={environment} session={session} onOpenRecord={onOpenRecord} onNavigate={onNavigate}/>
       )}
       {tab === "interviews" && (
         <InterviewDashboard environment={environment} session={session} onNavigate={onNavigate}/>
@@ -35,6 +34,13 @@ export default function DashboardHub({ tab = "overview", onTabChange, environmen
       {tab === "admin" && (
         <AdminDashboard environment={environment} session={session}/>
       )}
+      {tab === "screening" && (
+        <ScreeningDashboard environment={environment} onNavigate={onNavigate}/>
+      )}
+      {tab === "onboarding" && (
+        <OnboardingDashboard environment={environment} onNavigate={onNavigate}/>
+      )}
     </Suspense>
   );
 }
+

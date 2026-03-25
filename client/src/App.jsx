@@ -23,8 +23,6 @@ const OrgChart        = lazyWithRetry(() => import("./OrgChart.jsx"));
 const SearchPage      = lazyWithRetry(() => import("./Search.jsx"));
 const Dashboard          = lazyWithRetry(() => import("./Dashboard.jsx"));
 const AdminDashboard      = lazyWithRetry(() => import("./AdminDashboard.jsx"));
-const ScreeningDashboard  = lazyWithRetry(() => import("./ScreeningDashboard.jsx"));
-const OnboardingDashboard = lazyWithRetry(() => import("./OnboardingDashboard.jsx"));
 const InterviewDashboard = lazyWithRetry(() => import("./InterviewDashboard.jsx"));
 const OfferDashboard     = lazyWithRetry(() => import("./OfferDashboard.jsx"));
 const DashboardHub       = lazyWithRetry(() => import("./DashboardHub.jsx"));
@@ -936,7 +934,9 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
               { id: "overview",    label: "Overview",    icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>, desc: "Hiring summary" },
               { id: "interviews",  label: "Interviews",  icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>, desc: "Scheduling & pipeline" },
               { id: "offers",      label: "Offers",      icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>, desc: "Acceptance & approvals" },
-              { id: "admin",       label: "Admin",       icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>, desc: "Platform stats" },
+              { id: "screening",   label: "Screening",   icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 100 6 3 3 0 000-6z"/></svg>, desc: "Candidates & AI review" },
+              { id: "onboarding",  label: "Onboarding",  icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>, desc: "Pre & post start" },
+              { id: "admin",       label: "Admin Stats", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>, desc: "Platform stats" },
             ].map(item => {
               const active = activeDashTab === item.id || (!activeDashTab && item.id === "overview");
               return (
@@ -1667,10 +1667,7 @@ function App() {
       label: t("nav.overview"),
       items: [
         { id: "dashboard",   icon: "home",    label: t("nav.dashboard") },
-        { id: "inbox",        icon: "inbox",      label: "Inbox",       badge: inboxUnread || null },
-        { id: "screening",    icon: "eye",        label: "Screening" },
-        { id: "onboarding",   icon: "star",       label: "Onboarding" },
-        { id: "admin_stats",  icon: "shield",     label: "Admin Stats" },
+        { id: "inbox",       icon: "inbox",   label: "Inbox", badge: inboxUnread || null },
       ]
     },
     {
@@ -1697,7 +1694,7 @@ function App() {
   const filteredNavSections = navSections.map(section => ({
     ...section,
     items: section.items.filter(item => {
-      if (['dashboard','dashboard_interviews','dashboard_offers','screening','onboarding'].includes(item.id))
+      if (['dashboard','dashboard_interviews','dashboard_offers','dashboard_agents','dashboard_admin','dashboard_screening','dashboard_onboarding'].includes(item.id))
         return canGlobal('access_dashboard');
       if (item.id === 'org_chart')  return canGlobal('access_org_chart');
       if (item.id === 'interviews') return canGlobal('access_interviews');
@@ -1975,7 +1972,7 @@ function App() {
               <div style={{ fontSize: 10, fontWeight: 700, color: "var(--t-text3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6, paddingLeft: 4, height: navExpanded ? undefined : 0, overflow: "hidden", opacity: navExpanded ? 1 : 0, transition: "opacity 0.15s, height 0.15s" }}>{section.label}</div>
               {section.items.map(item => {
                 const isDashboard = item.id === "dashboard";
-                const dashActive = activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers" || activeNav === "dashboard_admin" || activeNav === "dashboard_agents" || activeNav === "dashboard_agents";
+                const dashActive = activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers" || activeNav === "dashboard_admin" || activeNav === "dashboard_agents" || activeNav === "dashboard_screening" || activeNav === "dashboard_onboarding";
                 const isActive = isDashboard ? dashActive : (activeNav === item.id || (activeObjectId && item.id === `obj_${activeObjectId}`));
                 return (
                   <div key={item.id}>
@@ -2074,7 +2071,7 @@ function App() {
         <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}>
         { activeNav === "inbox" ? (
           <InboxModule environment={selectedEnv} onNavigate={openRecord} />
-        ) : activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers" || activeNav === "dashboard_admin" || activeNav === "dashboard_agents" ? (
+        ) : activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers" || activeNav === "dashboard_admin" || activeNav === "dashboard_agents" || activeNav === "dashboard_screening" || activeNav === "dashboard_onboarding" ? (
           <DashboardHub
             tab={activeNav === "dashboard" ? "overview" : activeNav.replace("dashboard_", "")}
             onTabChange={(tab) => setActiveNav(tab === "overview" ? "dashboard" : `dashboard_${tab}`)}
@@ -2114,24 +2111,6 @@ function App() {
           }}/>
         ) : activeNav === "reports" ? (
           <ReportsPage environment={selectedEnv} initialReport={reportPreset} />
-        ) : activeNav === "screening" ? (
-          <Suspense fallback={<div style={{padding:32,color:"#9ca3af"}}>Loading…</div>}>
-            <ScreeningDashboard environment={selectedEnv} onNavigate={id=>{
-              const obj=navObjects.find(o=>o.slug===id||o.plural_name?.toLowerCase()===id);
-              if(obj) switchNav(`obj_${obj.id}`);
-              else switchNav(id);
-            }}/>
-          </Suspense>
-        ) : activeNav === "onboarding" ? (
-          <Suspense fallback={<div style={{padding:32,color:"#9ca3af"}}>Loading…</div>}>
-            <OnboardingDashboard environment={selectedEnv} onNavigate={id=>{
-              const obj=navObjects.find(o=>o.slug===id||o.plural_name?.toLowerCase()===id);
-              if(obj) switchNav(`obj_${obj.id}`);
-              else switchNav(id);
-            }}/>
-          </Suspense>
-        ) : activeNav === "admin_stats" ? (
-          <Suspense fallback={<div style={{padding:32,color:"#9ca3af"}}>Loading…</div>}><AdminDashboard environment={selectedEnv} session={session}/></Suspense>
         ) : activeNav === "help" ? (
           <HelpPage onOpenCopilot={(msg) => {
             window.dispatchEvent(new CustomEvent("talentos:openCopilot", { detail: { message: msg } }));

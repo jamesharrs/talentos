@@ -943,7 +943,7 @@ const AuditLogSection = () => {
     try {
       const params = [`page=${page}`, `limit=25`];
       if (severityFilter) params.push(`severity=${severityFilter}`);
-      if (eventFilter) params.push(`event_type=${eventFilter}`);
+      if (eventFilter) params.push(`event=${eventFilter}`);
       const d = await api.get(`/security-audit?${params.join("&")}`);
       setItems(d.items || []);
       setTotal(d.total || 0);
@@ -954,7 +954,7 @@ const AuditLogSection = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  const sevColor = { CRITICAL:"#e03131", HIGH:"#f76707", MEDIUM:"#f59f00", LOW:"#868e96", INFO:"#3b5bdb" };
+  const sevColor = { critical:"#e03131", warn:"#f59f00", info:"#3b5bdb" };
   const sevIcon  = { CRITICAL:"alert-triangle", HIGH:"shield", LOW:"check", INFO:"activity" };
 
   const exportCsv = async () => {
@@ -995,10 +995,10 @@ const AuditLogSection = () => {
             ))}
           </div>
           {/* Most denied */}
-          {stats.most_denied?.length > 0 && (
+          {stats.top_denied_actions?.length > 0 && (
             <div style={{marginBottom:16}}>
               <div style={{fontSize:12,fontWeight:700,color:C.text1,marginBottom:8}}>Most Denied Actions</div>
-              {stats.most_denied.map((d,i)=>(
+              {stats.top_denied_actions.map((d,i)=>(
                 <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.border}`}}>
                   <code style={{fontSize:11,color:"#e03131",fontWeight:600,flex:1}}>{d.action}</code>
                   <span style={{fontSize:12,fontWeight:700,color:C.text1}}>{d.count}</span>
@@ -1013,8 +1013,8 @@ const AuditLogSection = () => {
               {stats.recent_critical.map((e,i)=>(
                 <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.border}`}}>
                   <div style={{width:6,height:6,borderRadius:"50%",background:"#e03131",flexShrink:0}}/>
-                  <code style={{fontSize:11,color:"#e03131",fontWeight:600}}>{e.event_type}</code>
-                  <span style={{fontSize:11,color:C.text3,flex:1}}>{e.actor_email||"system"}</span>
+                  <code style={{fontSize:11,color:"#e03131",fontWeight:600}}>{e.event}</code>
+                  <span style={{fontSize:11,color:C.text3,flex:1}}>{e.user_email||"system"}</span>
                   <span style={{fontSize:10,color:C.text3}}>{new Date(e.timestamp).toLocaleString()}</span>
                 </div>
               ))}
@@ -1027,19 +1027,17 @@ const AuditLogSection = () => {
           <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
             <select value={severityFilter} onChange={e=>{setSeverityFilter(e.target.value);setPage(1);}} style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:12,fontFamily:F,outline:"none",background:C.surface,color:C.text1}}>
               <option value="">All severities</option>
-              <option value="CRITICAL">Critical</option>
-              <option value="HIGH">High</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="LOW">Low</option>
-              <option value="INFO">Info</option>
+              <option value="critical">Critical</option>
+              <option value="warn">Warning</option>
+              <option value="info">Info</option>
             </select>
             <select value={eventFilter} onChange={e=>{setEventFilter(e.target.value);setPage(1);}} style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:12,fontFamily:F,outline:"none",background:C.surface,color:C.text1}}>
               <option value="">All event types</option>
-              <option value="ACCESS_DENIED">Access Denied</option>
-              <option value="PERMISSIONS_CHANGED">Permissions Changed</option>
-              <option value="ROLE_CREATED">Role Created</option>
-              <option value="ROLE_DELETED">Role Deleted</option>
-              <option value="FIELD_VISIBILITY_CHANGED">Field Visibility Changed</option>
+              <option value="access_denied">Access Denied</option>
+              <option value="permissions_changed">Permissions Changed</option>
+              <option value="role_created">Role Created</option>
+              <option value="role_deleted">Role Deleted</option>
+              <option value="field_visibility_changed">Field Visibility</option>
             </select>
           </div>
 
@@ -1052,8 +1050,8 @@ const AuditLogSection = () => {
                   onMouseEnter={e=>e.currentTarget.style.background="#f9f9fb"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                   <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0"}}>
                     <span style={{display:"inline-flex",padding:"2px 7px",borderRadius:4,fontSize:10,fontWeight:700,color:sevColor[item.severity]||C.text3,background:`${sevColor[item.severity]||C.border}15`,textTransform:"uppercase",letterSpacing:"0.05em",flexShrink:0}}>{item.severity}</span>
-                    <code style={{fontSize:12,fontWeight:600,color:C.text1,flex:1}}>{item.event_type}</code>
-                    <span style={{fontSize:11,color:C.text3}}>{item.actor_email||"system"}</span>
+                    <code style={{fontSize:12,fontWeight:600,color:C.text1,flex:1}}>{item.event}</code>
+                    <span style={{fontSize:11,color:C.text3}}>{item.user_email||"system"}</span>
                     <span style={{fontSize:10,color:C.text3,flexShrink:0}}>{new Date(item.timestamp).toLocaleString()}</span>
                   </div>
                   {expanded===item.id && item.details && (

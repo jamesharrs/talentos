@@ -3060,7 +3060,7 @@ export default function PortalsPage({ environment, onFullScreen }) {
       const portalId = e.detail?.portalId;
       if (!portalId || !environment?.id) return;
       // Reload list to include the newly created portal
-      const data = await api.get(\`/portals?environment_id=\${environment.id}\`);
+      const data = await api.get(`/portals?environment_id=${environment.id}`);
       const list = Array.isArray(data) ? data : [];
       setPortals(list);
       loadStats(list);

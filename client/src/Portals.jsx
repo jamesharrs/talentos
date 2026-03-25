@@ -2404,12 +2404,12 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
   // Track dirty state
   React.useEffect(() => {
     if (!savedSnapshotRef.current) {
-      savedSnapshotRef.current = portalSnapshot(portal);
+      savedSnapshotRef.current = JSON.stringify({name:portal.name,pages:portal.pages,theme:portal.theme,nav:portal.nav,footer:portal.footer,status:portal.status});
       return;
     }
-    const current = portalSnapshot(portal);
+    const current = JSON.stringify({name:portal.name,pages:portal.pages,theme:portal.theme,nav:portal.nav,footer:portal.footer,status:portal.status});
     setIsDirty(current !== savedSnapshotRef.current);
-  }, [portal, portalSnapshot]);
+  }, [portal]);
 
   // Warn on browser close/reload if dirty
   React.useEffect(() => {

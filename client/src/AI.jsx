@@ -738,6 +738,104 @@ Step 4: Output EXACTLY this format:
 FORM RULES:
 - category must be one of: general, screening, interview, survey, confidential
 - applies_to is an array of object slugs: "people", "jobs", "talent_pools"
+
+
+PORTAL CREATION INSTRUCTIONS:
+When a user wants to create a portal or career site, BUILD IT IMMEDIATELY. Do NOT just describe what they should do — actually generate the <CREATE_PORTAL> block with the full portal structure.
+
+IMPORTANT: If the user describes what they want (e.g. "career site with benefits, jobs, and talent community"), you have enough information. Generate the portal NOW. Do not ask clarifying questions unless the request is genuinely ambiguous. Use sensible defaults for anything not specified.
+
+Available section widget types for cells:
+  - hero: Hero banner. Config: {headline, subheading, ctaText, ctaHref}
+  - jobs: Full job board with search/filters. Config: {heading}
+  - text: Text block. Config: {heading, content}
+  - image: Image placeholder. Config: {}
+  - stats: Stats row. Config: {stats: [{value, label}, ...]}
+  - cta_banner: CTA banner. Config: {heading, subheading, primaryCta, primaryCtaLink, bgColor}
+  - testimonials: Quotes. Config: {heading, items: [{name, role, quote}, ...]}
+  - rich_text: Markdown article. Config: {label, content} (supports ## headings, **bold**, - bullets)
+  - form: Application form. Config: {title}
+  - multistep_form: Multi-step wizard with fields
+  - team: Team member grid. Config: {heading}
+  - map_embed: Map. Config: {address, height}
+
+Row structure: {preset: "1"|"2"|"3", bgColor: "" or hex, padding: "sm"|"md"|"lg"|"xl", fullWidth: true|false, cells: [...]}
+
+Design principles:
+- Start with a hero section (fullWidth: true, padding: "xl")
+- Alternate row backgrounds: white (""), light tint ("#F8F9FF"), dark ("#0F1729")
+- Use 2-column layouts for Benefits/Culture/Diversity content sections
+- Always include a jobs section for career sites
+- End with a CTA banner for talent community or applications
+- Write real, professional copy — not placeholder text
+- Generate unique IDs for every row and cell
+
+Output EXACTLY this format:
+<CREATE_PORTAL>
+{
+  "name": "Acme Careers",
+  "description": "Career site for Acme Corporation",
+  "type": "career_site",
+  "theme": {
+    "primaryColor": "#4361EE",
+    "accentColor": "#7C3AED",
+    "backgroundColor": "#FFFFFF",
+    "fontFamily": "Inter"
+  },
+  "pages": [
+    {
+      "id": "home",
+      "title": "Home",
+      "slug": "/",
+      "rows": [
+        {
+          "preset": "1",
+          "bgColor": "",
+          "padding": "xl",
+          "fullWidth": true,
+          "cells": [
+            { "widgetType": "hero", "widgetConfig": { "headline": "Join Our Team", "subheading": "Build something meaningful with us.", "ctaText": "See Open Roles", "ctaHref": "#jobs" } }
+          ]
+        },
+        {
+          "preset": "2",
+          "bgColor": "#F8F9FF",
+          "padding": "lg",
+          "cells": [
+            { "widgetType": "text", "widgetConfig": { "heading": "Our Benefits", "content": "Competitive salary, flexible working, learning budget, health insurance, and more." } },
+            { "widgetType": "text", "widgetConfig": { "heading": "Diversity & Inclusion", "content": "We believe diverse teams build better products. Everyone is welcome here." } }
+          ]
+        },
+        {
+          "preset": "1",
+          "bgColor": "",
+          "padding": "lg",
+          "cells": [
+            { "widgetType": "jobs", "widgetConfig": { "heading": "Open Positions" } }
+          ]
+        },
+        {
+          "preset": "1",
+          "bgColor": "#4361EE",
+          "padding": "lg",
+          "cells": [
+            { "widgetType": "cta_banner", "widgetConfig": { "heading": "Join our talent community", "subheading": "Get notified about new roles that match your skills.", "primaryCta": "Sign Up", "primaryCtaLink": "#signup", "bgColor": "#4361EE" } }
+          ]
+        }
+      ]
+    }
+  ]
+}
+</CREATE_PORTAL>
+
+PORTAL RULES:
+- type must be one of: career_site, hiring_manager, agency, onboarding
+- Each row must have an "id" generated as a random string
+- Each cell must have an "id" generated as a random string
+- Create visually appealing layouts: use hero sections at top, alternate light/dark backgrounds, end with a CTA
+- For career sites, always include a jobs section and a CTA for talent community signup
+- Use professional, modern copy. Avoid generic placeholder text.
+- Design for mobile responsiveness — prefer single column for complex content
 - field_type options: text, textarea, number, email, phone, url, date, select, multi_select, rating, boolean, currency
 - For select/multi_select fields, always include an "options" array of strings
 - api_key must be lowercase with underscores, no spaces (auto-derive from label if not obvious)
@@ -1671,6 +1769,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     setPendingInterview(null);
     setPendingForm(null);
     setPendingPortal(null);
+    setPendingPortal(null);
     setPendingReport(null);
     setParsedPerson(null);
     setParsedJob(null);
@@ -1740,6 +1839,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       const roleData      = parseCreateRole(reply);
       const interviewData = parseScheduleInterview(reply);
       const formData2     = parseCreateForm(reply);
+      const portalData    = parseCreatePortal(reply);
       const modifyReport  = parseModifyReport(reply);
       const reportData    = parseCreateReport(reply);
       const cvData        = parseParsedCV(reply);
@@ -1753,19 +1853,21 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         : userData       ? `I've prepared the invite for **${userData.first_name} ${userData.last_name}**:`
         : roleData       ? `I've prepared the **${roleData.name}** role:`
         : interviewData  ? `I've prepared the interview for **${interviewData.candidate_name||'the candidate'}**:`
+        : portalData     ? `I've designed the **${portalData.name}** portal:`
         : formData2      ? `I've designed the **${formData2.name}** form:`
         : reportData     ? `I've built a **${reportData.title}** report — does this look right?`
         : "";
 
       // Store action data on the message itself so each card is self-contained and immune to state resets
-      setMessages(m=>[...m,{role:"assistant",content:displayText||fallbackMsg,ts:new Date(),hasCreate:!!createData,hasWorkflow:!!workflowData,hasUser:!!userData,hasRole:!!roleData,hasInterview:!!interviewData,hasForm:!!formData2,hasReport:!!reportData,hasParsedCV:!!cvData,hasParsedJD:!!jdData,hasProposedAction:!!propAction,hasSearch:searchHits.length>0,searchIndex:msgIndex,
-        interviewData, formData2, reportData}]);
+      setMessages(m=>[...m,{role:"assistant",content:displayText||fallbackMsg,ts:new Date(),hasCreate:!!createData,hasWorkflow:!!workflowData,hasUser:!!userData,hasRole:!!roleData,hasInterview:!!interviewData,hasForm:!!formData2,hasPortal:!!portalData,hasReport:!!reportData,hasParsedCV:!!cvData,hasParsedJD:!!jdData,hasProposedAction:!!propAction,hasSearch:searchHits.length>0,searchIndex:msgIndex,
+        interviewData, formData2, reportData, portalData}]);
       if(createData)    setPendingRecord(createData);
       if(workflowData)  setPendingWorkflow(workflowData);
       if(userData)      setPendingUser(userData);
       if(roleData)      setPendingRole(roleData);
       if(interviewData && canRecord('record_schedule_interview')) setPendingInterview(interviewData);
       if(formData2)     setPendingForm(formData2);
+      if(portalData)    setPendingPortal(portalData);
       if(modifyReport)  window.dispatchEvent(new CustomEvent("talentos:modify-report", { detail: modifyReport }));
       if(reportData)    setPendingReport(reportData);
       if(cvData)        setParsedPerson(cvData);

@@ -18,7 +18,7 @@ router.post('/chat', async (req, res) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
+        max_tokens: req.body.max_tokens || 4096,
         system: system || 'You are a helpful assistant.',
         messages,
       }),

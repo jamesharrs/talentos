@@ -64,20 +64,22 @@ function daysUntil(iso) { if(!iso) return null; return Math.ceil((new Date(iso)-
 export default function OnboardingDashboard({ environment, onNavigate }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [phase, setPhase] = useState("pre");
 
   const load = useCallback(async () => {
-    if (!environment?.id) return;
+    if (!environment?.id) { setLoading(false); return; }
     setLoading(true);
+    setError(null);
     try {
       const [objRes, recRes, offerRes] = await Promise.all([
         api.get(`/api/objects?environment_id=${environment.id}`),
-        api.get(`/api/records?environment_id=${environment.id}&limit=500`),
+        api.get(`/api/records?environment_id=${environment.id}&limit=200`),
         api.get(`/api/offers?environment_id=${environment.id}&limit=200`).catch(()=>[]),
       ]);
-      const objects = Array.isArray(objRes) ? objRes : [];
-      const allRecords = Array.isArray(recRes) ? recRes : (recRes.records||[]);
-      const allOffers = Array.isArray(offerRes) ? offerRes : (offerRes.offers||[]);
+      const objects = Array.isArray(objRes) ? objRes : (objRes?.objects || objRes?.data || []);
+      const allRecords = Array.isArray(recRes) ? recRes : (recRes?.records || recRes?.data || []);
+      const allOffers = Array.isArray(offerRes) ? offerRes : (offerRes?.offers || offerRes?.data || []);
       const peopleObj = objects.find(o=>o.slug==='people'||o.name?.toLowerCase().includes('people'));
       const people = peopleObj ? allRecords.filter(r=>r.object_id===peopleObj.id) : allRecords;
 
@@ -93,14 +95,15 @@ export default function OnboardingDashboard({ environment, onNavigate }) {
       const monthlyStarters = Object.entries(monthlyMap).map(([month,count])=>({month,count}));
 
       setData({ acceptedOffers, startingThisMonth, docsNeeded, onboarding, probationDue, monthlyStarters });
-    } catch(e){ console.error(e); } finally { setLoading(false); }
+    } catch(e){ console.error('[Onboarding]', e); setError(e.message); } finally { setLoading(false); }
   }, [environment?.id]);
 
   useEffect(()=>{ load(); },[load]);
   const nav = id=>{ if(onNavigate) onNavigate(id); };
 
   if (loading) return <div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:300,fontFamily:F,color:C.text3 }}>Loading onboarding data…</div>;
-  if (!data) return null;
+  if (error) return <div style={{ padding:32,fontFamily:F,background:"#fef2f2",borderRadius:12,color:"#e03131",fontSize:13 }}>Error loading onboarding data: {error}</div>;
+  if (!data) return <div style={{ padding:32,fontFamily:F,color:C.text3,textAlign:"center",fontSize:13 }}>No data available.</div>;
   const { acceptedOffers, startingThisMonth, docsNeeded, onboarding, probationDue, monthlyStarters } = data;
 
   return (

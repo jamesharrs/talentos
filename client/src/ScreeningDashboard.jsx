@@ -68,17 +68,19 @@ function fmtDate(iso) {
 export default function ScreeningDashboard({ environment, onNavigate }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
-    if (!environment?.id) return;
+    if (!environment?.id) { setLoading(false); return; }
     setLoading(true);
+    setError(null);
     try {
       const [objRes, recRes] = await Promise.all([
         api.get(`/api/objects?environment_id=${environment.id}`),
-        api.get(`/api/records?environment_id=${environment.id}&limit=500`),
+        api.get(`/api/records?environment_id=${environment.id}&limit=200`),
       ]);
-      const objects = Array.isArray(objRes) ? objRes : [];
-      const allRecords = Array.isArray(recRes) ? recRes : (recRes.records||[]);
+      const objects = Array.isArray(objRes) ? objRes : (objRes?.objects || objRes?.data || []);
+      const allRecords = Array.isArray(recRes) ? recRes : (recRes?.records || recRes?.data || []);
       const peopleObj = objects.find(o=>o.slug==='people'||o.name?.toLowerCase().includes('people'));
       const people = peopleObj ? allRecords.filter(r=>r.object_id===peopleObj.id) : allRecords;
 
@@ -111,14 +113,15 @@ export default function ScreeningDashboard({ environment, onNavigate }) {
         ai_result:p.data?.ai_screening_result||p.data?.ai_status||null, applied:p.created_at,
       }));
       setData({ people, awaitingReview, aiApproved, aiRejected, aiPending, reviewed, bySource, funnel, recent, peopleObj });
-    } catch(e){ console.error(e); } finally { setLoading(false); }
+    } catch(e){ console.error('[Screening]', e); setError(e.message); } finally { setLoading(false); }
   }, [environment?.id]);
 
   useEffect(()=>{ load(); },[load]);
   const nav = id=>{ if(onNavigate) onNavigate(id); };
 
   if (loading) return <div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:300,fontFamily:F,color:C.text3 }}>Loading screening data…</div>;
-  if (!data) return null;
+  if (error) return <div style={{ padding:32,fontFamily:F,background:"#fef2f2",borderRadius:12,color:"#e03131",fontSize:13 }}>Error loading screening data: {error}</div>;
+  if (!data) return <div style={{ padding:32,fontFamily:F,color:C.text3,textAlign:"center",fontSize:13 }}>No data available — make sure the server is running and People records exist.</div>;
   const { awaitingReview, aiApproved, aiRejected, aiPending, reviewed, bySource, funnel, recent, people } = data;
   const aiTotal = aiApproved.length+aiRejected.length+aiPending.length;
   const aiPieData = [{name:"Approved",value:aiApproved.length,color:C.green},{name:"Rejected",value:aiRejected.length,color:"#e03131"},{name:"Pending",value:aiPending.length,color:C.amber}].filter(d=>d.value>0);

@@ -753,20 +753,31 @@ const WidgetPreview = ({ cell, theme }) => {
     </div>
   );
 
-  if (cell.widgetType==="jobs") return (
-    <div style={{padding:"14px 20px",fontFamily:t.fontFamily}}>
-      <div style={{fontSize:15,fontWeight:parseInt(t.headingWeight)||700,color:t.textColor,fontFamily:t.headingFont,marginBottom:10}}>Open Positions</div>
-      {["Senior Engineer","Product Designer","Head of Sales"].map((j,i)=>(
-        <div key={i} style={{padding:"8px 0",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div>
-            <div style={{fontSize:12,fontWeight:600,color:t.textColor}}>{j}</div>
-            <div style={{fontSize:10,color:C.text3}}>Engineering · Remote</div>
+  if (cell.widgetType==="jobs") {
+    const isPeopleW = cfg._objectSlug === 'people';
+    const previewHeading = cfg.heading || (isPeopleW ? 'Our Team' : 'Open Positions');
+    const previewItems = isPeopleW
+      ? [{n:'Sarah Chen',s:'Engineering Lead · Dubai'},{n:'Marcus Reed',s:'Product Manager · London'},{n:'Priya Nair',s:'Data Scientist · Singapore'}]
+      : [{n:'Senior Engineer',s:'Engineering · Remote'},{n:'Product Designer',s:'Design · Hybrid'},{n:'Head of Sales',s:'Sales · On-site'}];
+    return (
+      <div style={{padding:"14px 20px",fontFamily:t.fontFamily}}>
+        <div style={{fontSize:15,fontWeight:parseInt(t.headingWeight)||700,color:t.textColor,fontFamily:t.headingFont,marginBottom:10}}>{previewHeading}</div>
+        {cfg.savedList && <div style={{fontSize:10,color:t.primaryColor,fontWeight:600,marginBottom:8,padding:'2px 8px',background:t.primaryColor+'15',borderRadius:4,display:'inline-block'}}>List: {cfg.savedList}</div>}
+        {previewItems.map((j,i)=>(
+          <div key={i} style={{padding:"8px 0",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              {isPeopleW && <div style={{width:24,height:24,borderRadius:"50%",background:t.primaryColor+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:t.primaryColor}}>{j.n.split(' ').map(w=>w[0]).join('')}</div>}
+              <div>
+                <div style={{fontSize:12,fontWeight:600,color:t.textColor}}>{j.n}</div>
+                <div style={{fontSize:10,color:C.text3}}>{j.s}</div>
+              </div>
+            </div>
+            <span style={{fontSize:11,color:t.primaryColor,fontWeight:600}}>{isPeopleW?"View →":"Apply →"}</span>
           </div>
-          <span style={{fontSize:11,color:t.primaryColor,fontWeight:600}}>Apply →</span>
-        </div>
-      ))}
-    </div>
-  );
+        ))}
+      </div>
+    );
+  }
 
   if (cell.widgetType==="form") return (
     <div style={{padding:"14px 20px",fontFamily:t.fontFamily}}>
@@ -944,7 +955,8 @@ const ListWidgetConfig = ({ cfg, set, setMany, inp, lbl, environmentId, cellId }
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
       <div>{lbl("Object type")}
         <select value={cfg.objectId||""} onChange={e => {
-            const newCfg = { objectId: e.target.value, savedListId: "", savedList: "" };
+            const selO = objects.find(o => o.id === e.target.value);
+            const newCfg = { objectId: e.target.value, _objectSlug: selO?.slug || "", savedListId: "", savedList: "" };
             setMany(newCfg);
             // Direct server PATCH — bypass React state chain
             if (_activePortalCtx.id && cellId) {

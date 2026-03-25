@@ -322,37 +322,70 @@ const SpacerWidget = ({ cfg }) => {
 
 
 const JobsWidget = ({ cfg, theme, portal, api, track }) => {
-  const [jobs, setJobs] = useState([]);
+  const [records, setRecords] = useState([]);
+  const [objMeta, setObjMeta] = useState(null);
   const [search, setSearch] = useState('');
   const [dept, setDept] = useState('all');
+  const [location, setLocation] = useState('all');
   const [selected, setSelected] = useState(null);
   const [applying, setApplying] = useState(false);
   const ff = theme.fontFamily || "'DM Sans', sans-serif";
   const pr = theme.primaryColor || '#4361EE';
   const tc = theme.textColor || '#1a1a2e';
   const br = theme.borderRadius || '8px';
+
   useEffect(() => {
     if (!portal?.environment_id) return;
-    api.get('/objects?environment_id='+portal.environment_id)
-      .then(objs => {
-        const obj = (Array.isArray(objs)?objs:[]).find(o => o.slug==='jobs');
-        if (!obj) return null;
-        return api.get('/records?object_id='+obj.id+'&environment_id='+portal.environment_id+'&limit='+(cfg.limit||200));
-      })
-      .then(data => {
-        if (!data) return;
-        setJobs((data?.records||data||[]).filter(r => r.data?.status !== 'Closed' && r.data?.status !== 'Filled'));
-      }).catch(() => {});
-  }, [portal?.environment_id]);
+    const load = async () => {
+      try {
+        const objs = await api.get('/objects?environment_id='+portal.environment_id);
+        const obj = cfg.objectId
+          ? (Array.isArray(objs)?objs:[]).find(o => o.id === cfg.objectId)
+          : (Array.isArray(objs)?objs:[]).find(o => o.slug==='jobs');
+        if (!obj) return;
+        setObjMeta({ slug: obj.slug, name: obj.name, plural_name: obj.plural_name });
+        const data = await api.get('/records?object_id='+obj.id+'&environment_id='+portal.environment_id+'&limit='+(cfg.limit||200));
+        let all = (data?.records||data||[]);
+        if (obj.slug === 'jobs') all = all.filter(r => r.data?.status !== 'Closed' && r.data?.status !== 'Filled');
+        if (cfg.savedListId) {
+          try {
+            const views = await api.get('/saved-views?object_id='+obj.id+'&environment_id='+portal.environment_id);
+            const sv = (Array.isArray(views)?views:[]).find(v => v.id === cfg.savedListId);
+            if (sv) {
+              if (sv.filter_chip) {
+                const fc = sv.filter_chip;
+                all = all.filter(r => { const v=r.data?.[fc.fieldKey]; if(Array.isArray(v)) return v.some(i=>String(i).toLowerCase()===fc.fieldValue.toLowerCase()); return String(v||'').toLowerCase()===fc.fieldValue.toLowerCase(); });
+              }
+              if (sv.filters?.length) {
+                const fields = await api.get('/fields?object_id='+obj.id);
+                const fm = {}; if(Array.isArray(fields)) fields.forEach(f => fm[f.id]=f.api_key);
+                all = all.filter(r => sv.filters.every(filt => { const ak=fm[filt.fieldId]||''; const rv=r.data?.[ak]; const op=filt.op,fv=filt.value; if(op==='is empty')return !rv; if(op==='is not empty')return !!rv; const s=String(rv??'').toLowerCase(),sf=String(fv??'').toLowerCase(); if(op==='contains')return s.includes(sf); if(op==='is')return s===sf; if(op==='is not')return s!==sf; return true; }));
+              }
+            }
+          } catch(e) { console.warn('Saved list error:', e); }
+        }
+        setRecords(all);
+      } catch(e) { console.error('Load error:', e); }
+    };
+    load();
+  }, [portal?.environment_id, cfg.objectId, cfg.savedListId, cfg.limit]);
 
-  const depts = [...new Set(jobs.map(j => j.data?.department).filter(Boolean))];
-  const filtered = jobs.filter(j => {
-    const d = j.data || {};
+  const isJobs = objMeta?.slug === 'jobs';
+  const isPeople = objMeta?.slug === 'people';
+  const depts = [...new Set(records.map(r => r.data?.department).filter(Boolean))];
+  const locs = [...new Set(records.map(r => r.data?.location).filter(Boolean))];
+  const filtered = records.filter(r => {
+    const d = r.data || {};
     if (search && !JSON.stringify(d).toLowerCase().includes(search.toLowerCase())) return false;
     if (dept !== 'all' && d.department !== dept) return false;
+    if (location !== 'all' && d.location !== location) return false;
     return true;
   });
-  if (selected) {
+
+  const getName = (r) => { const d=r.data||{}; if(isPeople) return [d.first_name,d.last_name].filter(Boolean).join(' ')||d.email||'Unnamed'; return d.job_title||d.name||d.title||d.pool_name||'Record'; };
+  const getSub = (r) => { const d=r.data||{}; if(isPeople) return d.current_title||d.department||''; return d.department||d.category||''; };
+
+  if (selected && isJobs) {
     const d = selected.data || {};
     return (
       <div style={{ fontFamily:ff }}>
@@ -372,38 +405,61 @@ const JobsWidget = ({ cfg, theme, portal, api, track }) => {
       </div>
     );
   }
+
+  if (selected && isPeople) {
+    const d = selected.data || {};
+    return (
+      <div style={{ fontFamily:ff }}>
+        <button onClick={() => setSelected(null)} style={{ background:'none', border:'none', cursor:'pointer', color:pr, fontSize:13, fontWeight:600, fontFamily:ff, padding:0, marginBottom:12 }}>← Back</button>
+        <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20 }}>
+          <div style={{ width:56, height:56, borderRadius:'50%', background:pr+'18', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:700, color:pr }}>{getName(selected).split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+          <div>
+            <h2 style={{ margin:0, fontSize:22, fontWeight:700, color:tc }}>{getName(selected)}</h2>
+            {getSub(selected) && <div style={{ fontSize:14, color:tc+'80', marginTop:4 }}>{getSub(selected)}</div>}
+          </div>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:12 }}>
+          {Object.entries(d).filter(([k])=>!['id','created_at','updated_at'].includes(k)).slice(0,12).map(([k,v])=>(
+            <div key={k} style={{ padding:'10px 0', borderBottom:'1px solid #F1F5F9' }}>
+              <div style={{ fontSize:11, fontWeight:600, color:tc, opacity:0.5, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:3 }}>{k.replace(/_/g,' ')}</div>
+              <div style={{ fontSize:14, color:tc }}>{Array.isArray(v)?v.join(', '):String(v||'—')}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const placeholder = isPeople ? 'Search people...' : 'Search roles...';
+  const countLabel = isJobs ? filtered.length+' open position'+(filtered.length!==1?'s':'') : filtered.length+' '+(objMeta?.plural_name||'records').toLowerCase();
+
   return (
     <div style={{ fontFamily:ff }}>
-      <h2 style={{ fontSize:clamp(cfg.headingSize||22), fontWeight:700, color:tc, margin:'0 0 16px', fontFamily:theme.headingFont||ff }}>{cfg.heading || 'Open Positions'}</h2>
-
+      <h2 style={{ fontSize:clamp(cfg.headingSize||22), fontWeight:700, color:tc, margin:'0 0 16px', fontFamily:theme.headingFont||ff }}>{cfg.heading || (isPeople ? 'Our Team' : 'Open Positions')}</h2>
       <div style={{ display:'flex', gap:8, marginBottom:16, flexWrap:'wrap' }}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search roles..." style={{ flex:'1 1 200px', padding:'8px 12px', borderRadius:br, border:'1px solid '+pr+'30', fontSize:13, fontFamily:ff, outline:'none' }}/>
-        {depts.length > 1 && (
-          <select value={dept} onChange={e=>setDept(e.target.value)} style={{ padding:'8px 12px', borderRadius:br, border:'1px solid '+pr+'30', fontSize:13, fontFamily:ff, background:'white' }}>
-            <option value="all">All departments</option>
-            {depts.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-        )}
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={placeholder} style={{ flex:'1 1 200px', padding:'8px 12px', borderRadius:br, border:'1px solid '+pr+'30', fontSize:13, fontFamily:ff, outline:'none' }}/>
+        {depts.length > 1 && <select value={dept} onChange={e=>setDept(e.target.value)} style={{ padding:'8px 12px', borderRadius:br, border:'1px solid '+pr+'30', fontSize:13, fontFamily:ff, background:'white' }}><option value="all">All departments</option>{depts.map(d=><option key={d} value={d}>{d}</option>)}</select>}
+        {locs.length > 1 && cfg.showLocationFilter && <select value={location} onChange={e=>setLocation(e.target.value)} style={{ padding:'8px 12px', borderRadius:br, border:'1px solid '+pr+'30', fontSize:13, fontFamily:ff, background:'white' }}><option value="all">All locations</option>{locs.map(l=><option key={l} value={l}>{l}</option>)}</select>}
       </div>
-      {filtered.length === 0 ? <p style={{ color:tc+'60', fontSize:14 }}>No open positions.</p> : (
-        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-          {filtered.map(j => {
-            const d = j.data || {};
-            return (
-              <div key={j.id} onClick={() => setSelected(j)}
-                style={{ padding:'14px 18px', borderRadius:br, border:'1px solid '+pr+'18', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', background:'white' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = pr; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = pr+'18'; }}>
-                <div>
-                  <div style={{ fontSize:14, fontWeight:600, color:tc }}>{d.job_title || d.name || 'Untitled'}</div>
-                  <div style={{ fontSize:12, color:tc+'70', marginTop:2 }}>{[d.department, d.location, d.work_type].filter(Boolean).join(' · ')}</div>
-                </div>
-                <span style={{ fontSize:12, color:pr, fontWeight:600 }}>View →</span>
+      <div style={{ fontSize:12, color:tc+'80', marginBottom:12 }}>{countLabel}</div>
+      {filtered.map(r => {
+        const d = r.data || {};
+        return (
+          <div key={r.id} onClick={()=>setSelected(r)}
+            style={{ padding:'12px 16px', borderBottom:'1px solid #f0f0f0', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', transition:'background .1s' }}
+            onMouseEnter={e=>e.currentTarget.style.background=pr+'08'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              {isPeople && <div style={{ width:36, height:36, borderRadius:'50%', background:pr+'18', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, color:pr, flexShrink:0 }}>{getName(r).split(' ').map(w=>w[0]).join('').slice(0,2)}</div>}
+              <div>
+                <div style={{ fontSize:14, fontWeight:600, color:tc }}>{getName(r)}</div>
+                <div style={{ fontSize:12, color:tc+'80' }}>{[getSub(r), d.location].filter(Boolean).join(' · ')}</div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            </div>
+            <span style={{ fontSize:12, color:pr, fontWeight:600, flexShrink:0 }}>{isJobs ? 'View →' : 'View →'}</span>
+          </div>
+        );
+      })}
+      {filtered.length === 0 && <div style={{ textAlign:'center', padding:'40px 20px', color:tc+'60', fontSize:14 }}>{cfg.emptyText || 'No records found.'}</div>}
     </div>
   );
 };
@@ -529,7 +585,6 @@ const MultistepFormWidget = ({ cfg, theme, portal, api, track }) => {
   );
 };
 
-const JobsWidget_export = JobsWidget;
 
 const Widget = ({ cell, theme, portal, api, track }) => {
   const cfg = cell.widgetConfig||{}

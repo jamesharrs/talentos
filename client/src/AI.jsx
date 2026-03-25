@@ -42,6 +42,20 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     "arrow-right":"M5 12h14M12 5l7 7-7 7",
     paperclip:"M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48",
     trash:"M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2",
+    activity:"M22 12h-4l-3 9L9 3l-3 9H2",
+    clipboard:"M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2M9 2h6a1 1 0 011 1v2a1 1 0 01-1 1H9a1 1 0 01-1-1V3a1 1 0 011-1z",
+    dollar:"M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6",
+    lock:"M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2zM7 11V7a5 5 0 0110 0v4",
+    upload:"M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12",
+    clock:"M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM12 6v6l4 2",
+    sliders:"M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
+    align:"M17 10H3M21 6H3M21 14H3M17 18H3",
+    link:"M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71",
+    globe:"M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z",
+    database:"M12 2C6.48 2 2 4.02 2 6.5S6.48 11 12 11s10-2.02 10-4.5S17.52 2 12 2zM2 6.5V12c0 2.48 4.48 4.5 10 4.5s10-2.02 10-4.5V6.5M2 12v5.5c0 2.48 4.48 4.5 10 4.5s10-2.02 10-4.5V12",
+    "git-branch":"M6 3v12M18 9a3 3 0 100-6 3 3 0 000 6zM6 21a3 3 0 100-6 3 3 0 000 6z",
+    users:"M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M9 11a4 4 0 100-8 4 4 0 000 8z",
+    form:"M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11",
   };
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -2153,8 +2167,12 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                       ))}
                     </div>
                   )}
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-                    {getContextActions(activeNav, settingsSection, navObjects).map(a=>(
+                  {(()=>{
+                    const actions = getContextActions(activeNav, settingsSection, navObjects);
+                    const cols = actions.length <= 4 ? "1fr 1fr" : "1fr 1fr 1fr";
+                    return (
+                  <div style={{display:"grid",gridTemplateColumns:cols,gap:6}}>
+                    {actions.map(a=>(
                       <button key={a.id} onClick={()=>sendMessage(a.prompt)} className="copilot-action-btn"
                         style={{display:"flex",alignItems:"center",gap:7,padding:"8px 10px",borderRadius:10,border:"1px solid rgba(124,58,237,.18)",background:"rgba(124,58,237,.04)",color:"#5b21b6",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F,transition:"all .12s",textAlign:"left"}}>
                         <div style={{width:22,height:22,borderRadius:6,background:"rgba(124,58,237,.12)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
@@ -2164,6 +2182,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                       </button>
                     ))}
                   </div>
+                    );
+                  })()}
                 </>
               )}
             </div>

@@ -913,6 +913,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   const [pendingInterview, setPendingInterview] = useState(null);
   const [pendingForm,      setPendingForm]      = useState(null);
   const [pendingReport,    setPendingReport]    = useState(null);
+  const [pendingPortal, setPendingPortal] = useState(null);
   const [parsedPerson,     setParsedPerson]     = useState(null);
   const [parsedJob,        setParsedJob]        = useState(null);
   const [proposedAction,   setProposedAction]   = useState(null);

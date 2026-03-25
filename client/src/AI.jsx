@@ -1247,16 +1247,28 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         if(activeNav==='dashboard') return `Hi! I can see you're on the **Dashboard**.\n\nI can help you:\n• Understand your current pipeline\n• Find specific candidates or jobs\n• Create new records\n• Summarise recent activity\n\nWhat would you like to do?`;
         if(activeNav==='interviews') return `Hi! I can see you're in **Interviews**.\n\nI can help you:\n• Schedule a new interview\n• Review upcoming sessions\n• Answer questions about the schedule\n\nWhat would you like to do?`;
         if(activeNav==='settings') {
-          const sec = settingsSection;
-          if(sec === 'Data Model') return `Hi! You're in **Data Model** settings.\n\nI can help you:\n• Create new objects or fields\n• Explain field types and best practices\n• Suggest field configurations for common use cases\n\nWhat would you like to configure?`;
-          if(sec === 'Users') return `Hi! You're in **User Management**.\n\nI can help you:\n• Invite a new user\n• Explain roles and permissions\n• Troubleshoot login issues\n\nWhat would you like to do?`;
-          if(sec === 'Roles & Permissions') return `Hi! You're in **Roles & Permissions**.\n\nI can help you:\n• Create a new role\n• Explain how permissions work\n• Suggest role configurations\n\nWhat would you like to configure?`;
-          if(sec === 'Workflows') return `Hi! You're in **Workflows**.\n\nI can help you:\n• Create a new workflow\n• Add stages and automation steps\n• Explain workflow types (record pipeline vs linked person)\n\nWhat would you like to build?`;
-          if(sec === 'Portals') return `Hi! You're in **Portals**.\n\nI can help you:\n• Set up a new career site or portal\n• Configure branding and themes\n• Add pages and widgets\n\nWhat would you like to do?`;
-          if(sec === 'Forms') return `Hi! You're in **Forms**.\n\nI can help you:\n• Create a new form (scorecards, surveys, screening)\n• Explain form field types\n• Suggest form templates for common use cases\n\nWhat would you like to build?`;
-          if(sec === 'Org Structure') return `Hi! You're in **Org Structure**.\n\nI can help you:\n• Explain how org units work\n• Set up the company hierarchy\n• Assign users to departments\n\nWhat would you like to do?`;
-          if(sec === 'Integrations') return `Hi! You're in **Integrations**.\n\nI can help you:\n• Configure Twilio for SMS/WhatsApp\n• Set up SendGrid for email\n• Explain available integrations\n\nWhat do you need help with?`;
-          return `Hi! You're in **Settings**.\n\nI can help you configure any part of the platform — data model, users, workflows, portals, integrations, and more.\n\nWhat would you like to do?`;
+          // editorContext takes priority — inside portal builder, form editor, workflow editor
+          if(editorContext?.type==='portal')   return `I'm looking at the **${editorContext.name}** portal builder.\n\nI can help you:\n• Write or rewrite section copy\n• Add new sections and suggest content\n• Optimise SEO meta titles and descriptions\n• Review the portal before publishing\n\nWhat would you like to improve?`;
+          if(editorContext?.type==='form')     return `I'm looking at the **${editorContext.name}** form (${editorContext.fieldCount} fields).\n\nI can help you:\n• Suggest additional fields\n• Improve question wording\n• Recommend which fields should be required\n• Add conditional logic\n\nWhat would you like to change?`;
+          if(editorContext?.type==='workflow') return `I'm looking at the **${editorContext.name}** workflow (${editorContext.stepCount} stages).\n\nI can help you:\n• Add or refine stages\n• Set up automations (emails, AI prompts, field updates)\n• Review whether the flow makes sense\n• Write email templates for any stage\n\nWhat would you like to build?`;
+
+          const sec = settingsSection; // raw section ID e.g. "portals", "datamodel"
+          if(sec==='datamodel')   return `You're in **Data Model**.\n\nI can help you:\n• Create new objects or custom fields\n• Explain field types and when to use them\n• Suggest a field structure for your use case\n\nWhat would you like to configure?`;
+          if(sec==='users')       return `You're in **Users**.\n\nI can help you:\n• Invite a new user and set their role\n• Explain the difference between roles\n• Suggest the right permissions for a use case\n\nWhat would you like to do?`;
+          if(sec==='roles')       return `You're in **Roles & Permissions**.\n\nI can help you:\n• Create a new role\n• Explain what each permission controls\n• Suggest role configurations for your team structure\n\nWhat would you like to configure?`;
+          if(sec==='workflows')   return `You're in **Workflows**.\n\nI can help you:\n• Create a new workflow with stages\n• Add automation steps (emails, AI prompts, field updates)\n• Explain the difference between workflow types\n\nWhat would you like to build?`;
+          if(sec==='portals')     return `You're in **Portals**.\n\nI can help you:\n• Create a new career site or client portal\n• Write compelling content for any page\n• Design a theme and brand it to your company\n• Review an existing portal before publishing\n\nWhich portal would you like to work on?`;
+          if(sec==='forms')       return `You're in **Forms**.\n\nI can help you:\n• Create a scorecard, survey or screening form\n• Suggest the right fields for your use case\n• Set up conditional logic\n\nWhat would you like to build?`;
+          if(sec==='org')         return `You're in **Org Structure**.\n\nI can help you:\n• Set up the company hierarchy\n• Explain how org units control data visibility\n• Assign users to the right teams\n\nWhat would you like to do?`;
+          if(sec==='superadmin')  return `You're in **Integrations**.\n\nI can help you:\n• Configure Twilio for SMS and WhatsApp\n• Set up SendGrid for outbound email\n• Explain inbound webhook configuration\n\nWhich integration do you need help with?`;
+          if(sec==='security')    return `You're in **Security**.\n\nI can help you:\n• Explain password policy and session settings\n• Review MFA and SSO options\n• Suggest the right security configuration for your environment\n\nWhat would you like to set up?`;
+          if(sec==='audit')       return `You're in **Audit Log**.\n\nI can help you:\n• Explain what each event type means\n• Search for specific user actions\n• Understand access patterns in your platform\n\nWhat are you looking for?`;
+          if(sec==='file_types')  return `You're in **File Types**.\n\nI can help you:\n• Configure AI extraction rules for documents like CVs or IDs\n• Map extracted fields to your data model\n• Suggest the right file types to configure\n\nWhat would you like to set up?`;
+          if(sec==='appearance')  return `You're in **Appearance**.\n\nI can help you:\n• Choose a colour scheme and theme\n• Suggest branding adjustments\n• Explain theme options\n\nWhat would you like to change?`;
+          if(sec==='language')    return `You're in **Language**.\n\nI can help you:\n• Add a new language translation\n• Explain how AI-generated translations work\n• Review specific translations\n\nWhat would you like to do?`;
+          if(sec==='agents')      return `You're in **Agents**.\n\nI can help you:\n• Explain what agents can automate\n• Design an agent workflow\n• Troubleshoot an existing agent\n\nWhat would you like to build?`;
+          if(sec==='duplicates')  return `You're in **Duplicates**.\n\nI can help you:\n• Explain how duplicate detection works\n• Suggest the right matching fields\n• Review your current duplicate rules\n\nWhat would you like to configure?`;
+          return `You're in **Settings**.\n\nI can help you with:\n• Data model — objects, fields, and schema\n• Users — invite people, manage roles and permissions\n• Workflows — automation and pipeline stages\n• Portals — career sites and external experiences\n• Integrations — Twilio, SendGrid, and webhooks\n\nWhat would you like to configure?`;
         }
         if(activeNav==='offers') return `Hi! I can see you're in **Offers**.\n\nI can help you:\n• Create or review offers\n• Check approval status\n• Answer questions about the offer pipeline\n\nWhat would you like to do?`;
         if(activeNav?.startsWith('obj_')){
@@ -2911,7 +2923,29 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
             )}
             <textarea ref={inputRef} value={input} onChange={e=>setInput(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();}}}
-              placeholder={dragOver?"Drop to analyse…":"Ask anything or say 'create a job'…"}
+              placeholder={dragOver ? "Drop to analyse…" : (()=>{
+                if (editorContext?.type === 'portal')   return `Ask about "${editorContext.name}" — edit content, theme, SEO…`;
+                if (editorContext?.type === 'form')     return `Ask about "${editorContext.name}" — add fields, improve questions…`;
+                if (editorContext?.type === 'workflow') return `Ask about "${editorContext.name}" — add stages, automations…`;
+                if (currentRecord && currentObject) {
+                  const d = currentRecord.data || {};
+                  const name = (d.first_name ? `${d.first_name} ${d.last_name||''}`.trim() : null) || d.job_title || d.pool_name || 'this record';
+                  return `Ask about ${name}, or say 'draft an email'…`;
+                }
+                if (activeNav === 'settings' && settingsSection) return `Ask about ${settingsSection} settings…`;
+                if (activeNav === 'settings')    return "Ask about settings, or say 'invite a user'…";
+                if (activeNav === 'dashboard')   return "Ask about the pipeline, or say 'build a report'…";
+                if (activeNav === 'interviews')  return "Ask about interviews, or say 'schedule one'…";
+                if (activeNav === 'offers')      return "Ask about offers, or say 'create an offer'…";
+                if (activeNav === 'reports')     return "Ask about your data, or say 'build a report'…";
+                if (activeNav === 'orgchart')    return "Ask about your org structure…";
+                if (activeNav === 'search')      return "Search for a candidate, job, or pool…";
+                if (activeNav?.startsWith('obj_')) {
+                  const obj = (navObjects||[]).find(o => 'obj_'+o.id === activeNav);
+                  return obj ? `Search ${obj.plural_name}, or say 'new ${obj.name.toLowerCase()}'…` : "Ask anything…";
+                }
+                return "Ask anything or say 'create a job'…";
+              })()}
               rows={1} style={{flex:1,padding:"10px 14px",borderRadius:12,border:"1.5px solid #e5e7eb",fontSize:13,fontFamily:F,outline:"none",resize:"none",color:C.text1,lineHeight:1.4,maxHeight:80,overflowY:"auto",background:"#fafbff",transition:"border-color .15s"}}
               onFocus={e=>e.target.style.borderColor="rgba(124,58,237,.5)"}
               onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>

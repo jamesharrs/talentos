@@ -33,7 +33,8 @@ const WIDGET_TYPES = [
   { type:"text",         label:"Rich Text",      icon:"align",     desc:"Copy & content blocks" },
   { type:"rich_text",    label:"Article",        icon:"fileText",  desc:"Markdown content with headings" },
   { type:"image",        label:"Image",          icon:"image",     desc:"Photo or illustration" },
-  { type:"jobs",         label:"List",           icon:"briefcase", desc:"Records from any saved list" },
+  { type:"jobs",         label:"Job List",       icon:"briefcase", desc:"Open positions with filters" },
+  { type:"people",       label:"People List",    icon:"users2",    desc:"Candidates or team members" },
   { type:"form",         label:"Form",           icon:"form",      desc:"Linked to any object" },
   { type:"stats",        label:"Stats",          icon:"bar2",      desc:"Numbers & social proof" },
   { type:"testimonials", label:"Testimonials",   icon:"quote",     desc:"Employee quotes & stories" },
@@ -930,14 +931,22 @@ const MultistepFormConfig = ({ cfg, set, inp, lbl }) => {
 let _activePortalCtx = { id: null, pages: null };
 
 // ─── List Widget Config (needs hooks for API calls) ───────────────────────────
-const ListWidgetConfig = ({ cfg, set, setMany, inp, lbl, environmentId, cellId }) => {
+const ListWidgetConfig = ({ cfg, set, setMany, inp, lbl, environmentId, cellId, defaultSlug }) => {
   const [objects, setObjects] = useState([]);
   const [savedLists, setSavedLists] = useState([]);
   const [loadingLists, setLoadingLists] = useState(false);
 
   useEffect(() => {
     if (!environmentId) return;
-    api.get(`/objects?environment_id=${environmentId}`).then(d => setObjects(Array.isArray(d) ? d : []));
+    api.get(`/objects?environment_id=${environmentId}`).then(d => {
+      const objs = Array.isArray(d) ? d : [];
+      setObjects(objs);
+      // Auto-select the default object if none is configured yet
+      if (!cfg.objectId && defaultSlug && objs.length) {
+        const match = objs.find(o => o.slug === defaultSlug);
+        if (match) setMany({ objectId: match.id, _objectSlug: match.slug });
+      }
+    });
   }, [environmentId]);
 
   useEffect(() => {
@@ -1042,7 +1051,7 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
   );
   const WIDGET_LABELS = {
     hero:"Hero Banner", text:"Rich Text", image:"Image", stats:"Stats",
-    video:"Video", jobs:"List", job_list:"List", team:"Team", form:"Form", divider:"Divider", spacer:"Spacer",
+    video:"Video", jobs:"Job List", job_list:"Job List", people:"People List", team:"Team", form:"Form", divider:"Divider", spacer:"Spacer",
   };
   const renderFields = () => {
     switch (cell.widgetType) {
@@ -1162,10 +1171,13 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
         </div>
       );
       case "jobs": return (
-        <ListWidgetConfig cfg={cfg} set={set} setMany={setMany} inp={inp} lbl={lbl} environmentId={environmentId} cellId={cell.id}/>
+        <ListWidgetConfig cfg={cfg} set={set} setMany={setMany} inp={inp} lbl={lbl} environmentId={environmentId} cellId={cell.id} defaultSlug="jobs"/>
+      );
+      case "people": return (
+        <ListWidgetConfig cfg={cfg} set={set} setMany={setMany} inp={inp} lbl={lbl} environmentId={environmentId} cellId={cell.id} defaultSlug="people"/>
       );
       case "job_list": return (
-        <ListWidgetConfig cfg={cfg} set={set} setMany={setMany} inp={inp} lbl={lbl} environmentId={environmentId} cellId={cell.id}/>
+        <ListWidgetConfig cfg={cfg} set={set} setMany={setMany} inp={inp} lbl={lbl} environmentId={environmentId} cellId={cell.id} defaultSlug="jobs"/>
       );
       case "team": return (
         <div style={{ display:"flex", flexDirection:"column", gap:14 }}>

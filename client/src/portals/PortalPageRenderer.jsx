@@ -321,7 +321,7 @@ const SpacerWidget = ({ cfg }) => {
 };
 
 
-const JobsWidget = ({ cfg, theme, portal, api, track }) => {
+const JobsWidget = ({ cfg, theme, portal, api, track, defaultSlug }) => {
   const [records, setRecords] = useState([]);
   const [objMeta, setObjMeta] = useState(null);
   const [search, setSearch] = useState('');
@@ -341,7 +341,7 @@ const JobsWidget = ({ cfg, theme, portal, api, track }) => {
         const objs = await api.get('/objects?environment_id='+portal.environment_id);
         const obj = cfg.objectId
           ? (Array.isArray(objs)?objs:[]).find(o => o.id === cfg.objectId)
-          : (Array.isArray(objs)?objs:[]).find(o => o.slug==='jobs');
+          : (Array.isArray(objs)?objs:[]).find(o => o.slug===(cfg._objectSlug||defaultSlug||'jobs'));
         if (!obj) return;
         setObjMeta({ slug: obj.slug, name: obj.name, plural_name: obj.plural_name });
         const data = await api.get('/records?object_id='+obj.id+'&environment_id='+portal.environment_id+'&limit='+(cfg.limit||200));
@@ -597,8 +597,8 @@ const Widget = ({ cell, theme, portal, api, track }) => {
     case 'divider': return <DividerWidget cfg={cfg} theme={theme}/>
     case 'spacer':  return <SpacerWidget  cfg={cfg}/>
     case 'jobs':    return <JobsWidget    cfg={cfg} theme={theme} portal={portal} api={api} track={track}/>
-    case 'people':  return <JobsWidget    cfg={cfg} theme={theme} portal={portal} api={api} track={track}/>
-    case 'list':    return <JobsWidget    cfg={cfg} theme={theme} portal={portal} api={api} track={track}/>
+    case 'people':  return <JobsWidget    cfg={cfg} theme={theme} portal={portal} api={api} track={track} defaultSlug="people"/>
+    case 'list':    return <JobsWidget    cfg={cfg} theme={theme} portal={portal} api={api} track={track} defaultSlug={cfg.defaultSlug||'jobs'}/>
     case 'team':    return <TeamWidget    cfg={cfg} theme={theme} portal={portal} api={api}/>
     case 'form':    return <FormWidget    cfg={cfg} theme={theme}/>
     case 'job_list':       return <JobsWidget    cfg={{...cfg, compact:true}} theme={theme} portal={portal} api={api} track={track}/>

@@ -912,10 +912,29 @@ const getObjectActions = (objName, objSlug) => [
   { id:"imp",  icon:"upload",      label:"Import CSV",          prompt:`Help me import ${(objName||"records").toLowerCase()} from a CSV file` },
 ];
 
+// Map Settings section IDs (from Settings.jsx) → CONTEXT_ACTIONS keys
+const SETTINGS_ID_MAP = {
+  users:        "settings:users",
+  roles:        "settings:roles-permissions",
+  org:          "settings:org-structure",
+  datamodel:    "settings:data-model",
+  file_types:   "settings:file-types",
+  superadmin:   "settings:integrations",
+  workflows:    "settings:workflows",
+  portals:      "settings:portals",
+  forms:        "settings:forms",
+  appearance:   "settings:appearance",
+  language:     "settings:language",
+  security:     "settings:security",
+  audit:        "settings:audit-log",
+  sessions:     "settings:active-sessions",
+};
+
 function getContextActions(activeNav, settingsSection, navObjects) {
-  // Settings sub-sections
+  // Settings sub-sections — try ID map first, then slug normalisation
   if (activeNav === "settings" && settingsSection) {
-    const key = "settings:" + settingsSection.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-");
+    const key = SETTINGS_ID_MAP[settingsSection]
+      || ("settings:" + settingsSection.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-"));
     if (CONTEXT_ACTIONS[key]) return CONTEXT_ACTIONS[key];
   }
 
@@ -1248,10 +1267,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     api.get("/roles").then(r=>{ if(Array.isArray(r)) setAdminRoles(r); }).catch(()=>{});
     api.get("/users").then(u=>{ if(Array.isArray(u)) setAdminUsers(u); }).catch(()=>{});
     if(environment?.id) api.get(`/interview-types?environment_id=${environment.id}`).then(t=>{ if(Array.isArray(t)) setInterviewTypes(t); }).catch(()=>{});
-    // Listen for settings section navigation
-    const handleSettingsNav = (e) => setSettingsSection(e.detail?.section || null);
-    window.addEventListener('talentos:settings-section', handleSettingsNav);
-    return () => window.removeEventListener('talentos:settings-section', handleSettingsNav);
+    // (settings-section listener is in its own useEffect above)
   },[open]);
 
   // Generate proactive nudges when the copilot opens on a list page

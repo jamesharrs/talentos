@@ -287,6 +287,7 @@ const NAV_ITEMS = [
   { id:'errors',   label:'Error Logs',   icon:'errors',    desc:'App errors across all environments' },
   { id:'release_notes', label:'Release Notes', icon:'bell', desc:'Manage platform release notes' },
   { id:'cases', label:'Support Cases', icon:'cases', desc:'Customer service case management' },
+  { id:'activity', label:'Activity Report', icon:'activity', desc:'Environment activity & usage analytics' },
 ];
 
 export default function SuperAdminConsole() {

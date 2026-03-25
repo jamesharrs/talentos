@@ -1692,7 +1692,7 @@ function App() {
   const filteredNavSections = navSections.map(section => ({
     ...section,
     items: section.items.filter(item => {
-      if (item.id === 'dashboard' || item.id === 'dashboard_interviews' || item.id === 'dashboard_offers')
+      if (['dashboard','dashboard_interviews','dashboard_offers','screening','onboarding'].includes(item.id))
         return canGlobal('access_dashboard');
       if (item.id === 'org_chart')  return canGlobal('access_org_chart');
       if (item.id === 'interviews') return canGlobal('access_interviews');
@@ -2109,6 +2109,22 @@ function App() {
           }}/>
         ) : activeNav === "reports" ? (
           <ReportsPage environment={selectedEnv} initialReport={reportPreset} />
+        ) : activeNav === "screening" ? (
+          <Suspense fallback={<div style={{padding:32,color:"#9ca3af"}}>Loading…</div>}>
+            <ScreeningDashboard environment={selectedEnv} onNavigate={id=>{
+              const obj=navObjects.find(o=>o.slug===id||o.plural_name?.toLowerCase()===id);
+              if(obj) switchNav(`obj_${obj.id}`);
+              else switchNav(id);
+            }}/>
+          </Suspense>
+        ) : activeNav === "onboarding" ? (
+          <Suspense fallback={<div style={{padding:32,color:"#9ca3af"}}>Loading…</div>}>
+            <OnboardingDashboard environment={selectedEnv} onNavigate={id=>{
+              const obj=navObjects.find(o=>o.slug===id||o.plural_name?.toLowerCase()===id);
+              if(obj) switchNav(`obj_${obj.id}`);
+              else switchNav(id);
+            }}/>
+          </Suspense>
         ) : activeNav === "admin_stats" ? (
           <Suspense fallback={<div style={{padding:32,color:"#9ca3af"}}>Loading…</div>}><AdminDashboard environment={selectedEnv} session={session}/></Suspense>
         ) : activeNav === "help" ? (

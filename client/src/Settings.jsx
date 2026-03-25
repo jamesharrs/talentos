@@ -113,38 +113,54 @@ const Card = ({title,subtitle,children,action}) => (
 
 // SVG icons
 const PATHS = {
-  x:"M18 6L6 18M6 6l12 12", plus:"M12 5v14M5 12h14",
-  edit:"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",
-  trash:"M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6",
-  user:"M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
-  shield:"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
-  key:"M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4",
-  lock:"M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4",
-  activity:"M22 12h-4l-3 9L9 3l-3 9H2",
-  check:"M20 6L9 17l-5-5",
-  alertCircle:"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 8v4M12 16h.01",
-  users:"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
-  globe:"M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z",
-  map:"M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
-  star:"M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z",
-  building:"M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4",
-  refresh:"M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15",
-  chevD:"M6 9l6 6 6-6",
-  chevR:"M9 18l6-6-6-6",
-  gitBranch:"M6 3v12M18 9a3 3 0 100-6 3 3 0 000 6zM6 21a3 3 0 100-6 3 3 0 000 6zM18 9a9 9 0 01-9 9",
-    database:"M12 2C8.13 2 5 3.34 5 5v14c0 1.66 3.13 3 7 3s7-1.34 7-3V5c0-1.66-3.13-3-7-3zM5 12c0 1.66 3.13 3 7 3s7-1.34 7-3M5 8c0 1.66 3.13 3 7 3s7-1.34 7-3",
-  sliders:"M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
-  form:"M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 0 2-2h2a2 2 0 0 0 2 2M9 12h6M9 16h4",
-  paperclip:"M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48",
-  sparkles:"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0L9.937 15.5z",
-  zap:"M13 2L3 14h9l-1 8 10-12h-9l1-8z",
-  layers:"M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
-  workflow:"M22 12h-4l-3 9L9 3l-3 9H2",
-  sun:"M12 3v1M12 20v1M4.22 4.22l.7.7M18.36 18.36l.7.7M3 12h1M20 12h1M4.22 19.78l.7-.7M18.36 5.64l.7-.7M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
-  chevronDown:"M6 9l6 6 6-6",
-  search:"M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0",
-  "help-circle":"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01",
-  bot:"M12 2a2 2 0 0 1 2 2v1h3a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-1v1a7 7 0 0 1-14 0V9H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3V4a2 2 0 0 1 2-2h2zm-2 9a1 1 0 1 0 2 0 1 1 0 0 0-2 0zm4 0a1 1 0 1 0 2 0 1 1 0 0 0-2 0zm-4 4h4",
+  "sun":"M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42M17 12a5 5 0 11-10 0 5 5 0 0110 0z",
+  "globe":"M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z",
+  "building":"M3 21V5a2 2 0 012-2h6a2 2 0 012 2v16M13 21V9a2 2 0 012-2h4a2 2 0 012 2v12M3 21h18M7 9h.01M7 13h.01M7 17h.01M17 13h.01M17 17h.01",
+  "users":"M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M9 11a4 4 0 100-8 4 4 0 000 8z",
+  "layers":"M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
+  "shield":"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+  "lock":"M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2zM7 11V7a5 5 0 0110 0v4",
+  "activity":"M22 12h-4l-3 9L9 3l-3 9H2",
+  "key":"M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.78 7.78 5.5 5.5 0 017.78-7.78zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4",
+  "database":"M12 2C6.48 2 2 4.02 2 6.5v11C2 19.98 6.48 22 12 22s10-2.02 10-4.5v-11C22 4.02 17.52 2 12 2zM2 6.5C2 8.98 6.48 11 12 11s10-2.02 10-4.5M2 12c0 2.48 4.48 4.5 10 4.5s10-2.02 10-4.5",
+  "paperclip":"M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48",
+  "form":"M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M8 13h8M8 17h8M8 9h2",
+  "workflow":"M22 12h-4l-3 9L9 3l-3 9H2",
+  "sparkles":"M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3zM5 19l.7 2.1L7.8 22l-2.1.7L5 24.8l-.7-2.1L2.2 22l2.1-.7L5 19z",
+  "zap":"M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+  "bot":"M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7v1H3v-1a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2zM7.5 13a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM16.5 13a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM3 18h18v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2z",
+  "help-circle":"M12 22c5.5 0 10-4.5 10-10S17.5 2 12 2 2 6.5 2 12s4.5 10 10 10zM9.1 9a3 3 0 015.8 1c0 2-3 3-3 3M12 17h.01",
+  "briefcase":"M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2",
+  "refresh":"M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15",
+  "plus":"M12 5v14M5 12h14",
+  "settings":"M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z",
+  "check":"M20 6L9 17l-5-5",
+  "x":"M18 6L6 18M6 6l12 12",
+  "search":"M11 17.25a6.25 6.25 0 110-12.5 6.25 6.25 0 010 12.5zM16 16l4.5 4.5",
+  "edit":"M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
+  "trash":"M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2",
+  "clipboard":"M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2M15 2H9a1 1 0 00-1 1v2a1 1 0 001 1h6a1 1 0 001-1V3a1 1 0 00-1-1z",
+  "mail":"M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6",
+  "monitor":"M20 3H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V5a2 2 0 00-2-2zM8 21h8M12 17v4",
+  "bar-chart-2":"M18 20V10M12 20V4M6 20v-6",
+  "dollar":"M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6",
+  "calendar":"M19 4H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zM16 2v4M8 2v4M3 10h18",
+  "star":"M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
+  "filter":"M22 3H2l8 9.46V19l4 2v-8.54L22 3z",
+  "git-branch":"M6 3v12M18 9a3 3 0 100-6 3 3 0 000 6zM6 21a3 3 0 100-6 3 3 0 000 6zM18 9a9 9 0 01-9 9",
+  "user":"M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z",
+  "chevD":"M6 9l6 6 6-6",
+  "chevR":"M9 18l6-6-6-6",
+  "loader":"M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83",
+  "file-text":"M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M16 13H8M16 17H8M10 9H8",
+  "link":"M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71",
+  "target":"M12 22a10 10 0 100-20 10 10 0 000 20zM12 18a6 6 0 100-12 6 6 0 000 12zM12 14a2 2 0 100-4 2 2 0 000 4z",
+  "download":"M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3",
+  "cpu":"M18 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2zM9 9h6v6H9z",
+  "send":"M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z",
+  "home":"M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z",
+  "grid":"M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z",
+  "list":"M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"
 };
 const Ic = ({n,s=16,c="currentColor"}) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -235,7 +251,7 @@ const UsersSection = () => {
             <thead>
               <tr style={{borderBottom:`2px solid ${C.border}`}}>
                 {["User","Role","Org Unit","Status","Last Login",""].map(h=>(
-                  <th key={h} style={{padding:"8px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:C.text3,letterSpacing:"0.05em",textTransform:"uppercase"}}>{h}</th>
+                  <th key={h} style={{padding:"8px 12px",textAlign:"left",fontSize:11,fontWeight:800,color:C.text2,letterSpacing:"0.05em",textTransform:"uppercase"}}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -651,8 +667,8 @@ const RolesSection = ({ environment }) => {
                         <table style={{width:"100%",borderCollapse:"collapse"}}>
                           <thead>
                             <tr style={{background:"#f8f9fc"}}>
-                              <th style={{padding:"8px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.05em"}}>Object</th>
-                              {ACTIONS.map(a=>(<th key={a} style={{padding:"8px 14px",textAlign:"center",fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.05em"}}>{a}</th>))}
+                              <th style={{padding:"8px 14px",textAlign:"left",fontSize:11,fontWeight:800,color:C.text2,textTransform:"uppercase",letterSpacing:"0.05em"}}>Object</th>
+                              {ACTIONS.map(a=>(<th key={a} style={{padding:"8px 14px",textAlign:"center",fontSize:11,fontWeight:800,color:C.text2,textTransform:"uppercase",letterSpacing:"0.05em"}}>{a}</th>))}
                             </tr>
                           </thead>
                           <tbody>
@@ -675,9 +691,9 @@ const RolesSection = ({ environment }) => {
                     <><table style={{width:"100%",borderCollapse:"collapse"}}>
                       <thead>
                         <tr style={{background:"#f8f9fc"}}>
-                          <th style={{padding:"8px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.05em",borderRadius:"8px 0 0 8px"}}>Object</th>
+                          <th style={{padding:"8px 14px",textAlign:"left",fontSize:11,fontWeight:800,color:C.text2,textTransform:"uppercase",letterSpacing:"0.05em",borderRadius:"8px 0 0 8px"}}>Object</th>
                           {ACTIONS.map(a=>(
-                            <th key={a} style={{padding:"8px 14px",textAlign:"center",fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.05em"}}>{a}</th>
+                            <th key={a} style={{padding:"8px 14px",textAlign:"center",fontSize:11,fontWeight:800,color:C.text2,textTransform:"uppercase",letterSpacing:"0.05em"}}>{a}</th>
                           ))}
                         </tr>
                       </thead>
@@ -1801,7 +1817,7 @@ const ConfigSection = ({ environment }) => {
               if (!total) return null;
               return (
                 <div key={col} style={{ marginBottom:12 }}>
-                  <div style={{ fontSize:11, fontWeight:700, color:C.text2, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:5 }}>{col.replace(/_/g,' ')}</div>
+                  <div style={{ fontSize:11, fontWeight:800, color:C.text2, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:5 }}>{col.replace(/_/g,' ')}</div>
                   <DiffPills items={ch.add}    color="#15803d" bg="#dcfce7"/>
                   <DiffPills items={ch.update} color="#92400e" bg="#fef3c7"/>
                   <DiffPills items={ch.remove} color="#b91c1c" bg="#fee2e2"/>
@@ -1837,7 +1853,7 @@ export const getBulkThreshold = (roleSlug) => {
 // ─── Appearance Section ───────────────────────────────────────────────────────
 function AppearanceSection() {
   const { prefs, update } = useTheme();
-  const labelSt = { fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 };
+  const labelSt = { fontSize:11, fontWeight:800, color:C.text2, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 };
 
   const handleLangSelect = async (code) => {
     if (code === locale) return;
@@ -2146,11 +2162,11 @@ function CompanyProfilePanel({ environment }) {
           onEdit={() => startEdit("roles", { typical_roles: (profile.typical_roles||[]).join("\n"), key_benefits: (profile.key_benefits||[]).join("\n") })}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, paddingTop:8 }}>
             <div>
-              <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:8 }}>Typical roles hired</div>
+              <div style={{ fontSize:11, fontWeight:800, color:C.text2, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:8 }}>Typical roles hired</div>
               {(profile.typical_roles||[]).map((r,i) => <div key={i} style={{ fontSize:13, color:C.text2, padding:"3px 0" }}>• {r}</div>)}
             </div>
             <div>
-              <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:8 }}>Key benefits</div>
+              <div style={{ fontSize:11, fontWeight:800, color:C.text2, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:8 }}>Key benefits</div>
               {(profile.key_benefits||[]).map((b,i) => <div key={i} style={{ fontSize:13, color:C.text2, padding:"3px 0" }}>• {b}</div>)}
             </div>
           </div>
@@ -2651,7 +2667,7 @@ const FeatureAccessSection = ({ selectedRole }) => {
       </div>
       {FEATURE_GROUPS_LIST.map(group => (
         <div key={group} style={{ marginBottom:18 }}>
-          <div style={{ fontSize:10, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6, paddingBottom:4, borderBottom:`1px solid ${C.border}` }}>{group}</div>
+          <div style={{ fontSize:11, fontWeight:800, color:C.text2, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6, paddingBottom:4, borderBottom:`1px solid ${C.border}` }}>{group}</div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px 12px' }}>
             {FEATURE_FLAGS_LIST.filter(f => f.group === group).map(feature => (
               <div key={feature.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 10px', borderRadius:8, border:`1.5px solid #0ca67840`, background:'#0ca67808', opacity:0.8, cursor:'not-allowed' }}>
@@ -2686,7 +2702,7 @@ const FeatureAccessSection = ({ selectedRole }) => {
       {/* Feature groups */}
       {FEATURE_GROUPS_LIST.map(group => (
         <div key={group} style={{ marginBottom:18 }}>
-          <div style={{ fontSize:10, fontWeight:700, color:C.text3, textTransform:'uppercase',
+          <div style={{ fontSize:11, fontWeight:800, color:C.text2, textTransform:'uppercase',
             letterSpacing:'0.08em', marginBottom:6, paddingBottom:4,
             borderBottom:`1px solid ${C.border}` }}>
             {group}

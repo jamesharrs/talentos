@@ -1,4 +1,6 @@
 import { usePermissions as _usePermCtxAI } from "./PermissionContext.jsx";
+// RBAC: permission-aware copilot actions
+const _COPILOT_PERM_SLUG_MAP = { person:'people', job:'jobs', pool:'talent_pools', talent_pool:'talent_pools' };
 import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { buildHelpContext } from "./helpContent";
 
@@ -976,7 +978,7 @@ const SUGGESTED_ACTIONS = {
 };
 
 /* ─── AI Copilot ─────────────────────────────────────────────────────────── */
-const SuggestedActions = ({ activeNav, currentObject, onSend, isLastMsg }) => {
+const SuggestedActions = ({ activeNav, currentObject, onSend, isLastMsg, _canPerm, _canGlobalPerm }) => {
   if (!isLastMsg) return null;
   const slug = currentObject?.slug;
   const isReports = activeNav === 'reports';

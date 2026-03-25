@@ -22,7 +22,9 @@ const SettingsPage    = lazyWithRetry(() => import("./Settings.jsx"));
 const OrgChart        = lazyWithRetry(() => import("./OrgChart.jsx"));
 const SearchPage      = lazyWithRetry(() => import("./Search.jsx"));
 const Dashboard          = lazyWithRetry(() => import("./Dashboard.jsx"));
-const AdminDashboard     = lazyWithRetry(() => import("./AdminDashboard.jsx"));
+const AdminDashboard      = lazyWithRetry(() => import("./AdminDashboard.jsx"));
+const ScreeningDashboard  = lazyWithRetry(() => import("./ScreeningDashboard.jsx"));
+const OnboardingDashboard = lazyWithRetry(() => import("./OnboardingDashboard.jsx"));
 const InterviewDashboard = lazyWithRetry(() => import("./InterviewDashboard.jsx"));
 const OfferDashboard     = lazyWithRetry(() => import("./OfferDashboard.jsx"));
 const DashboardHub       = lazyWithRetry(() => import("./DashboardHub.jsx"));
@@ -194,7 +196,9 @@ const Icon = ({ name, size = 16, color = "currentColor" }) => {
     mail: "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6",
     user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
     "bar-chart-2": "M18 20V10M12 20V4M6 20v-6",
-    "shield": "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+    "shield":      "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+    "eye":         "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 100 6 3 3 0 000-6z",
+    "star":        "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
     "git-branch": "M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9",
     "log-out": "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
     "help-circle": "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01",
@@ -1665,7 +1669,10 @@ function App() {
       label: t("nav.overview"),
       items: [
         { id: "dashboard",   icon: "home",    label: t("nav.dashboard") },
-        { id: "inbox",       icon: "inbox",   label: "Inbox", badge: inboxUnread || null },
+        { id: "inbox",        icon: "inbox",      label: "Inbox",       badge: inboxUnread || null },
+        { id: "screening",    icon: "eye",        label: "Screening" },
+        { id: "onboarding",   icon: "star",       label: "Onboarding" },
+        { id: "admin_stats",  icon: "shield",     label: "Admin Stats" },
       ]
     },
     {
@@ -1927,9 +1934,9 @@ function App() {
           style={{ padding: "0 12px", borderBottom: "1px solid var(--t-border2)", display: "flex", alignItems: "center", gap: 10, height: 56, flexShrink: 0, overflow: "hidden" }}>
           {/* Logo icon — always visible, click to expand when collapsed */}
           <div
-            onClick={navCollapsed ? toggleNav : undefined}
-            title={navCollapsed ? "Expand sidebar" : undefined}
-            style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, overflow: "hidden", cursor: navCollapsed ? "pointer" : "default" }}>
+            onClick={navCollapsed ? toggleNav : () => switchNav("dashboard")}
+            title={navCollapsed ? "Expand sidebar" : "Go to Dashboard"}
+            style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, overflow: "hidden", cursor: "pointer" }}>
             <svg width="22" height="22" viewBox="0 0 80 80" fill="none" style={{ flexShrink: 0 }}>
               <path d="M8 52 L40 36 L72 52 L40 68 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none"/>
               <path d="M8 52 L8 62 L40 78 L40 68 Z" stroke="var(--t-accent)" strokeWidth="2.2" strokeLinejoin="round" fill="none"/>

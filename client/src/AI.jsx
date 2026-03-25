@@ -902,6 +902,18 @@ const CONTEXT_ACTIONS = {
     { id:"nr",   icon:"shield",      label:"New Role",            prompt:"I want to create a new role" },
     { id:"perm", icon:"lock",        label:"Edit Permissions",    prompt:"Help me configure what each role can see and do across the platform" },
   ],
+  // ── Main settings overview (no sub-section selected) ────────────────────
+  "settings": [
+    { id:"iu",   icon:"user",        label:"Invite user",         prompt:"I want to invite a new user to the platform" },
+    { id:"nr",   icon:"shield",      label:"New role",            prompt:"I want to create a new role with specific permissions" },
+    { id:"cf",   icon:"plus",        label:"Create field",        prompt:"I want to add a new field to an object in the data model" },
+    { id:"nw",   icon:"workflow",    label:"New workflow",        prompt:"I want to create a new workflow or automation" },
+    { id:"nf",   icon:"form",        label:"New form",            prompt:"I want to create a new form — scorecard, survey or screening questionnaire" },
+    { id:"bp",   icon:"globe",       label:"Build portal",        prompt:"I want to build a new portal — a career site or external experience" },
+    { id:"exp",  icon:"upload",      label:"Export config",       prompt:"I want to export the platform configuration — objects, fields, workflows" },
+    { id:"int",  icon:"zap",         label:"Set up integration",  prompt:"Help me configure an integration — Twilio, SendGrid, or webhooks" },
+  ],
+
   // ── Deep editor actions (inside sub-editors) ─────────────────────────────
   "editor:portal": [
     { id:"et",   icon:"edit",       label:"Edit text",           prompt:"Help me rewrite the text on this section — make it more compelling and on-brand" },

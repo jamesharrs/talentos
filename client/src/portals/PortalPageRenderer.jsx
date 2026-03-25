@@ -630,7 +630,7 @@ const PortalRow = ({ row, theme, portal, api, track }) => {
   return (
     <div id={row.anchorId||undefined} style={{ position:'relative', ...bgStyle, ...(row.style?.maxHeight?{maxHeight:row.style.maxHeight,overflow:'hidden'}:{}) }}>
       {row.bgImage&&(row.overlayOpacity||0)>0&&<div style={{ position:'absolute', inset:0, background:`rgba(0,0,0,${(row.overlayOpacity||0)/100})`, pointerEvents:'none' }}/>}
-      <div style={{ position:'relative', maxWidth:row.fullWidth?'none':(row.style?.maxWidth||theme.maxWidth||'1200px'), margin:row.fullWidth?'0':'0 auto', padding:`${padding} ${row.fullWidth?'0':'24px'}`, boxSizing:'border-box' }}>
+      <div style={{ position:'relative', maxWidth:row.fullWidth===true?'none':(row.style?.maxWidth||theme.maxWidth||'1200px'), margin:row.fullWidth===true?'0':'0 auto', padding:`${padding} ${row.fullWidth===true?'0':'24px'}`, boxSizing:'border-box' }}>
         <div style={{ display:'flex', gap:32, flexWrap:'wrap', alignItems:'flex-start' }}>
           {(row.cells||[]).map((cell, ci) => (
             <div key={cell.id} style={{ flex:cellFlex(ci,(row.cells||[]).length,row.preset), minWidth:0 }}>

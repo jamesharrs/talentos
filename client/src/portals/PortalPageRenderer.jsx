@@ -52,549 +52,66 @@ const ErrorScreen = ({ message }) => (
 )
 
 const HeroWidget = ({ cfg, theme }) => {
-  const btnStyle = getButtonStyle(theme)
-  const outlineStyle = { ...btnStyle, background:'transparent', color:theme.primaryColor,
-    border:`2px solid ${theme.primaryColor}`, marginLeft:12 }
-  const hasBg = !!cfg.bgImage
+  const t = theme
+  const pr = t.primaryColor || '#4361EE'
+  const bg = t.bgColor || '#fff'
+  const tc = cfg.videoUrl || (cfg.bgImage && (cfg.overlayOpacity||0) > 20) ? '#FFFFFF' : (t.textColor || '#0F1729')
+  const tcSub = cfg.videoUrl || (cfg.bgImage && (cfg.overlayOpacity||0) > 20) ? 'rgba(255,255,255,.8)' : (t.textColor || '#0F1729')
+  const ff = t.fontFamily || "'Inter', sans-serif"
+  const hf = t.headingFont || ff
+  const br = t.buttonRadius || '8px'
+  const hw = parseInt(t.headingWeight) || 700
+  const align = cfg.align || 'center'
+  const padding = cfg.videoUrl ? '100px 24px' : (cfg.bgImage ? '80px 24px' : '64px 24px')
+
   return (
     <div style={{
-      padding:'80px 24px', textAlign: cfg.align||'center',
-      background: hasBg
-        ? `url(${cfg.bgImage}) center/cover no-repeat`
-        : `linear-gradient(135deg,${theme.primaryColor}22,${theme.secondaryColor||theme.primaryColor}0a)`,
-      position:'relative', overflow:'hidden'
+      padding, textAlign: align, position: 'relative', overflow: 'hidden',
+      minHeight: cfg.videoUrl ? 420 : 'auto',
+      display: cfg.videoUrl ? 'flex' : 'block',
+      alignItems: cfg.videoUrl ? 'center' : undefined,
+      justifyContent: cfg.videoUrl ? 'center' : undefined,
+      background: cfg.videoUrl ? '#0F1729'
+        : cfg.bgImage ? `url(${cfg.bgImage}) center/cover no-repeat`
+        : `linear-gradient(135deg, ${pr}12, ${t.secondaryColor || pr}08)`,
     }}>
-      {hasBg && (cfg.overlayOpacity||0) > 0 && (
-        <div style={{position:'absolute',inset:0,background:`rgba(0,0,0,${(cfg.overlayOpacity||0)/100})`}}/>
+      {cfg.videoUrl && (
+        <video autoPlay loop muted playsInline
+          style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit: cfg.videoFit || 'cover', zIndex:0 }}
+          src={cfg.videoUrl}/>
       )}
-      <div style={{position:'relative', maxWidth:theme.maxWidth||'900px', margin:'0 auto'}}>
-        {cfg.eyebrow && <div style={{ fontSize:13, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase',
-          color:theme.primaryColor, marginBottom:14, fontFamily:theme.fontFamily }}>{cfg.eyebrow}</div>}
-        <h1 style={{ margin:'0 0 16px', fontSize:'clamp(28px,5vw,52px)', fontWeight:theme.headingWeight||800,
-          color: hasBg && (cfg.overlayOpacity||0) > 20 ? '#fff' : (theme.textColor||'#0F1729'),
-          fontFamily:theme.headingFont||theme.fontFamily }}>
-          {cfg.headline||'Your Compelling Headline'}
-        </h1>
-        <p style={{ margin:'0 0 32px', fontSize:18,
-          color: hasBg && (cfg.overlayOpacity||0) > 20 ? 'rgba(255,255,255,.85)' : (theme.textColor||'#0F1729'),
-          opacity:0.75, maxWidth:600, marginLeft: cfg.align==='center'?'auto':0,
-          marginRight: cfg.align==='center'?'auto':0,
-          fontFamily:theme.fontFamily, lineHeight:1.6 }}>
-          {cfg.subheading||'A short description that tells visitors what to expect here.'}
-        </p>
-        <div style={{display:'flex', gap:12, justifyContent: cfg.align==='center'?'center':'flex-start', flexWrap:'wrap'}}>
-          {cfg.ctaText && <a href={cfg.ctaHref||'#jobs'} style={{ ...btnStyle, textDecoration:'none' }}>{cfg.ctaText}</a>}
-          {cfg.cta2Text && <a href={cfg.cta2Href||'#'} style={{ ...outlineStyle, textDecoration:'none' }}>{cfg.cta2Text}</a>}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const TextWidget = ({ cfg, theme }) => (
-  <div style={{ padding:'8px 0', fontFamily:theme.fontFamily }}>
-    {cfg.heading && <h2 style={{ margin:'0 0 12px', fontSize:'clamp(20px,3vw,32px)', fontWeight:theme.headingWeight||700, color:theme.textColor||'#0F1729', fontFamily:theme.headingFont||theme.fontFamily }}>{cfg.heading}</h2>}
-    {cfg.content && <p style={{ margin:0, fontSize:16, color:theme.textColor||'#0F1729', opacity:0.75, lineHeight:1.8, whiteSpace:'pre-wrap' }}>{cfg.content}</p>}
-  </div>
-)
-
-const ImageWidget = ({ cfg }) => {
-  if (!cfg.url) return null
-  const br = cfg.borderRadius != null ? cfg.borderRadius + 'px' : '12px'
-  const img = (
-    <div style={{ borderRadius: br, overflow:'hidden' }}>
-      <img src={cfg.url} alt={cfg.alt||''} style={{
-        width:'100%', display:'block',
-        objectFit: cfg.objectFit || 'cover',
-        maxHeight: cfg.maxHeight ? cfg.maxHeight + 'px' : undefined,
-      }}/>
-    </div>
-  )
-  return cfg.linkHref
-    ? <a href={cfg.linkHref} target="_blank" rel="noreferrer" style={{ display:'block' }}>{img}</a>
-    : img
-}
-
-const StatsWidget = ({ cfg, theme }) => {
-  const stats = cfg.stats || [{ value:'500+', label:'Employees' }, { value:'12', label:'Offices' }, { value:'20+', label:'Countries' }]
-  return (
-    <div style={{ display:'flex', gap:32, justifyContent:'center', flexWrap:'wrap', padding:'8px 0' }}>
-      {stats.map((s, i) => (
-        <div key={i} style={{ textAlign:'center', minWidth:80 }}>
-          <div style={{ fontSize:'clamp(28px,4vw,48px)', fontWeight:800, color:theme.primaryColor, fontFamily:theme.headingFont||theme.fontFamily }}>{s.value}</div>
-          <div style={{ fontSize:13, color:theme.textColor||'#6B7280', opacity:0.7, marginTop:4, fontFamily:theme.fontFamily }}>{s.label}</div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-const VideoWidget = ({ cfg }) => {
-  if (!cfg.url) return null
-  const ratio = cfg.ratio || '16/9'
-  const [w, h] = ratio.split('/').map(Number)
-  const pct = ((h / w) * 100).toFixed(4) + '%'
-  const br = cfg.borderRadius != null ? cfg.borderRadius + 'px' : '12px'
-  const yt = cfg.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/)
-  const vm = cfg.url.match(/vimeo\.com\/(\d+)/)
-  const isEmbed = yt || vm
-  let embedUrl = cfg.url
-  if (yt) embedUrl = `https://www.youtube.com/embed/${yt[1]}${cfg.autoplay ? '?autoplay=1&mute=1' : ''}`
-  if (vm) embedUrl = `https://player.vimeo.com/video/${vm[1]}${cfg.autoplay ? '?autoplay=1&muted=1' : ''}`
-  return (
-    <div style={{ position:'relative', paddingBottom:pct, height:0, overflow:'hidden', borderRadius:br }}>
-      {isEmbed ? (
-        <iframe src={embedUrl} style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', border:'none' }} allow="autoplay; fullscreen" allowFullScreen/>
-      ) : (
-        <video src={cfg.url} style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover' }}
-          autoPlay={!!cfg.autoplay} muted={!!cfg.autoplay} controls={cfg.controls !== false} playsInline loop={!!cfg.loop}/>
+      {cfg.videoUrl && cfg.videoOverlayDarken && (
+        <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1 }}/>
       )}
-    </div>
-  )
-}
-
-const DividerWidget = ({ cfg, theme }) => (
-  <div style={{ display:'flex', justifyContent:'center', padding:'4px 0' }}>
-    <div style={{
-      flex: 1, maxWidth: cfg.maxWidth || '100%',
-      borderTop: `${cfg.thickness || 1}px ${cfg.dividerStyle || 'solid'} ${cfg.color || theme.primaryColor + '30'}`
-    }}/>
-  </div>
-)
-
-const SpacerWidget = ({ cfg }) => {
-  const MAP = { xs:16, sm:32, md:64, lg:96, xl:128 }
-  const px = cfg.height === 'custom' ? (cfg.customHeight || 64)
-    : MAP[cfg.height] ?? (parseInt(cfg.height) || 64)
-  return <div style={{ height: px }}/>
-}
-
-const JobsWidget = ({ cfg, theme, portal, api }) => {
-  const [records, setRecords] = useState([])
-  const [objMeta, setObjMeta] = useState(null) // { slug, name, plural_name, fields }
-  const [search,   setSearch]   = useState('')
-  const [dept,     setDept]     = useState('all')
-  const [location, setLocation] = useState('all')
-  const [workType, setWorkType] = useState('all')
-  const [selected, setSelected] = useState(null)
-  const [applying, setApplying] = useState(false)
-
-  useEffect(() => {
-    if (!portal?.environment_id) return
-    const loadRecords = async () => {
-      try {
-        const objs = await api.get(`/objects?environment_id=${portal.environment_id}`)
-        // Use cfg.objectId if set, otherwise fall back to jobs slug
-        const obj = cfg.objectId
-          ? (Array.isArray(objs)?objs:[]).find(o => o.id === cfg.objectId)
-          : (Array.isArray(objs)?objs:[]).find(o => o.slug==='jobs')
-        if (!obj) return
-        const limitParam = cfg.limit ? `&limit=${cfg.limit}` : '&limit=200'
-        // Fetch fields alongside records for detail views
-        const [fieldsData, data] = await Promise.all([
-          api.get(`/fields?object_id=${obj.id}`).catch(() => []),
-          api.get(`/records?object_id=${obj.id}&environment_id=${portal.environment_id}${limitParam}`)
-        ])
-        setObjMeta({ slug: obj.slug, name: obj.name, plural_name: obj.plural_name, fields: Array.isArray(fieldsData) ? fieldsData : [] })
-        let all = (data?.records||data||[])
-        // Only filter by status for jobs — people/pools shouldn't be filtered this way
-        if (obj.slug === 'jobs') {
-          all = all.filter(r => r.data?.status !== 'Closed' && r.data?.status !== 'Filled')
-        }
-
-        // Apply saved list filters if configured
-        if (cfg.savedListId) {
-          try {
-            const views = await api.get(`/saved-views?object_id=${obj.id}&environment_id=${portal.environment_id}`)
-            const savedView = (Array.isArray(views) ? views : []).find(v => v.id === cfg.savedListId)
-            if (savedView) {
-              // Apply filter_chip (pill-click filter)
-              if (savedView.filter_chip) {
-                const fc = savedView.filter_chip
-                if (fc.fieldKey === '__ids__') {
-                  const ids = fc.fieldValue.split(',').map(s => s.trim()).filter(Boolean)
-                  all = all.filter(r => ids.includes(r.id))
-                } else {
-                  all = all.filter(r => {
-                    const v = r.data?.[fc.fieldKey]
-                    if (Array.isArray(v)) return v.some(i => String(i).toLowerCase() === fc.fieldValue.toLowerCase())
-                    return String(v || '').toLowerCase() === fc.fieldValue.toLowerCase()
-                  })
-                }
-              }
-              // Apply advanced filters (fieldId-based)
-              if (savedView.filters?.length) {
-                const fields = await api.get(`/fields?object_id=${obj.id}`)
-                const fieldMap = {}
-                if (Array.isArray(fields)) fields.forEach(f => { fieldMap[f.id] = f.api_key })
-                all = all.filter(record => savedView.filters.every(filt => {
-                  const apiKey = fieldMap[filt.fieldId] || ''
-                  const rawVal = record.data?.[apiKey]
-                  const op = filt.op, fv = filt.value
-                  if (op === 'is empty') return !rawVal
-                  if (op === 'is not empty') return !!rawVal
-                  const sv = String(rawVal ?? '').toLowerCase()
-                  const sfv = String(fv ?? '').toLowerCase()
-                  if (op === 'contains') return sv.includes(sfv)
-                  if (op === 'is') return sv === sfv
-                  if (op === 'is not') return sv !== sfv
-                  if (op === 'includes') return Array.isArray(rawVal) ? rawVal.some(v => String(v).toLowerCase() === sfv) : sv === sfv
-                  return true
-                }))
-              }
-            }
-          } catch (e) { console.warn('Failed to load saved list filters:', e) }
-        }
-        setRecords(all)
-      } catch (e) { console.error('Failed to load records:', e) }
-    }
-    loadRecords()
-  }, [portal?.environment_id, cfg.objectId, cfg.savedListId, cfg.limit])
-
-  const isJobs = objMeta?.slug === 'jobs'
-  const isPeople = objMeta?.slug === 'people'
-  const depts     = ['all', ...new Set(records.map(j => j.data?.department).filter(Boolean))]
-  const locations = ['all', ...new Set(records.map(j => j.data?.location).filter(Boolean))]
-  const workTypes = ['all', ...new Set(records.map(j => j.data?.work_type).filter(Boolean))]
-  const filtered = records.filter(j => {
-    const d = j.data || {}
-    if (dept     !== 'all' && d.department !== dept)       return false
-    if (location !== 'all' && d.location   !== location)   return false
-    if (workType !== 'all' && d.work_type  !== workType)   return false
-    // Generic search across all data fields
-    if (search) {
-      const haystack = Object.values(d).map(v => Array.isArray(v) ? v.join(' ') : String(v||'')).join(' ').toLowerCase()
-      if (!haystack.includes(search.toLowerCase())) return false
-    }
-    return true
-  })
-
-  // Helper: get display name for a record
-  const getRecordName = (r) => {
-    const d = r.data || {}
-    if (isPeople) return [d.first_name, d.last_name].filter(Boolean).join(' ') || d.email || 'Unnamed'
-    if (isJobs) return d.job_title || d.name || 'Open Role'
-    return d.name || d.title || d.pool_name || Object.values(d).find(v => typeof v === 'string' && v.length > 2) || 'Record'
-  }
-  const getRecordSub = (r) => {
-    const d = r.data || {}
-    if (isPeople) return d.current_title || d.job_title || d.department || ''
-    if (isJobs) return d.department || ''
-    return d.description || d.category || ''
-  }
-  const getRecordIcon = () => isPeople ? ICONS.user : isJobs ? ICONS.briefcase : ICONS.database
-  const getRecordTags = (r) => {
-    const d = r.data || {}
-    const tags = []
-    if (isPeople) {
-      if (d.department) tags.push({ label: d.department, color: '#6366F1' })
-      if (d.location) tags.push({ label: d.location, color: '#0CA678' })
-      if (d.skills) { const sk = Array.isArray(d.skills) ? d.skills.slice(0,3) : []; sk.forEach(s => tags.push({ label: s, color: '#F79009' })) }
-      if (d.status) tags.push({ label: d.status, color: '#9DA8C7' })
-    } else if (isJobs) {
-      if (d.department) tags.push({ label: d.department, color: '#6366F1' })
-      if (d.location) tags.push({ label: d.location, color: '#0CA678' })
-      if (d.work_type) tags.push({ label: d.work_type, color: '#F79009' })
-      if (d.employment_type) tags.push({ label: d.employment_type, color: '#9DA8C7' })
-    } else {
-      // Generic: show first few string fields as tags
-      Object.entries(d).slice(0, 4).forEach(([k, v]) => {
-        if (typeof v === 'string' && v.length > 1 && v.length < 40 && k !== 'name' && k !== 'title')
-          tags.push({ label: v, color: '#6366F1' })
-      })
-    }
-    return tags
-  }
-
-  if (selected && applying && isJobs) return <ApplyForm job={selected} portal={portal} theme={theme} api={api} onBack={()=>setApplying(false)} onSuccess={()=>{setApplying(false);setSelected(null)}}/>
-  if (selected && isJobs) return <JobDetail job={selected} theme={theme} onBack={()=>setSelected(null)} onApply={()=>setApplying(true)}/>
-  if (selected && isPeople) return <RecordDetailView record={selected} theme={theme} getName={getRecordName} getSub={getRecordSub} getTags={getRecordTags} onBack={()=>setSelected(null)} objectName={objMeta?.name||'Record'}/>
-
-  const searchPlaceholder = isPeople ? 'Search people…' : isJobs ? 'Search roles…' : `Search ${objMeta?.plural_name||'records'}…`
-  const countLabel = isJobs ? `${filtered.length} open position${filtered.length!==1?'s':''}` : `${filtered.length} ${(objMeta?.plural_name||'records').toLowerCase()}`
-
-  return (
-    <div id="jobs">
-      {cfg.heading && <h2 style={{ margin:'0 0 20px', fontSize:'clamp(22px,3vw,34px)', fontWeight:theme.headingWeight||700, color:theme.textColor||'#0F1729', fontFamily:theme.headingFont||theme.fontFamily }}>{cfg.heading}</h2>}
-      <div style={{ display:'flex', gap:12, marginBottom:24, flexWrap:'wrap' }}>
-        <div style={{ flex:'1 1 200px', position:'relative', display:'flex', alignItems:'center' }}>
-          <Icon path={ICONS.search} size={16} color="#9CA3AF" style={{ position:'absolute', left:12, pointerEvents:'none' }}/>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={searchPlaceholder}
-            style={{ width:'100%', padding:'10px 16px 10px 38px', borderRadius:theme.borderRadius||8, border:'1.5px solid #E8ECF8', fontSize:14, fontFamily:theme.fontFamily, outline:'none', color:theme.textColor||'#0F1729', background:'#fff', boxSizing:'border-box' }}/>
-        </div>
-        {depts.length > 2 && cfg.showFilters !== false && (
-          <select value={dept} onChange={e=>setDept(e.target.value)}
-            style={{ padding:'10px 16px', borderRadius:theme.borderRadius||8, border:'1.5px solid #E8ECF8', fontSize:14, fontFamily:theme.fontFamily, outline:'none', color:theme.textColor||'#0F1729', background:'#fff', cursor:'pointer' }}>
-            {depts.map(d => <option key={d} value={d}>{d==='all'?'All departments':d}</option>)}
-          </select>
-        )}
-        {locations.length > 2 && cfg.showLocationFilter && (
-          <select value={location} onChange={e=>setLocation(e.target.value)}
-            style={{ padding:'10px 16px', borderRadius:theme.borderRadius||8, border:'1.5px solid #E8ECF8', fontSize:14, fontFamily:theme.fontFamily, outline:'none', color:theme.textColor||'#0F1729', background:'#fff', cursor:'pointer' }}>
-            {locations.map(l => <option key={l} value={l}>{l==='all'?'All locations':l}</option>)}
-          </select>
-        )}
-        {workTypes.length > 2 && cfg.showWorkTypeFilter && (
-          <select value={workType} onChange={e=>setWorkType(e.target.value)}
-            style={{ padding:'10px 16px', borderRadius:theme.borderRadius||8, border:'1.5px solid #E8ECF8', fontSize:14, fontFamily:theme.fontFamily, outline:'none', color:theme.textColor||'#0F1729', background:'#fff', cursor:'pointer' }}>
-            {workTypes.map(w => <option key={w} value={w}>{w==='all'?'All work types':w}</option>)}
-          </select>
-        )}
-        {(dept!=='all'||location!=='all'||workType!=='all'||search) && (
-          <button onClick={()=>{setDept('all');setLocation('all');setWorkType('all');setSearch('');}}
-            style={{ padding:'10px 14px', borderRadius:theme.borderRadius||8, border:'1.5px solid #E8ECF8', background:'transparent', fontSize:13, color:'#9CA3AF', cursor:'pointer', fontFamily:theme.fontFamily, whiteSpace:'nowrap' }}>
-            Clear filters
-          </button>
-        )}
-      </div>
-      <p style={{ fontSize:13, color:theme.textColor||'#6B7280', opacity:0.6, marginBottom:16, fontFamily:theme.fontFamily }}>{countLabel}</p>
-      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-        {filtered.map(rec => {
-          const d = rec.data||{}
-          const initials = isPeople ? [d.first_name?.[0],d.last_name?.[0]].filter(Boolean).join('').toUpperCase() : null
-          return (
-            <div key={rec.id} onClick={() => setSelected(rec)}
-              style={{ background:'#fff', borderRadius:theme.borderRadius||12, border:'1.5px solid #E8ECF8', padding:'18px 24px', cursor:'pointer', display:'flex', alignItems:'center', gap:16, transition:'all .15s' }}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor=theme.primaryColor;e.currentTarget.style.boxShadow=`0 4px 20px ${theme.primaryColor}20`}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor='#E8ECF8';e.currentTarget.style.boxShadow='none'}}>
-              {isPeople ? (
-                <div style={{ width:44, height:44, borderRadius:'50%', background:`${theme.primaryColor}14`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:15, fontWeight:700, color:theme.primaryColor }}>
-                  {initials || '?'}
-                </div>
-              ) : (
-                <div style={{ width:44, height:44, borderRadius:12, background:`${theme.primaryColor}14`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <Icon path={getRecordIcon()} size={20} color={theme.primaryColor}/>
-                </div>
-              )}
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:16, fontWeight:700, color:theme.textColor||'#0F1729', fontFamily:theme.fontFamily, marginBottom:4 }}>{getRecordName(rec)}</div>
-                {getRecordSub(rec) && <div style={{ fontSize:13, color:theme.textColor||'#6B7280', opacity:0.7, marginBottom:4 }}>{getRecordSub(rec)}</div>}
-                <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-                  {getRecordTags(rec).map((t,i) => <Tag key={i} color={t.color}>{t.label}</Tag>)}
-                </div>
-              </div>
-              {isJobs && <span style={{ ...getButtonStyle(theme), textDecoration:'none', fontSize:13, padding:'8px 16px' }}>View Role →</span>}
-              {isPeople && <span style={{ ...getButtonStyle(theme), textDecoration:'none', fontSize:13, padding:'8px 16px' }}>View Profile →</span>}
-            </div>
-          )
-        })}
-        {filtered.length===0 && <div style={{ textAlign:'center', padding:'48px 24px', color:theme.textColor||'#6B7280', opacity:0.5, fontFamily:theme.fontFamily }}>{cfg.emptyText || `No ${(objMeta?.plural_name||'records').toLowerCase()} match your search.`}</div>}
-      </div>
-    </div>
-  )
-}
-
-// Generic record detail view (for People, Talent Pools etc.)
-const RecordDetailView = ({ record, theme, getName, getSub, getTags, onBack, objectName }) => {
-  const d = record.data || {}
-  const name = getName(record)
-  const sub = getSub(record)
-  const tags = getTags(record)
-  const initials = [d.first_name?.[0], d.last_name?.[0]].filter(Boolean).join('').toUpperCase()
-  return (
-    <div>
-      <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:theme.primaryColor, fontWeight:600, fontSize:14, padding:'0 0 20px', fontFamily:theme.fontFamily, display:'flex', alignItems:'center', gap:6 }}>
-        <Icon path={ICONS.arrowLeft} size={14} color={theme.primaryColor}/> Back to all {objectName?.toLowerCase() || 'records'}
-      </button>
-      <div style={{ background:'#fff', borderRadius:16, border:'1px solid #E8ECF8', padding:32 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:20, marginBottom:24 }}>
-          {initials && <div style={{ width:64, height:64, borderRadius:'50%', background:`${theme.primaryColor}14`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:700, color:theme.primaryColor, flexShrink:0 }}>{initials}</div>}
-          <div>
-            <h1 style={{ margin:'0 0 4px', fontSize:26, fontWeight:800, color:theme.textColor||'#0F1729', fontFamily:theme.headingFont||theme.fontFamily }}>{name}</h1>
-            {sub && <p style={{ margin:0, fontSize:15, color:theme.textColor||'#6B7280', opacity:0.7 }}>{sub}</p>}
+      {!cfg.videoUrl && cfg.bgImage && (cfg.overlayOpacity||0) > 0 && (
+        <div style={{ position:'absolute', inset:0, background:`rgba(0,0,0,${(cfg.overlayOpacity||0)/100})` }}/>
+      )}
+      <div style={{ position:'relative', zIndex:2, maxWidth: cfg.videoUrl ? '720px' : '800px', margin:'0 auto' }}>
+        {cfg.eyebrow && (
+          <div style={{ fontSize:13, fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', color: cfg.videoUrl ? 'rgba(255,255,255,.7)' : pr, marginBottom:12, fontFamily:ff }}>
+            {cfg.eyebrow}
           </div>
+        )}
+        <h2 style={{ fontSize: cfg.videoUrl ? 48 : 36, fontWeight:hw, color:tc, fontFamily:hf, margin:'0 0 16px', lineHeight:1.15 }}>
+          {cfg.headline || 'Your Compelling Headline'}
+        </h2>
+        {cfg.subheading && <p style={{ margin:'0 0 32px', fontSize: cfg.videoUrl ? 20 : 18, color:tcSub, lineHeight:1.6, opacity:0.9 }}>{cfg.subheading}</p>}
+        <div style={{ display:'flex', gap:12, justifyContent: align === 'center' ? 'center' : 'flex-start', flexWrap:'wrap' }}>
+          {cfg.primaryCta && (
+            <a href={cfg.primaryCtaLink||'#'} style={{ display:'inline-block', padding: cfg.videoUrl ? '16px 36px' : '14px 32px', borderRadius:br, background:'#FFFFFF', color:pr, fontWeight:700, fontSize: cfg.videoUrl ? 17 : 16, textDecoration:'none', fontFamily:ff }}>
+              {cfg.primaryCta}
+            </a>
+          )}
+          {cfg.secondaryCta && (
+            <a href={cfg.secondaryCtaLink||'#'} style={{ display:'inline-block', padding: cfg.videoUrl ? '16px 36px' : '14px 32px', borderRadius:br, background:'transparent', color:tc, fontWeight:700, fontSize: cfg.videoUrl ? 17 : 16, textDecoration:'none', border:`2px solid ${tc}`, fontFamily:ff }}>
+              {cfg.secondaryCta}
+            </a>
+          )}
         </div>
-        {tags.length > 0 && <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:24 }}>{tags.map((t,i)=><Tag key={i} color={t.color}>{t.label}</Tag>)}</div>}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:16 }}>
-          {Object.entries(d).filter(([k,v]) => v && typeof v !== 'object' && !['id','created_at','updated_at','deleted_at'].includes(k)).map(([k,v]) => (
-            <div key={k} style={{ padding:'12px 16px', background:'#F8F9FC', borderRadius:10 }}>
-              <div style={{ fontSize:10, fontWeight:700, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:4 }}>{k.replace(/_/g,' ')}</div>
-              <div style={{ fontSize:14, color:theme.textColor||'#0F1729', fontWeight:500 }}>{String(v)}</div>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
-  )
-}
-
-const JobDetail = ({ job, theme, onBack, onApply }) => {
-  const d = job.data||{}
-  return (
-    <div>
-      <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:theme.primaryColor, fontWeight:600, fontSize:14, padding:'0 0 20px', fontFamily:theme.fontFamily, display:'flex', alignItems:'center', gap:6 }}>
-        <Icon path={ICONS.arrowLeft} size={14} color={theme.primaryColor}/> Back to all jobs
-      </button>
-      <div style={{ background:'#fff', borderRadius:16, border:'1px solid #E8ECF8', padding:32, marginBottom:20 }}>
-        <h1 style={{ margin:'0 0 12px', fontSize:28, fontWeight:800, color:theme.textColor||'#0F1729', fontFamily:theme.headingFont||theme.fontFamily }}>{d.job_title||'Open Role'}</h1>
-        <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:24 }}>
-          {d.department&&<Tag color="#6366F1">{d.department}</Tag>}
-          {d.location&&<Tag color="#0CA678">{d.location}</Tag>}
-          {d.work_type&&<Tag color="#F79009">{d.work_type}</Tag>}
-        </div>
-        {d.summary&&<p style={{ fontSize:15, color:theme.textColor||'#4B5675', lineHeight:1.8, marginBottom:24, fontFamily:theme.fontFamily }}>{d.summary}</p>}
-        {d.description&&<div style={{ fontSize:14, color:theme.textColor||'#4B5675', lineHeight:1.8, whiteSpace:'pre-wrap', fontFamily:theme.fontFamily, marginBottom:24 }}>{d.description}</div>}
-        <button onClick={onApply} style={{ ...getButtonStyle(theme), border:'none', cursor:'pointer', fontFamily:theme.fontFamily, fontSize:14, fontWeight:700 }}>Apply for this role →</button>
-      </div>
-    </div>
-  )
-}
-
-const ApplyForm = ({ job, portal, theme, api, onBack, onSuccess }) => {
-  const d = job.data||{}
-  const [form, setForm] = useState({ first_name:'', last_name:'', email:'', phone:'', cover_note:'' })
-  const [busy, setBusy] = useState(false)
-  const [done, setDone] = useState(false)
-  const [err, setErr] = useState('')
-  const set = (k,v) => setForm(f=>({...f,[k]:v}))
-  const inp = { width:'100%', padding:'10px 14px', borderRadius:theme.borderRadius||8, border:'1.5px solid #E8ECF8', fontSize:14, fontFamily:theme.fontFamily, outline:'none', boxSizing:'border-box', color:theme.textColor||'#0F1729' }
-  const handleSubmit = async () => {
-    if (!form.first_name||!form.email) return
-    setBusy(true); setErr('')
-    try {
-      const res = await api.post(`/portals/${portal.id}/apply`, { ...form, job_id:job.id, job_title:d.job_title||'' })
-      if (res.error) { setErr(res.error); setBusy(false); return }
-      // Store personId in localStorage so candidate can return to check status
-      if (res.person_id) {
-        try { localStorage.setItem(`vc_app_${portal.id}`, res.person_id); } catch {}
-      }
-      setDone(res.person_id ? { personId: res.person_id } : true)
-      setTimeout(onSuccess, 4000)
-    } catch { setErr('Something went wrong. Please try again.'); setBusy(false) }
-  }
-  if (done) return (
-    <div style={{ textAlign:'center', padding:'60px 24px' }}>
-      <Icon path={ICONS.check} size={64} color={theme.primaryColor} style={{ marginBottom:16 }}/>
-      <h2 style={{ fontSize:24, fontWeight:800, color:theme.textColor||'#0F1729', marginBottom:8, fontFamily:theme.headingFont||theme.fontFamily }}>Application Submitted!</h2>
-      <p style={{ color:theme.textColor||'#6B7280', opacity:0.7, fontFamily:theme.fontFamily, marginBottom:20 }}>Thank you {form.first_name}. We'll be in touch soon.</p>
-      {done.personId && (
-        <a href={`${window.location.origin}${window.location.pathname.split('/').slice(0,-0).join('/')}/application/${done.personId}`}
-          style={{ display:'inline-block', padding:'10px 24px', borderRadius:theme.buttonRadius||8, background:`${theme.primaryColor}15`, color:theme.primaryColor, fontSize:13, fontWeight:700, textDecoration:'none', fontFamily:theme.fontFamily }}>
-          Track your application →
-        </a>
-      )}
-    </div>
-  )
-  return (
-    <div>
-      <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:theme.primaryColor, fontWeight:600, fontSize:14, padding:'0 0 20px', fontFamily:theme.fontFamily, display:'flex', alignItems:'center', gap:6 }}>
-        <Icon path={ICONS.arrowLeft} size={14} color={theme.primaryColor}/> Back to job
-      </button>
-      <div style={{ background:'#fff', borderRadius:16, border:'1px solid #E8ECF8', padding:32, maxWidth:560 }}>
-        <h2 style={{ margin:'0 0 24px', fontSize:22, fontWeight:800, color:theme.textColor||'#0F1729', fontFamily:theme.headingFont||theme.fontFamily }}>Apply — {d.job_title}</h2>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
-          <div><label style={{ fontSize:12, fontWeight:700, color:theme.textColor||'#6B7280', opacity:0.7, display:'block', marginBottom:5, fontFamily:theme.fontFamily }}>First name *</label><input value={form.first_name} onChange={e=>set('first_name',e.target.value)} style={inp}/></div>
-          <div><label style={{ fontSize:12, fontWeight:700, color:theme.textColor||'#6B7280', opacity:0.7, display:'block', marginBottom:5, fontFamily:theme.fontFamily }}>Last name</label><input value={form.last_name} onChange={e=>set('last_name',e.target.value)} style={inp}/></div>
-        </div>
-        <div style={{ marginBottom:14 }}><label style={{ fontSize:12, fontWeight:700, color:theme.textColor||'#6B7280', opacity:0.7, display:'block', marginBottom:5, fontFamily:theme.fontFamily }}>Email *</label><input type="email" value={form.email} onChange={e=>set('email',e.target.value)} style={inp}/></div>
-        <div style={{ marginBottom:14 }}><label style={{ fontSize:12, fontWeight:700, color:theme.textColor||'#6B7280', opacity:0.7, display:'block', marginBottom:5, fontFamily:theme.fontFamily }}>Phone</label><input type="tel" value={form.phone} onChange={e=>set('phone',e.target.value)} style={inp}/></div>
-        <div style={{ marginBottom:20 }}><label style={{ fontSize:12, fontWeight:700, color:theme.textColor||'#6B7280', opacity:0.7, display:'block', marginBottom:5, fontFamily:theme.fontFamily }}>Cover note</label><textarea value={form.cover_note} onChange={e=>set('cover_note',e.target.value)} rows={4} style={{ ...inp, resize:'vertical' }}/></div>
-        {err&&<p style={{ color:'#EF4444', fontSize:13, marginBottom:14, fontFamily:theme.fontFamily }}>{err}</p>}
-        <button onClick={handleSubmit} disabled={busy||!form.first_name||!form.email}
-          style={{ ...getButtonStyle(theme), border:'none', cursor:busy?'wait':'pointer', fontFamily:theme.fontFamily, fontSize:14, fontWeight:700, opacity:(busy||!form.first_name||!form.email)?0.6:1 }}>
-          {busy ? 'Submitting…' : 'Submit Application'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-const TeamWidget = ({ cfg, theme, portal, api }) => {
-  const [people, setPeople] = useState([])
-  useEffect(() => {
-    if (!portal?.environment_id) return
-    api.get(`/objects?environment_id=${portal.environment_id}`)
-      .then(objs => { const po=(Array.isArray(objs)?objs:[]).find(o=>o.slug==='people'); if(!po) return null; return api.get(`/records?object_id=${po.id}&environment_id=${portal.environment_id}&limit=12`) })
-      .then(data => { if(data) setPeople((data?.records||data||[]).filter(r=>r.data?.person_type==='Employee'||!r.data?.person_type)) })
-      .catch(()=>{})
-  }, [portal?.environment_id])
-  return (
-    <div>
-      {cfg.heading&&<h2 style={{ margin:'0 0 20px', fontSize:24, fontWeight:700, color:theme.textColor||'#0F1729', fontFamily:theme.headingFont||theme.fontFamily }}>{cfg.heading}</h2>}
-      <div style={{ display:'flex', flexWrap:'wrap', gap:20 }}>
-        {people.slice(0,8).map(p => {
-          const d=p.data||{}; const name=[d.first_name,d.last_name].filter(Boolean).join(' ')||d.email||'Team Member'
-          const initials=name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()
-          return (
-            <div key={p.id} style={{ textAlign:'center', width:100 }}>
-              <div style={{ width:72, height:72, borderRadius:'50%', background:`${theme.primaryColor}18`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 8px', fontSize:22, fontWeight:700, color:theme.primaryColor, overflow:'hidden' }}>
-                {d.photo?<img src={d.photo} style={{ width:'100%', height:'100%', borderRadius:'50%', objectFit:'cover' }}/>:initials}
-              </div>
-              <div style={{ fontSize:12, fontWeight:700, color:theme.textColor||'#0F1729', fontFamily:theme.fontFamily }}>{name}</div>
-              {d.current_title&&<div style={{ fontSize:11, color:theme.textColor||'#6B7280', opacity:0.6, fontFamily:theme.fontFamily }}>{d.current_title}</div>}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-const FormWidget = ({ cfg, theme }) => {
-  const inp = { width:'100%', padding:'10px 14px', borderRadius:theme.borderRadius||8, border:'1.5px solid #E8ECF8', fontSize:14, fontFamily:theme.fontFamily, outline:'none', boxSizing:'border-box', marginBottom:12 }
-  return (
-    <div style={{ maxWidth:480 }}>
-      {cfg.title&&<h3 style={{ margin:'0 0 20px', fontSize:20, fontWeight:700, color:theme.textColor||'#0F1729', fontFamily:theme.headingFont||theme.fontFamily }}>{cfg.title}</h3>}
-      <input placeholder="Your name" style={inp}/>
-      <input placeholder="Email address" type="email" style={inp}/>
-      <textarea placeholder="Message" rows={4} style={{ ...inp, resize:'vertical' }}/>
-      <button style={{ ...getButtonStyle(theme), border:'none', cursor:'pointer', fontFamily:theme.fontFamily, fontSize:14, fontWeight:700 }}>Send</button>
-    </div>
-  )
-}
-
-
-const MultistepFormWidget = ({ cfg, theme, portal, api, track }) => {
-  const steps = cfg.steps||[];
-  const [currentStep,setCurrentStep]=useState(0);
-  const [values,setValues]=useState({});
-  const [errors,setErrors]=useState({});
-  const [done,setDone]=useState(false);
-  const [submitting,setSub]=useState(false);
-  const step=steps[currentStep]; const isLast=currentStep===steps.length-1;
-  const btnStyle=getButtonStyle(theme);
-  const setValue=(id,val)=>setValues(v=>({...v,[id]:val}));
-  const validate=()=>{const e={};(step?.fields||[]).forEach(f=>{if(f.required&&!values[f.id])e[f.id]='Required';if(f.type==='email'&&values[f.id]&&!/\S+@\S+\.\S+/.test(values[f.id]))e[f.id]='Invalid email';});setErrors(e);return!Object.keys(e).length;};
-  const handleNext=()=>{if(!validate())return;if(currentStep===0)track&&track('form_start',{form:cfg.formTitle});if(isLast)handleSubmit();else setCurrentStep(s=>s+1);};
-  const handleSubmit=async()=>{if(!validate())return;setSub(true);try{const fm={};steps.forEach(s=>s.fields?.forEach(f=>{fm[f.id]=f.label;}));const nv=Object.fromEntries(Object.entries(values).map(([k,v])=>[fm[k]||k,v]));if(portal?.id){await api.post(`/portals/${portal.id}/apply`,{first_name:values[steps[0]?.fields?.find(f=>f.type==='text'&&f.label?.toLowerCase().includes('first'))?.id]||'',last_name:values[steps[0]?.fields?.find(f=>f.type==='text'&&f.label?.toLowerCase().includes('last'))?.id]||'',email:values[steps.flatMap(s=>s.fields||[]).find(f=>f.type==='email')?.id]||'',cover_note:JSON.stringify(nv,null,2)}).catch(()=>{});}track&&track('form_complete',{form:cfg.formTitle});setDone(true);}catch{}setSub(false);};
-  if(done)return(<div style={{textAlign:'center',padding:'48px 24px'}}><Icon path={ICONS.check} size={56} color={theme.primaryColor} style={{marginBottom:16}}/><h3 style={{fontSize:22,fontWeight:800,color:theme.textColor||'#0F1729',margin:'0 0 8px',fontFamily:theme.headingFont||theme.fontFamily}}>{cfg.successMessage||"Thank you! We'll be in touch."}</h3></div>);
-  if(!steps.length)return(<div style={{padding:'32px 24px',textAlign:'center',color:theme.textColor||'#9CA3AF',opacity:0.5,fontFamily:theme.fontFamily}}>No form steps configured.</div>);
-  const progress=Math.round((currentStep/steps.length)*100);
-  return(<div style={{maxWidth:560,margin:'0 auto',fontFamily:theme.fontFamily}}>
-    {cfg.formTitle&&<h2 style={{margin:'0 0 20px',fontSize:24,fontWeight:theme.headingWeight||700,color:theme.textColor||'#0F1729',fontFamily:theme.headingFont||theme.fontFamily}}>{cfg.formTitle}</h2>}
-    {steps.length>1&&(<div style={{marginBottom:24}}>
-      <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
-        {steps.map((s,i)=>(<div key={i} style={{flex:1,textAlign:'center',position:'relative'}}>
-          {i>0&&<div style={{position:'absolute',top:12,right:'50%',left:'-50%',height:2,background:i<=currentStep?theme.primaryColor:'#E8ECF8',zIndex:0}}/>}
-          <div style={{width:26,height:26,borderRadius:'50%',margin:'0 auto 5px',display:'flex',alignItems:'center',justifyContent:'center',position:'relative',zIndex:1,background:i<currentStep?theme.primaryColor:i===currentStep?theme.primaryColor:'#E8ECF8',color:i<=currentStep?'#fff':'#9CA3AF',fontSize:11,fontWeight:700}}>{i<currentStep?'✓':i+1}</div>
-          <div style={{fontSize:11,color:i===currentStep?theme.primaryColor:'#9CA3AF',fontWeight:i===currentStep?700:400}}>{s.title}</div>
-        </div>))}
-      </div>
-      <div style={{height:4,background:'#E8ECF8',borderRadius:2,overflow:'hidden'}}>
-        <div style={{width:progress+'%',height:'100%',background:theme.primaryColor,borderRadius:2,transition:'width .3s'}}/>
-      </div>
-    </div>)}
-    <div style={{marginBottom:20}}>
-      {(step?.fields||[]).map(f=>{const err=errors[f.id];const val=values[f.id]||'';const opts=(f.options||'').split(',').map(o=>o.trim()).filter(Boolean);const fi={width:'100%',padding:'10px 14px',borderRadius:theme.borderRadius||8,border:`1.5px solid ${err?'#EF4444':'#E8ECF8'}`,fontSize:14,fontFamily:theme.fontFamily,outline:'none',boxSizing:'border-box',color:theme.textColor||'#0F1729',marginTop:4};
-        return(<div key={f.id} style={{marginBottom:14}}>
-          <label style={{fontSize:13,fontWeight:600,color:theme.textColor||'#374151',fontFamily:theme.fontFamily,display:'block'}}>{f.label}{f.required&&<span style={{color:'#EF4444',marginLeft:2}}>*</span>}</label>
-          {f.type==='textarea'&&<textarea value={val} onChange={e=>setValue(f.id,e.target.value)} placeholder={f.placeholder} rows={3} style={{...fi,resize:'vertical'}}/>}
-          {f.type==='select'&&<select value={val} onChange={e=>setValue(f.id,e.target.value)} style={fi}><option value="">Select…</option>{opts.map(o=><option key={o}>{o}</option>)}</select>}
-          {f.type==='radio'&&<div style={{marginTop:6}}>{opts.map(o=><label key={o} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,fontSize:13,color:theme.textColor||'#374151',cursor:'pointer'}}><input type="radio" name={f.id} value={o} checked={val===o} onChange={()=>setValue(f.id,o)}/>{o}</label>)}</div>}
-          {f.type==='checkbox'&&<div style={{marginTop:6}}>{opts.map(o=><label key={o} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,fontSize:13,color:theme.textColor||'#374151',cursor:'pointer'}}><input type="checkbox" checked={(val||[]).includes(o)} onChange={e=>{const c=val||[];setValue(f.id,e.target.checked?[...c,o]:c.filter(x=>x!==o));}}/>{o}</label>)}</div>}
-          {f.type==='file'&&<input type="file" onChange={e=>setValue(f.id,e.target.files[0]?.name)} style={{...fi,padding:'8px'}}/>}
-          {!['textarea','select','radio','checkbox','file'].includes(f.type)&&<input type={f.type} value={val} onChange={e=>setValue(f.id,e.target.value)} placeholder={f.placeholder} style={fi}/>}
-          {err&&<div style={{fontSize:11,color:'#EF4444',marginTop:3}}>{err}</div>}
-        </div>);
-      })}
-    </div>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-      {currentStep>0?<button onClick={()=>setCurrentStep(s=>s-1)} style={{background:'none',border:'none',cursor:'pointer',color:theme.primaryColor,fontWeight:600,fontSize:14,fontFamily:theme.fontFamily,display:'flex',alignItems:'center',gap:6}}><Icon path={ICONS.arrowLeft} size={14} color={theme.primaryColor}/> Back</button>:<div/>}
-      <button onClick={handleNext} disabled={submitting} style={{...btnStyle,border:'none',cursor:'pointer',fontFamily:theme.fontFamily,fontSize:14,fontWeight:700,opacity:submitting?0.6:1}}>{submitting?'Submitting…':isLast?(cfg.submitText||'Submit'):'Next →'}</button>
-    </div>
-  </div>);
+  );
 };
-
 // ── Testimonials Widget ──────────────────────────────────────────────────────
 const TestimonialsWidget = ({ cfg, theme }) => {
   const [active, setActive] = useState(0);

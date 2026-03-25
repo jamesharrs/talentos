@@ -280,7 +280,9 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     footer2:"M3 3h18v4H3zM3 17h18v4H3zM3 10h18v4H3z",
     externalLink:"M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3",
     monitor:"M20 3H4a1 1 0 00-1 1v12a1 1 0 001 1h7v2H8v2h8v-2h-3v-2h7a1 1 0 001-1V4a1 1 0 00-1-1zm-1 12H5V5h14v10z",
-    smartphone:"M17 1H7a2 2 0 00-2 2v18a2 2 0 002 2h10a2 2 0 002-2V3a2 2 0 00-2-2zm0 18H7V5h10v14zm-5 2a1 1 0 100-2 1 1 0 000 2z",
+    smartphone:"M17 1H7a2 2 0 00-2 2v18a2 2 0 002 2h10a2 2 0 002-2V3a2 2 0 00-2-2zm0 18H7V5h10v14zm-5 2a1 1 0 100-2 1 1 0 000 2z",    more:"M12 13a1 1 0 100-2 1 1 0 000 2zM19 13a1 1 0 100-2 1 1 0 000 2zM5 13a1 1 0 100-2 1 1 0 000 2z",    "play-circle":"M12 22a10 10 0 100-20 10 10 0 000 20zM10 8l6 4-6 4V8z",
+
+
     film:"M19.82 2H4.18A2.18 2.18 0 002 4.18v15.64A2.18 2.18 0 004.18 22h15.64A2.18 2.18 0 0022 19.82V4.18A2.18 2.18 0 0019.82 2zM7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5",
     bookmark:"M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z",
     sparkles:"M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5zM5 3l.6 1.8L7.4 5.4 5.6 6l-.6 1.8L4.4 6l-1.8-.6L4.4 4.8zM19 15l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6z",
@@ -369,7 +371,10 @@ const ThemeDrawer = ({ theme, onChange, onClose }) => {
           <Ic n="palette" s={16} c={C.accent}/>
           <span style={{fontSize:15,fontWeight:800,color:C.text1}}>Design Tokens</span>
         </div>
-        <button onClick={onClose} style={{background:C.surface2,border:`1px solid ${C.border}`,borderRadius:6,
+        <button onClick={()=>{
+          if(isDirty&&!window.confirm("You have unsaved changes. Leave without saving?")){return;}
+          onClose();
+        }} style={{background:C.surface2,border:`1px solid ${C.border}`,borderRadius:6,
           cursor:"pointer",color:C.text2,padding:"5px 10px",display:"flex",alignItems:"center",gap:4,
           fontSize:12,fontWeight:600,fontFamily:F}}>
           <Ic n="x" s={12}/> Close
@@ -681,17 +686,21 @@ const WidgetPreview = ({ cell, theme }) => {
   if (cell.widgetType==="hero") return (
     <div style={{
       padding:"32px 24px", textAlign: cfg.align||"center",
-      background: cfg.bgImage ? `url(${cfg.bgImage}) center/cover no-repeat`
+      background: cfg.videoUrl ? "#0F1729"
+        : cfg.bgImage ? `url(${cfg.bgImage}) center/cover no-repeat`
         : `linear-gradient(135deg,${t.primaryColor}18,${t.secondaryColor}0a)`,
-      position:"relative", borderRadius:8, overflow:"hidden"
+      position:"relative", borderRadius:8, overflow:"hidden", minHeight: cfg.videoUrl ? 180 : "auto"
     }}>
-      {cfg.bgImage&&(cfg.overlayOpacity||0)>0&&<div style={{position:"absolute",inset:0,background:`rgba(0,0,0,${(cfg.overlayOpacity||0)/100})`}}/>}
-      <div style={{position:"relative"}}>
+      {cfg.videoUrl&&<video src={cfg.videoUrl} autoPlay loop muted playsInline
+        style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:cfg.videoFit||"cover",zIndex:0}}/>}
+      {cfg.videoUrl&&cfg.videoOverlayDarken&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1}}/>}
+      {!cfg.videoUrl&&cfg.bgImage&&(cfg.overlayOpacity||0)>0&&<div style={{position:"absolute",inset:0,background:`rgba(0,0,0,${(cfg.overlayOpacity||0)/100})`}}/>}
+      <div style={{position:"relative",zIndex:2}}>
         {cfg.eyebrow&&<div style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:t.primaryColor,marginBottom:8,fontFamily:t.fontFamily}}>{cfg.eyebrow}</div>}
-        <div style={{fontSize:20,fontWeight:parseInt(t.headingWeight)||700,color: cfg.bgImage&&(cfg.overlayOpacity||0)>20?"#fff":t.textColor,fontFamily:t.headingFont,marginBottom:6}}>
+        <div style={{fontSize:20,fontWeight:parseInt(t.headingWeight)||700,color: cfg.videoUrl||( cfg.bgImage&&(cfg.overlayOpacity||0)>20)?"#fff":t.textColor,fontFamily:t.headingFont,marginBottom:6}}>
           {cfg.headline||"Your Compelling Headline"}
         </div>
-        <div style={{fontSize:12,color: cfg.bgImage&&(cfg.overlayOpacity||0)>20?"rgba(255,255,255,.8)":t.textColor,opacity:0.65,marginBottom:14,fontFamily:t.fontFamily,lineHeight:1.6}}>
+        <div style={{fontSize:12,color: cfg.videoUrl||(cfg.bgImage&&(cfg.overlayOpacity||0)>20)?"rgba(255,255,255,.8)":t.textColor,opacity:0.65,marginBottom:14,fontFamily:t.fontFamily,lineHeight:1.6}}>
           {cfg.subheading||"A short description that tells visitors what to expect here."}
         </div>
         <div style={{display:"flex",gap:8,justifyContent:cfg.align==="center"?"center":"flex-start",flexWrap:"wrap"}}>
@@ -1006,6 +1015,19 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
     switch (cell.widgetType) {
       case "hero": return (
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          <div style={{borderBottom:`1px solid ${C.border}`,paddingBottom:12,marginBottom:4}}>
+            {lbl("Video background")}
+            <input value={cfg.videoUrl||""} onChange={e=>set("videoUrl",e.target.value)} placeholder="https://example.com/video.mp4" style={inp}/>
+            <div style={{fontSize:10,color:C.text3,marginTop:4}}>MP4 or WebM URL. Overrides the background image when set. Video loops silently.</div>
+            {cfg.videoUrl&&<div style={{display:"flex",gap:8,marginTop:6}}>
+              <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:C.text2,cursor:"pointer"}}>
+                <input type="checkbox" checked={!!cfg.videoOverlayDarken} onChange={e=>set("videoOverlayDarken",e.target.checked)}/> Darken overlay
+              </label>
+              <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:C.text2,cursor:"pointer"}}>
+                <input type="checkbox" checked={cfg.videoFit!=="contain"} onChange={e=>set("videoFit",e.target.checked?"cover":"contain")}/> Cover (crop to fill)
+              </label>
+            </div>}
+          </div>
           <div>{lbl("Eyebrow text")}<input value={cfg.eyebrow||""} onChange={e=>set("eyebrow",e.target.value)} placeholder="We're hiring" style={inp}/></div>
           <div>{lbl("Headline")}<input value={cfg.headline||""} onChange={e=>set("headline",e.target.value)} placeholder="Your Compelling Headline" style={inp}/></div>
           <div>{lbl("Subheading")}<textarea value={cfg.subheading||""} onChange={e=>set("subheading",e.target.value)} rows={3} placeholder="A short description…" style={{...inp,resize:"vertical"}}/></div>
@@ -2342,6 +2364,7 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
     return () => window.removeEventListener('talentos:portal-force-save', handler);
   }, []);
   const [activePageIdx, setActivePageIdx] = useState(0);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showTheme,       setShowTheme]       = useState(false);
   const [showLibrary,     setShowLibrary]     = useState(false);
 
@@ -2352,6 +2375,8 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
   const [isEditing, setIsEditing] = useState(true);
   const [viewportMode, setViewportMode] = useState("desktop"); // "desktop" | "mobile"
   const [saving, setSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const savedSnapshotRef = React.useRef(null);
 
   const page = portal.pages[activePageIdx]||portal.pages[0];
 
@@ -2376,6 +2401,25 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
     setPageActionsFor(null);
   };
 
+  // Track dirty state
+  React.useEffect(() => {
+    if (!savedSnapshotRef.current) {
+      savedSnapshotRef.current = portalSnapshot(portal);
+      return;
+    }
+    const current = portalSnapshot(portal);
+    setIsDirty(current !== savedSnapshotRef.current);
+  }, [portal, portalSnapshot]);
+
+  // Warn on browser close/reload if dirty
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (isDirty) { e.preventDefault(); e.returnValue = ''; }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
   const handleSave = async () => {
     const latest = portalRef.current;
     setSaving(true);
@@ -2386,17 +2430,18 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
   return (
     <div style={{display:"flex",flexDirection:"column",height:"100vh",fontFamily:F,background:C.bg}}>
       {/* Top bar */}
-      <div style={{height:52,background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:0,flexShrink:0,padding:"0 16px"}}>
+      <div style={{height:48,background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:0,flexShrink:0,padding:"0 12px",overflow:"hidden"}}>
         <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:C.text3,display:"flex",alignItems:"center",gap:5,padding:"4px 8px",borderRadius:6,fontFamily:F,fontSize:13}}
           onMouseEnter={e=>e.currentTarget.style.color=C.text1} onMouseLeave={e=>e.currentTarget.style.color=C.text3}>
           <Ic n="arrowL" s={14}/> Portals
         </button>
         <div style={{width:1,height:24,background:C.border,margin:"0 12px"}}/>
         <input value={portal.name} onChange={e=>setPortal(p=>({...p,name:e.target.value}))}
-          style={{border:"none",outline:"none",fontSize:14,fontWeight:700,color:C.text1,background:"transparent",fontFamily:F,minWidth:160}}/>
+          style={{border:"none",outline:"none",fontSize:14,fontWeight:700,color:C.text1,background:"transparent",fontFamily:F,minWidth:140}}/>
+        {isDirty&&<span style={{width:7,height:7,borderRadius:"50%",background:"#F59E0B",flexShrink:0,marginLeft:-4}} title="Unsaved changes"/>}
         <div style={{flex:1}}/>
         {/* Page tabs — draggable to reorder */}
-        <div style={{display:"flex",gap:2,background:C.surface2,borderRadius:8,padding:3,border:`1px solid ${C.border}`}}>
+        <div style={{display:"flex",gap:2,background:C.surface2,borderRadius:8,padding:3,border:`1px solid ${C.border}`,maxWidth:280,overflowX:"auto",flexShrink:0}}>
           {portal.pages.map((pg,i)=>(
             <button key={pg.id} onClick={()=>setActivePageIdx(i)}
               draggable
@@ -2436,29 +2481,43 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
             </div>
           )}
           <button onClick={()=>{setIsEditing(e=>!e);if(isEditing)setViewportMode("desktop");}}
-            style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,
+            style={{display:"flex",alignItems:"center",gap:5,padding:"4px 9px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,
               border:`1px solid ${C.border}`,background:isEditing?C.accentLight:"transparent",color:isEditing?C.accent:C.text2}}>
             <Ic n="eye" s={12} c={isEditing?C.accent:C.text2}/>{isEditing?"Editing":"Preview"}
           </button>
-          <button onClick={()=>setShowBrandKit(true)}
-            style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,border:`1px solid ${C.border}`,background:"transparent",color:C.text2}}>
-            <Ic n="sparkles" s={12} c={C.text2}/>Brand
-          </button>
-          <button onClick={()=>setShowDomainWizard(true)}
-            style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,border:`1px solid ${C.border}`,background:"transparent",color:C.text2}}>
-            <Ic n="externalLink" s={12} c={C.text2}/>Domain
-          </button>
-          <button onClick={()=>{setShowPortalSettings(s=>!s);setShowTheme(false);}}
-            style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,border:`1px solid ${C.border}`,background:showPortalSettings?C.accentLight:"transparent",color:showPortalSettings?C.accent:C.text2}}>
-            <Ic n="settings" s={12} c={showPortalSettings?C.accent:C.text2}/>Settings
-          </button>
+          {/* More menu — Brand, Domain, Settings */}
+          <div style={{position:"relative"}}>
+            <button onClick={()=>setShowMoreMenu(m=>!m)}
+              style={{display:"flex",alignItems:"center",gap:4,padding:"5px 9px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,border:`1px solid ${C.border}`,background:showMoreMenu?C.accentLight:"transparent",color:showMoreMenu?C.accent:C.text2}}>
+              <Ic n="more" s={13} c={showMoreMenu?C.accent:C.text2}/>
+            </button>
+            {showMoreMenu&&<>
+              <div onClick={()=>setShowMoreMenu(false)} style={{position:"fixed",inset:0,zIndex:299}}/>
+              <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,background:C.surface,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,.15)",border:`1px solid ${C.border}`,zIndex:300,minWidth:160,padding:4}}>
+                {[
+                  {icon:"sparkles",label:"Brand Kit",onClick:()=>{setShowBrandKit(true);setShowMoreMenu(false);}},
+                  {icon:"externalLink",label:"Domain",onClick:()=>{setShowDomainWizard(true);setShowMoreMenu(false);}},
+                  {icon:"settings",label:"Settings",onClick:()=>{setShowPortalSettings(s=>!s);setShowTheme(false);setShowMoreMenu(false);}},
+                ].map(item=>(
+                  <button key={item.label} onClick={item.onClick}
+                    style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:7,border:"none",background:"transparent",cursor:"pointer",fontFamily:F,fontSize:12,fontWeight:500,color:C.text1,textAlign:"left"}}
+                    onMouseEnter={e=>{e.currentTarget.style.background=C.surface2;}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+                    <Ic n={item.icon} s={13} c={C.text2}/>{item.label}
+                  </button>
+                ))}
+              </div>
+            </>}
+          </div>
+          
+          
           <button onClick={()=>{setShowTheme(s=>!s);}}
-            style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,
+            style={{display:"flex",alignItems:"center",gap:5,padding:"4px 9px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,
               border:`1px solid ${C.border}`,background:showTheme?C.accentLight:"transparent",color:showTheme?C.accent:C.text2}}>
             <Ic n="palette" s={12} c={showTheme?C.accent:C.text2}/>Theme
           </button>
           <Btn v="secondary" s="sm" icon="library" onClick={()=>setShowLibrary(true)}>Sections</Btn>
-          <Btn v="primary" s="sm" onClick={handleSave} disabled={saving}>{saving?"Saving…":"Save"}</Btn>
+          <Btn v="primary" s="sm" onClick={handleSave} disabled={saving}>{saving?"Saving…":isDirty?"Save":"Saved ✓"}</Btn>
           <Btn v={portal.status==="published"?"success":"secondary"} s="sm"
             onClick={async ()=>{
               const newStatus = portal.status==="published"?"draft":"published";
@@ -2475,7 +2534,7 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
             <button onClick={()=>{
               const slug = (portal.slug||'').replace(/^\/+/,'');
               window.open(`${window.location.origin}/${slug}`,'_blank');
-            }} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,border:`1px solid ${C.green}`,background:C.greenLight,color:C.green}}>
+            }} style={{display:"flex",alignItems:"center",gap:5,padding:"4px 9px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:600,border:`1px solid ${C.green}`,background:C.greenLight,color:C.green}}>
               <Ic n="eye" s={11} c={C.green}/>View Live
             </button>
           )}

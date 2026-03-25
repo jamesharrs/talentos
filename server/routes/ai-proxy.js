@@ -25,7 +25,16 @@ router.post('/chat', async (req, res) => {
     });
 
     const data = await response.json();
-    if (data.error) return res.status(400).json({ error: data.error.message });
+    if (data.error) {
+      console.error('[AI proxy] Anthropic error:', response.status, data.error);
+      const msg = data.error.message || 'AI service error';
+      const detail = response.status === 401
+        ? 'Invalid API key. Check ANTHROPIC_API_KEY in Railway environment variables.'
+        : response.status === 429
+        ? 'Rate limited or insufficient credits. Check your Anthropic account balance.'
+        : msg;
+      return res.status(response.status || 400).json({ error: detail, anthropic_status: response.status, raw: data.error.type });
+    }
     // Track AI usage
     try {
       const b = req.body || {};
@@ -45,6 +54,17 @@ router.post('/chat', async (req, res) => {
     console.error('AI proxy error:', err);
     res.status(500).json({ error: 'Failed to reach AI service' });
   }
+});
+
+// Diagnostic: check if AI is configured (no key revealed)
+router.get('/status', (req, res) => {
+  const key = process.env.ANTHROPIC_API_KEY || '';
+  res.json({
+    configured: key.length > 10,
+    key_prefix: key ? key.slice(0, 10) + '...' : 'NOT SET',
+    key_length: key.length,
+    model: 'claude-sonnet-4-20250514',
+  });
 });
 
 module.exports = router;

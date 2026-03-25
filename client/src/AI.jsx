@@ -741,9 +741,16 @@ FORM RULES:
 
 
 PORTAL CREATION INSTRUCTIONS:
-When a user wants to create a portal or career site, BUILD IT IMMEDIATELY. Do NOT just describe what they should do — actually generate the <CREATE_PORTAL> block with the full portal structure.
+When a user wants to create a portal or career site, you MUST actually build it by outputting a <CREATE_PORTAL> block — NEVER just describe steps or give instructions.
 
-IMPORTANT: If the user describes what they want (e.g. "career site with benefits, jobs, and talent community"), you have enough information. Generate the portal NOW. Do not ask clarifying questions unless the request is genuinely ambiguous. Use sensible defaults for anything not specified.
+CONVERSATION FLOW:
+- If the user gives specific details (sections, company name, style): generate the <CREATE_PORTAL> block immediately in ONE response.
+- If the user says something vague like "create a career site": ask 2-3 quick questions in ONE message:
+  1. What is the company/brand name?
+  2. What sections do you want? (suggest: Hero, Benefits, Diversity, Jobs, Talent Community signup)
+  3. Any brand colours? (offer to use defaults if not)
+  Then in your NEXT response, generate the full <CREATE_PORTAL> block.
+- NEVER give step-by-step instructions telling the user to click buttons in the UI. YOU build the portal.
 
 Available section widget types for cells:
   - hero: Hero banner. Config: {headline, subheading, ctaText, ctaHref}
@@ -2251,11 +2258,12 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
       setMessages(m => [...m, {
         role: "assistant",
-        content: `✅ **${portal.name}** portal created as a draft! It has ${pages.length} page${pages.length !== 1 ? "s" : ""} with ${widgetCount} widget${widgetCount !== 1 ? "s" : ""}. Go to Settings → Portals to preview and publish it.`,
+        content: `✅ **${portal.name || pendingPortal.name || "New Portal"}** portal created as a draft! It has ${pages.length} page${pages.length !== 1 ? "s" : ""} with ${widgetCount} widget${widgetCount !== 1 ? "s" : ""}. Go to Settings → Portals to preview and publish it.`,
         ts: new Date(),
         createdNav: {
           label: portal.name,
           nav: "settings",
+          settingsSection: "portals",
           icon: "globe",
           color: pendingPortal.theme?.primaryColor || "#4361EE",
           sub: `${pendingPortal.type?.replace(/_/g, " ")} · ${pageSummary}`,
@@ -2309,7 +2317,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         created_by:     'Copilot',
       });
       setMessages(m=>[...m,{role:"assistant",content:`✅ **${form.name}** created`,ts:new Date(),
-        createdNav:{ label:`${form.name}`, nav:"settings", icon:"form", color:"#0caf77", sub:`${fields.length} field${fields.length!==1?'s':''}` }
+        createdNav:{ label:`${form.name}`, nav:"settings", settingsSection:"forms", icon:"form", color:"#0caf77", sub:`${fields.length} field${fields.length!==1?'s':''}` }
       }]);
       setPendingForm(null);
     } catch(err) {
@@ -2545,7 +2553,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                 {/* Created nav link (for workflows, forms, roles) */}
                 {msg.role==="assistant"&&msg.createdNav&&(
                   <div style={{marginTop:8,marginLeft:34}}>
-                    <div onClick={()=>window.dispatchEvent(new CustomEvent("talentos:navigate",{detail:msg.createdNav.nav}))}
+                    <div onClick={()=>{if(msg.createdNav.settingsSection)sessionStorage.setItem("talentos_settings_section",msg.createdNav.settingsSection);window.dispatchEvent(new CustomEvent("talentos:navigate",{detail:msg.createdNav.nav}));setOpen(false);}}
                       style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",background:"white",borderRadius:10,border:`1.5px solid ${msg.createdNav.color||C.ai}40`,cursor:"pointer",transition:"all .12s"}}
                       onMouseEnter={e=>{e.currentTarget.style.background=`${msg.createdNav.color||C.ai}08`;e.currentTarget.style.borderColor=`${msg.createdNav.color||C.ai}70`;}}
                       onMouseLeave={e=>{e.currentTarget.style.background="white";e.currentTarget.style.borderColor=`${msg.createdNav.color||C.ai}40`;}}>

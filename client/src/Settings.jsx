@@ -2465,6 +2465,20 @@ export default function SettingsPage({ currentUser, environment, initialSection,
     setActiveSectionState(id);
     if (onSectionChange) onSectionChange(id);
   };
+  // Read section hint from Copilot navigation (on mount + on re-navigate)
+  useEffect(() => {
+    const checkHint = () => {
+      const hint = sessionStorage.getItem("talentos_settings_section");
+      if (hint) {
+        sessionStorage.removeItem("talentos_settings_section");
+        setActiveSection(hint);
+      }
+    };
+    checkHint(); // check on mount
+    const handler = () => setTimeout(checkHint, 50); // check after navigate event
+    window.addEventListener("talentos:navigate", handler);
+    return () => window.removeEventListener("talentos:navigate", handler);
+  }, []);
   const [search, setSearch]               = useState("");
   const [collapsed, setCollapsed]         = useState({});
   const [sideCollapsed, setSideCollapsed] = useState(

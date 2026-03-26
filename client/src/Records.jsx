@@ -4856,6 +4856,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   }, [record?.id, environment?.id, objectName]);
   const [tab, setTab]           = useState("fields");
   const [editing, setEditing]   = useState({});
+  const [globalEdit, setGlobalEdit] = useState(false);
   const [notes, setNotes]       = useState([]);
   const [attachments, setAttachments] = useState([]);
   const [activity, setActivity] = useState([]);
@@ -5014,6 +5015,44 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const handleSaveField = async (key, oldValue) => {
     if (!editing.hasOwnProperty(key)) return;
     await handleSaveFieldValue(key, oldValue, editing[key]);
+  };
+
+  // ── Global edit mode: open all visible fields at once ────────────────────
+  const handleEnterGlobalEdit = () => {
+    const allFields = visibleFields || fields;
+    const snapshot = {};
+    allFields.forEach(f => { snapshot[f.api_key] = record.data?.[f.api_key] ?? ""; });
+    setEditing(snapshot);
+    setGlobalEdit(true);
+  };
+  const handleCancelGlobalEdit = () => {
+    setEditing({});
+    setGlobalEdit(false);
+  };
+  const handleSaveAllFields = async () => {
+    setSaving(true);
+    const changes = [];
+    for (const [key, newVal] of Object.entries(editing)) {
+      const oldVal = record.data?.[key];
+      const oldStr = oldVal === null || oldVal === undefined ? "" : String(oldVal);
+      const newStr = newVal === null || newVal === undefined ? "" : String(newVal);
+      if (oldStr !== newStr) {
+        const fieldDef = fields.find(f => f.api_key === key);
+        changes.push({ field_key:key, field_name:fieldDef?.name||key, old_value:oldVal, new_value:newVal });
+      }
+    }
+    if (changes.length > 0) {
+      const dataPayload = {};
+      changes.forEach(c => { dataPayload[c.field_key] = editing[c.field_key]; });
+      const updated = await api.patch(`/records/${record.id}`, {
+        data: dataPayload, updated_by:"Admin", field_changes: changes
+      });
+      onUpdate(updated);
+      load();
+    }
+    setEditing({});
+    setGlobalEdit(false);
+    setSaving(false);
   };
   const handleDeleteNote = async (id) => { await api.del(`/notes/${id}`); load(); };
   const handleAddAttachment = async () => {
@@ -5906,9 +5945,35 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         <div style={{ width:`${leftPct}%`, flexShrink:0, background:"#F4F6FB", display:"flex", flexDirection:"column", overflow:"auto", padding:"16px 0 24px 16px" }}>
           <div style={{ background:C.surface, border:`1.5px solid ${C.border}`, borderRadius:14, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,.04)" }}>
             <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px", borderBottom:`1px solid ${C.border}` }}>
-              <Ic n="edit" s={14} c={C.accent}/>
+              <Ic n="edit" s={14} c={globalEdit ? C.accent : C.text3}/>
               <span style={{ flex:1, fontSize:13, fontWeight:700, color:C.text1 }}>Profile Fields</span>
-              <span style={{ fontSize:11, color:C.text3 }}>Click any field to edit</span>
+              {globalEdit ? (
+                <div style={{ display:"flex", gap:6 }}>
+                  <button onClick={handleCancelGlobalEdit}
+                    style={{ padding:"4px 10px", borderRadius:7, border:`1px solid ${C.border}`,
+                      background:"transparent", color:C.text2, fontSize:12, fontWeight:600,
+                      cursor:"pointer", fontFamily:F }}>
+                    Cancel
+                  </button>
+                  <button onClick={handleSaveAllFields} disabled={saving}
+                    style={{ padding:"4px 12px", borderRadius:7, border:"none",
+                      background:C.accent, color:"white", fontSize:12, fontWeight:700,
+                      cursor:"pointer", fontFamily:F, opacity: saving ? 0.6 : 1 }}>
+                    {saving ? "Saving…" : "Save all"}
+                  </button>
+                </div>
+              ) : (
+                <button onClick={handleEnterGlobalEdit}
+                  title="Edit all fields"
+                  style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 10px",
+                    borderRadius:7, border:`1px solid ${C.border}`, background:"transparent",
+                    color:C.text2, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F,
+                    transition:"all .12s" }}
+                  onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; e.currentTarget.style.background=C.accentLight; }}
+                  onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.text2; e.currentTarget.style.background="transparent"; }}>
+                  <Ic n="edit" s={11} c="currentColor"/> Edit
+                </button>
+              )}
             </div>
             <div style={{ padding:"16px" }}>
               {fieldsPanelJSX}

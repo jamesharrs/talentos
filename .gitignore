@@ -14,5 +14,6 @@ yarn-debug.log*
 yarn-error.log*
 server/talentos
 server/talentos.json
+data/talentos.json
 _deploy_scripts/
 server/uploads/

@@ -6357,12 +6357,35 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
       {/* Records tab */}
       {activeTab === "records" && <>
 
-      {/* Filter bar — always visible in records tab */}
-      {fields.length > 0 && (
-        <div style={{ marginBottom:10 }}>
-          <FilterBar fields={fields} filters={activeFilters} onChange={f => { setActiveFilters(f); setActiveListName(null); }}/>
+      {/* Active filter chips — click chip to edit, x to remove */}
+      {activeFilters.length > 0 && (
+        <div style={{ marginBottom:8 }}>
+          <FilterBar
+            fields={fields}
+            filters={activeFilters}
+            onEditFilter={handleEditFilter}
+            onRemoveFilter={id => { setActiveFilters(prev => prev.filter(f => f.id !== id)); setActiveListName(null); }}
+          />
         </div>
       )}
+
+      {/* Column filter popover (portal) */}
+      {editingFilter && (() => {
+        const field = fields.find(f => f.id === editingFilter.fieldId);
+        return field ? (
+          <ColumnFilterPopover
+            field={field}
+            filterId={editingFilter.filterId}
+            initialOp={editingFilter.op}
+            initialVal={editingFilter.value}
+            rect={editingFilter.rect}
+            onApply={handleApplyFilter}
+            onClear={handleClearFilter}
+            onClose={() => setEditingFilter(null)}
+          />
+        ) : null;
+      })()}
+
 
       {/* Bulk confirm modal */}
       {bulkConfirm && (
@@ -6389,21 +6412,15 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
           total={displayedRecords.length}
           fields={fields}
           onSelectAll={() => setSelectedIds(new Set(displayedRecords.map(r => r.id)))}
-          onClearAll={() => { setSelectedIds(new Set()); setSelectAllMatching(false); }}
+          onClearAll={() => setSelectedIds(new Set())}
           onDelete={() => guardedBulkAction("delete")}
           onEdit={(fieldId, value) => guardedBulkAction("edit", { fieldId, value })}
           onCompare={selectedIds.size >= 2 && selectedIds.size <= 5 ? () => setShowCompare(true) : null}
-          hasActiveFilters={activeFilters.length > 0}
-          totalFilteredCount={totalFilteredCount}
-          selectAllMatching={selectAllMatching}
-          onSelectAllMatching={() => setSelectAllMatching(true)}
-          onClearSelectAll={() => setSelectAllMatching(false)}
-          session={session}
         />
       )}
 
       {/* Content */}
-      <div style={{ background:C.surface, borderRadius:14, border:`1px solid ${C.border}`, overflowX:"auto" }}>
+      <div style={{ flex:1, background:C.surface, borderRadius:14, border:`1px solid ${C.border}`, overflow:"hidden" }}>
         {loading ? (
           <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:C.text3 }}>Loading…</div>
         ) : (
@@ -6417,6 +6434,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
             onToggleSelect={id => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })}
             onToggleAll={() => setSelectedIds(prev => prev.size === displayedRecords.length ? new Set() : new Set(displayedRecords.map(r => r.id)))}
             sortBy={sortBy} sortDir={sortDir} onSort={handleSort}
+            activeFilters={activeFilters}
             onColumnFilter={handleColumnFilter}
             colWidths={colWidths} onResizeCol={handleResizeCol}
             visibleColOrder={visibleColOrder} onReorderCols={setVisibleColOrder}

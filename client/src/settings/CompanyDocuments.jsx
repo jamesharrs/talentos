@@ -54,7 +54,9 @@ export default function CompanyDocuments({ environment }) {
   const [showUpload, setShowUpload] = useState(false);
   const [editDoc, setEditDoc] = useState(null);
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
   const fileRef = useRef(null);
+  const dragCounter = useRef(0);
   const envId = environment?.id;
 
   const load = useCallback(async () => {
@@ -66,8 +68,7 @@ export default function CompanyDocuments({ environment }) {
   }, [envId]);
   useEffect(() => { load(); }, [load]);
 
-  const handleUpload = async (e) => {
-    const file = e.target.files?.[0];
+  const uploadFile = async (file) => {
     if (!file) return;
     setUploading(true);
     const fd = new FormData();
@@ -80,7 +81,18 @@ export default function CompanyDocuments({ environment }) {
     if (fileRef.current) fileRef.current.value = '';
     setUploading(false);
     setShowUpload(false);
+    setDragActive(false);
     load();
+  };
+
+  const handleUpload = (e) => uploadFile(e.target.files?.[0]);
+
+  const handleDragEnter = (e) => { e.preventDefault(); e.stopPropagation(); dragCounter.current++; setDragActive(true); };
+  const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); dragCounter.current--; if (dragCounter.current <= 0) { setDragActive(false); dragCounter.current = 0; }};
+  const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); };
+  const handleDrop = (e) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); dragCounter.current = 0;
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (files.length > 0) { files.forEach(f => uploadFile(f)); }
   };
 
   const handleDelete = async (id) => {
@@ -106,7 +118,18 @@ export default function CompanyDocuments({ environment }) {
   const inp = { fontFamily:F, fontSize:13, padding:'8px 12px', borderRadius:8, border:`1.5px solid ${C.border}`, outline:'none', width:'100%', boxSizing:'border-box', color:C.text1 };
 
   return (
-    <div>
+    <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} style={{position:'relative',minHeight:300}}>
+      {/* Drag overlay */}
+      {dragActive && (
+        <div style={{position:'absolute',inset:0,zIndex:50,borderRadius:16,border:`3px dashed ${C.accent}`,background:`${C.accent}12`,
+          display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',pointerEvents:'none'}}>
+          <div style={{width:64,height:64,borderRadius:16,background:C.accentLight,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:12}}>
+            <Ic n="upload" s={28} c={C.accent}/>
+          </div>
+          <div style={{fontSize:16,fontWeight:700,color:C.accent,fontFamily:F}}>Drop documents here</div>
+          <div style={{fontSize:13,color:C.text3,marginTop:4}}>PDF, DOCX, TXT supported</div>
+        </div>
+      )}
       {/* Header */}
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
         <div>
@@ -165,7 +188,7 @@ export default function CompanyDocuments({ environment }) {
           </div>
           <div style={{fontSize:16,fontWeight:700,color:C.text1,marginBottom:6}}>No documents yet</div>
           <p style={{fontSize:13,color:C.text3,margin:'0 0 16px',maxWidth:360,marginLeft:'auto',marginRight:'auto',lineHeight:1.6}}>
-            Upload company documents like benefits guides, culture handbooks, and policies. The Copilot will search these when writing content or answering questions.
+            Drag and drop documents here, or click Upload. Upload company documents like benefits guides, culture handbooks, and policies. The Copilot will search these when writing content or answering questions.
           </p>
         </div>
       )}

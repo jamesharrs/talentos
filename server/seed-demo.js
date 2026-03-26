@@ -100,4 +100,9 @@ if (poolsObj) {
 }
 
 console.log(`\n🎉 Done! Inserted ${inserted} records into environment: ${env.name}`);
+
+// ── Seed company documents ──────────────────────────────────────────
+console.log('\n📄 Seeding company documents...');
+try { require('./seed-company-docs'); } catch(e) { console.log('⚠️  Company docs seed skipped:', e.message); }
+
 console.log('Refresh the browser to see your demo data.');

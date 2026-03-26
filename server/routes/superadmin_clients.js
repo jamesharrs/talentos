@@ -350,6 +350,23 @@ async function provisionClient(clientData, envData, adminUser, templateKey) {
     // Seed security defaults
     ts.security_settings = { password_min_length:8, password_require_uppercase:1, password_require_number:1, password_require_symbol:1, session_timeout_minutes:60, max_login_attempts:5, lockout_duration_minutes:30, mfa_enabled:0, sso_enabled:0, updated_at: now };
 
+    // Seed company documents
+    if (!ts.company_documents) ts.company_documents = [];
+    const SAMPLE_DOCS = [
+      { name:'Employee Benefits Guide 2026', category:'Benefits & Perks', visibility:'candidate', description:'Comprehensive overview of employee benefits, healthcare, retirement, and perks.', text:'Healthcare: comprehensive medical, dental, and vision from day one. 90% premiums covered for employees, 75% for dependents. Mental health support with 12 free therapy sessions. Retirement: 401(k) match up to 6%, fully vested after 2 years. PTO: 25 days annual leave plus public holidays, 5 mental health days, 16 weeks parental leave. Wellness: $1,500 annual stipend, free healthy snacks. Learning: $3,000 annual budget, LinkedIn Learning, Coursera access. Remote: flexible hybrid, $1,000 home office allowance.' },
+      { name:'Company Culture Handbook', category:'Culture & Values', visibility:'candidate', description:'Our values, working style, DEI commitments.', text:'Mission: transform how organisations discover and develop talent. Values: People Over Process, Radical Transparency, Continuous Learning, Diverse Perspectives, Customer Obsession. Working style: small autonomous squads of 5-8, async-first, core hours 10am-3pm. DEI: 48% leadership women/non-binary, annual pay equity audits, 5 ERGs.' },
+      { name:'Interview Process Guide', category:'Hiring Process', visibility:'candidate', description:'What candidates can expect during our interview process.', text:'Stage 1: Application Review (1-3 days). Stage 2: Recruiter Screen (30 min video). Stage 3: Hiring Manager Interview (45 min, behavioural). Stage 4: Technical Assessment (varies by role, topic shared in advance). Stage 5: Team Meet (45 min casual). Stage 6: Offer within 2 business days. Full process: 2-3 weeks. Single recruiter point of contact throughout.' },
+      { name:'Salary & Compensation Bands', category:'Salary & Compensation', visibility:'internal', description:'Internal compensation framework — confidential.', text:'Targets 75th percentile. Engineering: IC1 $75-95k, IC2 $95-130k, IC3 $130-175k, IC4 $175-220k, IC5 $220-280k. Management: M1 $150-200k, M2 $200-250k, M3 $250-320k, VP $320-400k. Geographic adjustments: SF/NY 100%, London/Dubai 95%, Berlin 85%. Equity: 4-year vest, 1-year cliff.' },
+      { name:'Brand Voice & Writing Guidelines', category:'Brand Guidelines', visibility:'internal', description:'How we write job descriptions and communications.', text:'Voice: confident not arrogant, warm but professional. JDs: lead with impact, be honest about challenges, always include salary range, avoid jargon, use inclusive language. Emails: clear subject lines, reference something specific, always include next step. Social: authentic over polished, employee stories, behind-the-scenes.' },
+      { name:'Engineering Interview Scoring Rubric', category:'Interview Guides', visibility:'internal', description:'Structured scoring criteria for engineering interviews.', text:'Technical Problem Solving (1-5): 1=cannot break down problem, 3=working solution with guidance, 5=elegant solution. System Design (IC3+, 1-5): 1=cannot articulate components, 3=reasonable design, 5=exceptional production-level. Communication (1-5): 1=difficulty explaining, 3=communicates clearly, 5=outstanding. Recommendation: Strong Yes 4.0+, Yes 3.0-3.9, No 2.0-2.9, Strong No <2.0.' },
+    ];
+    const chunkText = (t,sz=500,ov=50) => { const w=t.split(/\s+/); const c=[]; for(let i=0;i<w.length;i+=sz-ov){c.push(w.slice(i,i+sz).join(' '));if(i+sz>=w.length)break;} return c; };
+    SAMPLE_DOCS.forEach(d => {
+      const words = d.text.split(/\s+/);
+      const chunks = chunkText(d.text);
+      ts.company_documents.push({ id: uuidv4(), environment_id: environment.id, name: d.name, category: d.category, visibility: d.visibility, description: d.description, original_filename: d.name.toLowerCase().replace(/\s+/g,'_')+'.txt', mime_type:'text/plain', file_size: d.text.length, text_content: d.text, word_count: words.length, chunks: chunks.map((c,i)=>({index:i,text:c})), chunk_count: chunks.length, created_at: now, updated_at: now, created_by:'system' });
+    });
+
     saveStore(tenantSlug);
   });
 

@@ -924,75 +924,6 @@ const Avatar = ({ name, color=C.accent, size=32, photoUrl=null }) => {
   );
 };
 
-
-/* ─── Avatar with Duplicate Badge ─────────────────────────────────────────── */
-const AvatarWithDupBadge = ({ name, color, size = 32, photoUrl, dupInfo }) => {
-  const [tip, setTip] = useState(false);
-
-  if (!dupInfo) {
-    return <Avatar name={name} color={color} size={size} photoUrl={photoUrl} />;
-  }
-
-  const isStrong   = dupInfo.score >= 80;
-  const badgeColor = isStrong ? "#EF4444" : "#F59F00";
-
-  return (
-    <div style={{ position:"relative", width:size, height:size, flexShrink:0 }}>
-      <Avatar name={name} color={color} size={size} photoUrl={photoUrl} />
-
-      {/* Badge dot */}
-      <div
-        onMouseEnter={() => setTip(true)}
-        onMouseLeave={() => setTip(false)}
-        style={{
-          position:"absolute", bottom:-2, right:-2,
-          width:13, height:13, borderRadius:"50%",
-          background:badgeColor, border:"1.5px solid white",
-          display:"flex", alignItems:"center", justifyContent:"center",
-          cursor:"default", zIndex:20,
-        }}
-      >
-        <svg width="7" height="6" viewBox="0 0 7 6" fill="none">
-          <path d="M3.5 0.7L6.2 5.3H0.8L3.5 0.7Z" fill="white"/>
-        </svg>
-
-        {tip && (
-          <div style={{
-            position:"absolute", bottom:18, left:"50%",
-            transform:"translateX(-50%)",
-            background:"#0F1729", color:"white",
-            padding:"9px 12px", borderRadius:10,
-            fontSize:11, lineHeight:1.6,
-            boxShadow:"0 8px 28px rgba(0,0,0,.28)",
-            whiteSpace:"nowrap", zIndex:9999,
-            pointerEvents:"none", minWidth:170,
-          }}>
-            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
-              <div style={{ width:8, height:8, borderRadius:"50%", background:badgeColor, flexShrink:0 }}/>
-              <span style={{ fontWeight:700, fontSize:12, color:isStrong?"#fca5a5":"#fde68a" }}>
-                {isStrong ? "Likely duplicate" : "Possible duplicate"} · {dupInfo.score}%
-              </span>
-            </div>
-            {dupInfo.reasons.map((r,i) => (
-              <div key={i} style={{ display:"flex", alignItems:"center", gap:6, color:"#d1d5db", fontSize:11 }}>
-                <span style={{ color:"#6b7280", flexShrink:0 }}>›</span>{r}
-              </div>
-            ))}
-            <div style={{
-              position:"absolute", bottom:-5, left:"50%",
-              transform:"translateX(-50%)",
-              width:0, height:0,
-              borderLeft:"5px solid transparent",
-              borderRight:"5px solid transparent",
-              borderTop:"5px solid #0F1729",
-            }}/>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
 /* ─── Create / Edit Record Modal ───────────────────────────────────────────── */
 const RecordFormModal = ({ fields, record, objectName, onSave, onClose }) => {
   const [data, setData] = useState(record?.data || {});
@@ -2064,8 +1995,7 @@ const InlineStatusPicker = ({ record, statusOptions, onUpdate }) => {
 };
 
 // ── Enhanced TableView ─────────────────────────────────────────────────────────
-const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, onEdit, onDelete, onProfile, selectedIds, onToggleSelect, onToggleAll, sortBy, sortDir, onSort, onColumnFilter, colWidths, onResizeCol, visibleColOrder, onReorderCols, linkedJobs, dupMap = {},
-  onStageChange, onStatusUpdate }) => {
+const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, onEdit, onDelete, onProfile, selectedIds, onToggleSelect, onToggleAll, sortBy, sortDir, onSort, onColumnFilter, colWidths, onResizeCol, visibleColOrder, onReorderCols, linkedJobs, onStageChange, onStatusUpdate }) => {
   const [hoveredRow, setHoveredRow] = useState(null);
   const statusField = fields.find(f => f.api_key === "status");
   const statusOptions = statusField?.options || [];
@@ -2186,7 +2116,7 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                     style={{ width:15, height:15, cursor:"pointer", accentColor:C.accent }}/>
                 </td>
                 <td style={{ padding:"12px 8px", cursor:"pointer", width:36 }} onClick={() => onProfile(record)}>
-                  <AvatarWithDupBadge name={title} color={objectColor} size={28} photoUrl={record.data?.profile_photo || record.data?.photo_url} dupInfo={dupMap?.[record.id]}/>
+                  <Avatar name={title} color={objectColor} size={28} photoUrl={record.data?.profile_photo || record.data?.photo_url}/>
                 </td>
                 {orderedFields.map((f, fi) => {
                   const val = f.isSystem
@@ -5935,40 +5865,6 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   const [view,    setView]      = useState("table");
   const [search,  setSearch]    = useState("");
   const [filterChip, setFilterChip] = useState(initialFilter || null);
-  
-  // ── Duplicate detection map ────────────────────────────────────────────────
-  const [dupMap, setDupMap] = useState({});
-
-  // Background duplicate scan — only for People objects, runs after records load
-  useEffect(() => {
-    const isPeople = object?.slug === "people" ||
-                     object?.name?.toLowerCase().includes("person");
-    if (!isPeople || !environment?.id || !object?.id || records.length < 2) {
-      setDupMap({});
-      return;
-    }
-    const timer = setTimeout(() => {
-      api.post('/duplicates/scan', {
-        environment_id: environment.id,
-        object_id:      object.id,
-        threshold:      60,
-      }).then(result => {
-        if (!Array.isArray(result?.pairs)) return;
-        const map = {};
-        result.pairs.forEach(pair => {
-          const add = (id, score, reasons) => {
-            if (!map[id] || map[id].score < score) map[id] = { score, reasons };
-          };
-          add(pair.record_a.id, pair.score, pair.reasons);
-          add(pair.record_b.id, pair.score, pair.reasons);
-        });
-        setDupMap(map);
-      }).catch(() => {});
-    }, 800);
-    return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [records.length, object?.id, environment?.id]);
-
   const [visibleFieldIds, setVisibleFieldIds] = useState(null);
   const [showColPicker, setShowColPicker]     = useState(false);
   const [activeFilters, setActiveFilters]     = useState([]);
@@ -6559,9 +6455,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
             onSelect={r=>{setSelected(r);}}
             onEdit={can("edit") ? r=>setEditRecord(r) : null}
             onDelete={can("delete") ? handleDelete : null}
-            
-              dupMap={dupMap}
-              onStatusUpdate={updated => setRecords(prev => prev.map(r => r.id===updated.id ? updated : r))}
+            onStatusUpdate={updated => setRecords(prev => prev.map(r => r.id===updated.id ? updated : r))}
             selectedIds={selectedIds}
             onToggleSelect={id => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })}
             onToggleAll={() => setSelectedIds(prev => prev.size === displayedRecords.length ? new Set() : new Set(displayedRecords.map(r => r.id)))}

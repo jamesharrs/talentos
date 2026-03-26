@@ -239,6 +239,7 @@ app.use('/api/enterprise',       require('./routes/enterprise_settings'));
 app.use('/api/skills-intel',     require('./routes/skills_intelligence'));
 app.use('/api/skills-import',    require('./routes/skills_import'));
 app.use('/api/datasets',         require('./routes/datasets'));
+app.use('/api/webhooks',          require('./routes/webhooks'));
 // Run migrations for new modules
 require('./routes/enterprise_settings').migrate();
 require('./routes/skills_intelligence').migrate();
@@ -361,6 +362,14 @@ initDB().then(() => {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
+
+  // Event Bus + Webhook bootstrap
+  try {
+    const whRouter = require("./routes/webhooks");
+    if (whRouter._bootstrap) whRouter._bootstrap();
+    const { initEventBusIntegrations } = require("./services/eventBusIntegrations");
+    initEventBusIntegrations(app);
+  } catch(e) { console.warn("[EventBus] Init:", e.message); }
 
   app.listen(PORT, () => {
     console.log(`Vercentic API → http://localhost:${PORT}`);

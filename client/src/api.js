@@ -10,24 +10,27 @@ function getSession() {
 }
 
 function getTenantSlug() {
-  // 1. Session (most reliable — set at login)
+  // 1. Subdomain (highest priority — e.g. acme.vercentic.com → 'acme')
+  //    NOTE: 'client' is NOT reserved — it is a valid tenant slug
+  try {
+    const host = window.location.hostname;
+    const parts = host.split('.');
+    const INFRA = new Set(['www','app','api','admin','portal','localhost','mail','cdn','static','assets']);
+    if (parts.length >= 3 &&
+        !INFRA.has(parts[0]) &&
+        !['vercel','railway','up','netlify','herokuapp'].some(r => host.includes(r))) {
+      return parts[0];
+    }
+  } catch {}
+  // 2. Session slug (set at login)
   try {
     const sess = JSON.parse(localStorage.getItem('talentos_session') || 'null');
     if (sess?.tenant_slug && sess.tenant_slug !== 'master') return sess.tenant_slug;
   } catch {}
-  // 2. URL ?tenant= param (used before session exists, e.g. during login)
+  // 3. URL ?tenant= param (super admin testing / fallback)
   try {
     const params = new URLSearchParams(window.location.search);
     if (params.get('tenant')) return params.get('tenant');
-  } catch {}
-  // 3. Subdomain (e.g. acme.vercentic.com → slug = 'acme')
-  try {
-    const host = window.location.hostname;
-    const parts = host.split('.');
-    const reserved = ['www', 'app', 'api', 'admin', 'localhost', 'client', 'portal'];
-    if (parts.length >= 3 && !reserved.includes(parts[0])) {
-      return parts[0];
-    }
   } catch {}
   return null;
 }

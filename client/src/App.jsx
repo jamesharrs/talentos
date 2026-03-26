@@ -80,21 +80,24 @@ const AccessDenied = ({ feature = 'this feature' }) => (
 // ─── API Client ───────────────────────────────────────────────────────────────
 // Derive tenant slug — session takes priority, then URL param, then subdomain
 function getTenantSlug() {
-  // 1. Session (set at login, most reliable)
+  // 1. Subdomain (highest priority — the URL is the source of truth)
+  //    e.g. acme.vercentic.com → 'acme', client.vercentic.com → 'client'
+  const host = window.location.hostname;
+  const parts = host.split('.');
+  const INFRA = new Set(['www','app','api','admin','portal','localhost','mail','cdn','static','assets']);
+  if (parts.length >= 3 &&
+      !INFRA.has(parts[0]) &&
+      !['vercel','railway','up','netlify','herokuapp'].some(r => host.includes(r))) {
+    return parts[0];
+  }
+  // 2. Session slug (set after login — covers same-domain sessions)
   try {
     const sess = JSON.parse(localStorage.getItem('talentos_session') || 'null');
     if (sess?.tenant_slug && sess.tenant_slug !== 'master') return sess.tenant_slug;
   } catch {}
-  // 2. URL query param ?tenant=slug
+  // 3. URL query param ?tenant=slug (super admin testing)
   const params = new URLSearchParams(window.location.search);
   if (params.get('tenant')) return params.get('tenant');
-  // 3. Subdomain (e.g. acme.talentos.io)
-  const host = window.location.hostname;
-  const parts = host.split('.');
-  const reserved = ['www','app','api','admin','localhost','client','portal'];
-  if (parts.length >= 2 && !reserved.includes(parts[0]) && !['vercel','railway','localhost'].some(r => host.includes(r))) {
-    return parts[0];
-  }
   return null;
 }
 

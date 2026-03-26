@@ -120,6 +120,16 @@ router.get('/search', (req, res) => {
 router.get('/', (req, res) => {
   const { object_id, environment_id, page=1, limit=50, search, sort_dir='desc', filter_key, filter_value, user_id } = req.query;
   if (!object_id||!environment_id) return res.status(400).json({error:'object_id and environment_id required'});
+
+  // Environment scoping: non-admin users can only query their own environment
+  if (req.currentUser) {
+    const role = req.currentUser.role || findOne('roles', r => r.id === req.currentUser.role_id);
+    const isAdmin = role?.slug === 'super_admin' || role?.slug === 'admin';
+    if (!isAdmin && req.currentUser.environment_id && req.currentUser.environment_id !== environment_id) {
+      return res.status(403).json({ error: 'Access denied to this environment' });
+    }
+  }
+
   // Skip permission check for unauthenticated GET requests (portal/career site visitors)
   if (req.currentUser && checkPerm(req, res, object_id, 'view') === false) return;
   let records = query('records', r=>r.object_id===object_id&&r.environment_id===environment_id&&!r.deleted_at);

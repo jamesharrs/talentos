@@ -4,6 +4,22 @@ const { v4: uuidv4 } = require('uuid');
 const { query, findOne, insert, update } = require('../db/init');
 
 router.get('/', (req, res) => {
+  // Scope environments to the requesting user:
+  //  - Super admins see all non-client environments
+  //  - Regular users only see their own environment
+  const userId = req.headers['x-user-id'];
+  const user = userId ? require('../db/init').findOne('users', u => u.id === userId) : null;
+  const isSuperAdmin = user?.role_id && (() => {
+    const role = require('../db/init').findOne('roles', r => r.id === user.role_id);
+    return role?.slug === 'super_admin' || role?.slug === 'admin';
+  })();
+
+  if (!isSuperAdmin && user?.environment_id) {
+    // Regular user — only return their own environment
+    const env = require('../db/init').findOne('environments', e => e.id === user.environment_id);
+    return res.json(env ? [env] : []);
+  }
+
   // Only return environments that are NOT owned by a provisioned client.
   // Client environments live in their own tenant store and should never
   // bleed through to the master environment list.

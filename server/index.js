@@ -70,7 +70,7 @@ const AUTH_EXEMPT_PATHS = [
   '/tenant-reset',                     // tenant data reset (password protected)
   '/cleanup-seeds',                    // one-shot seed data cleanup
   '/seed-dashboards',                  // one-shot dashboard seed
-  '/debug-headers',                   // temporary diagnostic
+  '/error-logs',                       // allow error reporting without auth
   '/ai',                               // AI proxy — session user is optional, key is server-side
   '/translate',                        // translation proxy
 ];
@@ -246,21 +246,7 @@ require('./routes/enterprise_settings').migrate();
 require('./routes/skills_intelligence').migrate();
 require('./routes/datasets').migrate();
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '1.5.1', build: 'tenant-isolation-strict' }));
-
-// Temporary diagnostic: echo back what headers Railway actually receives
-// Used to verify Vercel forwards X-Tenant-Slug through the rewrite proxy
-app.get('/api/debug-headers', (req, res) => {
-  res.json({
-    'x-tenant-slug':  req.headers['x-tenant-slug']  || null,
-    'x-user-id':      req.headers['x-user-id']       || null,
-    'host':           req.headers['host']             || null,
-    'x-forwarded-host': req.headers['x-forwarded-host'] || null,
-    'origin':         req.headers['origin']           || null,
-    'referer':        req.headers['referer']          || null,
-    current_tenant:   require('./db/init').getCurrentTenant(),
-  });
-});
+app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '1.5.2', build: 'tenant-isolation-clean' }));
 
 const PORT = process.env.PORT || 3001;
 

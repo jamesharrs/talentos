@@ -1287,6 +1287,135 @@ const ColumnPickerDropdown = ({ fields, visibleIds, onChange, onClose }) => {
   );
 };
 
+/* ─── Column Filter Popover ──────────────────────────────────────────────────── */
+const TYPE_OPS_CF = {
+  text:        ["contains","does not contain","is","is not","starts with","is empty","not empty"],
+  textarea:    ["contains","does not contain","is empty","not empty"],
+  number:      ["=","≠","<",">","≤","≥","is empty","not empty"],
+  currency:    ["=","≠","<",">","≤","≥","is empty","not empty"],
+  date:        ["is","before","after","is empty","not empty"],
+  boolean:     ["is true","is false"],
+  select:      ["is","is not","is empty","not empty"],
+  multi_select:["includes","excludes","is empty","not empty"],
+  email:       ["contains","is","is empty","not empty"],
+  url:         ["contains","is empty","not empty"],
+  phone:       ["contains","is","is empty","not empty"],
+  rating:      ["=","≠","<",">"],
+  people:      ["includes","is empty","not empty"],
+};
+const NO_VAL_OPS_CF = new Set(["is empty","not empty","is true","is false"]);
+const getOpsCF = (f) => TYPE_OPS_CF[f?.field_type] || TYPE_OPS_CF.text;
+
+const ColumnFilterPopover = ({ field, filterId, initialOp, initialVal, rect, onApply, onClear, onClose }) => {
+  const [op, setOp]   = useState(initialOp || getOpsCF(field)[0]);
+  const [val, setVal] = useState(initialVal ?? "");
+  const popRef        = useRef(null);
+  const needsVal      = !NO_VAL_OPS_CF.has(op);
+  const ops           = getOpsCF(field);
+
+  useEffect(() => {
+    const onDown = e => { if (popRef.current && !popRef.current.contains(e.target)) onClose(); };
+    const onKey  = e => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [onClose]);
+
+  useEffect(() => { if (!needsVal) setVal(""); }, [op, needsVal]);
+
+  const popW = 264;
+  const left = Math.min((rect?.left ?? 100), window.innerWidth - popW - 12);
+  const top  = Math.min((rect?.bottom ?? 80) + 6, window.innerHeight - 320);
+
+  const handleApply = () => onApply(op, needsVal ? val : "");
+
+  const inputStyle = {
+    width:"100%", padding:"7px 10px", borderRadius:8,
+    border:`1px solid ${C.border}`, fontSize:13, fontFamily:F,
+    outline:"none", color:C.text1, background:C.surface, boxSizing:"border-box",
+  };
+
+  const renderValue = () => {
+    if (!needsVal) return null;
+    const ft = field?.field_type;
+    if (ft === "boolean") return null;
+    if (ft === "select" || ft === "multi_select") {
+      const opts = field?.options || [];
+      if (!opts.length) return <input value={val} onChange={e=>setVal(e.target.value)} placeholder="Value…" style={inputStyle} autoFocus/>;
+      return (
+        <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:4 }}>
+          {opts.map(o => {
+            const on = String(val).split(",").map(s=>s.trim()).includes(String(o));
+            return (
+              <button key={o} onClick={() => {
+                const parts = val ? val.split(",").map(s=>s.trim()).filter(Boolean) : [];
+                const next  = on ? parts.filter(p=>p!==String(o)) : [...parts, String(o)];
+                setVal(next.join(", "));
+              }}
+                style={{ padding:"4px 10px", borderRadius:99, fontSize:12, fontWeight:600,
+                  border:`1.5px solid ${on ? C.accent : C.border}`,
+                  background: on ? C.accentLight : "transparent",
+                  color: on ? C.accent : C.text2, cursor:"pointer", fontFamily:F }}>
+                {o}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+    if (ft === "date") return <input type="date" value={val} onChange={e=>setVal(e.target.value)} style={inputStyle} autoFocus/>;
+    if (["number","currency","rating"].includes(ft))
+      return <input type="number" value={val} onChange={e=>setVal(e.target.value)} placeholder="Value…" style={inputStyle} autoFocus onKeyDown={e=>e.key==="Enter"&&handleApply()}/>;
+    return <input type={ft==="email"?"email":"text"} value={val} onChange={e=>setVal(e.target.value)} placeholder="Value…" style={inputStyle} autoFocus onKeyDown={e=>e.key==="Enter"&&handleApply()}/>;
+  };
+
+  return ReactDOM.createPortal(
+    <div ref={popRef} style={{
+      position:"fixed", top, left, width:popW, zIndex:9999,
+      background:C.surface, border:`1px solid ${C.border}`,
+      borderRadius:12, boxShadow:"0 8px 32px rgba(0,0,0,.15)",
+      padding:"14px 14px 12px", fontFamily:F,
+    }}>
+      <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:11 }}>
+        <div style={{ width:22, height:22, borderRadius:6, background:C.accentLight, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <Ic n="filter" s={11} c={C.accent}/>
+        </div>
+        <span style={{ fontSize:12, fontWeight:700, color:C.text1, flex:1 }}>{field?.name}</span>
+        <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", display:"flex", color:C.text3, padding:2 }}>
+          <Ic n="x" s={14}/>
+        </button>
+      </div>
+      <div style={{ marginBottom:8 }}>
+        <label style={{ fontSize:10, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:5 }}>Condition</label>
+        <select value={op} onChange={e=>setOp(e.target.value)} style={{ ...inputStyle, padding:"7px 10px" }}>
+          {ops.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      </div>
+      {needsVal && (
+        <div style={{ marginBottom:12 }}>
+          <label style={{ fontSize:10, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:5 }}>Value</label>
+          {renderValue()}
+        </div>
+      )}
+      <div style={{ display:"flex", gap:6, marginTop:needsVal?0:8 }}>
+        {filterId && (
+          <button onClick={onClear}
+            style={{ padding:"7px 12px", borderRadius:8, border:`1px solid ${C.border}`,
+              background:"transparent", color:"#dc2626", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
+            Remove
+          </button>
+        )}
+        <button onClick={handleApply}
+          style={{ flex:1, padding:"7px 0", borderRadius:8, border:"none",
+            background:C.accent, color:"white", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:F }}>
+          Apply filter
+        </button>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 /* ─── Filter Bar ─────────────────────────────────────────────────────────────── */
 const FILTER_OPS = {
   text:    ["contains","does not contain","is","is not","is empty","is not empty"],
@@ -1343,7 +1472,45 @@ const applyFilters = (records, filters, fields) => {
   }));
 };
 
-const FilterBar = ({ fields = [], filters = [], onChange }) => {
+const FilterBar = ({ fields = [], filters = [], onEditFilter, onRemoveFilter }) => {
+  if (!filters.length) return null;
+  const opLabel = op => ({contains:"~","does not contain":"!~","starts with":"^",
+    is:"=","is not":"≠","=":"=","≠":"≠","<":"<",">":">","≤":"≤","≥":"≥",
+    before:"<",after:">",includes:"∋",excludes:"∌",
+    "is empty":"∅","not empty":"≠∅","is true":"✓","is false":"✗"}[op]||op);
+  return (
+    <div style={{ display:"flex", flexWrap:"wrap", gap:6, alignItems:"center" }}>
+      {filters.map(filt => {
+        const field  = fields.find(f => f.id === filt.fieldId);
+        const hasVal = filt.value && !["is empty","not empty","is true","is false"].includes(filt.op);
+        return (
+          <div key={filt.id}
+            style={{ display:"inline-flex", alignItems:"center", borderRadius:20,
+              border:`1.5px solid ${C.accent}`, background:C.accentLight, overflow:"hidden" }}>
+            <button
+              onClick={e => onEditFilter?.(filt, e.currentTarget.getBoundingClientRect())}
+              style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 8px 4px 10px",
+                background:"transparent", border:"none", cursor:"pointer", fontFamily:F, fontSize:12 }}>
+              <Ic n="filter" s={10} c={C.accent}/>
+              <span style={{ color:C.accent, fontWeight:700 }}>{field?.name||"?"}</span>
+              <span style={{ color:C.text3, fontSize:11 }}>{opLabel(filt.op)}</span>
+              {hasVal && <span style={{ color:C.text2, fontStyle:"italic", maxWidth:110, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{filt.value}</span>}
+            </button>
+            <button onClick={e=>{e.stopPropagation();onRemoveFilter?.(filt.id);}}
+              style={{ background:"transparent", border:"none", borderLeft:`1px solid ${C.accent}44`,
+                padding:"4px 8px", cursor:"pointer", display:"flex", alignItems:"center" }}
+              onMouseEnter={e=>e.currentTarget.style.background=C.accent+"22"}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <Ic n="x" s={10} c={C.accent}/>
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+// (legacy unused state kept below for reference, not rendered)
+const _FilterBarLegacy = ({ fields = [], filters = [], onChange }) => {
   const [open, setOpen]         = useState(false);
   const [fSearch, setFSearch]   = useState("");
   const [draft, setDraft]       = useState(null); // { field, op, value }
@@ -6487,15 +6654,29 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
       {/* Records tab */}
       {activeTab === "records" && <>
 
-      {/* Active filter chips — click chip to edit, x to remove */}
+      {/* Active filter chips — click chip to edit, × to remove */}
       {activeFilters.length > 0 && (
-        <div style={{ marginBottom:8 }}>
-          <FilterBar
-            fields={fields}
-            filters={activeFilters}
-            onEditFilter={handleEditFilter}
-            onRemoveFilter={id => { setActiveFilters(prev => prev.filter(f => f.id !== id)); setActiveListName(null); }}
-          />
+        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px",
+          marginBottom:8, borderRadius:10, background:C.surface,
+          border:`1px solid ${C.accent}33`, boxShadow:`0 1px 4px ${C.accent}11` }}>
+          <span style={{ fontSize:11, fontWeight:700, color:C.accent, textTransform:"uppercase",
+            letterSpacing:"0.06em", flexShrink:0, opacity:0.7 }}>Filters</span>
+          <div style={{ flex:1, minWidth:0 }}>
+            <FilterBar
+              fields={fields}
+              filters={activeFilters}
+              onEditFilter={handleEditFilter}
+              onRemoveFilter={id => { setActiveFilters(prev => prev.filter(f => f.id !== id)); setActiveListName(null); }}
+            />
+          </div>
+          <button onClick={() => { setActiveFilters([]); setActiveListName(null); }}
+            style={{ flexShrink:0, fontSize:11, fontWeight:600, color:C.text3,
+              background:"none", border:"none", cursor:"pointer", fontFamily:F, padding:"2px 6px",
+              borderRadius:6, whiteSpace:"nowrap" }}
+            onMouseEnter={e=>{e.currentTarget.style.color=C.accent;}}
+            onMouseLeave={e=>{e.currentTarget.style.color=C.text3;}}>
+            Clear all
+          </button>
         </div>
       )}
 

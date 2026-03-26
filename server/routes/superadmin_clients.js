@@ -709,10 +709,37 @@ router.patch('/:id', (req, res) => {
 
 router.delete('/:id', (req, res) => {
   ensureCollections();
-  const s = getStore(); const idx = (s.clients||[]).findIndex(c=>c.id===req.params.id);
+  const s = getStore();
+  const idx = (s.clients||[]).findIndex(c=>c.id===req.params.id);
   if (idx===-1) return res.status(404).json({ error: 'Not found' });
+
+  const client = s.clients[idx];
+  const tenantSlug = client.tenant_slug;
+
+  // Soft-delete the client record
   s.clients[idx].deleted_at = new Date().toISOString();
-  s.clients[idx].status = 'churned'; saveStore(); res.json({ deleted: true });
+  s.clients[idx].status = 'churned';
+  saveStore();
+
+  // Hard-delete the tenant JSON file from the Volume so the slug can be reused clean
+  if (tenantSlug) {
+    const { tenantDbPath } = require('../db/init');
+    const fs = require('fs');
+    const filePath = tenantDbPath(tenantSlug);
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`🗑  Deleted tenant file: ${filePath}`);
+      }
+      // Also evict from memory cache
+      const { storeCache } = require('../db/init');
+      delete storeCache[tenantSlug];
+    } catch(e) {
+      console.error(`⚠️  Could not delete tenant file for ${tenantSlug}:`, e.message);
+    }
+  }
+
+  res.json({ deleted: true, tenant_file_removed: !!tenantSlug });
 });
 
 router.get('/:clientId/environments', (req, res) => {

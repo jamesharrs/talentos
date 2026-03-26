@@ -128,15 +128,19 @@ function remove(table, predicate) {
 function provisionTenant(slug) {
   const key  = slug;
   const file = tenantDbPath(slug);
-  if (fs.existsSync(file)) {
-    // Already exists — just load it
-    return loadTenantStore(slug);
+
+  // ALWAYS start with a completely empty store.
+  // Never reuse an existing file — it may contain records from a previous
+  // provision, demo seed, or deleted client with the same slug.
+  const fresh = { ...EMPTY_STORE() };
+  storeCache[key] = fresh;
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(fresh, null, 2));
+    console.log(`✅ Provisioned clean tenant store: ${file}`);
+  } catch(e) {
+    console.error(`⚠️  Could not write tenant file ${file}:`, e.message);
   }
-  // Bootstrap fresh store
-  storeCache[key] = { ...EMPTY_STORE() };
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(storeCache[key], null, 2));
-  console.log(`✅ Provisioned tenant store: ${file}`);
   return storeCache[key];
 }
 
@@ -147,9 +151,18 @@ function reloadTenantStore(slug) {
   return loadTenantStore(slug);
 }
 
-// ── List all tenant slugs (from file names) ───────────────────────────────────
+// ── List all tenant slugs (only active/non-deleted clients) ──────────────────
 function listTenants() {
   try {
+    // Cross-reference file system with active clients in master store
+    // so deleted clients' stale files are not treated as valid tenants
+    const masterStore = storeCache['master'];
+    if (masterStore?.clients) {
+      return (masterStore.clients)
+        .filter(c => !c.deleted_at && c.tenant_slug)
+        .map(c => c.tenant_slug);
+    }
+    // Fallback to filesystem scan before master store is loaded
     fs.mkdirSync(DATA_DIR, { recursive: true });
     return fs.readdirSync(DATA_DIR)
       .filter(f => f.startsWith('tenant-') && f.endsWith('.json'))
@@ -367,4 +380,4 @@ async function seedUsersAndRoles(tenantKey) {
   saveStore(tenantKey || 'master');
 }
 
-module.exports = { getStore, saveStore, saveStoreNow, query, findOne, insert, update, remove, initDB, tenantStorage, getCurrentTenant, provisionTenant, reloadTenantStore, loadTenantStore, listTenants, tenantDbPath };
+module.exports = { getStore, saveStore, saveStoreNow, query, findOne, insert, update, remove, initDB, tenantStorage, getCurrentTenant, provisionTenant, reloadTenantStore, loadTenantStore, listTenants, tenantDbPath, storeCache };

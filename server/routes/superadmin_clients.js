@@ -473,6 +473,7 @@ router.get('/:id/stats', (req, res) => {
     client_id: client.id, client_name: client.name,
     environment_count: envs.length, record_count: records.length,
     user_count: users.length, object_count: objects.length,
+    environments: envs,
     records_last_30d: byDay, provision_log: log,
   });
 });

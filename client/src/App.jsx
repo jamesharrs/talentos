@@ -1498,7 +1498,23 @@ function App() {
 
   const { prefs, update } = useTheme();
   const { t, isRTL } = useI18n();
-  const [session, setSession]   = useState(() => getSession()); // { user, role, permissions }
+
+  // If the subdomain doesn't match the stored session's tenant_slug,
+  // clear the stale session so the user is prompted to log in fresh.
+  // This prevents cross-tenant bleed when a user visits a different subdomain.
+  const [session, setSession] = useState(() => {
+    const sess = getSession();
+    const subdomainSlug = getTenantSlug();
+    if (sess && subdomainSlug) {
+      const sessionTenant = sess.tenant_slug || null;
+      if (sessionTenant !== subdomainSlug) {
+        // Stale session from a different tenant — clear it
+        try { localStorage.removeItem('talentos_session'); } catch {}
+        return null;
+      }
+    }
+    return sess;
+  });
   const isMobile = useIsMobile();
   const userId = session?.user?.id || null;
   // Permission helpers using session (App renders PermissionProvider so cannot consume it directly)

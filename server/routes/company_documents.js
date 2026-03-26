@@ -165,7 +165,8 @@ router.get('/search/query', (req, res) => {
 
   docs.forEach(doc => {
     (doc.chunks || []).forEach((chunk, chunkIndex) => {
-      const lower = chunk.toLowerCase();
+      const chunkText = typeof chunk === 'string' ? chunk : (chunk.text || '');
+      const lower = chunkText.toLowerCase();
       const matchCount = terms.filter(t => lower.includes(t)).length;
       if (matchCount > 0) {
         results.push({
@@ -175,7 +176,7 @@ router.get('/search/query', (req, res) => {
           visibility: doc.visibility,
           chunk_index: chunkIndex,
           relevance: matchCount / terms.length,
-          snippet: chunk.slice(0, 300),
+          snippet: chunkText.slice(0, 300),
         });
       }
     });

@@ -390,10 +390,12 @@ router.get('/', (req, res) => {
   const s = getStore();
   const clients = (s.clients||[]).filter(c=>!c.deleted_at);
   const enriched = clients.map(c => {
-    const envs    = (s.client_environments||[]).filter(e=>e.client_id===c.id&&!e.deleted_at);
-    const envIds  = envs.map(e=>e.id);
-    const records = (s.records||[]).filter(r=>envIds.includes(r.environment_id)&&!r.deleted_at);
-    const users   = (s.users||[]).filter(u=>u.client_id===c.id&&!u.deleted_at);
+    const envs   = (s.client_environments||[]).filter(e=>e.client_id===c.id&&!e.deleted_at);
+    const envIds = envs.map(e=>e.id);
+    // Load from tenant store if provisioned
+    const ts      = c.tenant_slug ? loadTenantStore(c.tenant_slug) : s;
+    const records = (ts.records||[]).filter(r=>envIds.includes(r.environment_id)&&!r.deleted_at);
+    const users   = (ts.users||[]).filter(u=>(u.client_id===c.id||envIds.includes(u.environment_id))&&!u.deleted_at);
     return { ...c, env_count: envs.length, record_count: records.length, user_count: users.length };
   });
   res.json(enriched);
@@ -438,11 +440,15 @@ router.get('/:id/stats', (req, res) => {
   const s = getStore();
   const client = (s.clients||[]).find(c=>c.id===req.params.id&&!c.deleted_at);
   if (!client) return res.status(404).json({ error: 'Not found' });
-  const envs    = (s.client_environments||[]).filter(e=>e.client_id===client.id&&!e.deleted_at);
-  const envIds  = new Set(envs.map(e=>e.id));
-  const records = (s.records||[]).filter(r=>envIds.has(r.environment_id)&&!r.deleted_at);
-  const users   = (s.users||[]).filter(u=>u.client_id===client.id&&!u.deleted_at);
-  const objects = (s.objects||[]).filter(o=>envIds.has(o.environment_id)&&!o.deleted_at);
+  const envs = (s.client_environments||[]).filter(e=>e.client_id===client.id&&!e.deleted_at);
+  const envIds = new Set(envs.map(e=>e.id));
+
+  // Load from tenant store if provisioned, otherwise master
+  const ts = client.tenant_slug ? loadTenantStore(client.tenant_slug) : s;
+
+  const records = (ts.records||[]).filter(r=>envIds.has(r.environment_id)&&!r.deleted_at);
+  const users   = (ts.users||[]).filter(u=>(u.client_id===client.id||envIds.has(u.environment_id))&&!u.deleted_at);
+  const objects = (ts.objects||[]).filter(o=>envIds.has(o.environment_id)&&!o.deleted_at);
   const log     = (s.provision_log||[]).filter(l=>l.client_id===client.id);
   const thirtyDaysAgo = new Date(Date.now()-30*24*60*60*1000);
   const byDay = {};
@@ -470,32 +476,33 @@ router.get('/:id/activity-report', (req, res) => {
   // Get environments for this client
   const envs = (s.client_environments||[]).filter(e=>e.client_id===client.id&&!e.deleted_at);
   const envIds = envFilter ? new Set([envFilter]) : new Set(envs.map(e=>e.id));
-  // Also check environments table for legacy data
-  const allEnvIds = new Set([...envIds, ...(s.environments||[]).filter(e=>envIds.has(e.id)).map(e=>e.id)]);
+  const allEnvIds = envIds;
+
+  // Load from tenant store if provisioned
+  const ts = client.tenant_slug ? loadTenantStore(client.tenant_slug) : s;
 
   // Activity log entries
-  const allActivity = (s.activity||[]).filter(a => allEnvIds.has(a.environment_id));
+  const allActivity = (ts.activity||[]).filter(a => allEnvIds.has(a.environment_id));
   const recentActivity = allActivity.filter(a => a.created_at >= cutoff);
 
   // Records
-  const allRecords = (s.records||[]).filter(r => allEnvIds.has(r.environment_id) && !r.deleted_at);
+  const allRecords = (ts.records||[]).filter(r => allEnvIds.has(r.environment_id) && !r.deleted_at);
   const recentRecords = allRecords.filter(r => r.created_at >= cutoff);
 
   // Users
-  const allUsers = (s.users||[]).filter(u => {
+  const allUsers = (ts.users||[]).filter(u => {
     if (u.client_id === client.id) return true;
-    // Also match users by environment_id
     return u.environment_id && allEnvIds.has(u.environment_id);
   }).filter(u => !u.deleted_at);
 
   // Objects
-  const objects = (s.objects||[]).filter(o => allEnvIds.has(o.environment_id) && !o.deleted_at);
+  const objects = (ts.objects||[]).filter(o => allEnvIds.has(o.environment_id) && !o.deleted_at);
 
   // Communications
-  const comms = (s.communications||[]).filter(c => allEnvIds.has(c.environment_id) && c.created_at >= cutoff);
+  const comms = (ts.communications||[]).filter(c => allEnvIds.has(c.environment_id) && c.created_at >= cutoff);
 
   // Workflows
-  const workflows = (s.workflows||[]).filter(w => allEnvIds.has(w.environment_id) && !w.deleted_at);
+  const workflows = (ts.workflows||[]).filter(w => allEnvIds.has(w.environment_id) && !w.deleted_at);
 
   // Interviews
   const interviews = (s.interviews||[]).filter(i => allEnvIds.has(i.environment_id) && i.created_at >= cutoff);

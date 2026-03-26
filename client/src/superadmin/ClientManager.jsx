@@ -144,6 +144,15 @@ export function ClientList({ onProvision, onSelectClient }) {
                   <td style={{padding:'12px 14px'}}>
                     <div style={{display:'flex',gap:4}}>
                       <Btn sz='sm' v='secondary' onClick={()=>onSelectClient(c)}>View</Btn>
+                      {c.tenant_slug && (
+                        <Btn sz='sm' v='primary' onClick={async()=>{
+                          try {
+                            const d = await sa.post(`/${c.id}/impersonate`, {});
+                            if (d.app_url) window.open(d.app_url, '_blank');
+                            else alert(d.error || 'Impersonation failed');
+                          } catch(e) { alert('Error: ' + e.message); }
+                        }}>Login as →</Btn>
+                      )}
                       {c.status==='active'
                         ? <Btn sz='sm' v='danger' onClick={async()=>{ await sa.patch(`/${c.id}/status`,{status:'suspended'}); load(); }}>Suspend</Btn>
                         : <Btn sz='sm' v='success' onClick={async()=>{ await sa.patch(`/${c.id}/status`,{status:'active'}); load(); }}>Activate</Btn>}
@@ -387,6 +396,15 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
           </div>
           <div style={{fontSize:12,color:C.text3,marginTop:2}}>{client.industry} · {client.region} · Since {client.created_at?.slice(0,10)}</div>
         </div>
+        {client.tenant_slug && (
+          <Btn v='secondary' onClick={async()=>{
+            try {
+              const d = await sa.post(`/${client.id}/impersonate`, {});
+              if (d.app_url) window.open(d.app_url, '_blank');
+              else alert(d.error || 'Impersonation failed');
+            } catch(e) { alert('Error: ' + e.message); }
+          }}>Login as client →</Btn>
+        )}
         <Btn onClick={onProvisionEnv}>+ Add Environment</Btn>
       </div>
 

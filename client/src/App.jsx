@@ -1518,6 +1518,36 @@ function App() {
   });
   const isMobile = useIsMobile();
   const userId = session?.user?.id || null;
+
+  // Handle ?impersonate=TOKEN — exchange for a real session then strip the param from the URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const impToken = params.get('impersonate');
+    if (!impToken) return;
+    // Strip the token from the URL immediately (don't show it in the bar)
+    const cleanUrl = window.location.pathname + (params.toString().replace(/[?&]?impersonate=[^&]*/,'').replace(/^&/,'?') || '');
+    window.history.replaceState({}, '', cleanUrl);
+
+    fetch('/api/users/exchange-impersonation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: impToken }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { console.warn('Impersonation failed:', data.error); return; }
+        const sessionData = {
+          user: { id: data.id, email: data.email, first_name: data.first_name, last_name: data.last_name,
+                  environment_id: data.environment_id, role_id: data.role_id },
+          role: data.role,
+          permissions: data.permissions || [],
+          tenant_slug: data.tenant_slug,
+        };
+        try { localStorage.setItem('talentos_session', JSON.stringify(sessionData)); } catch {}
+        setSession(sessionData);
+      })
+      .catch(err => console.error('Impersonation exchange error:', err));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Permission helpers using session (App renders PermissionProvider so cannot consume it directly)
   const _sessionRole = session?.role?.slug;
   const _sessionPerms = session?.permissions || [];

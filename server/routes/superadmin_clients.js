@@ -886,4 +886,39 @@ router.delete('/:clientId/records', (req, res) => {
   res.json({ success: true, total_removed: totalRemoved });
 });
 
+// ── Impersonation — generate a short-lived token to log in as a client admin ─
+// Token lives in master store for 5 minutes, single-use.
+router.post('/:id/impersonate', (req, res) => {
+  ensureCollections();
+  const s = getStore();
+  const client = (s.clients||[]).find(c => c.id === req.params.id && !c.deleted_at);
+  if (!client) return res.status(404).json({ error: 'Client not found' });
+  if (!client.tenant_slug) return res.status(400).json({ error: 'Client has no tenant slug — re-provision to fix' });
+
+  // Find the admin user in the tenant store
+  const ts = loadTenantStore(client.tenant_slug);
+  const adminUser = (ts.users||[]).find(u =>
+    !u.deleted_at && u.status === 'active' &&
+    (u.is_super_admin || (()=>{ const r=(ts.roles||[]).find(r=>r.id===u.role_id); return r?.slug==='super_admin'||r?.slug==='admin'; })())
+  ) || (ts.users||[])[0];
+
+  if (!adminUser) return res.status(400).json({ error: 'No admin user found in tenant — seed demo data first' });
+
+  // Generate a single-use token
+  const token = require('crypto').randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 min
+
+  if (!s.impersonation_tokens) s.impersonation_tokens = [];
+  // Purge expired tokens
+  s.impersonation_tokens = s.impersonation_tokens.filter(t => t.expires_at > new Date().toISOString());
+  s.impersonation_tokens.push({
+    token, client_id: client.id, tenant_slug: client.tenant_slug,
+    user_id: adminUser.id, expires_at: expiresAt, used: false,
+  });
+  saveStore();
+
+  const appUrl = `https://${client.tenant_slug}.vercentic.com/?impersonate=${token}`;
+  res.json({ token, app_url: appUrl, expires_at: expiresAt, user_email: adminUser.email });
+});
+
 module.exports = router;

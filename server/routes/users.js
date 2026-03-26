@@ -112,6 +112,44 @@ router.post('/auth/login', (req, res) => {
   res.json({ token, user: { ...user, password_hash: undefined, role }, tenant_slug: tenantSlug, must_change_password: user.must_change_password });
 });
 
+// POST /api/users/exchange-impersonation — exchange a superadmin impersonation token for a real session
+router.post('/exchange-impersonation', (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: 'Token required' });
+
+  // Load master store to find the token
+  const { loadTenantStore, getStore, saveStore, findOne: masterFindOne } = require('../db/init');
+  const s = getStore();
+  if (!s.impersonation_tokens) return res.status(401).json({ error: 'Invalid or expired token' });
+
+  const now = new Date().toISOString();
+  const tokenEntry = s.impersonation_tokens.find(t =>
+    t.token === token && !t.used && t.expires_at > now
+  );
+  if (!tokenEntry) return res.status(401).json({ error: 'Invalid or expired token' });
+
+  // Mark as used (single-use)
+  tokenEntry.used = true;
+  saveStore();
+
+  // Load user from tenant store
+  const ts = loadTenantStore(tokenEntry.tenant_slug);
+  const user = (ts.users||[]).find(u => u.id === tokenEntry.user_id);
+  if (!user) return res.status(401).json({ error: 'User not found in tenant' });
+
+  const role = (ts.roles||[]).find(r => r.id === user.role_id) || null;
+  const permissions = role ? ['view','create','edit','delete','export'] : [];
+
+  res.json({
+    ...user,
+    password_hash: undefined,
+    role,
+    permissions,
+    tenant_slug: tokenEntry.tenant_slug,
+    impersonated: true,
+  });
+});
+
 module.exports = router;
 
 // POST /api/users/login — credential check across current tenant store + fallback search

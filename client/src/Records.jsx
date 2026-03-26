@@ -5939,10 +5939,10 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         </div>
       )}
       {/* 2-col body */}
-      <div ref={containerRef} style={{ flex:1, display:"flex", overflow:"hidden", userSelect:draggingCol.current?"none":"auto" }}>
+      <div ref={containerRef} style={{ flex:1, display:"flex", overflow:"hidden", minHeight:0, userSelect:draggingCol.current?"none":"auto" }}>
 
         {/* LEFT COL — Fields as panel card */}
-        <div style={{ width:`${leftPct}%`, flexShrink:0, background:"#F4F6FB", display:"flex", flexDirection:"column", overflow:"auto", padding:"16px 0 24px 16px" }}>
+        <div style={{ width:`${leftPct}%`, flexShrink:0, background:"#F4F6FB", display:"flex", flexDirection:"column", overflowY:"auto", overflowX:"hidden", padding:"16px 0 24px 16px", minHeight:0 }}>
           <div style={{ background:C.surface, border:`1.5px solid ${C.border}`, borderRadius:14, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,.04)" }}>
             <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px", borderBottom:`1px solid ${C.border}` }}>
               <Ic n="edit" s={14} c={globalEdit ? C.accent : C.text3}/>
@@ -5993,7 +5993,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         </div>
 
         {/* RIGHT COL — Panel cards (standalone or grouped) */}
-        <div ref={rightColRef} style={{ flex:1, overflow:"auto", padding:"16px 20px 24px", background:"#F4F6FB",
+        <div ref={rightColRef} style={{ flex:1, overflowY:"auto", overflowX:"hidden", padding:"16px 20px 24px", background:"#F4F6FB", minHeight:0,
           userSelect: draggingPanel ? "none" : "auto" }}>
           {panelOrder.map((slot, idx) => {
             const slots  = panelOrder.filter(s => Array.isArray(s) ? s.some(id => PANEL_META[id]) : PANEL_META[s]);

@@ -537,6 +537,8 @@ SUPPORTED action_types and their required payload fields:
 - "assign"        → { record_id, assigned_to }  — assigns a record to a user
 - "bulk_op"       → { record_ids[], data{} }  — updates multiple records
 - "delete"        → { record_id }  — deletes a record (use severity:"danger")
+- "create_field"  → { object_id, object_name, name, api_key?, field_type("text"|"textarea"|"number"|"select"|"multi_select"|"date"|"boolean"|"email"|"url"|"phone"|"currency"|"rating"|"rich_text"), description?, is_required?, show_in_list?, options?[] }
+- "create_object" → { environment_id, name, plural_name?, slug?, description?, icon?, color? }
 
 IMPORTANT: Always use the record_id from CURRENT PAGE CONTEXT when acting on the current record.
 For "add_note", always use record_id from context and write the note content as the user described it.
@@ -1385,7 +1387,11 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
           if(editorContext?.type==='workflow') return `I'm looking at the **${editorContext.name}** workflow (${editorContext.stepCount} stages).\n\nI can help you:\n• Add or refine stages\n• Set up automations (emails, AI prompts, field updates)\n• Review whether the flow makes sense\n• Write email templates for any stage\n\nWhat would you like to build?`;
 
           const sec = settingsSection; // raw section ID e.g. "portals", "datamodel"
-          if(sec==='datamodel')   return `You're in **Data Model**.\n\nI can help you:\n• Create new objects or custom fields\n• Explain field types and when to use them\n• Suggest a field structure for your use case\n\nWhat would you like to configure?`;
+          if(sec==='datamodel'){
+            const objList = (navObjects||[]).map(o=>`• ${o.name} (id: ${o.id})`).join('\n');
+            const envId = environment?.id || '';
+            return `You're in **Data Model**. Environment ID: ${envId}\n\nAvailable objects:\n${objList||'(none yet)'}\n\nI can help you:\n• Create new objects or custom fields\n• Explain field types and when to use them\n• Suggest a field structure for your use case\n\nTo create a field use PROPOSE_ACTION with action_type "create_field" and include the object_id from the list above.\nTo create an object use action_type "create_object" with environment_id: "${envId}".\n\nWhat would you like to configure?`;
+          }
           if(sec==='users')       return `You're in **Users**.\n\nI can help you:\n• Invite a new user and set their role\n• Explain the difference between roles\n• Suggest the right permissions for a use case\n\nWhat would you like to do?`;
           if(sec==='roles')       return `You're in **Roles & Permissions**.\n\nI can help you:\n• Create a new role\n• Explain what each permission controls\n• Suggest role configurations for your team structure\n\nWhat would you like to configure?`;
           if(sec==='workflows')   return `You're in **Workflows**.\n\nI can help you:\n• Create a new workflow with stages\n• Add automation steps (emails, AI prompts, field updates)\n• Explain the difference between workflow types\n\nWhat would you like to build?`;
@@ -2195,6 +2201,42 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       } else if (action_type === 'delete' && payload?.record_id) {
         await tFetch(`/api/records/${payload.record_id}`, { method: 'DELETE' });
         resultMsg = `✅ Record deleted`;
+
+      // ── Create a new field on an object ────────────────────────────────────
+      } else if (action_type === 'create_field' && payload?.object_id && payload?.name) {
+        const fieldPayload = {
+          object_id:   payload.object_id,
+          name:        payload.name,
+          api_key:     payload.api_key || payload.name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''),
+          field_type:  payload.field_type || 'textarea',
+          description: payload.description || '',
+          is_required: payload.is_required || false,
+          show_in_list: payload.show_in_list ?? false,
+          options:     payload.options || [],
+        };
+        await tFetch('/api/fields', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fieldPayload),
+        });
+        resultMsg = `✅ Field **${payload.name}** added to **${payload.object_name || 'object'}**`;
+
+      // ── Create a new object ─────────────────────────────────────────────────
+      } else if (action_type === 'create_object' && payload?.name && payload?.environment_id) {
+        await tFetch('/api/objects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            environment_id: payload.environment_id,
+            name:           payload.name,
+            plural_name:    payload.plural_name || payload.name + 's',
+            slug:           payload.slug || payload.name.toLowerCase().replace(/[^a-z0-9]+/g,'_'),
+            description:    payload.description || '',
+            icon:           payload.icon || 'circle',
+            color:          payload.color || '#6366f1',
+          }),
+        });
+        resultMsg = `✅ Object **${payload.name}** created`;
 
       } else {
         // Unknown action type — log it

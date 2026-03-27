@@ -2143,6 +2143,7 @@ function App() {
             environment={selectedEnv}
             onOpenRecord={openRecord}
             initialFilter={filterPreset}
+            allObjects={navObjects}
             autoCreate={createTarget?.id === _obj?.id ? createTarget : null}
             onAutoCreateConsumed={() => setCreateTarget(null)}
             session={session}

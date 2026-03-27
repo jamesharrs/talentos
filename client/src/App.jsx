@@ -2136,6 +2136,7 @@ function App() {
           <div style={{ textAlign: "center", padding: 60, color: "#9ca3af" }}>No environments found.</div>
         ) : (
         <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}>
+        <div style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0, overflow: activeNav.startsWith("record_") ? "hidden" : "visible" }}>
         { activeNav === "inbox" ? (
           <InboxModule environment={selectedEnv} onNavigate={openRecord} />
         ) : activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers" || activeNav === "dashboard_admin" || activeNav === "dashboard_agents" || activeNav === "dashboard_screening" || activeNav === "dashboard_onboarding" ? (
@@ -2225,6 +2226,7 @@ function App() {
             ? <RecordsView object={selectedObject} environment={selectedEnv} />
             : <ObjectsListView environment={selectedEnv} onSelectObject={(obj, objs) => { setSelectedObject(obj); setAllObjects(objs); }} mode="app" />
         ) : null}
+        </div>
         </Suspense>
         )}
         </div>

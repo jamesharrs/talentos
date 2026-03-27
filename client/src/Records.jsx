@@ -1049,7 +1049,7 @@ const RecordFormModal = ({ fields, record, objectName, onSave, onClose }) => {
 };
 
 /* ─── Saved Lists ────────────────────────────────────────────────────────────── */
-const SavedViewsDropdown = ({ objectId, environmentId, userId, currentFilters, currentFilterChip, currentVisibleFieldIds, currentViewMode, fields, onLoad, onClose }) => {
+const SavedViewsDropdown = ({ objectId, environmentId, userId, currentFilters, currentFilterLogic, currentFilterChip, currentVisibleFieldIds, currentViewMode, fields, onLoad, onClose }) => {
   const [views, setViews]       = useState([]);
   const [saving, setSaving]     = useState(false);
   const [showSave, setShowSave] = useState(false);
@@ -1082,6 +1082,7 @@ const SavedViewsDropdown = ({ objectId, environmentId, userId, currentFilters, c
       is_shared: saveSharing.visibility === "everyone",
       sharing: saveSharing,
       filters: currentFilters,
+      filter_logic: currentFilterLogic || "AND",
       filter_chip: currentFilterChip || null,
       visible_field_ids: currentVisibleFieldIds || [],
       view_mode: currentViewMode,
@@ -1438,38 +1439,225 @@ const getOpsForField = (f) => {
   return FILTER_OPS.text;
 };
 
-const applyFilters = (records, filters, fields) => {
+const applyFilters = (records, filters, fields, logic = "AND") => {
   if (!filters.length) return records;
-  return records.filter(record => filters.every(filt => {
+  const match = logic === "OR"
+    ? filt => filters.some(filt => testFilter(filt, fields, filt))
+    : null; // AND uses every below
+  return records.filter(record => {
+    const test = filt => {
+      const field = fields.find(f => f.id === filt.fieldId);
+      if (!field) return true;
+      const rawVal = record.data?.[field.api_key];
+      const op = filt.op; const fv = filt.value;
+      if (op === "is empty") return rawVal === null || rawVal === undefined || rawVal === "" || (Array.isArray(rawVal) && rawVal.length === 0);
+      if (op === "is not empty") return rawVal !== null && rawVal !== undefined && rawVal !== "" && !(Array.isArray(rawVal) && rawVal.length === 0);
+      if (op === "is true") return rawVal === true;
+      if (op === "is false") return rawVal === false || rawVal === undefined || rawVal === null;
+      const strVal = String(rawVal ?? "").toLowerCase();
+      const strFv = String(fv ?? "").toLowerCase();
+      switch (op) {
+        case "contains": return strVal.includes(strFv);
+        case "does not contain": return !strVal.includes(strFv);
+        case "starts with": return strVal.startsWith(strFv);
+        case "is": return strVal === strFv;
+        case "is not": return strVal !== strFv;
+        case "=": return Number(rawVal) === Number(fv);
+        case "≠": return Number(rawVal) !== Number(fv);
+        case "<": case "before": return Number(rawVal) < Number(fv) || new Date(rawVal) < new Date(fv);
+        case ">": case "after": return Number(rawVal) > Number(fv) || new Date(rawVal) > new Date(fv);
+        case "≤": return Number(rawVal) <= Number(fv);
+        case "≥": return Number(rawVal) >= Number(fv);
+        case "includes": return Array.isArray(rawVal) ? rawVal.some(v => String(v).toLowerCase() === strFv) : strVal === strFv;
+        case "excludes": return Array.isArray(rawVal) ? !rawVal.some(v => String(v).toLowerCase() === strFv) : strVal !== strFv;
+        default: return true;
+      }
+    };
+    return logic === "OR" ? filters.some(test) : filters.every(test);
+  });
+};
+
+// ── AdvancedFilterPanel ────────────────────────────────────────────────────────
+const TYPE_OPS = {
+  text:        ["contains","does not contain","is","is not","starts with","is empty","is not empty"],
+  textarea:    ["contains","does not contain","is empty","is not empty"],
+  number:      ["=","≠","<",">","≤","≥","is empty","is not empty"],
+  currency:    ["=","≠","<",">","≤","≥","is empty","is not empty"],
+  percent:     ["=","≠","<",">","≤","≥","is empty","is not empty"],
+  date:        ["is","before","after","is empty","is not empty"],
+  boolean:     ["is true","is false"],
+  select:      ["is","is not","is empty","is not empty"],
+  multi_select:["includes","excludes","is empty","is not empty"],
+  email:       ["contains","is","is empty","is not empty"],
+  url:         ["contains","is empty","is not empty"],
+  phone:       ["contains","is","is empty","is not empty"],
+  rating:      ["=","≠","<",">","≤","≥"],
+};
+const NO_VAL_OPS = ["is empty","is not empty","is true","is false"];
+
+const AdvancedFilterPanel = ({ fields, filters, logic, onFiltersChange, onLogicChange, onSave, onClose, open }) => {
+  const ref = useRef(null);
+  const [editingId, setEditingId] = useState(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const getOps = f => TYPE_OPS[f?.field_type] || TYPE_OPS.text;
+  const needsVal = op => !NO_VAL_OPS.includes(op);
+
+  const addRow = () => {
+    const first = fields[0];
+    const op = first ? getOps(first)[0] : "contains";
+    const id = Date.now() + "";
+    onFiltersChange([...filters, { id, fieldId: first?.id || "", op, value: "" }]);
+    setEditingId(id);
+  };
+
+  const updateRow = (id, patch) => {
+    onFiltersChange(filters.map(f => f.id === id ? { ...f, ...patch } : f));
+  };
+
+  const removeRow = id => onFiltersChange(filters.filter(f => f.id !== id));
+
+  const FilterRow = ({ filt, idx }) => {
     const field = fields.find(f => f.id === filt.fieldId);
-    if (!field) return true;
-    const rawVal = record.data?.[field.api_key];
-    const op = filt.op;
-    const fv = filt.value;
-    if (op === "is empty") return rawVal === null || rawVal === undefined || rawVal === "" || (Array.isArray(rawVal) && rawVal.length === 0);
-    if (op === "is not empty") return rawVal !== null && rawVal !== undefined && rawVal !== "" && !(Array.isArray(rawVal) && rawVal.length === 0);
-    if (op === "is true") return rawVal === true;
-    if (op === "is false") return rawVal === false || rawVal === undefined || rawVal === null;
-    const strVal = String(rawVal ?? "").toLowerCase();
-    const strFv = String(fv ?? "").toLowerCase();
-    switch (op) {
-      case "contains": return strVal.includes(strFv);
-      case "does not contain": return !strVal.includes(strFv);
-      case "is": return strVal === strFv;
-      case "is not": return strVal !== strFv;
-      case "=": return Number(rawVal) === Number(fv);
-      case "≠": return Number(rawVal) !== Number(fv);
-      case "<": return Number(rawVal) < Number(fv);
-      case ">": return Number(rawVal) > Number(fv);
-      case "≤": return Number(rawVal) <= Number(fv);
-      case "≥": return Number(rawVal) >= Number(fv);
-      case "is before": return new Date(rawVal) < new Date(fv);
-      case "is after": return new Date(rawVal) > new Date(fv);
-      case "includes": return Array.isArray(rawVal) ? rawVal.some(v => String(v).toLowerCase() === strFv) : strVal === strFv;
-      case "excludes": return Array.isArray(rawVal) ? !rawVal.some(v => String(v).toLowerCase() === strFv) : strVal !== strFv;
-      default: return true;
-    }
-  }));
+    const ops = getOps(field);
+    const showVal = needsVal(filt.op);
+    const opts = field?.options ? (Array.isArray(field.options) ? field.options : (field.options?.split?.(",") || [])) : [];
+
+    return (
+      <div style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 0" }}>
+        {/* Logic badge */}
+        <div style={{ width:36, textAlign:"center", flexShrink:0 }}>
+          {idx === 0
+            ? <span style={{ fontSize:10, fontWeight:700, color:C.text3, textTransform:"uppercase" }}>Where</span>
+            : <button onClick={() => onLogicChange(logic === "AND" ? "OR" : "AND")}
+                style={{ fontSize:10, fontWeight:800, color:C.accent, background:C.accentLight,
+                  border:`1px solid ${C.accent}44`, borderRadius:4, padding:"2px 6px", cursor:"pointer", fontFamily:F }}>
+                {logic}
+              </button>
+          }
+        </div>
+
+        {/* Field picker */}
+        <select value={filt.fieldId} onChange={e => {
+            const f = fields.find(x => x.id === e.target.value);
+            updateRow(filt.id, { fieldId: e.target.value, op: getOps(f)[0], value: "" });
+          }}
+          style={{ flex:"0 0 140px", padding:"5px 8px", borderRadius:7, border:`1px solid ${C.border}`,
+            fontSize:12, fontFamily:F, background:C.surface, color:C.text1, outline:"none" }}>
+          {fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+        </select>
+
+        {/* Operator picker */}
+        <select value={filt.op} onChange={e => updateRow(filt.id, { op: e.target.value, value: "" })}
+          style={{ flex:"0 0 130px", padding:"5px 8px", borderRadius:7, border:`1px solid ${C.border}`,
+            fontSize:12, fontFamily:F, background:C.surface, color:C.text1, outline:"none" }}>
+          {ops.map(op => <option key={op} value={op}>{op}</option>)}
+        </select>
+
+        {/* Value input */}
+        {showVal && (
+          opts.length > 0
+            ? <select value={filt.value} onChange={e => updateRow(filt.id, { value: e.target.value })}
+                style={{ flex:1, padding:"5px 8px", borderRadius:7, border:`1px solid ${C.border}`,
+                  fontSize:12, fontFamily:F, background:C.surface, color:C.text1, outline:"none" }}>
+                <option value="">Select…</option>
+                {opts.map(o => <option key={o} value={typeof o==="object"?o.value:o}>{typeof o==="object"?o.label:o}</option>)}
+              </select>
+            : field?.field_type === "date"
+              ? <input type="date" value={filt.value} onChange={e => updateRow(filt.id, { value: e.target.value })}
+                  style={{ flex:1, padding:"5px 8px", borderRadius:7, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, background:C.surface, color:C.text1, outline:"none" }}/>
+              : field?.field_type === "number" || field?.field_type === "currency" || field?.field_type === "rating"
+                ? <input type="number" value={filt.value} onChange={e => updateRow(filt.id, { value: e.target.value })} placeholder="Value"
+                    style={{ flex:1, padding:"5px 8px", borderRadius:7, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, background:C.surface, color:C.text1, outline:"none" }}/>
+                : <input value={filt.value} onChange={e => updateRow(filt.id, { value: e.target.value })} placeholder="Value…"
+                    style={{ flex:1, padding:"5px 8px", borderRadius:7, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, background:C.surface, color:C.text1, outline:"none" }}/>
+        )}
+        {!showVal && <div style={{ flex:1 }}/>}
+
+        {/* Remove */}
+        <button onClick={() => removeRow(filt.id)}
+          style={{ flexShrink:0, background:"none", border:"none", cursor:"pointer", padding:3, display:"flex", color:C.text3, borderRadius:4 }}
+          onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color=C.text3}>
+          <Ic n="x" s={13}/>
+        </button>
+      </div>
+    );
+  };
+
+  return (
+    <div ref={ref} style={{
+      position:"absolute", top:"calc(100% + 6px)", left:0, zIndex:600,
+      background:C.surface, border:`1px solid ${C.border}`, borderRadius:12,
+      boxShadow:"0 8px 32px rgba(0,0,0,.14)", width:600, maxWidth:"calc(100vw - 40px)",
+    }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"12px 16px", borderBottom:`1px solid ${C.border}` }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <Ic n="filter" s={14} c={C.accent}/>
+          <span style={{ fontSize:13, fontWeight:700, color:C.text1 }}>Filters</span>
+          {filters.length > 0 && (
+            <span style={{ fontSize:11, color:C.text3 }}>
+              — match <button onClick={() => onLogicChange(logic === "AND" ? "OR" : "AND")}
+                style={{ fontWeight:800, color:C.accent, background:C.accentLight,
+                  border:`1px solid ${C.accent}44`, borderRadius:4, padding:"1px 7px",
+                  cursor:"pointer", fontFamily:F, fontSize:11 }}>{logic}</button> conditions
+            </span>
+          )}
+        </div>
+        <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", display:"flex", color:C.text3 }}>
+          <Ic n="x" s={14}/>
+        </button>
+      </div>
+
+      {/* Filter rows */}
+      <div style={{ padding:"8px 16px", maxHeight:320, overflowY:"auto" }}>
+        {filters.length === 0
+          ? <div style={{ textAlign:"center", padding:"24px 0", color:C.text3, fontSize:13 }}>
+              No filters yet — add one below
+            </div>
+          : filters.map((f, i) => <FilterRow key={f.id} filt={f} idx={i}/>)
+        }
+      </div>
+
+      {/* Footer */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"10px 16px", borderTop:`1px solid ${C.border}`, gap:8 }}>
+        <button onClick={addRow}
+          style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 12px", borderRadius:7,
+            border:`1px dashed ${C.border}`, background:"transparent", fontSize:12, fontWeight:600,
+            cursor:"pointer", fontFamily:F, color:C.text2, transition:"all .12s" }}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text2;}}>
+          <Ic n="plus" s={12}/> Add condition
+        </button>
+        <div style={{ display:"flex", gap:6 }}>
+          {filters.length > 0 && (
+            <button onClick={() => onFiltersChange([])}
+              style={{ padding:"6px 12px", borderRadius:7, border:`1px solid ${C.border}`,
+                background:"transparent", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F, color:C.text3 }}>
+              Clear all
+            </button>
+          )}
+          {filters.length > 0 && onSave && (
+            <button onClick={onSave}
+              style={{ padding:"6px 12px", borderRadius:7, border:`1px solid ${C.accent}`,
+                background:C.accentLight, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F, color:C.accent }}>
+              Save as list
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const FilterBar = ({ fields = [], filters = [], onEditFilter, onRemoveFilter }) => {
@@ -6196,6 +6384,9 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   const [visibleFieldIds, setVisibleFieldIds] = useState(null);
   const [showColPicker, setShowColPicker]     = useState(false);
   const [activeFilters, setActiveFilters]     = useState([]);
+  const [filterLogic, setFilterLogic]         = useState("AND");
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const filterBtnRef = useRef(null);
   const [selectedIds, setSelectedIds]         = useState(new Set());
   const [showViewsMenu, setShowViewsMenu]     = useState(false);
   const skipColRestoreRef = useRef(false);
@@ -6440,7 +6631,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
 
   // Apply advanced filters on top of the loaded records
   const displayedRecords = useMemo(() => {
-    let recs = applyFilters(records, activeFilters, fields);
+    let recs = applyFilters(records, activeFilters, fields, filterLogic);
     if (sortBy) {
       recs = [...recs].sort((a, b) => {
         let av, bv;
@@ -6463,9 +6654,9 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   const handleLoadView = (view) => {
     skipColRestoreRef.current = true;
     if (view.filters)           setActiveFilters(view.filters);
+    if (view.filter_logic)      setFilterLogic(view.filter_logic);
     if (view.visible_field_ids?.length) { setVisibleFieldIds(view.visible_field_ids); try { localStorage.setItem(colStorageKey, JSON.stringify(view.visible_field_ids)); } catch {} }
     if (view.view_mode)         setView(view.view_mode);
-    // Restore filterChip if saved, otherwise clear it
     setFilterChip(view.filter_chip || null);
     setActiveListName(view.name || null);
     setPage(1);
@@ -6621,6 +6812,34 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
           ))}
         </div>
 
+        {/* Filter button */}
+        <div ref={filterBtnRef} style={{ position:"relative" }}>
+          <button onClick={() => setShowFilterPanel(p => !p)}
+            style={{ display:"flex", alignItems:"center", gap:5, padding:"7px 12px", borderRadius:8,
+              border:`1px solid ${showFilterPanel || activeFilters.length ? C.accent : C.border}`,
+              background: showFilterPanel || activeFilters.length ? C.accentLight : C.surface,
+              color: showFilterPanel || activeFilters.length ? C.accent : C.text2,
+              fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F, transition:"all .12s" }}>
+            <Ic n="filter" s={13}/>
+            Filter
+            {activeFilters.length > 0 && (
+              <span style={{ background:C.accent, color:"#fff", borderRadius:99, fontSize:10, fontWeight:700, padding:"1px 6px", marginLeft:2 }}>
+                {activeFilters.length}
+              </span>
+            )}
+          </button>
+          <AdvancedFilterPanel
+            fields={fields}
+            filters={activeFilters}
+            logic={filterLogic}
+            open={showFilterPanel}
+            onFiltersChange={f => { setActiveFilters(f); setActiveListName(null); }}
+            onLogicChange={setFilterLogic}
+            onClose={() => setShowFilterPanel(false)}
+            onSave={() => { setShowFilterPanel(false); setShowViewsMenu(true); }}
+          />
+        </div>
+
         {/* Saved Lists button */}
         <div style={{ position:"relative" }}>
           <button onClick={() => setShowViewsMenu(p => !p)}
@@ -6638,6 +6857,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
               environmentId={environment.id}
               userId={userId}
               currentFilters={activeFilters}
+              currentFilterLogic={filterLogic}
               currentFilterChip={filterChip}
               currentVisibleFieldIds={visibleFieldIds}
               currentViewMode={view}
@@ -6710,32 +6930,6 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
 
       {/* Records tab */}
       {activeTab === "records" && <>
-
-      {/* Active filter chips — click chip to edit, × to remove */}
-      {activeFilters.length > 0 && (
-        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px",
-          marginBottom:8, borderRadius:10, background:C.surface,
-          border:`1px solid ${C.accent}33`, boxShadow:`0 1px 4px ${C.accent}11` }}>
-          <span style={{ fontSize:11, fontWeight:700, color:C.accent, textTransform:"uppercase",
-            letterSpacing:"0.06em", flexShrink:0, opacity:0.7 }}>Filters</span>
-          <div style={{ flex:1, minWidth:0 }}>
-            <FilterBar
-              fields={fields}
-              filters={activeFilters}
-              onEditFilter={handleEditFilter}
-              onRemoveFilter={id => { setActiveFilters(prev => prev.filter(f => f.id !== id)); setActiveListName(null); }}
-            />
-          </div>
-          <button onClick={() => { setActiveFilters([]); setActiveListName(null); }}
-            style={{ flexShrink:0, fontSize:11, fontWeight:600, color:C.text3,
-              background:"none", border:"none", cursor:"pointer", fontFamily:F, padding:"2px 6px",
-              borderRadius:6, whiteSpace:"nowrap" }}
-            onMouseEnter={e=>{e.currentTarget.style.color=C.accent;}}
-            onMouseLeave={e=>{e.currentTarget.style.color=C.text3;}}>
-            Clear all
-          </button>
-        </div>
-      )}
 
       {/* Column filter popover (portal) */}
       {editingFilter && (() => {

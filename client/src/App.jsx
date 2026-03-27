@@ -2129,7 +2129,7 @@ function App() {
                />
              } />
         {/* Page content */}
-        <div style={{ flex: 1, padding: (activeNav.startsWith("record_") || activeNav.startsWith("obj_")) ? 0 : "28px 32px", overflow: activeNav.startsWith("record_") ? "hidden" : "auto", minHeight: 0, position: "relative", zIndex: 0 }}>
+        <div style={{ flex: 1, padding: (activeNav.startsWith("record_") || activeNav.startsWith("obj_")) ? 0 : "28px 32px", overflow: activeNav.startsWith("record_") ? "hidden" : "auto", minHeight: 0, position: "relative", zIndex: 0, boxSizing:"border-box" }}>
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300, color: "#9ca3af" }}>Loading…</div>
         ) : !selectedEnv ? (

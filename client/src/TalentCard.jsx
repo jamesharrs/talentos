@@ -311,7 +311,7 @@ export default function TalentCardModal({ record, fields, environment, onClose }
         </div>
 
         {/* Controls — fixed-width sidebar */}
-        <div style={{ width:260, flexShrink:0, display:"flex", flexDirection:"column", gap:10, position:"sticky", top:0 }}>
+        <div style={{ width:260, flexShrink:0, flexBasis:260, display:"flex", flexDirection:"column", gap:10, position:"sticky", top:0 }}>
           {/* Toolbar */}
           <div style={{ background:"white", borderRadius:12, border:"1px solid #E5E7EB", padding:"12px", display:"flex", flexDirection:"column", gap:8 }}>
             <button onClick={handlePrint} disabled={printing}

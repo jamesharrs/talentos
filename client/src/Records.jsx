@@ -2211,7 +2211,7 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
           <Ic n="edit" s={12} c="white"/> Edit fields
         </button>
         {showEditPicker && (
-          <div style={{ position:"absolute", bottom:"calc(100% + 6px)", right:0, zIndex:500, background:"white", borderRadius:12, border:`1px solid ${C.border}`, boxShadow:"0 8px 28px rgba(0,0,0,.15)", padding:14, minWidth:280, display:"flex", flexDirection:"column", gap:8 }}>
+          <div style={{ position:"absolute", bottom:"calc(100% + 6px)", right:0, zIndex:9700, background:"white", borderRadius:12, border:`1px solid ${C.border}`, boxShadow:"0 8px 28px rgba(0,0,0,.15)", padding:14, minWidth:280, display:"flex", flexDirection:"column", gap:8 }}>
             <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.06em" }}>Set field on {count} records</div>
             <select value={editFieldId} onChange={e => { setEditFieldId(e.target.value); setEditValue(""); }} style={selSt}>
               <option value="">Choose field…</option>
@@ -2253,7 +2253,7 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
             <Ic n="chevD" s={10} c="rgba(255,255,255,0.6)"/>
           </BtnDark>
           {showComms && (
-            <div style={{ position:"absolute", bottom:"calc(100% + 6px)", left:0, zIndex:600,
+            <div style={{ position:"absolute", bottom:"calc(100% + 6px)", left:0, zIndex:9700,
               background:"white", border:`1px solid ${C.border}`, borderRadius:10,
               boxShadow:"0 8px 24px rgba(0,0,0,.15)", overflow:"hidden", minWidth:170 }}>
               {[
@@ -2405,7 +2405,7 @@ const CompareModal = ({ records, fields, objectColor, onClose, onOpen }) => {
   };
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(15,23,41,.55)", zIndex:1200, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"20px 16px", overflowY:"auto" }}>
+    <div style={{ position:"fixed", inset:0, background:"rgba(15,23,41,.55)", zIndex:9600, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"20px 16px", overflowY:"auto" }}>
       <div style={{ background:C.bg, borderRadius:18, width:"100%", maxWidth:1100, boxShadow:"0 32px 80px rgba(0,0,0,.25)", overflow:"hidden" }}>
 
         {/* Header */}
@@ -6914,23 +6914,23 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   const handleBulkPeopleAction = async (action, payload) => {
     const ids = [...selectedIds];
     if (action === "communicate") {
-      // Open comms compose for selected people — dispatch event for Communications panel
+      // Fire event — keep selection so user knows who was targeted
       window.dispatchEvent(new CustomEvent("talentos:bulkCommunicate", {
         detail: { recordIds: ids, type: payload.type, object }
       }));
+      return; // don't clear selection
     } else if (action === "note") {
-      // Add note to each selected record
       await Promise.all(ids.map(id =>
-        api.post(`/records/${id}/notes`, { text: payload.text, created_by: session?.user?.email || "Admin" })
+        api.post(`/notes`, { record_id: id, content: payload.text, author: session?.user?.email || "Admin" })
       ));
-      window.__toast?.success?.(`Note added to ${ids.length} records`);
+      window.__toast?.success?.(`Note added to ${ids.length} record${ids.length !== 1 ? "s" : ""}`);
     } else if (action === "interview") {
-      // Open interview scheduler with bulk candidates pre-populated
+      // Fire event to open scheduler — keep selection
       window.dispatchEvent(new CustomEvent("talentos:bulkInterview", {
         detail: { recordIds: ids, records: records.filter(r => ids.includes(r.id)) }
       }));
+      return; // don't clear selection
     } else if (action === "link") {
-      // Link each selected person to the chosen target record
       await Promise.all(ids.map(id =>
         api.post("/people-links", {
           person_id: id,

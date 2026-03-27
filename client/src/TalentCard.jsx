@@ -65,7 +65,7 @@ const CardRenderer = ({ record, fields, config, companyName }) => {
   const customSection  = config.sections.find(s => s.id === "custom");
 
   return (
-    <div id="talent-card-print" style={{ width:680, minHeight:480, background:bg, borderRadius:16, overflow:"hidden", fontFamily:F, boxShadow:"0 8px 32px rgba(0,0,0,.15)" }}>
+    <div id="talent-card-print" style={{ width:"100%", maxWidth:680, minWidth:320, minHeight:480, background:bg, borderRadius:16, overflow:"hidden", fontFamily:F, boxShadow:"0 8px 32px rgba(0,0,0,.15)" }}>
 
       {/* Top accent bar */}
       <div style={{ height:6, background:`linear-gradient(90deg, ${accent}, ${accent}99)` }}/>
@@ -301,17 +301,17 @@ export default function TalentCardModal({ record, fields, environment, onClose }
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(15,23,41,.55)", zIndex:1200, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"24px 16px", overflow:"auto" }}>
-      <div style={{ width:"100%", maxWidth:1080, display:"flex", flexWrap:"wrap", gap:20, alignItems:"flex-start" }}>
+      <div style={{ width:"100%", maxWidth:1060, display:"flex", gap:16, alignItems:"flex-start" }}>
 
         {/* Card preview */}
-        <div style={{ flex:1, minWidth:0, overflowX:"auto" }}>
+        <div style={{ flex:1, minWidth:0 }}>
           <div ref={cardRef}>
             <CardRenderer record={record} fields={fields} config={config} companyName={companyName}/>
           </div>
         </div>
 
-        {/* Controls */}
-        <div style={{ width:280, flexShrink:0, display:"flex", flexDirection:"column", gap:10 }}>
+        {/* Controls — fixed-width sidebar */}
+        <div style={{ width:260, flexShrink:0, display:"flex", flexDirection:"column", gap:10, position:"sticky", top:0 }}>
           {/* Toolbar */}
           <div style={{ background:"white", borderRadius:12, border:"1px solid #E5E7EB", padding:"12px", display:"flex", flexDirection:"column", gap:8 }}>
             <button onClick={handlePrint} disabled={printing}

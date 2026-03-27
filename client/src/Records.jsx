@@ -4699,17 +4699,27 @@ const ActivityPanel = memo(({ record }) => {
 }, (prev, next) => prev.record?.id === next.record?.id);
 
 // ── Notes Panel — defined OUTSIDE RecordDetail to prevent remount on every keystroke ──
-const NotesPanel = ({ record, notes, onNotesChange, canAdd=true, canDelete=true }) => {
-  const [newNote, setNewNote] = useState("");
-  const [saving, setSaving]   = useState(false);
+const NotesPanel = ({ record, notes, onNotesChange, canAdd=true, canDelete=true, linkedJobRecords=[], activeJobContext=null }) => {
+  const [newNote, setNewNote]     = useState("");
+  const [saving, setSaving]       = useState(false);
+  const [noteContext, setNoteContext] = useState(null); // null=general, string=job record id
+  const [filterCtx, setFilterCtx] = useState("all");   // "all" | "general" | <job id>
+
+  // When job context tab changes in parent, sync the note-context picker default
+  useEffect(() => { setNoteContext(activeJobContext); }, [activeJobContext]);
 
   const handleAdd = async () => {
     if (!newNote.trim() || saving) return;
     setSaving(true);
-    await api.post("/notes", { record_id: record.id, content: newNote, author: "Admin" });
+    await api.post("/notes", {
+      record_id: record.id,
+      content: newNote,
+      author: "Admin",
+      related_record_id: noteContext || null,
+    });
     setNewNote("");
     setSaving(false);
-    onNotesChange(); // trigger parent reload
+    onNotesChange();
   };
 
   const handleDelete = async (id) => {
@@ -4721,41 +4731,92 @@ const NotesPanel = ({ record, notes, onNotesChange, canAdd=true, canDelete=true 
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleAdd();
   };
 
+  // Filter displayed notes by context
+  const filteredNotes = filterCtx === "all" ? notes
+    : filterCtx === "general" ? notes.filter(n => !n.related_record_id)
+    : notes.filter(n => n.related_record_id === filterCtx);
+
+  // Job title lookup
+  const jobTitle = (id) => {
+    const j = linkedJobRecords.find(j => j.id === id);
+    return j ? (j.title || j.data?.job_title || "Job") : "Job";
+  };
+
   return (
     <div>
-      {canAdd && <div style={{ display:"flex", flexDirection:"column", gap:4, marginBottom:14 }}>
-        <textarea
-          value={newNote}
-          onChange={e => setNewNote(e.target.value)}
-          onKeyDown={handleKey}
-          placeholder="Add a note… (Ctrl+Enter to save)"
-          rows={3}
-          style={{ padding:"10px 12px", borderRadius:10, border:`1px solid ${C.border}`, fontSize:13, fontFamily:F, outline:"none", color:C.text1, resize:"vertical", width:"100%", boxSizing:"border-box" }}
-        />
-        <div style={{ display:"flex", justifyContent:"flex-end" }}>
-          <Btn onClick={handleAdd} disabled={!newNote.trim() || saving} sz="sm">{saving ? "Saving…" : "Add Note"}</Btn>
+      {/* Context filter tabs — only when person has linked jobs */}
+      {linkedJobRecords.length > 0 && (
+        <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:10 }}>
+          {[{id:"all",label:`All (${notes.length})`},{id:"general",label:"General"},...linkedJobRecords.map(j=>({id:j.id,label:jobTitle(j.id)}))].map(tab=>(
+            <button key={tab.id} onClick={()=>setFilterCtx(tab.id)}
+              style={{ padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:filterCtx===tab.id?700:500,
+                border:`1.5px solid ${filterCtx===tab.id?C.accent:C.border}`,
+                background:filterCtx===tab.id?C.accentLight:"transparent",
+                color:filterCtx===tab.id?C.accent:C.text3, cursor:"pointer", fontFamily:F }}>
+              {tab.label}
+            </button>
+          ))}
         </div>
-      </div>}
-      {notes.length === 0
-        ? <div style={{ textAlign:"center", padding:"20px 0", color:C.text3, fontSize:13 }}>No notes yet</div>
-        : notes.map(note => (
-          <div key={note.id} style={{ background: isAiGenerated(note) ? "#F5F3FF" : "#f8f9fc", borderRadius:10, padding:"12px 14px", marginBottom:8, border:`1px solid ${isAiGenerated(note) ? "#7048E830" : C.border}` }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <Avatar name={note.author} size={22} color={isAiGenerated(note) ? "#7048E8" : C.accent}/>
-                <span style={{ fontSize:12, fontWeight:600, color:C.text2 }}>{note.author}</span>
-                {isAiGenerated(note) && <AiBadge/>}
-              </div>
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{ fontSize:11, color:C.text3 }}>{new Date(note.created_at).toLocaleDateString()}</span>
-                {canDelete && <button onClick={() => handleDelete(note.id)} style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:2, borderRadius:4 }}>
-                  <Ic n="trash" s={12} c={C.text3}/>
-                </button>}
-              </div>
-            </div>
-            <div style={{ fontSize:13, color:C.text1, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{note.content}</div>
+      )}
+
+      {canAdd && (
+        <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
+          <textarea
+            value={newNote}
+            onChange={e => setNewNote(e.target.value)}
+            onKeyDown={handleKey}
+            placeholder="Add a note… (Ctrl+Enter to save)"
+            rows={3}
+            style={{ padding:"10px 12px", borderRadius:10, border:`1px solid ${C.border}`, fontSize:13, fontFamily:F, outline:"none", color:C.text1, resize:"vertical", width:"100%", boxSizing:"border-box" }}
+          />
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+            {/* Job context picker — only on Person records with linked jobs */}
+            {linkedJobRecords.length > 0 ? (
+              <select value={noteContext||""} onChange={e=>setNoteContext(e.target.value||null)}
+                style={{ flex:1, padding:"5px 8px", borderRadius:8, border:`1px solid ${C.border}`,
+                  fontSize:12, fontFamily:F, outline:"none", background:"white", color:C.text2 }}>
+                <option value="">General note</option>
+                {linkedJobRecords.map(j=>(
+                  <option key={j.id} value={j.id}>Re: {jobTitle(j.id)}</option>
+                ))}
+              </select>
+            ) : <div/>}
+            <Btn onClick={handleAdd} disabled={!newNote.trim() || saving} sz="sm">{saving ? "Saving…" : "Add Note"}</Btn>
           </div>
-        ))
+        </div>
+      )}
+
+      {filteredNotes.length === 0
+        ? <div style={{ textAlign:"center", padding:"20px 0", color:C.text3, fontSize:13 }}>No notes yet</div>
+        : filteredNotes.map(note => {
+          const relJob = note.related_record_id ? linkedJobRecords.find(j=>j.id===note.related_record_id) : null;
+          return (
+            <div key={note.id} style={{ background: isAiGenerated(note) ? "#F5F3FF" : "#f8f9fc", borderRadius:10, padding:"12px 14px", marginBottom:8, border:`1px solid ${isAiGenerated(note) ? "#7048E830" : C.border}` }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <Avatar name={note.author} size={22} color={isAiGenerated(note) ? "#7048E8" : C.accent}/>
+                  <span style={{ fontSize:12, fontWeight:600, color:C.text2 }}>{note.author}</span>
+                  {isAiGenerated(note) && <AiBadge/>}
+                  {relJob && (
+                    <span style={{ fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:99,
+                      background:C.accentLight, color:C.accent, whiteSpace:"nowrap" }}>
+                      {jobTitle(relJob.id)}
+                    </span>
+                  )}
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:11, color:C.text3 }}>{new Date(note.created_at).toLocaleDateString()}</span>
+                  {canDelete && (
+                    <button onClick={() => handleDelete(note.id)} style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:2, borderRadius:4 }}>
+                      <Ic n="trash" s={12} c={C.text3}/>
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div style={{ fontSize:13, color:C.text1, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{note.content}</div>
+            </div>
+          );
+        })
       }
     </div>
   );
@@ -5894,7 +5955,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       <CoordinationPanel record={record} environment={environment}/>
     );
     if (id==="notes") return canRecord('record_add_note') || canRecord('record_view_comms') ? (
-      <NotesPanel record={record} notes={notes} onNotesChange={load} canAdd={canRecord('record_add_note')} canDelete={canRecord('record_delete_note')}/>
+      <NotesPanel record={record} notes={notes} onNotesChange={load} canAdd={canRecord('record_add_note')} canDelete={canRecord('record_delete_note')} linkedJobRecords={linkedJobRecords} activeJobContext={activeJobContext}/>
     ) : <AccessDeniedPanel label="Notes"/>;
 
     if (id==="attachments") return (
@@ -6427,7 +6488,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         </div>
       )}
       {/* 2-col body */}
-      <div ref={containerRef} style={{ flex:1, display:"flex", overflow:"hidden", minHeight:0, minHeight:0, userSelect:draggingCol.current?"none":"auto" }}>
+      <div ref={containerRef} style={{ flex:1, display:"flex", overflow:"hidden", minHeight:0, userSelect:draggingCol.current?"none":"auto" }}>
 
         {/* LEFT COL — Fields as panel card */}
         <div style={{ width:`${leftPct}%`, flexShrink:0, background:"#F4F6FB", display:"flex", flexDirection:"column", overflowY:"auto", overflowX:"hidden", padding:"16px 0 24px 16px", minHeight:0 }}>

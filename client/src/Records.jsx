@@ -266,7 +266,7 @@ const FieldValue = ({ field, value, allFieldValues = {} }) => {
     case "unique_id": return <span style={{fontSize:11,fontWeight:700,fontFamily:"ui-monospace,monospace",padding:"2px 6px",borderRadius:4,background:"#f0f4ff",color:"#3b5bdb",letterSpacing:"0.05em"}}>{String(value)}</span>;
     case "country": {
       const c = COUNTRY_MAP[value];
-      return <FilterPill label={c?`${c.flag} ${c.name}`:value} color={C.accent}/>;
+      return <FilterPill label={c?`${c.flag} ${c.name}`:value} color={C.accent} fieldKey={field.api_key} fieldName={field.name}/>;
     }
     case "address": {
       const addr = (() => { try { return typeof value==="object"&&value ? value : JSON.parse(value); } catch { return {street:value}; } })();
@@ -282,7 +282,7 @@ const FieldValue = ({ field, value, allFieldValues = {} }) => {
     }
     case "status": {
       const col = STATUS_COLORS[String(value).toLowerCase()] || C.accent;
-      return <FilterPill label={value} color={col}/>;
+      return <FilterPill label={value} color={col} fieldKey={field.api_key} fieldName={field.name}/>;
     }
     case "date":    return <span style={{fontSize:13}}>{new Date(value).toLocaleDateString()}</span>;
     case "dataset": {
@@ -290,7 +290,7 @@ const FieldValue = ({ field, value, allFieldValues = {} }) => {
       const arr = Array.isArray(value) ? value : (value ? [value] : []);
       if (!arr.length) return <span style={{color:C.text3,fontSize:12}}>—</span>;
       return <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-        {arr.map(v=><FilterPill key={v} label={v} color={C.accent}/>)}
+        {arr.map(v=><FilterPill key={v} label={v} color={C.accent} fieldKey={field.api_key} fieldName={field.name}/>)}
       </div>;
     }
     case "skills": {
@@ -2116,6 +2116,14 @@ const DeleteConfirmInline = ({ count, session, onConfirm, onCancel }) => {
   );
 };
 
+const BtnDark = React.forwardRef(({ children, onClick, style = {} }, ref) => (
+  <button ref={ref} onClick={onClick} style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 12px",
+    borderRadius:8, border:"1px solid rgba(255,255,255,0.2)", background:"rgba(255,255,255,0.12)",
+    color:"white", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F, ...style }}>
+    {children}
+  </button>
+));
+
 const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete, onEdit, onCompare,
   hasActiveFilters, totalFilteredCount, selectAllMatching, onSelectAllMatching, onClearSelectAll, session,
   objectSlug, selectedRecords, environment, allObjects, onBulkAction }) => {
@@ -2204,263 +2212,6 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
     setShowLinkModal(false); setLinkSearch(""); setLinkObjFilter("");
   };
 
-  const BtnDark = React.forwardRef(({ children, onClick, style = {} }, ref) => (
-    <button ref={ref} onClick={onClick} style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 12px",
-      borderRadius:8, border:"1px solid rgba(255,255,255,0.2)", background:"rgba(255,255,255,0.12)",
-      color:"white", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F, ...style }}>
-      {children}
-    </button>
-  ));
-
-  const selSt = { padding:"5px 9px", borderRadius:7, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, color:C.text1, background:"white" };
-
-  return (
-    <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 14px", background:"#1e293b",
-      borderRadius:10, marginBottom:10, flexWrap:"wrap", position:"relative" }}>
-      <span style={{ fontSize:13, fontWeight:700, color:"white" }}>{selectAllMatching ? `All ${totalFilteredCount}` : count} selected</span>
-      <div style={{ display:"flex", gap:6, marginLeft:4 }}>
-        <button onClick={onSelectAll}
-          style={{ padding:"4px 10px", borderRadius:7, border:"1px solid rgba(255,255,255,0.2)", background:"rgba(255,255,255,0.1)", color:"white", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
-          Select all {total}
-        </button>
-        {hasActiveFilters && totalFilteredCount > total && !selectAllMatching && (
-          <button onClick={onSelectAllMatching}
-            style={{ padding:"4px 10px", borderRadius:7, border:"1px solid rgba(99,179,237,0.4)", background:"rgba(99,179,237,0.15)", color:"#93c5fd", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
-            Select all {totalFilteredCount} matching filter
-          </button>
-        )}
-        {selectAllMatching && (
-          <span style={{ fontSize:12, fontWeight:600, color:"#93c5fd", display:"flex", alignItems:"center", gap:4 }}>
-            All {totalFilteredCount} matching records selected
-            <button onClick={onClearSelectAll} style={{ background:"none", border:"none", color:"#93c5fd", cursor:"pointer", fontSize:12, textDecoration:"underline", fontFamily:F }}>(undo)</button>
-          </span>
-        )}
-        <button onClick={onClearAll}
-          style={{ padding:"4px 10px", borderRadius:7, border:"1px solid rgba(255,255,255,0.2)", background:"transparent", color:"rgba(255,255,255,0.7)", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
-          Clear
-        </button>
-      </div>
-      <div style={{ flex:1 }}/>
-      {/* Bulk edit */}
-      <div>
-        <button ref={editBtnRef} onClick={() => { setEditPos(posAboveBtn(editBtnRef)); setShowEditPicker(s => !s); }}
-          style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 12px", borderRadius:8, border:"1px solid rgba(255,255,255,0.2)", background:"rgba(255,255,255,0.12)", color:"white", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
-          <Ic n="edit" s={12} c="white"/> Edit fields
-        </button>
-        {showEditPicker && editPos && ReactDOM.createPortal(
-          <div style={{ position:"fixed", bottom:editPos.bottom, left:editPos.left, zIndex:9700, background:"white", borderRadius:12, border:`1px solid ${C.border}`, boxShadow:"0 8px 28px rgba(0,0,0,.15)", padding:14, minWidth:280, display:"flex", flexDirection:"column", gap:8 }}>
-            <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.06em" }}>Set field on {count} records</div>
-            <select value={editFieldId} onChange={e => { setEditFieldId(e.target.value); setEditValue(""); }} style={selSt}>
-              <option value="">Choose field…</option>
-              {editableFields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-            </select>
-            {chosenField && (
-              chosenField.field_type === "select" ? (
-                <select value={editValue} onChange={e => setEditValue(e.target.value)} style={selSt}>
-                  <option value="">— clear —</option>
-                  {(chosenField.options||[]).map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              ) : chosenField.field_type === "boolean" ? (
-                <select value={editValue} onChange={e => setEditValue(e.target.value)} style={selSt}>
-                  <option value="">— clear —</option>
-                  <option value="true">True</option>
-                  <option value="false">False</option>
-                </select>
-              ) : (
-                <input value={editValue} onChange={e => setEditValue(e.target.value)}
-                  placeholder={`New value for ${chosenField.name}…`}
-                  style={{...selSt, width:"100%", boxSizing:"border-box"}}/>
-              )
-            )}
-            <div style={{ display:"flex", gap:6 }}>
-              <button onClick={() => { setShowEditPicker(false); setEditFieldId(""); setEditValue(""); }}
-                style={{ flex:1, padding:"6px", borderRadius:7, border:`1px solid ${C.border}`, background:"transparent", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F, color:C.text2 }}>Cancel</button>
-              <button onClick={handleBulkEdit} disabled={!editFieldId}
-                style={{ flex:2, padding:"6px", borderRadius:7, border:"none", background:C.accent, color:"white", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:F, opacity:!editFieldId?0.5:1 }}>Apply</button>
-            </div>
-          </div>,
-          document.body
-        )}
-      </div>
-      {/* ── People-only bulk actions ── */}
-      {isPeople && <>
-        {/* Communicate dropdown */}
-        <div>
-          <BtnDark ref={commsBtnRef} onClick={() => { setCommsPos(posAboveBtn(commsBtnRef)); setShowComms(s => !s); }}>
-            <Ic n="mail" s={12} c="white"/> Communicate
-            <Ic n="chevD" s={10} c="rgba(255,255,255,0.6)"/>
-          </BtnDark>
-          {showComms && commsPos && ReactDOM.createPortal(
-            <div style={{ position:"fixed", bottom:commsPos.bottom, left:commsPos.left, zIndex:9700,
-              background:"white", border:`1px solid ${C.border}`, borderRadius:10,
-              boxShadow:"0 8px 24px rgba(0,0,0,.15)", overflow:"hidden", minWidth:170 }}>
-              {[
-                { type:"email",     icon:"mail",     label:"Send Email" },
-                { type:"sms",       icon:"message",  label:"Send SMS" },
-                { type:"whatsapp",  icon:"phone",    label:"WhatsApp" },
-              ].map(({ type, icon, label }) => (
-                <button key={type} onClick={() => { onBulkAction?.("communicate", { type }); setShowComms(false); }}
-                  style={{ width:"100%", display:"flex", alignItems:"center", gap:9, padding:"9px 14px",
-                    border:"none", background:"transparent", cursor:"pointer", fontFamily:F,
-                    fontSize:12, fontWeight:600, color:C.text1, textAlign:"left" }}
-                  onMouseEnter={e => e.currentTarget.style.background = C.accentLight}
-                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <Ic n={icon} s={13} c={C.accent}/>{label}
-                </button>
-              ))}
-            </div>,
-            document.body
-          )}
-        </div>
-
-        {/* Add Note */}
-        <BtnDark onClick={() => setShowNoteModal(true)}>
-          <Ic n="edit" s={12} c="white"/> Add note
-        </BtnDark>
-
-        {/* Create Interview */}
-        <BtnDark onClick={() => onBulkAction?.("interview", {})}>
-          <Ic n="calendar" s={12} c="white"/> Interview
-        </BtnDark>
-
-        {/* Link To */}
-        <BtnDark onClick={() => setShowLinkModal(true)}>
-          <Ic n="link" s={12} c="white"/> Link to
-        </BtnDark>
-      </>}
-
-      {/* Compare — only show when 2–5 selected */}
-      {onCompare && count >= 2 && count <= 5 && (
-        <button onClick={onCompare}
-          style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 12px", borderRadius:8, border:"1px solid rgba(255,255,255,0.25)", background:"rgba(255,255,255,0.15)", color:"white", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
-          <Ic n="layers" s={12} c="white"/> Compare {count}
-        </button>
-      )}
-      {/* Bulk delete */}
-      {!confirming ? (
-        <button onClick={() => setConfirming(true)}
-          style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 12px", borderRadius:8, border:"1px solid rgba(239,68,68,0.4)", background:"rgba(239,68,68,0.15)", color:"#fca5a5", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
-          <Ic n="trash" s={12} c="#fca5a5"/> Delete {count}
-        </button>
-      ) : (
-        <DeleteConfirmInline
-          count={selectAllMatching ? totalFilteredCount : count}
-          session={session}
-          onConfirm={() => { onDelete(); setConfirming(false); }}
-          onCancel={() => setConfirming(false)}
-        />
-      )}
-
-      {/* ── Add Note modal ── */}
-      {showNoteModal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.5)", zIndex:9000, display:"flex", alignItems:"center", justifyContent:"center" }}
-          onClick={e => e.target === e.currentTarget && setShowNoteModal(false)}>
-          <div style={{ background:"white", borderRadius:14, padding:24, width:440, boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
-            <div style={{ fontSize:14, fontWeight:700, color:C.text1, marginBottom:12 }}>Add note to {count} people</div>
-            <textarea value={noteText} onChange={e => setNoteText(e.target.value)} autoFocus
-              placeholder="Type your note…" rows={4}
-              style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${C.border}`,
-                fontSize:13, fontFamily:F, resize:"vertical", outline:"none", boxSizing:"border-box" }}/>
-            <div style={{ display:"flex", gap:8, marginTop:12 }}>
-              <button onClick={() => setShowNoteModal(false)}
-                style={{ flex:1, padding:"8px", borderRadius:8, border:`1px solid ${C.border}`, background:"transparent", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:F, color:C.text2 }}>Cancel</button>
-              <button onClick={handleBulkNote} disabled={!noteText.trim()}
-                style={{ flex:2, padding:"8px", borderRadius:8, border:"none", background:C.accent, color:"white", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, opacity:!noteText.trim()?0.5:1 }}>Add Note</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Link To modal ── */}
-      {showLinkModal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.5)", zIndex:9000,
-          display:"flex", alignItems:"center", justifyContent:"center" }}
-          onClick={e => e.target === e.currentTarget && setShowLinkModal(false)}>
-          <div style={{ background:"white", borderRadius:16, width:500, maxHeight:"75vh",
-            display:"flex", flexDirection:"column", overflow:"hidden", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
-            {/* Header */}
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-              padding:"16px 20px", borderBottom:`1px solid ${C.border}` }}>
-              <div style={{ fontSize:14, fontWeight:700, color:C.text1 }}>Link {count} {count===1?"person":"people"} to…</div>
-              <button onClick={() => setShowLinkModal(false)}
-                style={{ background:"none", border:"none", cursor:"pointer" }}>
-                <Ic n="x" s={16} c={C.text3}/>
-              </button>
-            </div>
-            {/* Helper note */}
-            <div style={{ padding:"10px 16px", background:"#fffbeb", borderBottom:`1px solid #fde68a`,
-              display:"flex", alignItems:"flex-start", gap:8 }}>
-              <Ic n="info" s={14} c="#92400e"/>
-              <span style={{ fontSize:12, color:"#92400e", lineHeight:1.5 }}>
-                Only records with a <strong>Linked Person Workflow</strong> are shown.
-                If a job or record is missing, open it and assign a workflow in its Pipeline panel first.
-              </span>
-            </div>
-            {/* Search + type filter */}
-            <div style={{ display:"flex", gap:8, padding:"10px 14px", borderBottom:`1px solid ${C.border}` }}>
-              <input autoFocus value={linkSearch} onChange={e => setLinkSearch(e.target.value)}
-                placeholder="Search records…"
-                style={{ flex:1, padding:"7px 10px", border:`1.5px solid ${C.border}`,
-                  borderRadius:8, fontSize:13, fontFamily:F, outline:"none" }}/>
-              <select value={linkObjFilter} onChange={e => setLinkObjFilter(e.target.value)}
-                style={{ padding:"7px 10px", border:`1.5px solid ${C.border}`, borderRadius:8,
-                  fontSize:12, fontFamily:F, outline:"none", background:"white", color:C.text2 }}>
-                <option value="">All types</option>
-                {[...new Set(linkTargets.map(r => r.object_name))].map(n => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-            </div>
-            {/* Results */}
-            <div style={{ flex:1, overflowY:"auto" }}>
-              {linkLoading
-                ? <div style={{ padding:24, textAlign:"center", color:C.text3, fontSize:13 }}>Loading…</div>
-                : (() => {
-                    const filtered = linkTargets.filter(r => {
-                      if (linkObjFilter && r.object_name !== linkObjFilter) return false;
-                      if (!linkSearch) return true;
-                      const d = r.data || {};
-                      const lbl = [d.job_title, d.pool_name, d.name, d.first_name].filter(Boolean).join(" ").toLowerCase();
-                      return lbl.includes(linkSearch.toLowerCase());
-                    });
-                    if (!filtered.length) return (
-                      <div style={{ padding:24, textAlign:"center", color:C.text3, fontSize:13 }}>
-                        {linkTargets.length === 0
-                          ? "No records with a Linked Person Workflow found."
-                          : "No matching records."}
-                      </div>
-                    );
-                    return filtered.map((r, i) => {
-                      const d = r.data || {};
-                      const label = d.job_title || d.pool_name || d.name || d.first_name || r.id.slice(0,8);
-                      const col = r.object_color || C.accent;
-                      return (
-                        <div key={r.id} onClick={() => handleBulkLink(r)}
-                          style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 16px",
-                            cursor:"pointer", borderBottom: i < filtered.length-1 ? `1px solid ${C.border}` : "none" }}
-                          onMouseEnter={e => e.currentTarget.style.background = C.accentLight}
-                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                          <div style={{ width:34, height:34, borderRadius:9, background:`${col}18`,
-                            border:`1.5px solid ${col}30`, display:"flex", alignItems:"center",
-                            justifyContent:"center", flexShrink:0 }}>
-                            <span style={{ fontSize:13, fontWeight:800, color:col }}>{label.charAt(0).toUpperCase()}</span>
-                          </div>
-                          <div style={{ flex:1 }}>
-                            <div style={{ fontSize:13, fontWeight:600, color:C.text1 }}>{label}</div>
-                            <div style={{ fontSize:11, color:C.text3 }}>{r.object_name}</div>
-                          </div>
-                          <span style={{ fontSize:11, color:C.accent, fontWeight:600 }}>+ Link</span>
-                        </div>
-                      );
-                    });
-                  })()
-              }
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
 };
 
 /* ─── Candidate Comparison Modal ─────────────────────────────────────────── */
@@ -3291,6 +3042,7 @@ const STATUS_COLOR = { active:"#0CAF77", invited:"#F79009", deactivated:"#EF4444
 const STATUS_BG    = { active:"#ECFDF5", invited:"#FFF7ED", deactivated:"#FEF2F2" };
 
 function PlatformUserSection({ record }) {
+  /* Header called as fn below to avoid React identity issue */
   const email = record?.data?.email;
   const [user,      setUser]      = useState(null);
   const [loading,   setLoading]   = useState(true);
@@ -3337,13 +3089,13 @@ function PlatformUserSection({ record }) {
     </div>
   );
 
-  if (!open) return <Header/>;
-  if (loading) return <><Header/><div style={{ fontSize:12, color:C.text3, padding:"6px 0" }}>Loading…</div></>;
+  if (!open) return Header();
+  if (loading) return <>{Header()}<div style={{ fontSize:12, color:C.text3, padding:"6px 0" }}>Loading…</div></>;
 
   // ── No linked user ──
   if (!user) return (
     <>
-      <Header/>
+      {Header()}
       <div style={{ background:"#f8f9fc", borderRadius:12, border:`1px solid ${C.border}`, overflow:"hidden" }}>
         {!creating ? (
           <div style={{ padding:"18px 16px", textAlign:"center" }}>
@@ -3409,7 +3161,7 @@ function PlatformUserSection({ record }) {
 
   return (
     <>
-      <Header/>
+      {Header()}
       <div style={{ background:"#f8f9fc", borderRadius:12, overflow:"hidden", border:`1px solid ${C.border}` }}>
         {editing ? (
           <div style={{ padding:"14px 16px", display:"flex", flexDirection:"column", gap:10 }}>
@@ -6077,37 +5829,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   // PanelCard is defined at module level above RecordDetail
 
   // GroupCard is defined at module level above RecordDetail
-
-  // ── Drag zone indicator (thin line between cards) ─────────────────────────
-  const DropIndicator = ({ beforeRepId, afterRepId }) => {
-    if (!draggingPanel) return null;
-    if (overZone === "middle") return null;  // merging — no line needed
-    // Show before-line when hovered top zone matches this slot
-    const showBefore = beforeRepId && overSlot === beforeRepId && overZone === "top";
-    // Show after-line when hovered bottom zone matches previous slot
-    const showAfter  = afterRepId  && overSlot === afterRepId  && overZone === "bottom";
-    if (!showBefore && !showAfter) return null;
-    return <div style={{ height:3, borderRadius:2, background:C.accent,
-      margin:"0 0 12px", boxShadow:`0 0 8px ${C.accent}70` }}/>;
-  };
-
-
-  // ── Shared header (slide-out only) ──
-  const Header = () => (
-    <div style={{ display:"flex", alignItems:"center", gap:14, padding:"16px 24px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
-      <Avatar name={title} color={objectColor} size={38} photoUrl={record?.data?.profile_photo || record?.data?.photo_url}/>
-      <div style={{ flex:1, minWidth:0 }}>
-        <h2 style={{ margin:0, fontSize:17, fontWeight:700, color:C.text1, fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.3px" }}>{title}</h2>
-        {subtitle && <div style={{ fontSize:12, color:C.text3, marginTop:1 }}>{subtitle}</div>}
-      </div>
-      {status && statusField && <Badge color={STATUS_COLORS[status]||C.accent} light>{status}</Badge>}
-      <div style={{ display:"flex", gap:6 }}>
-        <Btn v="ghost" sz="sm" icon="expand" onClick={onToggleFullPage}/>
-        <Btn v="danger" sz="sm" icon="trash" onClick={()=>onDelete(record.id)}/>
-        <Btn v="ghost" sz="sm" icon="x" onClick={onClose}/>
-      </div>
-    </div>
-  );
+  // DropIndicator, ActionBtn, SlideOutHeader are defined at module level above RecordDetail
 
   // ── SLIDE-OUT (600px panel) — tabs layout ──
   const TABS = [
@@ -6126,7 +5848,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       <style>{`@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
       <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.2)", zIndex:899 }} onClick={onClose}/>
       <div style={{ position:"fixed", top:0, right:0, bottom:0, width:600, background:C.surface, zIndex:900, display:"flex", flexDirection:"column", boxShadow:"-8px 0 40px rgba(0,0,0,.14)", animation:"slideIn .2s ease" }}>
-        <Header/>
+        <SlideOutHeader title={title} subtitle={subtitle} objectColor={objectColor} status={status} statusField={statusField} record={record} onToggleFullPage={onToggleFullPage} onDelete={onDelete} onClose={onClose} photoUrl={record?.data?.profile_photo || record?.data?.photo_url}/>
         <div style={{ display:"flex", gap:0, padding:"0 24px", borderBottom:`1px solid ${C.border}`, flexShrink:0, overflowX:"auto" }}>
           {TABS.map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)}
@@ -6220,21 +5942,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const lastCommDate = activity?.length
     ? new Date(activity[0]?.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short"})
     : null;
-
-  const ActionBtn = ({ icon, label, onClick, accent, danger }) => (
-    <button onClick={onClick}
-      style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 14px", borderRadius:20,
-        border:"none",
-        background: danger ? "#FEF2F2" : accent ? C.accentLight : "#F1F5F9",
-        color: danger ? "#DC2626" : accent ? C.accent : "#475569",
-        fontWeight:600, fontSize:12, cursor:"pointer", fontFamily:F, whiteSpace:"nowrap",
-        transition:"all .15s", letterSpacing:"0.01em",
-        boxShadow:"0 1px 2px rgba(0,0,0,0.06)" }}
-      onMouseEnter={e=>{ e.currentTarget.style.background=danger?"#FEE2E2":accent?`${C.accent}25`:"#E2E8F0"; e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,0.10)"; e.currentTarget.style.transform="translateY(-1px)"; }}
-      onMouseLeave={e=>{ e.currentTarget.style.background=danger?"#FEF2F2":accent?C.accentLight:"#F1F5F9"; e.currentTarget.style.boxShadow="0 1px 2px rgba(0,0,0,0.06)"; e.currentTarget.style.transform="translateY(0)"; }}>
-      <Ic n={icon} s={12} c="currentColor"/> {label}
-    </button>
-  );
+  // ActionBtn and FunctionalityBar are defined at module level above RecordDetail
 
   const FunctionalityBar = () => (
     <div style={{ display:"flex", alignItems:"center", gap:0, background:C.surface,
@@ -6445,7 +6153,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100%", overflow:"hidden", background:"#F4F6FB" }}>
-      <FunctionalityBar/>
+      {FunctionalityBar()}
       <SuggestedActions record={record} environment={environment} objectName={objectName} objectColor={objectColor} onCompose={(type)=>setComposeType(type)}/>
       {/* Full-width Linked People widget — only shown on non-Person objects */}
       {objectName !== "Person" && (

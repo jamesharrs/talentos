@@ -6495,7 +6495,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
         {/* LEFT COL — Fields as panel card */}
         <div style={{ width:`${leftPct}%`, flexShrink:0, background:"#F4F6FB", display:"flex", flexDirection:"column", overflowY:"auto", overflowX:"hidden", padding:"16px 0 24px 16px", minHeight:0 }}>
-          <div style={{ background:C.surface, border:`1.5px solid ${C.border}`, borderRadius:14, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,.04)" }}>
+          <div style={{ background:C.surface, border:`1.5px solid ${C.border}`, borderRadius:14, overflow:"visible", boxShadow:"0 1px 4px rgba(0,0,0,.04)", flexShrink:0 }}>
             <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px", borderBottom:`1px solid ${C.border}` }}>
               <Ic n="edit" s={14} c={globalEdit ? C.accent : C.text3}/>
               <span style={{ flex:1, fontSize:13, fontWeight:700, color:C.text1 }}>Profile Fields</span>

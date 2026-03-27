@@ -6438,7 +6438,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   );
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100%", overflow:"hidden", background:"#F4F6FB" }}>
+    <div style={{ display:"flex", flexDirection:"column", flex:1, minHeight:0, overflow:"hidden", background:"#F4F6FB" }}>
       {FunctionalityBar()}
       <SuggestedActions record={record} environment={environment} objectName={objectName} objectColor={objectColor} onCompose={(type)=>setComposeType(type)}/>
       {/* Full-width Linked People widget — only shown on non-Person objects */}

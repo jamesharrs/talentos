@@ -1439,45 +1439,65 @@ const getOpsForField = (f) => {
   return FILTER_OPS.text;
 };
 
-const applyFilters = (records, filters, fields, logic = "AND") => {
+const applyFilters = (records, filters, fields, _legacyLogic = "AND", linkedRecords = {}, peopleLinks = []) => {
   if (!filters.length) return records;
-  const match = logic === "OR"
-    ? filt => filters.some(filt => testFilter(filt, fields, filt))
-    : null; // AND uses every below
   return records.filter(record => {
-    const test = filt => {
-      const field = fields.find(f => f.id === filt.fieldId);
-      if (!field) return true;
-      const rawVal = record.data?.[field.api_key];
-      const op = filt.op; const fv = filt.value;
-      if (op === "is empty") return rawVal === null || rawVal === undefined || rawVal === "" || (Array.isArray(rawVal) && rawVal.length === 0);
-      if (op === "is not empty") return rawVal !== null && rawVal !== undefined && rawVal !== "" && !(Array.isArray(rawVal) && rawVal.length === 0);
-      if (op === "is true") return rawVal === true;
-      if (op === "is false") return rawVal === false || rawVal === undefined || rawVal === null;
-      const strVal = String(rawVal ?? "").toLowerCase();
-      const strFv = String(fv ?? "").toLowerCase();
-      switch (op) {
-        case "contains": return strVal.includes(strFv);
-        case "does not contain": return !strVal.includes(strFv);
-        case "starts with": return strVal.startsWith(strFv);
-        case "is": return strVal === strFv;
-        case "is not": return strVal !== strFv;
-        case "=": return Number(rawVal) === Number(fv);
-        case "≠": return Number(rawVal) !== Number(fv);
-        case "<": case "before": return Number(rawVal) < Number(fv) || new Date(rawVal) < new Date(fv);
-        case ">": case "after": return Number(rawVal) > Number(fv) || new Date(rawVal) > new Date(fv);
-        case "≤": return Number(rawVal) <= Number(fv);
-        case "≥": return Number(rawVal) >= Number(fv);
-        case "includes": return Array.isArray(rawVal) ? rawVal.some(v => String(v).toLowerCase() === strFv) : strVal === strFv;
-        case "excludes": return Array.isArray(rawVal) ? !rawVal.some(v => String(v).toLowerCase() === strFv) : strVal !== strFv;
-        default: return true;
+    let result = null; // null = not yet evaluated
+    for (const filt of filters) {
+      const logic = filt.rowLogic || "AND";
+      let matches;
+      if (filt.source === "linked" && filt.linkedObjectId) {
+        // Cross-object: check linked records for this person
+        const personLinks = peopleLinks.filter(l =>
+          l.person_id === record.id && l.object_id === filt.linkedObjectId
+        );
+        const linkedRecs = (linkedRecords[filt.linkedObjectId] || [])
+          .filter(r => personLinks.some(l => l.record_id === r.id));
+        const linkedFields = []; // passed via closure from RecordsView
+        matches = linkedRecs.some(lr => testFilter(filt, linkedRecords[`__fields__${filt.linkedObjectId}`] || [], lr));
+      } else {
+        matches = testFilter(filt, fields, record);
       }
-    };
-    return logic === "OR" ? filters.some(test) : filters.every(test);
+      if (result === null) { result = matches; }
+      else if (logic === "OR") { result = result || matches; }
+      else { result = result && matches; }
+    }
+    return result ?? true;
   });
 };
 
-// ── AdvancedFilterPanel ────────────────────────────────────────────────────────
+function testFilter(filt, fields, record) {
+  const field = fields.find(f => f.id === filt.fieldId);
+  if (!field) return true;
+  const rawVal = record.data?.[field.api_key];
+  const op = filt.op; const fv = filt.value;
+  if (op === "is empty") return rawVal === null || rawVal === undefined || rawVal === "" || (Array.isArray(rawVal) && rawVal.length === 0);
+  if (op === "is not empty") return rawVal !== null && rawVal !== undefined && rawVal !== "" && !(Array.isArray(rawVal) && rawVal.length === 0);
+  if (op === "is true") return rawVal === true;
+  if (op === "is false") return rawVal === false || rawVal === undefined || rawVal === null;
+  const strVal = String(rawVal ?? "").toLowerCase();
+  const strFv  = String(fv ?? "").toLowerCase();
+  switch (op) {
+    case "contains":          return strVal.includes(strFv);
+    case "does not contain":  return !strVal.includes(strFv);
+    case "starts with":       return strVal.startsWith(strFv);
+    case "is":                return strVal === strFv;
+    case "is not":            return strVal !== strFv;
+    case "=":                 return Number(rawVal) === Number(fv);
+    case "≠":                 return Number(rawVal) !== Number(fv);
+    case "<": case "before":  return Number(rawVal) < Number(fv) || new Date(rawVal) < new Date(fv);
+    case ">": case "after":   return Number(rawVal) > Number(fv) || new Date(rawVal) > new Date(fv);
+    case "≤":                 return Number(rawVal) <= Number(fv);
+    case "≥":                 return Number(rawVal) >= Number(fv);
+    case "includes":          return Array.isArray(rawVal) ? rawVal.some(v => String(v).toLowerCase() === strFv) : strVal === strFv;
+    case "excludes":          return Array.isArray(rawVal) ? !rawVal.some(v => String(v).toLowerCase() === strFv) : strVal !== strFv;
+    default:                  return true;
+  }
+}
+
+// ── AdvancedFilterModal ────────────────────────────────────────────────────────
+// Filter object shape:
+//   { id, source:"own"|"linked", linkedObjectId?, linkedObjectSlug?, fieldId, op, value, rowLogic:"AND"|"OR" }
 const TYPE_OPS = {
   text:        ["contains","does not contain","is","is not","starts with","is empty","is not empty"],
   textarea:    ["contains","does not contain","is empty","is not empty"],
@@ -1495,165 +1515,246 @@ const TYPE_OPS = {
 };
 const NO_VAL_OPS = ["is empty","is not empty","is true","is false"];
 
-const AdvancedFilterPanel = ({ fields, filters, logic, onFiltersChange, onLogicChange, onSave, onClose, open }) => {
-  const ref = useRef(null);
-  const [editingId, setEditingId] = useState(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const h = e => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open, onClose]);
-
+const AdvancedFilterPanel = ({ fields, filters, logic, onFiltersChange, onLogicChange, onSave, onClose, open,
+  allObjects = [], linkedObjectFields = {} }) => {
   if (!open) return null;
 
   const getOps = f => TYPE_OPS[f?.field_type] || TYPE_OPS.text;
   const needsVal = op => !NO_VAL_OPS.includes(op);
 
+  // Build field options grouped by object
+  const ownGroup = { label: null, fields, objectId: null, objectSlug: null };
+  const linkedGroups = Object.entries(linkedObjectFields).map(([objId, flds]) => {
+    const obj = allObjects.find(o => o.id === objId);
+    return { label: obj?.plural_name || "Linked", fields: flds, objectId: objId, objectSlug: obj?.slug };
+  }).filter(g => g.fields?.length > 0);
+
+  const allFieldGroups = [ownGroup, ...linkedGroups];
+
+  const findField = filt => {
+    if (filt.source === "linked" && filt.linkedObjectId) {
+      return (linkedObjectFields[filt.linkedObjectId] || []).find(f => f.id === filt.fieldId);
+    }
+    return fields.find(f => f.id === filt.fieldId);
+  };
+
   const addRow = () => {
     const first = fields[0];
-    const op = first ? getOps(first)[0] : "contains";
-    const id = Date.now() + "";
-    onFiltersChange([...filters, { id, fieldId: first?.id || "", op, value: "" }]);
-    setEditingId(id);
+    onFiltersChange([...filters, {
+      id: Date.now() + "",
+      source: "own",
+      fieldId: first?.id || "",
+      op: first ? getOps(first)[0] : "contains",
+      value: "",
+      rowLogic: filters.length > 0 ? "AND" : "AND",
+    }]);
   };
 
-  const updateRow = (id, patch) => {
-    onFiltersChange(filters.map(f => f.id === id ? { ...f, ...patch } : f));
-  };
-
+  const updateRow = (id, patch) => onFiltersChange(filters.map(f => f.id === id ? { ...f, ...patch } : f));
   const removeRow = id => onFiltersChange(filters.filter(f => f.id !== id));
 
   const FilterRow = ({ filt, idx }) => {
-    const field = fields.find(f => f.id === filt.fieldId);
+    const field = findField(filt);
     const ops = getOps(field);
     const showVal = needsVal(filt.op);
-    const opts = field?.options ? (Array.isArray(field.options) ? field.options : (field.options?.split?.(",") || [])) : [];
+    const opts = field?.options
+      ? (Array.isArray(field.options) ? field.options : (field.options?.split?.(",") || []))
+      : [];
+
+    const sel = { padding:"7px 10px", borderRadius:8, border:`1.5px solid ${C.border}`,
+      fontSize:13, fontFamily:F, background:C.surface, color:C.text1, outline:"none",
+      transition:"border-color .15s" };
+
+    const handleFieldChange = e => {
+      const [src, objId, fldId] = e.target.value.split("|");
+      const grp = src === "linked"
+        ? linkedGroups.find(g => g.objectId === objId)
+        : ownGroup;
+      const f = (grp?.fields || []).find(x => x.id === fldId);
+      updateRow(filt.id, {
+        source: src,
+        linkedObjectId: src === "linked" ? objId : undefined,
+        linkedObjectSlug: src === "linked" ? grp?.objectSlug : undefined,
+        fieldId: fldId,
+        op: getOps(f)[0],
+        value: "",
+      });
+    };
+
+    const fieldValue = filt.source === "linked"
+      ? `linked|${filt.linkedObjectId}|${filt.fieldId}`
+      : `own||${filt.fieldId}`;
 
     return (
-      <div style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 0" }}>
-        {/* Logic badge */}
-        <div style={{ width:36, textAlign:"center", flexShrink:0 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 0",
+        borderBottom:`1px solid ${C.border}44` }}>
+        {/* Row logic connector */}
+        <div style={{ width:44, flexShrink:0, textAlign:"center" }}>
           {idx === 0
-            ? <span style={{ fontSize:10, fontWeight:700, color:C.text3, textTransform:"uppercase" }}>Where</span>
-            : <button onClick={() => onLogicChange(logic === "AND" ? "OR" : "AND")}
-                style={{ fontSize:10, fontWeight:800, color:C.accent, background:C.accentLight,
-                  border:`1px solid ${C.accent}44`, borderRadius:4, padding:"2px 6px", cursor:"pointer", fontFamily:F }}>
-                {logic}
+            ? <span style={{ fontSize:11, fontWeight:700, color:C.text3,
+                textTransform:"uppercase", letterSpacing:"0.05em" }}>Where</span>
+            : <button
+                onClick={() => updateRow(filt.id, { rowLogic: filt.rowLogic === "AND" ? "OR" : "AND" })}
+                title="Click to toggle AND / OR"
+                style={{ fontSize:11, fontWeight:800, color: filt.rowLogic === "OR" ? "#7c3aed" : C.accent,
+                  background: filt.rowLogic === "OR" ? "#7c3aed18" : C.accentLight,
+                  border:`1.5px solid ${filt.rowLogic === "OR" ? "#7c3aed44" : C.accent+"44"}`,
+                  borderRadius:6, padding:"3px 8px", cursor:"pointer", fontFamily:F }}>
+                {filt.rowLogic}
               </button>
           }
         </div>
 
-        {/* Field picker */}
-        <select value={filt.fieldId} onChange={e => {
-            const f = fields.find(x => x.id === e.target.value);
-            updateRow(filt.id, { fieldId: e.target.value, op: getOps(f)[0], value: "" });
-          }}
-          style={{ flex:"0 0 140px", padding:"5px 8px", borderRadius:7, border:`1px solid ${C.border}`,
-            fontSize:12, fontFamily:F, background:C.surface, color:C.text1, outline:"none" }}>
-          {fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+        {/* Field picker — grouped */}
+        <select value={fieldValue} onChange={handleFieldChange}
+          style={{ ...sel, flex:"0 0 180px" }}
+          onFocus={e=>e.target.style.borderColor=C.accent}
+          onBlur={e=>e.target.style.borderColor=C.border}>
+          <optgroup label="This record">
+            {ownGroup.fields.map(f => (
+              <option key={f.id} value={`own||${f.id}`}>{f.name}</option>
+            ))}
+          </optgroup>
+          {linkedGroups.map(grp => (
+            <optgroup key={grp.objectId} label={`Linked ${grp.label}`}>
+              {grp.fields.map(f => (
+                <option key={f.id} value={`linked|${grp.objectId}|${f.id}`}>
+                  {f.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
         </select>
 
-        {/* Operator picker */}
+        {/* Operator */}
         <select value={filt.op} onChange={e => updateRow(filt.id, { op: e.target.value, value: "" })}
-          style={{ flex:"0 0 130px", padding:"5px 8px", borderRadius:7, border:`1px solid ${C.border}`,
-            fontSize:12, fontFamily:F, background:C.surface, color:C.text1, outline:"none" }}>
+          style={{ ...sel, flex:"0 0 150px" }}
+          onFocus={e=>e.target.style.borderColor=C.accent}
+          onBlur={e=>e.target.style.borderColor=C.border}>
           {ops.map(op => <option key={op} value={op}>{op}</option>)}
         </select>
 
-        {/* Value input */}
+        {/* Value */}
         {showVal && (
           opts.length > 0
             ? <select value={filt.value} onChange={e => updateRow(filt.id, { value: e.target.value })}
-                style={{ flex:1, padding:"5px 8px", borderRadius:7, border:`1px solid ${C.border}`,
-                  fontSize:12, fontFamily:F, background:C.surface, color:C.text1, outline:"none" }}>
+                style={{ ...sel, flex:1 }}
+                onFocus={e=>e.target.style.borderColor=C.accent}
+                onBlur={e=>e.target.style.borderColor=C.border}>
                 <option value="">Select…</option>
-                {opts.map(o => <option key={o} value={typeof o==="object"?o.value:o}>{typeof o==="object"?o.label:o}</option>)}
+                {opts.map(o => {
+                  const v = typeof o === "object" ? o.value : o;
+                  const l = typeof o === "object" ? o.label : o;
+                  return <option key={v} value={v}>{l}</option>;
+                })}
               </select>
             : field?.field_type === "date"
               ? <input type="date" value={filt.value} onChange={e => updateRow(filt.id, { value: e.target.value })}
-                  style={{ flex:1, padding:"5px 8px", borderRadius:7, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, background:C.surface, color:C.text1, outline:"none" }}/>
-              : field?.field_type === "number" || field?.field_type === "currency" || field?.field_type === "rating"
-                ? <input type="number" value={filt.value} onChange={e => updateRow(filt.id, { value: e.target.value })} placeholder="Value"
-                    style={{ flex:1, padding:"5px 8px", borderRadius:7, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, background:C.surface, color:C.text1, outline:"none" }}/>
-                : <input value={filt.value} onChange={e => updateRow(filt.id, { value: e.target.value })} placeholder="Value…"
-                    style={{ flex:1, padding:"5px 8px", borderRadius:7, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, background:C.surface, color:C.text1, outline:"none" }}/>
+                  style={{ ...sel, flex:1 }}/>
+              : (field?.field_type === "number" || field?.field_type === "currency" || field?.field_type === "rating")
+                ? <input type="number" value={filt.value} onChange={e => updateRow(filt.id, { value: e.target.value })}
+                    placeholder="Value" style={{ ...sel, flex:1 }}/>
+                : <input value={filt.value} onChange={e => updateRow(filt.id, { value: e.target.value })}
+                    placeholder="Value…" style={{ ...sel, flex:1 }}
+                    onFocus={e=>e.target.style.borderColor=C.accent}
+                    onBlur={e=>e.target.style.borderColor=C.border}/>
         )}
         {!showVal && <div style={{ flex:1 }}/>}
 
-        {/* Remove */}
         <button onClick={() => removeRow(filt.id)}
-          style={{ flexShrink:0, background:"none", border:"none", cursor:"pointer", padding:3, display:"flex", color:C.text3, borderRadius:4 }}
-          onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color=C.text3}>
-          <Ic n="x" s={13}/>
+          style={{ flexShrink:0, background:"none", border:"none", cursor:"pointer",
+            padding:"4px 6px", display:"flex", color:C.text3, borderRadius:6 }}
+          onMouseEnter={e=>e.currentTarget.style.color="#ef4444"}
+          onMouseLeave={e=>e.currentTarget.style.color=C.text3}>
+          <Ic n="x" s={14}/>
         </button>
       </div>
     );
   };
 
   return (
-    <div ref={ref} style={{
-      position:"absolute", top:"calc(100% + 6px)", left:0, zIndex:600,
-      background:C.surface, border:`1px solid ${C.border}`, borderRadius:12,
-      boxShadow:"0 8px 32px rgba(0,0,0,.14)", width:600, maxWidth:"calc(100vw - 40px)",
-    }}>
-      {/* Header */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"12px 16px", borderBottom:`1px solid ${C.border}` }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <Ic n="filter" s={14} c={C.accent}/>
-          <span style={{ fontSize:13, fontWeight:700, color:C.text1 }}>Filters</span>
-          {filters.length > 0 && (
-            <span style={{ fontSize:11, color:C.text3 }}>
-              — match <button onClick={() => onLogicChange(logic === "AND" ? "OR" : "AND")}
-                style={{ fontWeight:800, color:C.accent, background:C.accentLight,
-                  border:`1px solid ${C.accent}44`, borderRadius:4, padding:"1px 7px",
-                  cursor:"pointer", fontFamily:F, fontSize:11 }}>{logic}</button> conditions
-            </span>
-          )}
-        </div>
-        <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", display:"flex", color:C.text3 }}>
-          <Ic n="x" s={14}/>
-        </button>
-      </div>
+    <div style={{ position:"fixed", inset:0, background:"rgba(15,23,41,.5)",
+      zIndex:9500, display:"flex", alignItems:"center", justifyContent:"center",
+      backdropFilter:"blur(2px)" }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background:C.surface, borderRadius:16, width:720, maxWidth:"calc(100vw - 40px)",
+        maxHeight:"80vh", display:"flex", flexDirection:"column",
+        boxShadow:"0 24px 80px rgba(0,0,0,.22)", border:`1px solid ${C.border}` }}>
 
-      {/* Filter rows */}
-      <div style={{ padding:"8px 16px", maxHeight:320, overflowY:"auto" }}>
-        {filters.length === 0
-          ? <div style={{ textAlign:"center", padding:"24px 0", color:C.text3, fontSize:13 }}>
-              No filters yet — add one below
+        {/* Header */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"16px 20px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ width:30, height:30, borderRadius:8, background:C.accentLight,
+              display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <Ic n="filter" s={15} c={C.accent}/>
             </div>
-          : filters.map((f, i) => <FilterRow key={f.id} filt={f} idx={i}/>)
-        }
-      </div>
+            <div>
+              <div style={{ fontSize:15, fontWeight:700, color:C.text1 }}>Filter records</div>
+              {filters.length > 0 && (
+                <div style={{ fontSize:11, color:C.text3 }}>
+                  {filters.length} condition{filters.length!==1?"s":""} · showing records where conditions match
+                </div>
+              )}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer",
+            display:"flex", color:C.text3, padding:4, borderRadius:6 }}
+            onMouseEnter={e=>e.currentTarget.style.color=C.text1}
+            onMouseLeave={e=>e.currentTarget.style.color=C.text3}>
+            <Ic n="x" s={16}/>
+          </button>
+        </div>
 
-      {/* Footer */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"10px 16px", borderTop:`1px solid ${C.border}`, gap:8 }}>
-        <button onClick={addRow}
-          style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 12px", borderRadius:7,
-            border:`1px dashed ${C.border}`, background:"transparent", fontSize:12, fontWeight:600,
-            cursor:"pointer", fontFamily:F, color:C.text2, transition:"all .12s" }}
-          onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
-          onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text2;}}>
-          <Ic n="plus" s={12}/> Add condition
-        </button>
-        <div style={{ display:"flex", gap:6 }}>
-          {filters.length > 0 && (
-            <button onClick={() => onFiltersChange([])}
-              style={{ padding:"6px 12px", borderRadius:7, border:`1px solid ${C.border}`,
-                background:"transparent", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F, color:C.text3 }}>
-              Clear all
+        {/* Filter rows */}
+        <div style={{ flex:1, overflowY:"auto", padding:"8px 20px" }}>
+          {filters.length === 0
+            ? <div style={{ textAlign:"center", padding:"40px 0" }}>
+                <div style={{ fontSize:32, marginBottom:10 }}>
+                  <Ic n="filter" s={32} c={C.border}/>
+                </div>
+                <div style={{ fontSize:14, fontWeight:600, color:C.text2, marginBottom:6 }}>No filters yet</div>
+                <div style={{ fontSize:13, color:C.text3 }}>Add a condition below to filter records</div>
+              </div>
+            : filters.map((f, i) => <FilterRow key={f.id} filt={f} idx={i}/>)
+          }
+        </div>
+
+        {/* Footer */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"14px 20px", borderTop:`1px solid ${C.border}`, flexShrink:0, gap:8 }}>
+          <button onClick={addRow}
+            style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 14px", borderRadius:8,
+              border:`1.5px dashed ${C.border}`, background:"transparent", fontSize:13, fontWeight:600,
+              cursor:"pointer", fontFamily:F, color:C.text2, transition:"all .12s" }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text2;}}>
+            <Ic n="plus" s={13}/> Add condition
+          </button>
+          <div style={{ display:"flex", gap:8 }}>
+            {filters.length > 0 && (
+              <button onClick={() => onFiltersChange([])}
+                style={{ padding:"8px 14px", borderRadius:8, border:`1px solid ${C.border}`,
+                  background:"transparent", fontSize:13, fontWeight:600,
+                  cursor:"pointer", fontFamily:F, color:C.text3 }}>
+                Clear all
+              </button>
+            )}
+            {filters.length > 0 && onSave && (
+              <button onClick={onSave}
+                style={{ padding:"8px 14px", borderRadius:8, border:`1px solid ${C.accent}`,
+                  background:C.accentLight, fontSize:13, fontWeight:600,
+                  cursor:"pointer", fontFamily:F, color:C.accent }}>
+                Save as list
+              </button>
+            )}
+            <button onClick={onClose}
+              style={{ padding:"8px 18px", borderRadius:8, border:"none",
+                background:C.accent, color:"white", fontSize:13, fontWeight:700,
+                cursor:"pointer", fontFamily:F }}>
+              Apply
             </button>
-          )}
-          {filters.length > 0 && onSave && (
-            <button onClick={onSave}
-              style={{ padding:"6px 12px", borderRadius:7, border:`1px solid ${C.accent}`,
-                background:C.accentLight, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F, color:C.accent }}>
-              Save as list
-            </button>
-          )}
+          </div>
         </div>
       </div>
     </div>
@@ -1989,11 +2090,36 @@ const DeleteConfirmInline = ({ count, session, onConfirm, onCancel }) => {
 };
 
 const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete, onEdit, onCompare,
-  hasActiveFilters, totalFilteredCount, selectAllMatching, onSelectAllMatching, onClearSelectAll, session }) => {
-  const [showEditPicker, setShowEditPicker] = useState(false);
-  const [editFieldId,    setEditFieldId]    = useState("");
-  const [editValue,      setEditValue]      = useState("");
-  const [confirming,     setConfirming]     = useState(false);
+  hasActiveFilters, totalFilteredCount, selectAllMatching, onSelectAllMatching, onClearSelectAll, session,
+  objectSlug, selectedRecords, environment, allObjects, onBulkAction }) => {
+  const [showEditPicker,   setShowEditPicker]   = useState(false);
+  const [editFieldId,      setEditFieldId]      = useState("");
+  const [editValue,        setEditValue]        = useState("");
+  const [confirming,       setConfirming]       = useState(false);
+  const [showComms,        setShowComms]        = useState(false);
+  const [showNoteModal,    setShowNoteModal]    = useState(false);
+  const [showLinkModal,    setShowLinkModal]    = useState(false);
+  const [noteText,         setNoteText]         = useState("");
+  const [linkObjectId,     setLinkObjectId]     = useState("");
+  const [linkTargetId,     setLinkTargetId]     = useState("");
+  const [linkTargets,      setLinkTargets]      = useState([]);
+  const commsRef = useRef(null);
+  const isPeople = objectSlug === "people";
+
+  // Close comms dropdown on outside click
+  useEffect(() => {
+    if (!showComms) return;
+    const h = e => { if (commsRef.current && !commsRef.current.contains(e.target)) setShowComms(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [showComms]);
+
+  // Load link targets when object changes
+  useEffect(() => {
+    if (!linkObjectId || !environment?.id) return;
+    fetch(`/api/records?object_id=${linkObjectId}&environment_id=${environment.id}&limit=100`)
+      .then(r => r.json()).then(d => setLinkTargets(d.records || [])).catch(() => {});
+  }, [linkObjectId, environment?.id]);
 
   const editableFields = fields.filter(f => !["id"].includes(f.api_key));
   const chosenField    = editableFields.find(f => f.id === editFieldId);
@@ -2001,9 +2127,28 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
   const handleBulkEdit = () => {
     if (!editFieldId) return;
     onEdit(editFieldId, editValue);
-    setShowEditPicker(false);
-    setEditFieldId(""); setEditValue("");
+    setShowEditPicker(false); setEditFieldId(""); setEditValue("");
   };
+
+  const handleBulkNote = () => {
+    if (!noteText.trim()) return;
+    onBulkAction?.("note", { text: noteText });
+    setNoteText(""); setShowNoteModal(false);
+  };
+
+  const handleBulkLink = () => {
+    if (!linkObjectId || !linkTargetId) return;
+    onBulkAction?.("link", { objectId: linkObjectId, targetId: linkTargetId });
+    setLinkObjectId(""); setLinkTargetId(""); setShowLinkModal(false);
+  };
+
+  const BtnDark = ({ children, onClick, style = {} }) => (
+    <button onClick={onClick} style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 12px",
+      borderRadius:8, border:"1px solid rgba(255,255,255,0.2)", background:"rgba(255,255,255,0.12)",
+      color:"white", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F, ...style }}>
+      {children}
+    </button>
+  );
 
   const selSt = { padding:"5px 9px", borderRadius:7, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, color:C.text1, background:"white" };
 
@@ -2074,6 +2219,52 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
           </div>
         )}
       </div>
+      {/* ── People-only bulk actions ── */}
+      {isPeople && <>
+        {/* Communicate dropdown */}
+        <div ref={commsRef} style={{ position:"relative" }}>
+          <BtnDark onClick={() => setShowComms(s => !s)}>
+            <Ic n="mail" s={12} c="white"/> Communicate
+            <Ic n="chevD" s={10} c="rgba(255,255,255,0.6)"/>
+          </BtnDark>
+          {showComms && (
+            <div style={{ position:"absolute", bottom:"calc(100% + 6px)", left:0, zIndex:600,
+              background:"white", border:`1px solid ${C.border}`, borderRadius:10,
+              boxShadow:"0 8px 24px rgba(0,0,0,.15)", overflow:"hidden", minWidth:170 }}>
+              {[
+                { type:"email",     icon:"mail",     label:"Send Email" },
+                { type:"sms",       icon:"message",  label:"Send SMS" },
+                { type:"whatsapp",  icon:"phone",    label:"WhatsApp" },
+              ].map(({ type, icon, label }) => (
+                <button key={type} onClick={() => { onBulkAction?.("communicate", { type }); setShowComms(false); }}
+                  style={{ width:"100%", display:"flex", alignItems:"center", gap:9, padding:"9px 14px",
+                    border:"none", background:"transparent", cursor:"pointer", fontFamily:F,
+                    fontSize:12, fontWeight:600, color:C.text1, textAlign:"left" }}
+                  onMouseEnter={e => e.currentTarget.style.background = C.accentLight}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <Ic n={icon} s={13} c={C.accent}/>{label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Add Note */}
+        <BtnDark onClick={() => setShowNoteModal(true)}>
+          <Ic n="edit" s={12} c="white"/> Add note
+        </BtnDark>
+
+        {/* Create Interview */}
+        <BtnDark onClick={() => onBulkAction?.("interview", {})}>
+          <Ic n="calendar" s={12} c="white"/> Interview
+        </BtnDark>
+
+        {/* Link To */}
+        <BtnDark onClick={() => setShowLinkModal(true)}>
+          <Ic n="link" s={12} c="white"/> Link to
+        </BtnDark>
+      </>}
+
       {/* Compare — only show when 2–5 selected */}
       {onCompare && count >= 2 && count <= 5 && (
         <button onClick={onCompare}
@@ -2094,6 +2285,67 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
           onConfirm={() => { onDelete(); setConfirming(false); }}
           onCancel={() => setConfirming(false)}
         />
+      )}
+
+      {/* ── Add Note modal ── */}
+      {showNoteModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.5)", zIndex:9000, display:"flex", alignItems:"center", justifyContent:"center" }}
+          onClick={e => e.target === e.currentTarget && setShowNoteModal(false)}>
+          <div style={{ background:"white", borderRadius:14, padding:24, width:440, boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
+            <div style={{ fontSize:14, fontWeight:700, color:C.text1, marginBottom:12 }}>Add note to {count} people</div>
+            <textarea value={noteText} onChange={e => setNoteText(e.target.value)} autoFocus
+              placeholder="Type your note…" rows={4}
+              style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:`1.5px solid ${C.border}`,
+                fontSize:13, fontFamily:F, resize:"vertical", outline:"none", boxSizing:"border-box" }}/>
+            <div style={{ display:"flex", gap:8, marginTop:12 }}>
+              <button onClick={() => setShowNoteModal(false)}
+                style={{ flex:1, padding:"8px", borderRadius:8, border:`1px solid ${C.border}`, background:"transparent", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:F, color:C.text2 }}>Cancel</button>
+              <button onClick={handleBulkNote} disabled={!noteText.trim()}
+                style={{ flex:2, padding:"8px", borderRadius:8, border:"none", background:C.accent, color:"white", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, opacity:!noteText.trim()?0.5:1 }}>Add Note</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Link To modal ── */}
+      {showLinkModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.5)", zIndex:9000, display:"flex", alignItems:"center", justifyContent:"center" }}
+          onClick={e => e.target === e.currentTarget && setShowLinkModal(false)}>
+          <div style={{ background:"white", borderRadius:14, padding:24, width:440, boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
+            <div style={{ fontSize:14, fontWeight:700, color:C.text1, marginBottom:16 }}>Link {count} people to…</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              <div>
+                <div style={{ fontSize:11, fontWeight:700, color:C.text3, marginBottom:5, textTransform:"uppercase", letterSpacing:"0.05em" }}>Object type</div>
+                <select value={linkObjectId} onChange={e => { setLinkObjectId(e.target.value); setLinkTargetId(""); }}
+                  style={{ width:"100%", padding:"8px 10px", borderRadius:8, border:`1.5px solid ${C.border}`, fontSize:13, fontFamily:F, outline:"none" }}>
+                  <option value="">Select object…</option>
+                  {(allObjects || []).filter(o => o.slug !== "people").map(o => (
+                    <option key={o.id} value={o.id}>{o.plural_name}</option>
+                  ))}
+                </select>
+              </div>
+              {linkObjectId && (
+                <div>
+                  <div style={{ fontSize:11, fontWeight:700, color:C.text3, marginBottom:5, textTransform:"uppercase", letterSpacing:"0.05em" }}>Select record</div>
+                  <select value={linkTargetId} onChange={e => setLinkTargetId(e.target.value)}
+                    style={{ width:"100%", padding:"8px 10px", borderRadius:8, border:`1.5px solid ${C.border}`, fontSize:13, fontFamily:F, outline:"none" }}>
+                    <option value="">Select record…</option>
+                    {linkTargets.map(r => {
+                      const label = r.data?.first_name ? `${r.data.first_name} ${r.data.last_name||""}`.trim() : r.data?.job_title || r.data?.name || r.id;
+                      return <option key={r.id} value={r.id}>{label}</option>;
+                    })}
+                  </select>
+                </div>
+              )}
+            </div>
+            <div style={{ display:"flex", gap:8, marginTop:16 }}>
+              <button onClick={() => { setShowLinkModal(false); setLinkObjectId(""); setLinkTargetId(""); }}
+                style={{ flex:1, padding:"8px", borderRadius:8, border:`1px solid ${C.border}`, background:"transparent", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:F, color:C.text2 }}>Cancel</button>
+              <button onClick={handleBulkLink} disabled={!linkObjectId || !linkTargetId}
+                style={{ flex:2, padding:"8px", borderRadius:8, border:"none", background:C.accent, color:"white", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, opacity:(!linkObjectId||!linkTargetId)?0.5:1 }}>Link</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -6334,7 +6586,7 @@ function buildListContext(object, records, total) {
   return lines.join("\n");
 }
 
-export default function RecordsView({ environment, object, onOpenRecord, initialFilter, session, autoCreate, onAutoCreateConsumed }) {
+export default function RecordsView({ environment, object, onOpenRecord, initialFilter, session, autoCreate, onAutoCreateConsumed, allObjects = [] }) {
   // Make environment available to PeoplePicker without prop drilling
   useEffect(() => { _currentEnvId = environment?.id; }, [environment?.id]);
   // Debug log on mount
@@ -6400,6 +6652,10 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   const [visibleColOrder, setVisibleColOrder] = useState(null);
   // Linked jobs for system columns
   const [linkedJobs, setLinkedJobs] = useState({});
+  // Cross-object filter data
+  const [linkedObjectFields, setLinkedObjectFields] = useState({});
+  const [linkedObjectRecords, setLinkedObjectRecords] = useState({});
+  const [peopleLinksData, setPeopleLinksData] = useState([]);
   const exportRef = useRef(null);
   const userId = session?.user?.id || session?.id || "unknown";
 
@@ -6629,9 +6885,44 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
     load();
   };
 
-  // Apply advanced filters on top of the loaded records
+  // ── Bulk people actions (communicate, note, interview, link) ───────────────
+  const handleBulkPeopleAction = async (action, payload) => {
+    const ids = [...selectedIds];
+    if (action === "communicate") {
+      // Open comms compose for selected people — dispatch event for Communications panel
+      window.dispatchEvent(new CustomEvent("talentos:bulkCommunicate", {
+        detail: { recordIds: ids, type: payload.type, object }
+      }));
+    } else if (action === "note") {
+      // Add note to each selected record
+      await Promise.all(ids.map(id =>
+        api.post(`/records/${id}/notes`, { text: payload.text, created_by: session?.user?.email || "Admin" })
+      ));
+      window.__toast?.success?.(`Note added to ${ids.length} records`);
+    } else if (action === "interview") {
+      // Open interview scheduler with bulk candidates pre-populated
+      window.dispatchEvent(new CustomEvent("talentos:bulkInterview", {
+        detail: { recordIds: ids, records: records.filter(r => ids.includes(r.id)) }
+      }));
+    } else if (action === "link") {
+      // Link each selected person to the chosen target record
+      await Promise.all(ids.map(id =>
+        api.post("/people-links", {
+          person_id: id,
+          record_id: payload.targetId,
+          object_id: payload.objectId,
+          environment_id: environment.id,
+          stage: "Added",
+          linked_at: new Date().toISOString(),
+        })
+      ));
+      window.__toast?.success?.(`Linked ${ids.length} people`);
+      load();
+    }
+    setSelectedIds(new Set());
+  };
   const displayedRecords = useMemo(() => {
-    let recs = applyFilters(records, activeFilters, fields, filterLogic);
+    let recs = applyFilters(records, activeFilters, fields, filterLogic, linkedObjectRecords, peopleLinksData);
     if (sortBy) {
       recs = [...recs].sort((a, b) => {
         let av, bv;
@@ -6731,8 +7022,39 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
           }
         });
         setLinkedJobs(map);
+        // Also store flat people_links for cross-object filtering
+        setPeopleLinksData(links.map(l => ({
+          person_id:  l.person_record_id,
+          record_id:  l.target_record_id || l.record_id,
+          object_id:  l.target_object_id || l.object_id,
+        })));
       }).catch(() => {});
   }, [object?.id, environment?.id]);
+
+  // Load fields + records for linked objects (for cross-object filter)
+  useEffect(() => {
+    if (!object || !environment || !allObjects.length) return;
+    // Only load for People — other objects link upward, not downward
+    const isPeople = object.slug === "people";
+    if (!isPeople) return;
+    const otherObjs = allObjects.filter(o => o.id !== object.id && o.slug !== "people");
+    Promise.all(otherObjs.map(async o => {
+      const [flds, recs] = await Promise.all([
+        api.get(`/fields?object_id=${o.id}`),
+        api.get(`/records?object_id=${o.id}&environment_id=${environment.id}&limit=500`),
+      ]);
+      return { objId: o.id, fields: Array.isArray(flds) ? flds : [], records: (recs.records || []) };
+    })).then(results => {
+      const fldMap = {}; const recMap = {};
+      results.forEach(({ objId, fields: flds, records: recs }) => {
+        fldMap[objId] = flds;
+        fldMap[`__fields__${objId}`] = flds; // for applyFilters lookup
+        recMap[objId] = recs;
+      });
+      setLinkedObjectFields(fldMap);
+      setLinkedObjectRecords(recMap);
+    }).catch(() => {});
+  }, [object?.id, environment?.id, allObjects.length]);
 
 
   const handleExport = (format) => {
@@ -6837,6 +7159,8 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
             onLogicChange={setFilterLogic}
             onClose={() => setShowFilterPanel(false)}
             onSave={() => { setShowFilterPanel(false); setShowViewsMenu(true); }}
+            allObjects={allObjects.filter(o => o.id !== object.id)}
+            linkedObjectFields={linkedObjectFields}
           />
         </div>
 
@@ -6973,11 +7297,16 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
           count={selectedIds.size}
           total={displayedRecords.length}
           fields={fields}
+          objectSlug={object.slug}
+          selectedRecords={displayedRecords.filter(r => selectedIds.has(r.id))}
+          environment={environment}
+          allObjects={allObjects}
           onSelectAll={() => setSelectedIds(new Set(displayedRecords.map(r => r.id)))}
           onClearAll={() => setSelectedIds(new Set())}
           onDelete={() => guardedBulkAction("delete")}
           onEdit={(fieldId, value) => guardedBulkAction("edit", { fieldId, value })}
           onCompare={selectedIds.size >= 2 && selectedIds.size <= 5 ? () => setShowCompare(true) : null}
+          onBulkAction={handleBulkPeopleAction}
         />
       )}
 

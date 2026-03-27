@@ -3,6 +3,7 @@ import ReportingErrorBoundary from "./ErrorBoundary.jsx";
 import InboxModule, { useInboxUnreadCount } from "./Inbox";
 import { MobileShell, useIsMobile } from "./MobileApp.jsx";
 import MaintenanceOverlay from "./MaintenanceOverlay";
+import GuidedTour, { useTour } from "./GuidedTour";
 
 // Heavy modules — loaded on demand only when navigated to
 // Chunk-load error handler — reloads once when a lazy chunk fails (stale deployment cache)
@@ -1467,6 +1468,7 @@ function RecordPage({ recordId, objectId, environment, allObjects, onBack, onNav
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 function App() {
+  const { TourPortal, startTour } = useTour();
   // Super Admin route — completely separate from main app
   // Portal routes: /portal/slug (legacy) OR /slug (clean URL e.g. /careers)
   const _path = window.location.pathname;
@@ -2030,7 +2032,7 @@ function App() {
         </div>
 
         {/* Nav */}
-        <div style={{ padding: "8px 12px", flex: 1, overflowY: "auto", minHeight: 0 }}>
+        <div data-tour="sidebar-nav" style={{ padding: "8px 12px", flex: 1, overflowY: "auto", minHeight: 0 }}>
           {filteredNavSections.map(section => (
             <div key={section.label} style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: "var(--t-text3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6, paddingLeft: 4, height: navExpanded ? undefined : 0, overflow: "hidden", opacity: navExpanded ? 1 : 0, transition: "opacity 0.15s, height 0.15s" }}>{section.label}</div>
@@ -2042,6 +2044,7 @@ function App() {
                   <div key={item.id}>
                     <button
                       onClick={() => switchNav(item.id)}
+                      {...(item.id==="interviews" ? {"data-tour":"nav-interviews"} : {})}
                       title={!navExpanded ? item.label : undefined}
                       style={{
                         width: "100%", display: "flex", alignItems: "center", gap: navExpanded ? 9 : 0,
@@ -2095,7 +2098,7 @@ function App() {
       {/* Main content */}
       <div style={{ marginLeft: NAV_W, flex: 1, height: "100vh", display: "flex", flexDirection: "column", background: "var(--t-bg)", paddingRight: historyOpen ? 300 : 0, transition: "margin-left 0.2s cubic-bezier(0.4,0,0.2,1), padding-right 0.25s cubic-bezier(0.4,0,0.2,1)", overflow: "hidden", position: "relative", isolation: "isolate" }}>
         {/* Top bar */}
-        <GlobalSearch selectedEnv={selectedEnv} navObjects={navObjects}
+        <GlobalSearch data-tour="global-search" selectedEnv={selectedEnv} navObjects={navObjects}
              activeDashTab={activeNav === "dashboard" ? "overview" : activeNav.startsWith("dashboard_") ? activeNav.replace("dashboard_","") : null}
              onDashboardNav={(tab) => {
                const navId = tab === "overview" ? "dashboard" : `dashboard_${tab}`;
@@ -2257,6 +2260,7 @@ function App() {
         </Suspense>
       )}
     </div>
+      {TourPortal}
     </PermissionProvider>
   );
 }
@@ -2293,6 +2297,7 @@ function UserFooterMenu({ session, activeNav, setActiveNav, clearSession, setSes
                 {item.label}
               </button>
             ))}
+            <button onClick={()=>{setOpen(false);window.dispatchEvent(new CustomEvent("vercentic:start-tour"));}} style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"9px 14px",border:"none",background:"transparent",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:500,color:"var(--t-text2)",textAlign:"left"}} onMouseEnter={e=>e.currentTarget.style.background="var(--t-surface2)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><Icon name="play-circle" size={14} color="var(--t-text3)"/>Product tour</button>
             <div style={{ height: 1, background: "var(--t-border)", margin: "4px 0" }} />
             <button onClick={() => { clearSession(); setSession(null); setOpen(false); }}
               style={{ width: "100%", display: "flex", alignItems: "center", gap: 9,

@@ -283,7 +283,7 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
             {new Date().toLocaleDateString("en", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div data-tour="dashboard-stats" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {/* Stat pills */}
           <StatPill color={V.rose} value={openRoles}
             label="open roles"

@@ -130,7 +130,7 @@ const Badge = ({ children, color="#6b7280", light }) => (
 );
 
 const Inp = ({ label, value, onChange, placeholder, type="text", disabled, multiline, rows=3, style={}, autoFocus }) => (
-  <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+  <div style={{ display:"flex", flexDirection:"column", gap:4 }} data-tour="pipeline-widget">
     {label && <label style={{ fontSize:12, fontWeight:600, color:C.text2 }}>{label}</label>}
     {multiline
       ? <textarea rows={rows} value={value ?? ""} onChange={e=>onChange(e.target.value)} placeholder={placeholder} disabled={disabled} autoFocus={autoFocus}
@@ -7150,7 +7150,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   return (
     <div style={{ minHeight:0, padding:"0 32px" }}>
       {/* Toolbar */}
-      <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap", position:"sticky", top:0, zIndex:50, background:"var(--t-bg, #f4f5f8)", paddingBottom:12, paddingTop:24, marginTop:0 }}>
+      <div data-tour="records-toolbar" style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap", position:"sticky", top:0, zIndex:50, background:"var(--t-bg, #f4f5f8)", paddingBottom:12, paddingTop:24, marginTop:0 }}>
         <h1 style={{ margin:0, fontSize:22, fontWeight:700, color:C.text1, flex:"none", fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.4px" }}>
           {object.plural_name}
           {activeListName && <span style={{ fontWeight:400, color:C.accent, fontSize:15, marginLeft:8 }}>/ {activeListName}</span>}

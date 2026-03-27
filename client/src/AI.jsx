@@ -2456,7 +2456,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes popIn{from{opacity:0;transform:scale(.97) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}} @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}} @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}} .copilot-action-btn:hover{background:rgba(124,58,237,0.1)!important;border-color:rgba(124,58,237,0.4)!important;color:#7c3aed!important;transform:translateY(-1px);}`}</style>
 
       {/* Floating button */}
-      <button onClick={()=>setOpen(o=>!o)}
+      <button data-tour="copilot-button" onClick={()=>setOpen(o=>!o)}
         style={{position:"fixed",bottom:24,right:24,width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${C.ai},#3b5bdb)`,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 20px rgba(124,58,237,.4)",zIndex:800,transition:"transform .15s,box-shadow .15s"}}
         onMouseEnter={e=>{e.currentTarget.style.transform="scale(1.08)";e.currentTarget.style.boxShadow="0 6px 28px rgba(124,58,237,.5)";}}
         onMouseLeave={e=>{e.currentTarget.style.transform="scale(1)";e.currentTarget.style.boxShadow="0 4px 20px rgba(124,58,237,.4)";}}>

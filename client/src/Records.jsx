@@ -19,6 +19,7 @@ import api from './apiClient.js';
 import { authHeaders } from './apiClient.js';
 import TalentCardModal from './TalentCard.jsx';
 import ScreeningRulesPanel from './ScreeningRulesPanel.jsx';
+import LinkedInFinderButton from './LinkedInFinder.jsx';
 
 // Bare fetch wrapper that always includes X-Tenant-Slug + X-User-Id headers.
 // Use this instead of raw fetch() anywhere in this file.
@@ -6324,6 +6325,17 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         {/* Talent Card — only on Person records */}
         {objectName === "Person" && (
           <ActionBtn icon="fileText" label="Talent Card" onClick={() => setShowTalentCard(true)}/>
+        )}
+
+        {/* LinkedIn Finder — only on Person records */}
+        {objectName === "Person" && (
+          <LinkedInFinderButton
+            record={record}
+            fields={fields}
+            onFound={(url) => {
+              setRecord(prev => prev ? { ...prev, data: { ...prev.data, linkedin: url } } : prev);
+            }}
+          />
         )}
 
         {/* Last activity indicator */}

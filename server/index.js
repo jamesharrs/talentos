@@ -73,6 +73,7 @@ const AUTH_EXEMPT_PATHS = [
   '/error-logs',                       // allow error reporting without auth
   '/ai',                               // AI proxy — session user is optional, key is server-side
   '/translate',                        // translation proxy
+  '/linkedin-search',                  // LinkedIn profile finder — uses server-side API key
 ];
 app.use('/api', (req, res, next) => {
   // Skip for exempt prefixes
@@ -207,6 +208,7 @@ app.post('/api/seed-dashboards', (req, res) => {
 });
 
 app.use('/api/cv-parse',           require('./routes/cv_parse'));
+app.use('/api/linkedin-search',    require('./routes/linkedin_search'));
 app.use('/api/doc-extract',        require('./routes/doc_extract'));
 app.use('/api/forms',              require('./routes/forms'));
 app.use('/api/agents',             require('./routes/agents'));

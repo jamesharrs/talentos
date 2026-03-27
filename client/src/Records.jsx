@@ -2151,12 +2151,17 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
       return (recs.records || []).map(r => ({ ...r, object_name: o.name, object_color: o.color, object_id_ref: o.id }));
     })).then(async groups => {
       const all = groups.flat();
-      // Filter to only records with a Linked Person workflow assigned
+      // Filter to only records that have a Linked Person workflow (type "people_link") with stages
       const checked = await Promise.all(all.map(async r => {
-        const asgn = await fetch(`/api/workflows/assignments?record_id=${r.id}`)
-          .then(x => x.json()).catch(() => []);
-        const pl = (Array.isArray(asgn) ? asgn : []).find(a => a.type === "people_link");
-        return (pl && (pl.workflow?.steps || []).length > 0) ? r : null;
+        try {
+          const asgn = await fetch(`/api/workflows/assignments?record_id=${r.id}`)
+            .then(x => x.json()).catch(() => []);
+          const list = Array.isArray(asgn) ? asgn : [];
+          // Accept either a people_link typed assignment OR any assignment with steps
+          const pl = list.find(a => a.type === "people_link" && (a.workflow?.steps || []).length > 0)
+                  || list.find(a => (a.workflow?.steps || []).length > 0);
+          return pl ? r : null;
+        } catch { return null; }
       }));
       setLinkTargets(checked.filter(Boolean));
       setLinkLoading(false);
@@ -2195,7 +2200,7 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
 
   return (
     <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 14px", background:"#1e293b",
-      borderRadius:10, marginBottom:10, flexWrap:"wrap" }}>
+      borderRadius:10, marginBottom:10, flexWrap:"wrap", position:"relative" }}>
       <span style={{ fontSize:13, fontWeight:700, color:"white" }}>{selectAllMatching ? `All ${totalFilteredCount}` : count} selected</span>
       <div style={{ display:"flex", gap:6, marginLeft:4 }}>
         <button onClick={onSelectAll}
@@ -6989,9 +6994,15 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
       ));
       window.__toast?.success?.(`Note added to ${ids.length} record${ids.length !== 1 ? "s" : ""}`);
     } else if (action === "interview") {
-      // Fire event to open scheduler — keep selection
+      // Navigate to Interviews tab with bulk candidates pre-populated
       window.dispatchEvent(new CustomEvent("talentos:bulkInterview", {
-        detail: { recordIds: ids, records: records.filter(r => ids.includes(r.id)) }
+        detail: {
+          recordIds: ids,
+          candidates: records.filter(r => ids.includes(r.id)).map(r => ({
+            id: r.id,
+            name: [r.data?.first_name, r.data?.last_name].filter(Boolean).join(" ") || r.data?.email || "Candidate",
+          }))
+        }
       }));
       return; // don't clear selection
     } else if (action === "link") {
@@ -7468,15 +7479,16 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
         <CSVImportModal object={object} environment={environment} onClose={()=>setShowImport(false)} onDone={()=>{ setShowImport(false); load(); }}/>
       )}
 
-      {/* Compare modal */}
-      {showCompare && selectedIds.size >= 2 && (
+      {/* Compare modal — portal so it escapes scroll container */}
+      {showCompare && selectedIds.size >= 2 && ReactDOM.createPortal(
         <CompareModal
           records={displayedRecords.filter(r => selectedIds.has(r.id))}
           fields={fields}
           objectColor={object.color || C.accent}
           onClose={() => setShowCompare(false)}
           onOpen={(id) => { setShowCompare(false); onOpenRecord?.(id, object.id); }}
-        />
+        />,
+        document.body
       )}
     </div>
   );

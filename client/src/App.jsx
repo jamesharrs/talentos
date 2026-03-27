@@ -1917,6 +1917,20 @@ function App() {
     return () => window.removeEventListener("talentos:filter-navigate", handler);
   }, []);
 
+  // Bulk interview — navigate to Interviews and pre-fill candidates
+  useEffect(() => {
+    const handler = (e) => {
+      const { candidates } = e.detail || {};
+      // Store candidates for Interviews page to pick up
+      if (candidates?.length) {
+        sessionStorage.setItem("talentos_bulk_interview_candidates", JSON.stringify(candidates));
+      }
+      setActiveNav("interviews");
+    };
+    window.addEventListener("talentos:bulkInterview", handler);
+    return () => window.removeEventListener("talentos:bulkInterview", handler);
+  }, []);
+
   // Navigate to People list filtered to specific person IDs (from pipeline widget)
   useEffect(() => {
     const handler = (e) => {

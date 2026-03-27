@@ -421,9 +421,10 @@ const TypeFormModal = ({ type, envId, onSave, onClose }) => {
 // ── Schedule Interview Modal ──────────────────────────────────────────────────
 const ScheduleModal = ({ interviewType, envId, onSave, onClose, initialValues }) => {
   const isEdit = !!initialValues?.id;
+  const bulkCandidates = interviewType?._bulkCandidates || null;
   const [form, setForm] = useState({
-    candidate_id: initialValues?.candidate_id || null,
-    candidate_name: initialValues?.candidate_name || "",
+    candidate_id: initialValues?.candidate_id || (bulkCandidates?.length === 1 ? bulkCandidates[0].id : null),
+    candidate_name: initialValues?.candidate_name || (bulkCandidates?.length === 1 ? bulkCandidates[0].name : ""),
     job_id: initialValues?.job_id || null,
     job_name: initialValues?.job_name || "",
     date: initialValues?.date || "",
@@ -431,9 +432,10 @@ const ScheduleModal = ({ interviewType, envId, onSave, onClose, initialValues })
     notes: initialValues?.notes || "",
     interviewers: initialValues?.interviewers || interviewType?.interviewers || [],
   });
+  const [bulkIdx, setBulkIdx] = useState(0); // which bulk candidate we're scheduling
   const [candidates, setCandidates] = useState([]);
   const [jobs, setJobs] = useState([]);
-  const [jobInterviewers, setJobInterviewers] = useState([]); // from job record
+  const [jobInterviewers, setJobInterviewers] = useState([]);
   const [saving, setSaving] = useState(false);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
@@ -501,12 +503,29 @@ const ScheduleModal = ({ interviewType, envId, onSave, onClose, initialValues })
           </div>
 
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            {/* Bulk candidate indicator */}
+            {bulkCandidates?.length > 1 && (
+              <div style={{ padding:"10px 14px", background:"#eff6ff", borderRadius:8,
+                border:"1px solid #bfdbfe", fontSize:12, color:"#1e40af" }}>
+                <strong>Scheduling for {bulkCandidates.length} candidates.</strong> Each will get a separate interview.
+                <div style={{ marginTop:6, fontWeight:600 }}>
+                  Now scheduling: {bulkCandidates[bulkIdx]?.name}
+                  {bulkIdx < bulkCandidates.length - 1 && ` (${bulkIdx + 1} of ${bulkCandidates.length})`}
+                </div>
+              </div>
+            )}
             <div>
               <label style={labelSt}>Candidate *</label>
-              <select value={form.candidate_id||""} onChange={e=>{ const c=candidates.find(c=>c.id===e.target.value); set("candidate_id",c?.id||null); set("candidate_name",c?.name||""); }} style={inpSt}>
-                <option value="">Select candidate…</option>
-                {candidates.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              {bulkCandidates?.length > 1
+                ? <div style={{ padding:"8px 12px", borderRadius:8, border:`1px solid ${C.border}`,
+                    fontSize:13, fontWeight:600, color:C.text1, background:"#f8fafc" }}>
+                    {bulkCandidates[bulkIdx]?.name}
+                  </div>
+                : <select value={form.candidate_id||""} onChange={e=>{ const c=candidates.find(c=>c.id===e.target.value); set("candidate_id",c?.id||null); set("candidate_name",c?.name||""); }} style={inpSt}>
+                    <option value="">Select candidate…</option>
+                    {candidates.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+              }
             </div>
             <div>
               <label style={labelSt}>Job (optional)</label>
@@ -561,9 +580,34 @@ const ScheduleModal = ({ interviewType, envId, onSave, onClose, initialValues })
 
           <div style={{display:"flex",gap:8,marginTop:20,justifyContent:"flex-end"}}>
             <Btn v="ghost" onClick={onClose}>Cancel</Btn>
-            <Btn v="primary" onClick={handle} disabled={saving||!form.candidate_id||!form.date||!form.time} icon="calendar">
-              {saving ? "Saving…" : isEdit ? "Save Changes" : "Schedule Interview"}
-            </Btn>
+            {bulkCandidates?.length > 1 && bulkIdx < bulkCandidates.length - 1 ? (
+              <Btn v="primary" onClick={async () => {
+                // Save current and advance to next candidate
+                setSaving(true);
+                const cur = bulkCandidates[bulkIdx];
+                await onSave({ ...form, candidate_id: cur.id, candidate_name: cur.name });
+                setSaving(false);
+                const next = bulkCandidates[bulkIdx + 1];
+                setBulkIdx(i => i + 1);
+                set("candidate_id", next.id);
+                set("candidate_name", next.name);
+              }} disabled={saving||!form.date||!form.time} icon="calendar">
+                {saving ? "Saving…" : `Save & next (${bulkIdx + 2} of ${bulkCandidates.length})`}
+              </Btn>
+            ) : (
+              <Btn v="primary" onClick={async () => {
+                setSaving(true);
+                if (bulkCandidates?.length > 1) {
+                  const cur = bulkCandidates[bulkIdx];
+                  await onSave({ ...form, candidate_id: cur.id, candidate_name: cur.name });
+                } else {
+                  await handle();
+                }
+                setSaving(false);
+              }} disabled={saving||(bulkCandidates?.length > 1 ? (!form.date||!form.time) : (!form.candidate_id||!form.date||!form.time))} icon="calendar">
+                {saving ? "Saving…" : isEdit ? "Save Changes" : bulkCandidates?.length > 1 ? `Schedule Last (${bulkCandidates.length} of ${bulkCandidates.length})` : "Schedule Interview"}
+              </Btn>
+            )}
           </div>
         </div>
       </div>
@@ -728,6 +772,32 @@ export default function Interviews({ environment }) {
   }, [envId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Pick up bulk interview candidates stored by bulk action bar
+  useEffect(() => {
+    const stored = sessionStorage.getItem("talentos_bulk_interview_candidates");
+    if (!stored) return;
+    sessionStorage.removeItem("talentos_bulk_interview_candidates");
+    try {
+      const candidates = JSON.parse(stored);
+      if (candidates?.length) {
+        // Switch to scheduled view and open scheduler with first available type
+        setView("scheduled");
+        // Wait for types to load, then open scheduler
+        const tryOpen = (attempts = 0) => {
+          setTypes(prev => {
+            if (prev.length > 0) {
+              setScheduleFor({ ...prev[0], _bulkCandidates: candidates });
+            } else if (attempts < 10) {
+              setTimeout(() => tryOpen(attempts + 1), 200);
+            }
+            return prev;
+          });
+        };
+        setTimeout(() => tryOpen(), 300);
+      }
+    } catch {}
+  }, []);
 
   const handleSaveType = async (form, id) => {
     if (id) await api.patch(`/interview-types/${id}`, { ...form, environment_id: envId });

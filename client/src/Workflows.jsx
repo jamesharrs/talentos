@@ -1872,12 +1872,16 @@ export function LinkedRecordsPanel({ record, environment, onNavigate }) {
       const recs = await api.get(`/records?object_id=${obj.id}&environment_id=${environment.id}&limit=200`);
       (recs.records || []).forEach(r => results.push({ ...r, object_name: obj.name, object_color: obj.color }));
     }
-    // Only keep records that have a Linked Person workflow with at least one stage
+    // Only keep records that have any workflow assignment with at least one stage
     const withWorkflow = [];
     for (const r of results) {
-      const assignments = await api.get(`/workflows/assignments?record_id=${r.id}`);
-      const pl = (Array.isArray(assignments) ? assignments : []).find(a => a.type === "people_link");
-      if (pl && (pl.workflow?.steps || []).length > 0) withWorkflow.push(r);
+      try {
+        const assignments = await api.get(`/workflows/assignments?record_id=${r.id}`);
+        const list = Array.isArray(assignments) ? assignments : [];
+        const pl = list.find(a => a.type === "people_link" && (a.workflow?.steps || []).length > 0)
+                || list.find(a => (a.workflow?.steps || []).length > 0);
+        if (pl) withWorkflow.push(r);
+      } catch { /* skip */ }
     }
     setAllRecords(withWorkflow);
   };

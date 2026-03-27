@@ -166,37 +166,38 @@ const emitFilterNav = (fieldKey, fieldLabel, fieldValue) => {
   }));
 };
 
+// Clickable pill — navigates to a filtered list of records with this value
+// NOTE: must be defined at module level (not inside FieldValue) to avoid React identity issues
+const FilterPill = ({ label, color, fieldKey, fieldName }) => (
+  <span
+    onClick={e => { e.stopPropagation(); emitFilterNav(fieldKey, fieldName, label); }}
+    title={`Browse all records where ${fieldName} = "${label}"`}
+    style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 8px", borderRadius:99,
+      fontSize:11, fontWeight:600, background:`${color}18`, color, border:`1px solid ${color}28`,
+      whiteSpace:"nowrap", cursor:"pointer", userSelect:"none", transition:"filter .1s" }}
+    onMouseEnter={e=>e.currentTarget.style.filter="brightness(0.88)"}
+    onMouseLeave={e=>e.currentTarget.style.filter="none"}
+  >
+    {label}
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{opacity:0.6}}>
+      <path d="M9 18l6-6-6-6"/>
+    </svg>
+  </span>
+);
+
 const FieldValue = ({ field, value, allFieldValues = {} }) => {
   if (value===null||value===undefined||value==="") return <span style={{color:C.text3,fontSize:12}}>—</span>;
-
-  // Clickable pill — navigates to a filtered list of records with this value
-  const FilterPill = ({ label, color }) => (
-    <span
-      onClick={e => { e.stopPropagation(); emitFilterNav(field.api_key, field.name, label); }}
-      title={`Browse all records where ${field.name} = "${label}"`}
-      style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 8px", borderRadius:99,
-        fontSize:11, fontWeight:600, background:`${color}18`, color, border:`1px solid ${color}28`,
-        whiteSpace:"nowrap", cursor:"pointer", userSelect:"none", transition:"filter .1s" }}
-      onMouseEnter={e=>e.currentTarget.style.filter="brightness(0.88)"}
-      onMouseLeave={e=>e.currentTarget.style.filter="none"}
-    >
-      {label}
-      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{opacity:0.6}}>
-        <path d="M9 18l6-6-6-6"/>
-      </svg>
-    </span>
-  );
 
   switch(field.field_type) {
     case "select": {
       const col = STATUS_COLORS[value] || C.accent;
-      return <FilterPill label={value} color={col}/>;
+      return <FilterPill label={value} color={col} fieldKey={field.api_key} fieldName={field.name}/>;
     }
     case "multi_select": {
       const arr = Array.isArray(value) ? value : (typeof value==="string"?value.split(","):[]);
-      return <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{arr.map(v=><FilterPill key={v} label={v} color={STATUS_COLORS[v]||C.accent}/>)}</div>;
+      return <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{arr.map(v=><FilterPill key={v} label={v} color={STATUS_COLORS[v]||C.accent} fieldKey={field.api_key} fieldName={field.name}/>)}</div>;
     }
-    case "boolean": return <FilterPill label={value?"Yes":"No"} color={value?"#0ca678":"#868e96"}/>;
+    case "boolean": return <FilterPill label={value?"Yes":"No"} color={value?"#0ca678":"#868e96"} fieldKey={field.api_key} fieldName={field.name}/>;
     case "url":     return <a href={value} target="_blank" rel="noreferrer" style={{color:C.accent,fontSize:13,textDecoration:"none"}}>{value}</a>;
     case "email":   return <a href={`mailto:${value}`} style={{color:C.accent,fontSize:13,textDecoration:"none"}}>{value}</a>;
     case "rating":  return (

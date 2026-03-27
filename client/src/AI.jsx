@@ -1700,7 +1700,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         // Send to server for text extraction then parse
         const fd = new FormData();
         fd.append("file", file);
-        const res = await fetch("/api/cv-parse", { method:"POST", body:fd });
+        const res = await tFetch("/api/cv-parse", { method:"POST", body:fd });
         if (res.ok) {
           const data = await res.json();
           // Inject the extracted text into the conversation
@@ -1741,9 +1741,9 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       }
 
       setLoading(true);
-      const res2 = await fetch("/api/ai/chat", {
+      const res2 = await tFetch("/api/ai/chat", {
         method:"POST",
-        headers:aiHeaders(),
+        headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ messages: apiMessages, system: SYSTEM_PROMPT })
       });
       const d2 = await res2.json();
@@ -1842,8 +1842,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       ].join("");
 
       // First AI call
-      const response = await fetch("/api/ai/chat",{
-        method:"POST", headers:aiHeaders(),
+      const response = await tFetch("/api/ai/chat",{
+        method:"POST", headers:{'Content-Type':'application/json'},
         body:JSON.stringify({system:systemFull,messages:newMessages.filter(m=>m.role!=="system_notice").map(m=>({role:m.role,content:m.content}))}),
       });
       const data = await response.json();
@@ -1870,7 +1870,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
           {role:"assistant", content:reply},
           {role:"user", content:`[SEARCH_RESULTS for "${searchQ}"]\n${resultsText}\n\nPlease summarise these results concisely.`}
         ];
-        const r2 = await fetch("/api/ai/chat",{method:"POST",headers:aiHeaders(),body:JSON.stringify({system:systemFull,messages:followUp})});
+        const r2 = await tFetch("/api/ai/chat",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({system:systemFull,messages:followUp})});
         const d2 = await r2.json();
         reply = d2.content || reply;
       }
@@ -1890,7 +1890,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
               {role:"assistant", content:reply},
               {role:"user", content:`Here are relevant excerpts from the company knowledge base:\n\n${snippets}\n\nNow rewrite your response incorporating this information naturally. Cite document names where appropriate (e.g. "According to our Benefits Guide..."). Do NOT include <DOC_SEARCH> tags in your response.`}
             ];
-            const dr = await fetch("/api/ai/chat",{method:"POST",headers:aiHeaders(),body:JSON.stringify({system:systemFull,messages:docFollowUp})});
+            const dr = await tFetch("/api/ai/chat",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({system:systemFull,messages:docFollowUp})});
             const dd = await dr.json();
             reply = dd.content || reply;
           }
@@ -1958,13 +1958,13 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     if(!obj){setCreating(false);return;}
     try {
       const created = await api.post("/records",{object_id:obj.id,environment_id:environment.id,data:pendingRecord.data,created_by:"Copilot"});
+      if(!created?.id) throw new Error(created?.error || "Record creation failed — no ID returned");
       const d = pendingRecord.data;
       const name = (d.first_name?`${d.first_name} ${d.last_name||""}`.trim():null)||d.job_title||d.pool_name||"Record";
-      const msgIndex = messages.length;
       setMessages(m=>[...m,{role:"assistant",content:`✅ **${name}** created successfully!`,ts:new Date(),createdRecord:{id:created.id,name,objectName:obj.name,objectColor:obj.color,objectSlug:obj.slug,sub:d.email||d.department||d.category||""}}]);
       setPendingRecord(null);
-    } catch{
-      setMessages(m=>[...m,{role:"assistant",content:"Failed to create the record. Please try again.",ts:new Date(),error:true}]);
+    } catch(err){
+      setMessages(m=>[...m,{role:"assistant",content:`Failed to create the record: ${err.message}`,ts:new Date(),error:true}]);
     }
     setCreating(false);
   };
@@ -2629,7 +2629,10 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                 {/* Created record link */}
                 {msg.role==="assistant"&&msg.createdRecord&&(
                   <div style={{marginTop:8,marginLeft:34}}>
-                    <div onClick={()=>onNavigateToRecord&&onNavigateToRecord(msg.createdRecord)}
+                    <div onClick={()=>{
+                      const obj = objects.find(o=>o.slug===msg.createdRecord.objectSlug);
+                      if(obj) window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:msg.createdRecord.id,objectId:obj.id}}));
+                    }}
                       style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",background:"white",borderRadius:10,border:`1.5px solid ${msg.createdRecord.objectColor||C.ai}40`,cursor:"pointer",transition:"all .12s"}}
                       onMouseEnter={e=>{e.currentTarget.style.background=`${msg.createdRecord.objectColor||C.ai}08`;e.currentTarget.style.borderColor=`${msg.createdRecord.objectColor||C.ai}70`;}}
                       onMouseLeave={e=>{e.currentTarget.style.background="white";e.currentTarget.style.borderColor=`${msg.createdRecord.objectColor||C.ai}40`;}}>

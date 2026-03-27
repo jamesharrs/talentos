@@ -2386,14 +2386,6 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                 })}
                 <td style={{ padding:"12px 14px", textAlign:"right" }}>
                   <div style={{ display:"flex", gap:4, justifyContent:"flex-end", alignItems:"center" }}>
-                    {hoveredRow===record.id && statusOptions.length > 0 && (
-                      <InlineStatusPicker
-                        record={record}
-                        statusOptions={statusOptions}
-                        onUpdate={r => onStatusUpdate?.(r)}
-                      />
-                    )}
-
                     <Btn v="ghost" sz="sm" icon="expand" onClick={()=>onSelect(record)}/>
                     {onDelete && <Btn v="ghost" sz="sm" icon="trash"  onClick={()=>onDelete(record.id)} style={{color:"#ef4444"}}/>}
                   </div>

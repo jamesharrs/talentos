@@ -6583,7 +6583,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   return (
     <div style={{ minHeight:0 }}>
       {/* Toolbar */}
-      <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap", position:"sticky", top:0, zIndex:20, background:"var(--t-bg, #f4f5f8)", paddingBottom:12, paddingTop:4, marginTop:-4 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap", position:"sticky", top:0, zIndex:50, background:"var(--t-bg, #f4f5f8)", paddingBottom:12, paddingTop:4, marginTop:-4 }}>
         <h1 style={{ margin:0, fontSize:22, fontWeight:700, color:C.text1, flex:"none", fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.4px" }}>
           {object.plural_name}
           {activeListName && <span style={{ fontWeight:400, color:C.accent, fontSize:15, marginLeft:8 }}>/ {activeListName}</span>}

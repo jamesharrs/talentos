@@ -2145,25 +2145,26 @@ function App() {
         ) : !selectedEnv ? (
           <div style={{ textAlign: "center", padding: 60, color: "#9ca3af" }}>No environments found.</div>
         ) : (
-        <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}>
         <div style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0, overflow: activeNav.startsWith("record_") ? "hidden" : "visible" }}>
         { activeNav === "inbox" ? (
           <InboxModule environment={selectedEnv} onNavigate={openRecord} />
         ) : activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers" || activeNav === "dashboard_admin" || activeNav === "dashboard_agents" || activeNav === "dashboard_screening" || activeNav === "dashboard_onboarding" || activeNav === "dashboard_custom" ? (
-          <DashboardHub
-            tab={activeNav === "dashboard" ? "overview" : activeNav.replace("dashboard_", "")}
-            onTabChange={(tab) => { setActiveNav(tab === "overview" ? "dashboard" : `dashboard_${tab}`); setDashBuilderMode(false); }}
-            environment={selectedEnv} session={session}
-            onOpenRecord={openRecord}
-            builderMode={dashBuilderMode}
-            setBuilderMode={setDashBuilderMode}
-            onNavigate={(slug) => {
-              if (slug === "matching") { setActiveNav("matching"); return; }
-              if (slug === "search")   { setActiveNav("search");   return; }
-              const obj = navObjects.find(o => o.slug === slug || o.plural_name.toLowerCase() === slug);
-              if (obj) setActiveNav(`obj_${obj.id}`);
-            }}
-          />
+          <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}>
+            <DashboardHub
+              tab={activeNav === "dashboard" ? "overview" : activeNav.replace("dashboard_", "")}
+              onTabChange={(tab) => { setActiveNav(tab === "overview" ? "dashboard" : `dashboard_${tab}`); setDashBuilderMode(false); }}
+              environment={selectedEnv} session={session}
+              onOpenRecord={openRecord}
+              builderMode={dashBuilderMode}
+              setBuilderMode={setDashBuilderMode}
+              onNavigate={(slug) => {
+                if (slug === "matching") { setActiveNav("matching"); return; }
+                if (slug === "search")   { setActiveNav("search");   return; }
+                const obj = navObjects.find(o => o.slug === slug || o.plural_name.toLowerCase() === slug);
+                if (obj) setActiveNav(`obj_${obj.id}`);
+              }}
+            />
+          </Suspense>
         ) : activeNav.startsWith("obj_") ? (() => {
           const _obj = navObjects.find(o => `obj_${o.id}` === activeNav);
           if (!_obj) return <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>;
@@ -2187,38 +2188,48 @@ function App() {
             onRecordLoad={(rec, recObj) => { setActiveRecord(rec); setActiveRecordObj(recObj); }}
           /></div>;
         })() : activeNav === "search" ? (
-          <SearchPage environment={selectedEnv} onNavigateToRecord={(record) => {
-            openRecord(record.id, record.object_id);
-          }}/>
+          <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}>
+            <SearchPage environment={selectedEnv} onNavigateToRecord={(record) => {
+              openRecord(record.id, record.object_id);
+            }}/>
+          </Suspense>
         ) : activeNav === "reports" ? (
-          <ReportsPage environment={selectedEnv} initialReport={reportPreset} />
+          <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}>
+            <ReportsPage environment={selectedEnv} initialReport={reportPreset} />
+          </Suspense>
         ) : activeNav === "help" ? (
-          <HelpPage onOpenCopilot={(msg) => {
-            window.dispatchEvent(new CustomEvent("talentos:openCopilot", { detail: { message: msg } }));
-          }} />
+          <Suspense fallback={null}>
+            <HelpPage onOpenCopilot={(msg) => {
+              window.dispatchEvent(new CustomEvent("talentos:openCopilot", { detail: { message: msg } }));
+            }} />
+          </Suspense>
         ) : activeNav === "settings" ? (
-          <SettingsPage
-            environment={selectedEnv}
-            initialSection={window.location.pathname.startsWith('/settings/') ? window.location.pathname.split('/settings/')[1] : null}
-            onSectionChange={(sectionId) => {
-              const url = sectionId ? `/settings/${sectionId}` : '/settings';
-              if (window.location.pathname !== url) window.history.pushState({ nav: 'settings', section: sectionId }, '', url);
-            }}
-          />
+          <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}>
+            <SettingsPage
+              environment={selectedEnv}
+              initialSection={window.location.pathname.startsWith('/settings/') ? window.location.pathname.split('/settings/')[1] : null}
+              onSectionChange={(sectionId) => {
+                const url = sectionId ? `/settings/${sectionId}` : '/settings';
+                if (window.location.pathname !== url) window.history.pushState({ nav: 'settings', section: sectionId }, '', url);
+              }}
+            />
+          </Suspense>
         ) : activeNav === "orgchart" ? (
-          <div style={{ padding:"28px 32px", height:"100%", boxSizing:"border-box", display:"flex", flexDirection:"column" }}>
-            <OrgChart environment={selectedEnv} />
-          </div>
+          <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}>
+            <div style={{ padding:"28px 32px", height:"100%", boxSizing:"border-box", display:"flex", flexDirection:"column" }}>
+              <OrgChart environment={selectedEnv} />
+            </div>
+          </Suspense>
         ) : activeNav === "interviews" ? (
           canGlobal("access_interviews")
-            ? <div style={{ padding:"28px 32px", flex:1, overflow:"auto" }}><Interviews environment={selectedEnv} /></div>
+            ? <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}><div style={{ padding:"28px 32px", flex:1, overflow:"auto" }}><Interviews environment={selectedEnv} /></div></Suspense>
             : <AccessDenied feature="Interviews"/>
-        ) : activeNav === "calendar" ? (
-          <CalendarModule environment={selectedEnv} />
         ) : activeNav === "offers" ? (
-          <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
-            <OffersModule environment={selectedEnv} />
-          </div>
+          <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}>
+            <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
+              <OffersModule environment={selectedEnv} />
+            </div>
+          </Suspense>
         ) : activeNav === "integrations" ? (
           <div style={{ flex:1, overflow:"auto", padding:"32px" }}>
             <IntegrationsPage environment={selectedEnv} />
@@ -2239,7 +2250,6 @@ function App() {
             : <ObjectsListView environment={selectedEnv} onSelectObject={(obj, objs) => { setSelectedObject(obj); setAllObjects(objs); }} mode="app" />
         ) : null}
         </div>
-        </Suspense>
         )}
         </div>
       </div>

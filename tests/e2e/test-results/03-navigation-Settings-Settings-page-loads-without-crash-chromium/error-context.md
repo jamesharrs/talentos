@@ -1,0 +1,277 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic "Go to Dashboard" [ref=e6] [cursor=pointer]:
+          - img [ref=e7]
+          - generic [ref=e17]: Vercentic
+        - button "Collapse sidebar" [ref=e18] [cursor=pointer]:
+          - img [ref=e19]
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - generic [ref=e23]: OVERVIEW
+          - button "Inbox" [ref=e25] [cursor=pointer]:
+            - img [ref=e26]
+            - generic [ref=e28]: Inbox
+        - generic [ref=e29]:
+          - generic [ref=e30]: RECORDS
+          - button "People" [ref=e32] [cursor=pointer]:
+            - img [ref=e33]
+            - generic [ref=e35]: People
+          - button "Jobs" [ref=e37] [cursor=pointer]:
+            - img [ref=e38]
+            - generic [ref=e40]: Jobs
+          - button "Talent Pools" [ref=e42] [cursor=pointer]:
+            - img [ref=e43]
+            - generic [ref=e45]: Talent Pools
+          - button "Bannabas" [ref=e47] [cursor=pointer]:
+            - img [ref=e48]
+            - generic [ref=e50]: Bannabas
+        - generic [ref=e51]:
+          - generic [ref=e52]: TOOLS
+          - button "Interviews" [ref=e54] [cursor=pointer]:
+            - img [ref=e55]
+            - generic [ref=e57]: Interviews
+          - button "Calendar" [ref=e59] [cursor=pointer]:
+            - img [ref=e60]
+            - generic [ref=e62]: Calendar
+          - button "Offers" [ref=e64] [cursor=pointer]:
+            - img [ref=e65]
+            - generic [ref=e67]: Offers
+          - button "Reports" [ref=e69] [cursor=pointer]:
+            - img [ref=e70]
+            - generic [ref=e72]: Reports
+          - button "Search" [ref=e74] [cursor=pointer]:
+            - img [ref=e75]
+            - generic [ref=e77]: Search
+      - button "AU Admin User Super Admin" [ref=e80] [cursor=pointer]:
+        - generic [ref=e82]: AU
+        - generic [ref=e83]:
+          - generic [ref=e84]: Admin User
+          - generic [ref=e85]: Super Admin
+        - img [ref=e86]
+    - generic [ref=e87]:
+      - generic [ref=e88]:
+        - button "Dashboards" [ref=e90] [cursor=pointer]:
+          - img [ref=e91]
+          - text: Dashboards
+          - img [ref=e96]
+        - generic [ref=e98]:
+          - textbox "Search candidates, jobs, talent pools…" [ref=e99]
+          - generic:
+            - img
+        - button "Create" [ref=e101] [cursor=pointer]:
+          - img [ref=e102]
+          - text: Create
+          - img [ref=e104]
+        - generic [ref=e106]:
+          - button "Calendar" [ref=e107] [cursor=pointer]:
+            - img [ref=e108]
+          - button "Notifications & What's New" [ref=e111] [cursor=pointer]:
+            - img [ref=e112]
+          - button "View history" [ref=e115] [cursor=pointer]:
+            - img [ref=e116]
+          - generic [ref=e119]:
+            - generic [ref=e120]:
+              - generic [ref=e121]:
+                - button "recent" [ref=e122] [cursor=pointer]
+                - button "pinned" [ref=e123] [cursor=pointer]
+              - button "Close" [ref=e125] [cursor=pointer]:
+                - img [ref=e126]
+            - generic [ref=e130]: Nothing viewed yet. Pages and records you visit will appear here.
+      - generic [ref=e132]:
+        - generic [ref=e133]:
+          - generic [ref=e134]:
+            - generic [ref=e135]: Good afternoon
+            - generic [ref=e136]: Friday, March 27, 2026
+          - generic [ref=e137]:
+            - generic [ref=e138]:
+              - img [ref=e139]
+              - generic [ref=e142]: "33"
+              - generic [ref=e143]: open roles
+            - generic [ref=e144]:
+              - img [ref=e145]
+              - generic [ref=e150]: "55"
+              - generic [ref=e151]: active candidates
+            - generic [ref=e152]:
+              - img [ref=e153]
+              - generic [ref=e155]: "0"
+              - generic [ref=e156]: interviews today
+            - button "↻" [ref=e157] [cursor=pointer]
+        - generic [ref=e158]:
+          - generic [ref=e159] [cursor=pointer]:
+            - generic [ref=e161]:
+              - img [ref=e163]
+              - generic [ref=e168]: "63"
+            - generic [ref=e169]: Total candidates
+            - generic [ref=e170]: 55 active
+            - generic [ref=e171]:
+              - generic [ref=e172]: +11%
+              - generic [ref=e173]: vs last month
+            - button "↗ Report" [ref=e174]
+          - generic [ref=e175] [cursor=pointer]:
+            - generic [ref=e177]:
+              - img [ref=e179]
+              - generic [ref=e182]: "33"
+            - generic [ref=e183]: Open jobs
+            - generic [ref=e184]: 35 total roles
+            - generic [ref=e185]:
+              - generic [ref=e186]: +7%
+              - generic [ref=e187]: vs last month
+            - button "↗ Report" [ref=e188]
+          - generic [ref=e189] [cursor=pointer]:
+            - generic [ref=e191]:
+              - img [ref=e193]
+              - generic [ref=e197]: "9"
+            - generic [ref=e198]: Talent pools
+            - generic [ref=e199]: curated pipelines
+            - generic [ref=e201]: vs last month
+            - button "↗ Report" [ref=e202]
+          - generic [ref=e203]:
+            - generic [ref=e205]:
+              - img [ref=e207]
+              - generic [ref=e209]: "1"
+            - generic [ref=e210]: Placed
+            - generic [ref=e211]: total placements
+            - generic [ref=e213]: vs last month
+        - generic [ref=e214]:
+          - generic [ref=e215]:
+            - generic [ref=e216]:
+              - generic [ref=e217]:
+                - generic [ref=e218]: Hiring Activity
+                - generic [ref=e219]:
+                  - generic [ref=e220]: Candidates
+                  - generic [ref=e222]: Jobs
+              - generic [ref=e224]: Records added per month this year
+            - application [ref=e227]:
+              - generic [ref=e240]:
+                - generic [ref=e241]:
+                  - generic [ref=e243]: Oct
+                  - generic [ref=e245]: Nov
+                  - generic [ref=e247]: Dec
+                  - generic [ref=e249]: Jan
+                  - generic [ref=e251]: Feb
+                  - generic [ref=e253]: Mar
+                - generic [ref=e254]:
+                  - generic [ref=e256]: "0"
+                  - generic [ref=e258]: "8"
+                  - generic [ref=e260]: "16"
+                  - generic [ref=e262]: "24"
+                  - generic [ref=e264]: "32"
+          - generic [ref=e265]:
+            - generic [ref=e266]:
+              - generic [ref=e267]:
+                - generic [ref=e268]: Jobs Pipeline
+                - button "View all jobs →" [ref=e269] [cursor=pointer]
+              - generic [ref=e270]: 33 total roles
+            - application [ref=e273]
+            - generic [ref=e292]:
+              - generic [ref=e293]: Open (24)
+              - generic [ref=e295]: Draft (3)
+              - generic [ref=e297]: Filled (2)
+              - generic [ref=e299]: On Hold (5)
+              - generic [ref=e301]: Unknown (1)
+        - generic [ref=e303]:
+          - generic [ref=e304]:
+            - generic [ref=e305]:
+              - generic [ref=e306]:
+                - generic [ref=e307]: Candidate Pipeline
+                - button "View all →" [ref=e308] [cursor=pointer]
+              - generic [ref=e309]: 55 total
+            - generic [ref=e310]:
+              - generic [ref=e311]:
+                - generic [ref=e312]: Unknown
+                - generic [ref=e315]: "22"
+              - generic [ref=e316]:
+                - generic [ref=e317]: Active
+                - generic [ref=e320]: "22"
+              - generic [ref=e321]:
+                - generic [ref=e322]: Passive
+                - generic [ref=e325]: "4"
+              - generic [ref=e326]:
+                - generic [ref=e327]: In Process
+                - generic [ref=e330]: "2"
+              - generic [ref=e331]:
+                - generic [ref=e332]: Not Looking
+                - generic [ref=e335]: "4"
+              - generic [ref=e336]:
+                - generic [ref=e337]: Declined
+                - generic [ref=e340]: "1"
+          - generic [ref=e341]:
+            - generic [ref=e342]:
+              - generic [ref=e344]: Open Reqs by Dept
+              - generic [ref=e345]: 33 open roles
+            - generic [ref=e346]:
+              - generic [ref=e347]:
+                - generic [ref=e348]: Engineering
+                - generic [ref=e351]: "12"
+              - generic [ref=e352]:
+                - generic [ref=e353]: Sales
+                - generic [ref=e356]: "6"
+              - generic [ref=e357]:
+                - generic [ref=e358]: Marketing
+                - generic [ref=e361]: "3"
+              - generic [ref=e362]:
+                - generic [ref=e363]: Finance
+                - generic [ref=e366]: "1"
+              - generic [ref=e367]:
+                - generic [ref=e368]: Infrastructure
+                - generic [ref=e371]: "1"
+              - generic [ref=e372]:
+                - generic [ref=e373]: Design
+                - generic [ref=e376]: "2"
+          - generic [ref=e377]:
+            - generic [ref=e378]:
+              - generic [ref=e380]: Recent Activity
+              - generic [ref=e381]: Latest changes across all objects
+            - generic [ref=e382]:
+              - generic [ref=e383]:
+                - generic [ref=e387]: Updated · Record
+                - generic [ref=e388]: 11:03 PM
+              - generic [ref=e389]:
+                - generic [ref=e393]: Updated · Record
+                - generic [ref=e394]: 11:00 PM
+              - generic [ref=e395]:
+                - generic [ref=e399]: Updated · Record
+                - generic [ref=e400]: 12:03 PM
+              - generic [ref=e401]:
+                - generic [ref=e405]: Updated · Record
+                - generic [ref=e406]: 12:03 PM
+              - generic [ref=e407]:
+                - generic [ref=e411]: Updated · Record
+                - generic [ref=e412]: 08:36 PM
+              - generic [ref=e413]:
+                - generic [ref=e417]: Updated · Record
+                - generic [ref=e418]: 06:26 PM
+        - generic [ref=e419]:
+          - button "Add Candidate" [ref=e420] [cursor=pointer]:
+            - img [ref=e421]
+            - text: Add Candidate
+          - button "Post a Job" [ref=e424] [cursor=pointer]:
+            - img [ref=e425]
+            - text: Post a Job
+          - button "Create Pool" [ref=e428] [cursor=pointer]:
+            - img [ref=e429]
+            - text: Create Pool
+          - button "Recommendations" [ref=e433] [cursor=pointer]:
+            - img [ref=e434]
+            - text: Recommendations
+    - button [ref=e436] [cursor=pointer]:
+      - img [ref=e437]
+    - generic [ref=e450]:
+      - generic [ref=e451]:
+        - img [ref=e452]
+        - generic [ref=e462]: Vercentic
+      - heading "Set up your workspace" [level=1] [ref=e463]
+      - paragraph [ref=e464]: Enter your company name and our AI will research your organisation — finding your logo, locations, EVP, and setting up personalised email templates.
+      - generic [ref=e465]:
+        - textbox "Enter your company name…" [active] [ref=e466]: Production
+        - button "Research" [ref=e467] [cursor=pointer]:
+          - img [ref=e468]
+          - text: Research
+      - button "Skip for now →" [ref=e470] [cursor=pointer]
+  - generic [ref=e471]: "0"
+```

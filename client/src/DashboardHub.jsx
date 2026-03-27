@@ -1,4 +1,6 @@
 import { Suspense, lazy, useState } from "react";
+import DashboardViewer  from "./DashboardViewer.jsx";
+import DashboardBuilder from "./DashboardBuilder.jsx";
 
 const Dashboard           = lazy(() => import("./Dashboard.jsx"));
 const InterviewDashboard  = lazy(() => import("./InterviewDashboard.jsx"));
@@ -7,8 +9,6 @@ const AdminDashboard      = lazy(() => import("./AdminDashboard.jsx"));
 const AgentDashboard      = lazy(() => import("./AgentDashboard.jsx"));
 const ScreeningDashboard  = lazy(() => import("./ScreeningDashboard.jsx"));
 const OnboardingDashboard = lazy(() => import("./OnboardingDashboard.jsx"));
-const DashboardViewer     = lazy(() => import("./DashboardViewer.jsx"));
-const DashboardBuilder    = lazy(() => import("./DashboardBuilder.jsx"));
 
 const F = "'DM Sans', -apple-system, sans-serif";
 const Loader = () => (
@@ -18,8 +18,7 @@ const Loader = () => (
   </div>
 );
 
-export default function DashboardHub({ tab = "overview", onTabChange, environment, session, onOpenRecord, onNavigate }) {
-  const [builderMode, setBuilderMode] = useState(false);
+export default function DashboardHub({ tab = "overview", onTabChange, environment, session, onOpenRecord, onNavigate, builderMode, setBuilderMode }) {
   return (
     <Suspense fallback={<Loader/>}>
       {tab === "overview" && (
@@ -55,4 +54,3 @@ export default function DashboardHub({ tab = "overview", onTabChange, environmen
     </Suspense>
   );
 }
-

@@ -1636,6 +1636,7 @@ function App() {
   };
   const { history: navHistory, pinned, push: pushHistory, clear: clearHistory, togglePin, isPinned } = useHistory();
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [dashBuilderMode, setDashBuilderMode] = useState(false);
   const [navObjects, setNavObjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [apiOnline, setApiOnline] = useState(null);
@@ -1792,6 +1793,8 @@ function App() {
     // Push URL
     const url = pathFromNav(id, navObjects || []);
     if (window.location.pathname !== url) window.history.pushState({ nav: id }, '', url);
+    // Reset dashboard builder mode when navigating away from dashboard
+    if (!id.startsWith("dashboard_")) setDashBuilderMode(false);
     if (id.startsWith("obj_") && (activeNav === id || activeNav.startsWith("record_"))) {
       setActiveNav("__reset__");
       setTimeout(() => { setActiveNav(id); setSelectedObject(null); }, 0);
@@ -2149,9 +2152,11 @@ function App() {
         ) : activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers" || activeNav === "dashboard_admin" || activeNav === "dashboard_agents" || activeNav === "dashboard_screening" || activeNav === "dashboard_onboarding" || activeNav === "dashboard_custom" ? (
           <DashboardHub
             tab={activeNav === "dashboard" ? "overview" : activeNav.replace("dashboard_", "")}
-            onTabChange={(tab) => setActiveNav(tab === "overview" ? "dashboard" : `dashboard_${tab}`)}
+            onTabChange={(tab) => { setActiveNav(tab === "overview" ? "dashboard" : `dashboard_${tab}`); setDashBuilderMode(false); }}
             environment={selectedEnv} session={session}
             onOpenRecord={openRecord}
+            builderMode={dashBuilderMode}
+            setBuilderMode={setDashBuilderMode}
             onNavigate={(slug) => {
               if (slug === "matching") { setActiveNav("matching"); return; }
               if (slug === "search")   { setActiveNav("search");   return; }

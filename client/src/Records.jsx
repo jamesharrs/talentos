@@ -5398,6 +5398,15 @@ const SlideOutHeader = ({ title, subtitle, objectColor, status, statusField, rec
   </div>
 );
 
+function _DropIndicator({ beforeRepId, afterRepId, draggingPanel, overSlot, overZone }) {
+  if (!draggingPanel) return null;
+  if (overZone === "middle") return null;
+  const showBefore = beforeRepId && overSlot === beforeRepId && overZone === "top";
+  const showAfter  = afterRepId  && overSlot === afterRepId  && overZone === "bottom";
+  if (!showBefore && !showAfter) return null;
+  return <div style={{ height:3, borderRadius:2, background:C.accent, margin:"0 0 12px", boxShadow:`0 0 8px ${C.accent}70` }}/>;
+}
+
 const ActionBtn = ({ icon, label, onClick, accent, danger }) => (
   <button onClick={onClick}
     style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 14px", borderRadius:20,
@@ -6109,16 +6118,9 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   // GroupCard is defined at module level above RecordDetail
   // ActionBtn, SlideOutHeader are defined at module level above RecordDetail
 
-  // DropIndicator — plain function (not a JSX component), called as DropIndicator({...})
-  // Safe to define inside RecordDetail because it is NEVER used as <DropIndicator/> JSX
-  const DropIndicator = ({ beforeRepId, afterRepId }) => {
-    if (!draggingPanel) return null;
-    if (overZone === "middle") return null;
-    const showBefore = beforeRepId && overSlot === beforeRepId && overZone === "top";
-    const showAfter  = afterRepId  && overSlot === afterRepId  && overZone === "bottom";
-    if (!showBefore && !showAfter) return null;
-    return <div style={{ height:3, borderRadius:2, background:C.accent, margin:"0 0 12px", boxShadow:`0 0 8px ${C.accent}70` }}/>;
-  };
+  // DropIndicator — calls module-level _DropIndicator with local state values
+  const DropIndicator = ({ beforeRepId, afterRepId }) =>
+    _DropIndicator({ beforeRepId, afterRepId, draggingPanel, overSlot, overZone });
 
   // ── SLIDE-OUT (600px panel) — tabs layout ──
   const TABS = [

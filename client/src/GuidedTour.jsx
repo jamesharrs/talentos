@@ -33,19 +33,23 @@ function resolvePos(rect, placement, tw=360, th=240) {
 }
 
 function Overlay({spotRect}) {
-  const vw=window.innerWidth,vh=window.innerHeight,r=16;
-  if(!spotRect) return <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(10,14,33,0.78)",backdropFilter:"blur(3px)",animation:"tFadeIn .25s ease"}}/>;
+  const BG = "rgba(10,14,33,0.78)";
+  const base = {position:"fixed",zIndex:9998,background:BG,animation:"tFadeIn .25s ease"};
+  if(!spotRect) return <div style={{...base,inset:0,backdropFilter:"blur(3px)"}}/>;
   const {x,y,w,h}=spotRect;
   return (
-    <svg style={{position:"fixed",inset:0,zIndex:9998,width:"100vw",height:"100vh",pointerEvents:"none",animation:"tFadeIn .25s ease"}}>
-      <defs>
-        <clipPath id="tc">
-          <path fillRule="evenodd" d={`M 0 0 H ${vw} V ${vh} H 0 Z M ${x+r} ${y} H ${x+w-r} Q ${x+w} ${y} ${x+w} ${y+r} V ${y+h-r} Q ${x+w} ${y+h} ${x+w-r} ${y+h} H ${x+r} Q ${x} ${y+h} ${x} ${y+h-r} V ${y+r} Q ${x} ${y} ${x+r} ${y} Z`}/>
-        </clipPath>
-      </defs>
-      <rect x={0} y={0} width={vw} height={vh} fill="rgba(10,14,33,0.78)" clipPath="url(#tc)"/>
-      <rect x={x-2} y={y-2} width={w+4} height={h+4} rx={r+2} fill="none" stroke="rgba(67,97,238,0.7)" strokeWidth={2} style={{filter:"drop-shadow(0 0 10px rgba(67,97,238,0.5))"}}/>
-    </svg>
+    <div style={{position:"fixed",inset:0,zIndex:9998,pointerEvents:"none",animation:"tFadeIn .25s ease"}}>
+      {/* Top band */}
+      <div style={{...base,top:0,left:0,right:0,height:y,animation:"none"}}/>
+      {/* Bottom band */}
+      <div style={{...base,top:y+h,left:0,right:0,bottom:0,animation:"none"}}/>
+      {/* Left strip */}
+      <div style={{...base,top:y,left:0,width:x,height:h,animation:"none"}}/>
+      {/* Right strip */}
+      <div style={{...base,top:y,left:x+w,right:0,height:h,animation:"none"}}/>
+      {/* Glow ring around spotlight */}
+      <div style={{position:"fixed",top:y-3,left:x-3,width:w+6,height:h+6,borderRadius:18,border:"2px solid rgba(67,97,238,0.8)",boxShadow:"0 0 0 4px rgba(67,97,238,0.1),0 0 24px rgba(67,97,238,0.35)",pointerEvents:"none",zIndex:9998}}/>
+    </div>
   );
 }
 

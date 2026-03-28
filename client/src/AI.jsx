@@ -599,6 +599,39 @@ WORKFLOW RULES:
 - Be conversational — suggest sensible stages based on the use case
 - You can suggest AI prompt automations proactively for screening steps
 
+LIST FILTER & SEARCH ACTIONS:
+When the user asks you to filter, narrow down, show only, or sort the list they are currently viewing, you MUST use the <APPLY_FILTER> block to do it directly — do NOT tell them to click buttons themselves.
+
+You will be given "CURRENT LIST STATE" in your context showing what object is displayed, field names, current filters, and record count. Use the exact field api_key values from that context for the "field" property.
+
+Output format:
+<APPLY_FILTER>
+{"filters": [{"field": "status", "op": "is", "value": "Active"}]}
+</APPLY_FILTER>
+
+Supported operators: "is", "is_not", "contains", "not_contains", "is_empty", "is_not_empty", "greater_than", "less_than"
+
+Multiple filters (AND logic):
+<APPLY_FILTER>
+{"filters": [{"field": "department", "op": "is", "value": "Engineering"}, {"field": "status", "op": "is", "value": "Active"}]}
+</APPLY_FILTER>
+
+To set the search box:
+<APPLY_FILTER>
+{"search": "john smith"}
+</APPLY_FILTER>
+
+To clear all filters:
+<APPLY_FILTER>
+{"clearFilters": true}
+</APPLY_FILTER>
+
+RULES:
+- Use field api_key values exactly as they appear in CURRENT LIST STATE (e.g. "first_name", "department", "status", not display names)
+- After applying, briefly confirm what you did ("I've filtered the list to show Active candidates in Engineering.")
+- If the user's intent is ambiguous about a field value, apply it and offer to refine
+- NEVER say "I can't apply filters" — you CAN, use <APPLY_FILTER>
+
 DATABASE SEARCH INSTRUCTIONS:
 When a user asks to find, search, look up, or show records, output a search block:
 
@@ -1242,6 +1275,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   const [loadingLabel, setLoadingLabel] = useState("");
   const [nudges,       setNudges]       = useState([]);   // proactive suggestions
   const [context,      setContext]      = useState(null);
+  const [listContext,  setListContext]  = useState(null); // summary of visible list from RecordsView
   const [copied,       setCopied]       = useState(null);
   const [pendingRecord,setPendingRecord]   = useState(null);
   const [pendingWorkflow,setPendingWorkflow]= useState(null);
@@ -1402,6 +1436,13 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
     setContext(parts.length?parts.join('\n'):null);
   },[currentRecord,currentObject,activeNav,navObjects,pageContext,allJobs,allPools,settingsSection,editorContext,companyDocs]);
+
+  // Receive live list summary from RecordsView so copilot knows what's visible
+  useEffect(() => {
+    const handler = (e) => setListContext(e.detail || null);
+    window.addEventListener("talentos:list-context", handler);
+    return () => window.removeEventListener("talentos:list-context", handler);
+  }, []);
 
   useEffect(()=>{
     if(!open) return;
@@ -1685,6 +1726,12 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     try { return JSON.parse(m[1].trim()); } catch { return null; }
   };
 
+  const parseApplyFilter = (text) => {
+    const m = text.match(/<APPLY_FILTER>([\s\S]*?)<\/APPLY_FILTER>/);
+    if (!m) return null;
+    try { return JSON.parse(m[1].trim()); } catch { return null; }
+  };
+
   const parseSearchQuery = (text) => {
     const match = text.match(/<SEARCH_QUERY>([\s\S]*?)<\/SEARCH_QUERY>/);
     if (!match) return null;
@@ -1707,6 +1754,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     .replace(/<PARSE_CV>[\s\S]*?<\/PARSE_CV>/g,"")
     .replace(/<PARSE_JD>[\s\S]*?<\/PARSE_JD>/g,"")
     .replace(/<PROPOSE_ACTION>[\s\S]*?<\/PROPOSE_ACTION>/g,"")
+    .replace(/<APPLY_FILTER>[\s\S]*?<\/APPLY_FILTER>/g,"")
     .replace(/<SEARCH_QUERY>[\s\S]*?<\/SEARCH_QUERY>/g,"")
     .replace(/<DOC_SEARCH>[\s\S]*?<\/DOC_SEARCH>/g,"")
     .trim();
@@ -1893,6 +1941,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         adminUsers.length?`\n\nEXISTING USERS (${adminUsers.length} total):\n${adminUsers.map(u=>`- ${u.first_name} ${u.last_name} <${u.email}> role:${adminRoles.find(r=>r.id===u.role_id)?.name||u.role_id} status:${u.status}`).join("\n")}`:"",
         interviewTypes.length?`\n\nAVAILABLE INTERVIEW TYPES:\n${interviewTypes.map(t=>`- ${t.name} (id:${t.id}, duration:${t.duration}min, format:${t.format||t.interview_format||'Video Call'})`).join("\n")}`
           :"\n\nINTERVIEW TYPES: None configured yet — you can still schedule a custom interview.",
+        // Live list context (current filters, record count, visible fields from RecordsView)
+        listContext ? `\n\nCURRENT LIST STATE:\n${JSON.stringify(listContext)}` : "",
         // Live objects context for dashboard/report creation
         objects.length ? `\n\nLIVE OBJECTS (use these slugs and IDs for dashboard panels):\n${objects.map(o=>`- ${o.plural_name||o.name} | slug: ${o.slug} | id: ${o.id}`).join("\n")}` : "",
         // RBAC: inject user role so AI knows what actions are allowed
@@ -1968,6 +2018,11 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       const cvData        = parseParsedCV(reply);
       const jdData        = parseParsedJD(reply);
       const propAction    = parseProposeAction(reply);
+      const filterAction  = parseApplyFilter(reply);
+      // Dispatch filter action immediately — no confirmation needed
+      if (filterAction) {
+        window.dispatchEvent(new CustomEvent("talentos:apply-filter", { detail: filterAction }));
+      }
       const displayText = stripBlocks(reply);
       const msgIndex = newMessages.length;
 

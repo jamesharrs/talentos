@@ -6681,11 +6681,15 @@ const CSVImportModal = ({ object, environment, onClose, onDone }) => {
 };
 
 // Builds a plain-text list summary for the copilot
-function buildListContext(object, records, total) {
+function buildListContext(object, records, total, fields) {
   if (!object || !records) return null;
   const lines = [];
-  lines.push("LIST: " + (object.plural_name || object.name) +
-    " (" + total + " total" + (records.length < total ? ", showing " + records.length : "") + ")");
+  lines.push("OBJECT: " + (object.plural_name || object.name) + " (slug: " + (object.slug||"") + ")");
+  lines.push("TOTAL: " + total + (records.length < total ? " (showing " + records.length + ")" : ""));
+  // Field api_keys so copilot can reference them exactly
+  if (fields && fields.length) {
+    lines.push("FIELDS: " + fields.slice(0,20).map(f => f.api_key + " (" + f.field_type + ")").join(", "));
+  }
   const getName = r => {
     const d = r.data || {};
     return (d.first_name ? (d.first_name + " " + (d.last_name || "")).trim() : null)
@@ -6701,10 +6705,10 @@ function buildListContext(object, records, total) {
   if (Object.keys(depts).length)
     lines.push("Department breakdown: " +
       Object.entries(depts).map(([k,v]) => k + ": " + v).join(", "));
-  const names = records.slice(0, 25).map(getName).filter(Boolean);
+  const names = records.slice(0, 15).map(getName).filter(Boolean);
   if (names.length)
-    lines.push("Records (first " + names.length + "): " + names.join(", ") +
-      (total > 25 ? " ... and " + (total - 25) + " more" : ""));
+    lines.push("Sample records: " + names.join(", ") +
+      (total > 15 ? " ... and " + (total - 15) + " more" : ""));
   return lines.join("\n");
 }
 
@@ -6815,7 +6819,37 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   // Clear selection when object/page/search/filters change
   useEffect(() => { setSelectedIds(new Set()); }, [object?.id, page, search, activeFilters.length]);
   useEffect(() => { setActiveListName(null); }, [object?.id]);
-  const [activeTab, setActiveTab]   = useState("records");
+
+  // Listen for copilot filter commands — talentos:apply-filter
+  useEffect(() => {
+    const handler = (e) => {
+      const { search: q, filters, clearFilters, field, op, value } = e.detail || {};
+      // Simple single-field shorthand: { field, op, value }
+      if (field !== undefined && !filters) {
+        if (field === null || field === "") {
+          setActiveFilters([]);
+          setFilterChip(null);
+        } else {
+          setActiveFilters([{ field, op: op || "contains", value: value ?? "" }]);
+          setFilterLogic("AND");
+        }
+      }
+      // Full filters array
+      if (filters !== undefined) {
+        setActiveFilters(Array.isArray(filters) ? filters : []);
+        setFilterLogic("AND");
+      }
+      if (clearFilters) {
+        setActiveFilters([]);
+        setFilterChip(null);
+      }
+      // Search string
+      if (q !== undefined) setSearch(q);
+      setPage(1);
+    };
+    window.addEventListener("talentos:apply-filter", handler);
+    return () => window.removeEventListener("talentos:apply-filter", handler);
+  }, []);
   const [total, setTotal]       = useState(0);
 
   const colStorageKey = `talentos_cols_${object.id}`;
@@ -6865,7 +6899,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
     setLoading(false);
     // Broadcast list summary to copilot so it can answer list questions
     window.dispatchEvent(new CustomEvent("talentos:list-context", {
-      detail: buildListContext(object, filtered, filterChip ? filtered.length : (r.pagination?.total||0))
+      detail: buildListContext(object, filtered, filterChip ? filtered.length : (r.pagination?.total||0), fields)
     }));
   }, [object.id, environment.id, page, search, filterChip, reloadKey]);
 

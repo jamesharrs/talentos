@@ -1877,12 +1877,11 @@ function App() {
   // Global event listener — dashboard fires talentos:open-report to open Reports with a preset
   useEffect(() => {
     const handler = (e) => {
-      const { objectSlug: slugA, object: slugB, ...config } = e.detail || {};
+      const { objectSlug: slugA, object: slugB, objectId: oidA, ...config } = e.detail || {};
       const objectSlug = slugA || slugB;
-      if (!objectSlug) return;
       const { navObjects: objs, activeNav: nav, setReportPreset: srp, setActiveNav: sna } = reportNavRef.current;
-      const obj = objs.find(o => o.slug === objectSlug);
-      const preset = { objectId: obj?.id, objectSlug, ...config };
+      const obj = objectSlug ? objs.find(o => o.slug === objectSlug) : null;
+      const preset = { objectId: oidA || obj?.id, objectSlug: objectSlug || obj?.slug, ...config };
       if (nav === "reports") {
         srp(null);
         setTimeout(() => srp(preset), 0);

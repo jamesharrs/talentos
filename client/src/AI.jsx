@@ -3193,23 +3193,25 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                 )}
 
                 {/* ── Report card ── */}
-                {msg.role==="assistant"&&msg.hasReport&&pendingReport&&i===messages.length-1&&(
+                {msg.role==="assistant"&&msg.hasReport&&msg.reportData&&i===messages.length-1&&(()=>{
+                  const rpt = msg.reportData;
+                  return (
                   <div style={{margin:"8px 0",padding:"14px",borderRadius:12,border:"1.5px solid #7F77DD",background:"rgba(127,119,221,0.06)"}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
                       <div style={{width:28,height:28,borderRadius:8,background:"#7F77DD",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                         <Ic n="bar-chart-2" s={14} c="white"/>
                       </div>
                       <div style={{flex:1}}>
-                        <div style={{fontSize:13,fontWeight:700,color:C.text1}}>{pendingReport.title}</div>
+                        <div style={{fontSize:13,fontWeight:700,color:C.text1}}>{rpt.title}</div>
                         <div style={{fontSize:11,color:"#7F77DD",fontWeight:600,textTransform:"capitalize"}}>
-                          {pendingReport.object} · {pendingReport.chart_type||"bar"} chart
-                          {pendingReport.group_by?` · grouped by ${pendingReport.group_by}`:""}
+                          {rpt.object} · {rpt.chart_type||"bar"} chart
+                          {rpt.group_by?` · grouped by ${rpt.group_by}`:""}
                         </div>
                       </div>
                     </div>
-                    {(pendingReport.filters||[]).length>0&&(
+                    {(rpt.filters||[]).length>0&&(
                       <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>
-                        {pendingReport.filters.map((f,fi)=>(
+                        {rpt.filters.map((f,fi)=>(
                           <div key={fi} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",background:"white",borderRadius:6,border:"1px solid rgba(127,119,221,0.2)",fontSize:12}}>
                             <span style={{color:"#7F77DD",fontWeight:700,width:48,flexShrink:0}}>Filter</span>
                             <span style={{color:C.text1}}>{f.field} {f.op} {f.value}</span>
@@ -3217,17 +3219,35 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                         ))}
                       </div>
                     )}
-                    {pendingReport.description&&(
-                      <div style={{fontSize:11,color:C.text3,marginBottom:10,fontStyle:"italic"}}>{pendingReport.description}</div>
+                    {rpt.description&&(
+                      <div style={{fontSize:11,color:C.text3,marginBottom:10,fontStyle:"italic"}}>{rpt.description}</div>
                     )}
                     <div style={{display:"flex",gap:8}}>
-                      <button onClick={()=>setPendingReport(null)} style={{flex:1,padding:"8px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.text2,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>Discard</button>
-                      <button onClick={handleConfirmReport} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:"#7F77DD",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                      <button onClick={()=>setMessages(m=>m.map((mm,mi)=>mi===i?{...mm,hasReport:false}:mm))} style={{flex:1,padding:"8px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.text2,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>Discard</button>
+                      <button onClick={()=>{
+                        const cfg = {
+                          title:     rpt.title,
+                          objectSlug:rpt.object,
+                          object:    rpt.object,
+                          groupBy:   rpt.group_by,
+                          chartType: rpt.chart_type||"bar",
+                          sortBy:    rpt.sort_by,
+                          sortDir:   rpt.sort_dir||"desc",
+                          filters:   rpt.filters||[],
+                          formulas:  rpt.formulas||[],
+                          autoRun:   true,
+                          _ts:       Date.now(),
+                        };
+                        window.dispatchEvent(new CustomEvent("talentos:open-report",{detail:cfg}));
+                        setMessages(m=>m.map((mm,mi)=>mi===i?{...mm,hasReport:false}:mm));
+                        setMessages(m=>[...m,{role:"assistant",content:`Opening **${rpt.title}** in Reports — it's running now. Adjust filters or save it from there.`,ts:new Date()}]);
+                      }} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:"#7F77DD",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                         <Ic n="bar-chart-2" s={12} c="white"/> Open in Reports
                       </button>
                     </div>
                   </div>
-                )}
+                  );
+                })()}
                 {msg.role==="assistant"&&msg.hasDashboard&&msg.dashboardData&&i===messages.length-1&&(
                   <div style={{margin:"8px 0",padding:"14px",borderRadius:12,border:"1.5px solid #0ea5e9",background:"rgba(14,165,233,0.05)"}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>

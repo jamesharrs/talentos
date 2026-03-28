@@ -15,5 +15,8 @@ yarn-error.log*
 server/talentos
 server/talentos.json
 data/talentos.json
+_cleanup/
+server/_cleanup/
+client/_cleanup/
 _deploy_scripts/
 server/uploads/

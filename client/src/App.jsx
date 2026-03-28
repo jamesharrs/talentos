@@ -27,7 +27,6 @@ const AdminDashboard      = lazyWithRetry(() => import("./AdminDashboard.jsx"));
 const InterviewDashboard = lazyWithRetry(() => import("./InterviewDashboard.jsx"));
 const OfferDashboard     = lazyWithRetry(() => import("./OfferDashboard.jsx"));
 const DashboardHub       = lazyWithRetry(() => import("./DashboardHub.jsx"));
-const ObjectApp       = lazyWithRetry(() => import("./ObjectApp.jsx"));
 import PortalApp from "./PortalApp.jsx";
 import InterviewSession from "./InterviewSession.jsx";
 const WorkflowsPage   = lazyWithRetry(() => import("./Workflows.jsx"));

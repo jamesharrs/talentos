@@ -2145,7 +2145,12 @@ function App() {
         ) : !selectedEnv ? (
           <div style={{ textAlign: "center", padding: 60, color: "#9ca3af" }}>No environments found.</div>
         ) : (
-        <div style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0, overflow: activeNav.startsWith("record_") ? "hidden" : "visible" }}>
+        <div key={
+          activeNav.startsWith("dashboard") ? "page-dashboard" :
+          activeNav.startsWith("record_")   ? "page-record" :
+          activeNav.startsWith("obj_")      ? "page-obj" :
+          `page-${activeNav}`
+        } style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0, overflow: activeNav.startsWith("record_") ? "hidden" : "visible" }}>
         { activeNav === "inbox" ? (
           <InboxModule environment={selectedEnv} onNavigate={openRecord} />
         ) : activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers" || activeNav === "dashboard_admin" || activeNav === "dashboard_agents" || activeNav === "dashboard_screening" || activeNav === "dashboard_onboarding" || activeNav === "dashboard_custom" ? (

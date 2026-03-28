@@ -6,6 +6,7 @@ import { I18nProvider } from './i18n/I18nContext.jsx'
 import ErrorBoundary, { setupGlobalErrorHandlers } from './ErrorBoundary.jsx'
 import { MobileShell } from './MobileApp.jsx'
 import { getSession } from './usePermissions.js'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 
 setupGlobalErrorHandlers();
 
@@ -55,6 +56,7 @@ if (isMobileDevice && existingSession) {
         <ToastProvider>
           <I18nProvider>
             <App />
+            <SpeedInsights />
           </I18nProvider>
         </ToastProvider>
       </ErrorBoundary>

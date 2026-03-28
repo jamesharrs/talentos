@@ -1,7 +1,7 @@
+import React, { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import { tFetch } from "./apiClient.js";
 import BrandKitSettings from "./settings/BrandKitSettings.jsx";
 import EmailTemplateBuilder from "./settings/EmailTemplateBuilder.jsx";
-import React, { useState, useEffect, useCallback, useRef } from "react";
 import SettingsDashboard from "./SettingsDashboard.jsx";
 import { usePermissions, Gate } from "./PermissionContext.jsx";
 import ReactDOM from "react-dom";
@@ -1372,6 +1372,197 @@ const FieldList = ({ fields, onReorder, onEdit, onDelete }) => {
   );
 };
 
+
+// ─── FieldModal (module-level — NOT inside DataModelSection) ──────────────────
+// Props: field, selEnv, selObj, onSaved, onClose
+function FieldModal({ field, selEnv, selObj, onSaved, onClose }) {
+  const isEdit = !!field?.id;
+  const [form, setForm] = React.useState({
+    name: field?.name||"", api_key: field?.api_key||"", field_type: field?.field_type||"text",
+    is_required: field?.is_required||false, show_in_list: field?.show_in_list!==undefined?!!field.show_in_list:true,
+    options: field?.options ? (Array.isArray(field.options)?field.options.join(", "):field.options) : "",
+    placeholder: field?.placeholder||"", help_text: field?.help_text||"",
+    section_label: field?.section_label||"",
+    related_object_slug: field?.related_object_slug||"people",
+    people_multi: field?.people_multi!==undefined ? !!field.people_multi : true,
+    dataset_id: field?.dataset_id||"",
+    dataset_multi: field?.dataset_multi!==undefined ? !!field.dataset_multi : false,
+    skills_multi: field?.skills_multi!==undefined ? !!field.skills_multi : true,
+    skills_categories: field?.skills_categories||[],
+  });
+  const [autoKey, setAutoKey] = React.useState(!isEdit);
+  const [saving, setSaving] = React.useState(false);
+  const [datasets, setDatasets] = React.useState([]);
+  const [skillsCats, setSkillsCats] = React.useState([]);
+
+  React.useEffect(() => {
+    if (selEnv?.id) {
+      tFetch(`/api/datasets?environment_id=${selEnv.id}`).then(r=>r.json()).then(d=>setDatasets(Array.isArray(d)?d:[])).catch(()=>{});
+      tFetch(`/api/enterprise/skills/categories?environment_id=${selEnv.id}`).then(r=>r.json()).then(d=>setSkillsCats(Array.isArray(d)?d.map(c=>c.category):[])).catch(()=>{});
+    }
+  }, [selEnv?.id]);
+
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const handleName = v => { set("name",v); if(autoKey) set("api_key", v.toLowerCase().replace(/[^a-z0-9]/g,"_").replace(/__+/g,"_").replace(/^_|_$/g,"")); };
+
+  const handle = async () => {
+    setSaving(true);
+    const payload = {
+      ...form,
+      object_id: selObj.id,
+      environment_id: selEnv.id,
+      options: ["select","multi_select","status"].includes(form.field_type) ? form.options.split(",").map(s=>s.trim()).filter(Boolean) : undefined,
+      related_object_slug: form.field_type === "people" ? form.related_object_slug : undefined,
+      people_multi: form.field_type === "people" ? form.people_multi : undefined,
+      dataset_id: form.field_type === "dataset" ? form.dataset_id : undefined,
+      dataset_multi: form.field_type === "dataset" ? form.dataset_multi : undefined,
+      skills_multi: form.field_type === "skills" ? form.skills_multi : undefined,
+      skills_categories: form.field_type === "skills" ? form.skills_categories : undefined,
+    };
+    if (isEdit) await api.patch(`/fields/${field.id}`, payload);
+    else        await api.post("/fields", payload);
+    setSaving(false);
+    onSaved();
+    onClose();
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:"#fff",borderRadius:16,padding:"24px 28px",width:520,maxHeight:"90vh",overflow:"auto",fontFamily:F,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}>
+        <div style={{fontSize:16,fontWeight:700,color:C.text1,fontFamily:"'Space Grotesk', sans-serif",letterSpacing:"-0.3px",marginBottom:16}}>{isEdit?"Edit":"New"} Field</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:16}}>
+          {FIELD_TYPES_DM.map(ft=>(
+            <button key={ft.value} onClick={()=>set("field_type",ft.value)} style={{padding:"7px 4px",borderRadius:8,border:`2px solid ${form.field_type===ft.value?"#3b5bdb":"#e8eaed"}`,background:form.field_type===ft.value?"#3b5bdb":"#fff",color:form.field_type===ft.value?"#fff":"#6b7280",cursor:"pointer",fontSize:10,fontWeight:600,textAlign:"center",fontFamily:F}}>
+              <div>{ft.icon}</div><div>{ft.label}</div>
+            </button>
+          ))}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+          <Inp label="Field Name" value={form.name} onChange={handleName} required/>
+          <Inp label="API Key" value={form.api_key} onChange={v=>{set("api_key",v);setAutoKey(false);}} disabled={isEdit&&field?.is_system}/>
+        </div>
+        {["select","multi_select","status"].includes(form.field_type) && <div style={{marginBottom:12}}><Inp label="Options (comma-separated)" value={form.options} onChange={v=>set("options",v)} placeholder="Option A, Option B"/></div>}
+        {form.field_type === "people" && (
+          <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>People Field Settings</div>
+            <div style={{marginBottom:8}}>
+              <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>OBJECT TO LINK</label>
+              <Inp value={form.related_object_slug} onChange={v=>set("related_object_slug",v)} placeholder="people"/>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              {[{v:false,l:"Single select"},{v:true,l:"Multi select"}].map(({v,l})=>(
+                <button key={String(v)} onClick={()=>set("people_multi",v)}
+                  style={{flex:1,padding:"6px",borderRadius:8,border:`2px solid ${form.people_multi===v?"#3b5bdb":"#e8eaed"}`,background:form.people_multi===v?"#3b5bdb":"#fff",color:form.people_multi===v?"#fff":"#6b7280",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:F}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {form.field_type === "dataset" && (
+          <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>Data Set Field</div>
+            <select value={form.dataset_id} onChange={e=>set("dataset_id",e.target.value)}
+              style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid #e8eaed",fontSize:13,fontFamily:F,background:"white",color:C.text1,marginBottom:8}}>
+              <option value="">— choose a data set —</option>
+              {datasets.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+            <div style={{display:"flex",gap:8}}>
+              {[{v:false,l:"Single select"},{v:true,l:"Multi select"}].map(({v,l})=>(
+                <button key={String(v)} onClick={()=>set("dataset_multi",v)}
+                  style={{flex:1,padding:"6px",borderRadius:8,border:`2px solid ${form.dataset_multi===v?"#3b5bdb":"#e8eaed"}`,background:form.dataset_multi===v?"#3b5bdb":"#fff",color:form.dataset_multi===v?"#fff":"#6b7280",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:F}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {form.field_type === "skills" && (
+          <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>Skills Field</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
+              {(skillsCats.length>0?skillsCats:['Technology','Business','Design','Soft Skills','Languages','Certifications']).map(cat=>{
+                const active=(form.skills_categories||[]).includes(cat);
+                return <button key={cat} onClick={()=>set("skills_categories",active?(form.skills_categories||[]).filter(c=>c!==cat):[...(form.skills_categories||[]),cat])}
+                  style={{padding:"3px 10px",borderRadius:99,border:`1.5px solid ${active?"#3b5bdb":"#e8eaed"}`,background:active?"#3b5bdb":"white",color:active?"white":"#6b7280",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F}}>{cat}</button>;
+              })}
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              {[{v:true,l:"Multi select"},{v:false,l:"Single select"}].map(({v,l})=>(
+                <button key={String(v)} onClick={()=>set("skills_multi",v)}
+                  style={{flex:1,padding:"6px",borderRadius:8,border:`2px solid ${form.skills_multi===v?"#3b5bdb":"#e8eaed"}`,background:form.skills_multi===v?"#3b5bdb":"#fff",color:form.skills_multi===v?"#fff":"#6b7280",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:F}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+          <Inp label="Placeholder" value={form.placeholder} onChange={v=>set("placeholder",v)}/>
+          <Inp label="Help Text" value={form.help_text} onChange={v=>set("help_text",v)}/>
+        </div>
+        <div style={{display:"flex",gap:16,marginBottom:16}}>
+          {form.field_type !== "section_separator" && [{k:"is_required",l:"Required"},{k:"show_in_list",l:"Show in list"}].map(({k,l})=>(
+            <label key={k} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,fontWeight:600,color:C.text2}}>
+              <input type="checkbox" checked={!!form[k]} onChange={e=>set(k,e.target.checked)}/>{l}
+            </label>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",borderTop:`1px solid ${C.border}`,paddingTop:16}}>
+          <Btn v="secondary" onClick={onClose}>Cancel</Btn>
+          <Btn onClick={handle} disabled={saving||!form.name}>{saving?"Saving…":isEdit?"Save Changes":"Add Field"}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CreateObjectModal (module-level) ─────────────────────────────────────────
+function CreateObjectModal({ selEnv, onCreated, onClose }) {
+  const [form, setForm] = React.useState({name:"",plural_name:"",slug:"",color:"#6366f1",description:""});
+  const [saving, setSaving] = React.useState(false);
+  const [autoSlug, setAutoSlug] = React.useState(true);
+  const [autoPlural, setAutoPlural] = React.useState(true);
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const handleName = v => {
+    set("name",v);
+    if(autoSlug)   set("slug",   v.toLowerCase().replace(/[^a-z0-9]/g,"-").replace(/--+/g,"-").replace(/^-|-$/g,""));
+    if(autoPlural) set("plural_name", v+"s");
+  };
+  const handle = async () => {
+    setSaving(true);
+    await api.post("/objects", { ...form, environment_id: selEnv.id });
+    setSaving(false);
+    onCreated();
+    onClose();
+  };
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:"#fff",borderRadius:16,padding:"24px 28px",width:440,fontFamily:F,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}>
+        <div style={{fontSize:16,fontWeight:700,color:C.text1,fontFamily:"'Space Grotesk', sans-serif",letterSpacing:"-0.3px",marginBottom:16}}>New Object</div>
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <Inp label="Name" value={form.name} onChange={handleName} required/>
+            <Inp label="Plural Name" value={form.plural_name} onChange={v=>{set("plural_name",v);setAutoPlural(false);}}/>
+          </div>
+          <Inp label="Slug" value={form.slug} onChange={v=>{set("slug",v);setAutoSlug(false);}} help="Used in API and URLs"/>
+          <Inp label="Description" value={form.description} onChange={v=>set("description",v)}/>
+          <div>
+            <label style={{fontSize:12,fontWeight:600,color:C.text2,display:"block",marginBottom:6}}>Color</label>
+            <div style={{display:"flex",gap:6}}>
+              {COLORS_DM.map(c=><button key={c} onClick={()=>set("color",c)} style={{width:26,height:26,borderRadius:"50%",background:c,border:"none",cursor:"pointer",outline:form.color===c?`3px solid ${c}`:"none",outlineOffset:2}}/>)}
+            </div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",borderTop:`1px solid ${C.border}`,paddingTop:16,marginTop:16}}>
+          <Btn v="secondary" onClick={onClose}>Cancel</Btn>
+          <Btn onClick={handle} disabled={saving||!form.name} style={{background:form.color}}>{saving?"Creating…":"Create Object"}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const DataModelSection = () => {
   const [envs,       setEnvs]       = useState([]);
   const [selEnv,     setSelEnv]     = useState(null);
@@ -1412,14 +1603,13 @@ const DataModelSection = () => {
     });
   }, [selObj?.id]);
 
-  const reloadFields = () => api.get(`/fields?object_id=${selObj.id}`).then(d => setFields(Array.isArray(d)?d:[]));
-  const reloadObjects = () => api.get(`/objects?environment_id=${selEnv.id}`).then(d => setObjects(Array.isArray(d)?d:[]));
-
-  const saveField = async (payload, id) => {
-    if (id) await api.patch(`/fields/${id}`, payload);
-    else    await api.post("/fields", payload);
-    await reloadFields();
-    setShowField(false); setEditField(null);
+  const reloadFields = () => {
+    if (!selObj?.id) return;
+    api.get(`/fields?object_id=${selObj.id}`).then(d => setFields(Array.isArray(d)?d:[]));
+  };
+  const reloadObjects = () => {
+    if (!selEnv?.id) return;
+    api.get(`/objects?environment_id=${selEnv.id}`).then(d => setObjects(Array.isArray(d)?d:[]));
   };
 
   const deleteField = async (f) => {
@@ -1428,294 +1618,8 @@ const DataModelSection = () => {
     reloadFields();
   };
 
-  const createObject = async (payload) => {
-    await api.post("/objects", { ...payload, environment_id: selEnv.id });
-    await reloadObjects();
-    setShowCreate(false);
-  };
+  // ── FieldModal & CreateObjectModal are defined at module level above ──
 
-  // ── Field form modal ──────────────────────────────────────────────────────
-  const FieldModal = ({ field, onClose }) => {
-    const isEdit = !!field?.id;
-    const [form, setForm] = useState({
-      name: field?.name||"", api_key: field?.api_key||"", field_type: field?.field_type||"text",
-      is_required: field?.is_required||false, show_in_list: field?.show_in_list!==undefined?!!field.show_in_list:true,
-      options: field?.options ? (Array.isArray(field.options)?field.options.join(", "):field.options) : "",
-      placeholder: field?.placeholder||"", help_text: field?.help_text||"",
-      section_label: field?.section_label||"",
-      related_object_slug: field?.related_object_slug||"people",
-      people_multi: field?.people_multi!==undefined ? !!field.people_multi : true,
-      dataset_id: field?.dataset_id||"",
-      dataset_multi: field?.dataset_multi!==undefined ? !!field.dataset_multi : false,
-      skills_multi: field?.skills_multi!==undefined ? !!field.skills_multi : true,
-      skills_categories: field?.skills_categories||[],
-    });
-    const [autoKey, setAutoKey] = useState(!isEdit);
-    const [saving, setSaving] = useState(false);
-    const [datasets, setDatasets] = useState([]);
-    const [skillsCats, setSkillsCats] = useState([]);
-    // Load datasets + skill categories when modal opens
-    useEffect(() => {
-      if (selEnv?.id) {
-        tFetch(`/api/datasets?environment_id=${selEnv.id}`).then(r=>r.json()).then(d=>setDatasets(Array.isArray(d)?d:[]));
-        tFetch(`/api/enterprise/skills/categories?environment_id=${selEnv.id}`).then(r=>r.json()).then(d=>setSkillsCats(Array.isArray(d)?d.map(c=>c.category):[]));
-      }
-    }, [selEnv?.id]);
-    const set = (k,v) => setForm(f=>({...f,[k]:v}));
-    const handleName = v => { set("name",v); if(autoKey) set("api_key", v.toLowerCase().replace(/[^a-z0-9]/g,"_").replace(/__+/g,"_").replace(/^_|_$/g,"")); };
-    const handle = async () => {
-      setSaving(true);
-      await saveField({ ...form, object_id: selObj.id, environment_id: selEnv.id,
-        options: ["select","multi_select","status"].includes(form.field_type) ? form.options.split(",").map(s=>s.trim()).filter(Boolean) : undefined,
-        related_object_slug: form.field_type === "people" ? form.related_object_slug : undefined,
-        people_multi: form.field_type === "people" ? form.people_multi : undefined,
-        dataset_id: form.field_type === "dataset" ? form.dataset_id : undefined,
-        dataset_multi: form.field_type === "dataset" ? form.dataset_multi : undefined,
-        skills_multi: form.field_type === "skills" ? form.skills_multi : undefined,
-        skills_categories: form.field_type === "skills" ? form.skills_categories : undefined,
-        formula_expression: form.field_type === "formula" ? form.formula_expression : undefined,
-        formula_output_type: form.field_type === "formula" ? (form.formula_output_type||"auto") : undefined,
-        auto_number_prefix: form.field_type === "auto_number" ? form.auto_number_prefix : undefined,
-        auto_number_padding: form.field_type === "auto_number" ? (form.auto_number_padding||4) : undefined,
-        duration_unit: form.field_type === "duration" ? (form.duration_unit||"days") : undefined,
-        date_range_start_label: form.field_type === "date_range" ? form.date_range_start_label : undefined,
-        date_range_end_label: form.field_type === "date_range" ? form.date_range_end_label : undefined,
-        social_platform: form.field_type === "social" ? (form.social_platform||"linkedin") : undefined,
-        address_fields: form.field_type === "address" ? (form.address_fields||["street","city","country","postal_code"]) : undefined,
-        section_label: form.field_type === "section_separator" ? (form.section_label||form.name) : undefined,
-      }, field?.id);
-      setSaving(false);
-    };
-    return (
-      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
-        <div style={{background:"#fff",borderRadius:16,padding:"24px 28px",width:520,maxHeight:"90vh",overflow:"auto",fontFamily:F,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}>
-          <div style={{fontSize:16,fontWeight:700,color:C.text1,fontFamily:"'Space Grotesk', sans-serif",letterSpacing:"-0.3px",marginBottom:16}}>{isEdit?"Edit":"New"} Field</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:16}}>
-            {FIELD_TYPES_DM.map(ft=>(
-              <button key={ft.value} onClick={()=>set("field_type",ft.value)} style={{padding:"7px 4px",borderRadius:8,border:`2px solid ${form.field_type===ft.value?"#3b5bdb":"#e8eaed"}`,background:form.field_type===ft.value?"#3b5bdb":"#fff",color:form.field_type===ft.value?"#fff":"#6b7280",cursor:"pointer",fontSize:10,fontWeight:600,textAlign:"center",fontFamily:F}}>
-                <div>{ft.icon}</div><div>{ft.label}</div>
-              </button>
-            ))}
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-            <Inp label="Field Name" value={form.name} onChange={handleName} required/>
-            <Inp label="API Key" value={form.api_key} onChange={v=>{set("api_key",v);setAutoKey(false);}} disabled={isEdit&&field?.is_system}/>
-          </div>
-          {["select","multi_select","status"].includes(form.field_type) && <div style={{marginBottom:12}}><Inp label="Options (comma-separated)" value={form.options} onChange={v=>set("options",v)} placeholder="Option A, Option B"/></div>}
-
-          {/* ── Section separator config ── */}
-          {form.field_type==="section_separator" && (
-            <div style={{marginBottom:12,padding:"14px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
-              <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:10}}>━ Section Separator</div>
-              <div style={{fontSize:11,color:C.text3,marginBottom:10,lineHeight:1.5}}>
-                Creates a collapsible section header in the record detail. Fields below this separator
-                (until the next separator) can be collapsed by clicking the header.
-              </div>
-              <label style={{display:"block",fontSize:11,fontWeight:600,color:C.text3,marginBottom:4}}>SECTION LABEL</label>
-              <input value={form.section_label||form.name||""} onChange={e=>set("section_label",e.target.value)}
-                placeholder="e.g. Employment Details"
-                style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #e8eaed",
-                  fontSize:13,fontFamily:F,background:"white",color:C.text1,boxSizing:"border-box"}}/>
-              <div style={{marginTop:10,padding:"10px 12px",background:"white",borderRadius:8,border:"1px solid #e8eaed"}}>
-                <div style={{fontSize:11,fontWeight:700,color:C.text3,marginBottom:4}}>PREVIEW</div>
-                <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"2px solid #e8eaed"}}>
-                  <span style={{fontSize:11,fontWeight:800,color:"#374151",textTransform:"uppercase",letterSpacing:"0.07em"}}>
-                    {form.section_label||form.name||"Section Name"}
-                  </span>
-                  <span style={{fontSize:10,color:"#9ca3af",marginLeft:"auto"}}>▼ collapse</span>
-                </div>
-                <div style={{height:24,background:"#f3f4f6",borderRadius:4,marginTop:8,opacity:0.5}}/>
-                <div style={{height:24,background:"#f3f4f6",borderRadius:4,marginTop:6,opacity:0.5}}/>
-              </div>
-            </div>
-          )}
-
-          {/* ── Formula config ── */}
-          {form.field_type==="formula" && <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
-            <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>ƒ Formula</div>
-            <label style={{display:"block",fontSize:11,fontWeight:600,color:C.text3,marginBottom:4}}>EXPRESSION</label>
-            <textarea value={form.formula_expression||""} onChange={e=>set("formula_expression",e.target.value)}
-              placeholder="{salary_max} - {salary_min}  or  ROUND({base} * 1.15, 2)"
-              rows={3} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:12,fontFamily:"ui-monospace,monospace",resize:"vertical",background:"white",color:C.text1,boxSizing:"border-box"}}/>
-            <div style={{fontSize:10,color:C.text3,marginTop:4}}>Use {"{field_key}"} for other fields. Functions: SUM, AVG, MIN, MAX, ROUND, ABS, IF, DATEDIFF, TODAY, CONCAT, LEN, UPPER, LOWER.</div>
-            <div style={{marginTop:8}}>
-              <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>OUTPUT TYPE</label>
-              <select value={form.formula_output_type||"auto"} onChange={e=>set("formula_output_type",e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:13,fontFamily:F,background:"white",color:C.text1}}>
-                {["auto","number","currency","percent","text","date"].map(v=><option key={v} value={v}>{v.charAt(0).toUpperCase()+v.slice(1)}</option>)}
-              </select>
-            </div>
-          </div>}
-
-          {/* ── Auto Number config ── */}
-          {form.field_type==="auto_number" && <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
-            <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>№ Auto Number</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
-              <div><label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>PREFIX</label>
-                <input value={form.auto_number_prefix||""} onChange={e=>set("auto_number_prefix",e.target.value)} placeholder="REQ-"
-                  style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:13,color:C.text1,boxSizing:"border-box"}}/></div>
-              <div><label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>PADDING</label>
-                <input type="number" min={1} max={8} value={form.auto_number_padding||4} onChange={e=>set("auto_number_padding",Number(e.target.value))}
-                  style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:13,color:C.text1,boxSizing:"border-box"}}/></div>
-            </div>
-            <div style={{padding:"6px 10px",background:"#f0f4ff",borderRadius:6,fontSize:11,color:"#3b5bdb",fontFamily:"ui-monospace,monospace"}}>
-              Preview: {form.auto_number_prefix||"REQ-"}{String(1).padStart(form.auto_number_padding||4,"0")}
-            </div>
-          </div>}
-
-          {/* ── Duration config ── */}
-          {form.field_type==="duration" && <div style={{marginBottom:12}}>
-            <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>DEFAULT UNIT</label>
-            <select value={form.duration_unit||"days"} onChange={e=>set("duration_unit",e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:13,fontFamily:F,background:"white",color:C.text1}}>
-              {[["minutes","Minutes"],["hours","Hours"],["days","Days"],["weeks","Weeks"],["months","Months"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>}
-
-          {/* ── Date Range config ── */}
-          {form.field_type==="date_range" && <div style={{marginBottom:12,display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <div><label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>START LABEL</label>
-              <input value={form.date_range_start_label||"Start"} onChange={e=>set("date_range_start_label",e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:13,color:C.text1,boxSizing:"border-box"}}/></div>
-            <div><label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>END LABEL</label>
-              <input value={form.date_range_end_label||"End"} onChange={e=>set("date_range_end_label",e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:13,color:C.text1,boxSizing:"border-box"}}/></div>
-          </div>}
-
-          {/* ── Social Link config ── */}
-          {form.field_type==="social" && <div style={{marginBottom:12}}>
-            <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>PLATFORM</label>
-            <select value={form.social_platform||"linkedin"} onChange={e=>set("social_platform",e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #e8eaed",fontSize:13,fontFamily:F,background:"white",color:C.text1}}>
-              {[["linkedin","LinkedIn"],["github","GitHub"],["twitter","X / Twitter"],["instagram","Instagram"],["facebook","Facebook"],["youtube","YouTube"],["other","Other"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>}
-
-          {/* ── Address config ── */}
-          {form.field_type==="address" && <div style={{marginBottom:12}}>
-            <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:6}}>SUB-FIELDS TO SHOW</label>
-            {[["street","Street Address"],["city","City"],["state","State / Region"],["country","Country"],["postal_code","Postal Code"]].map(([k,lbl])=>{
-              const curr=form.address_fields||["street","city","country","postal_code"];
-              const checked=curr.includes(k);
-              return <label key={k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,fontSize:13,cursor:"pointer"}}>
-                <input type="checkbox" checked={checked} onChange={()=>set("address_fields",checked?curr.filter(x=>x!==k):[...curr,k])}/>{lbl}
-              </label>;
-            })}
-          </div>}
-          {form.field_type === "dataset" && (
-            <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
-              <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>≡ Data Set Field</div>
-              <div style={{marginBottom:8}}>
-                <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>SELECT DATA SET</label>
-                <select value={form.dataset_id} onChange={e=>set("dataset_id",e.target.value)}
-                  style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid #e8eaed",fontSize:13,fontFamily:F,outline:"none",background:"white",color:C.text1}}>
-                  <option value="">— choose a data set —</option>
-                  {datasets.map(d=><option key={d.id} value={d.id}>{d.name} ({d.options?.length||0} options)</option>)}
-                </select>
-                {datasets.length===0&&<div style={{fontSize:11,color:C.text3,marginTop:4}}>No data sets yet — create them in Settings → Data Sets</div>}
-              </div>
-              <div style={{display:"flex",gap:8}}>
-                {[{v:false,l:"Single select"},{v:true,l:"Multi select"}].map(({v,l})=>(
-                  <button key={String(v)} onClick={()=>set("dataset_multi",v)}
-                    style={{flex:1,padding:"6px",borderRadius:8,border:`2px solid ${form.dataset_multi===v?"#3b5bdb":"#e8eaed"}`,background:form.dataset_multi===v?"#3b5bdb":"#fff",color:form.dataset_multi===v?"#fff":"#6b7280",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:F}}>
-                    {l}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {form.field_type === "skills" && (
-            <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
-              <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>⚡ Skills Field</div>
-              <div style={{marginBottom:8}}>
-                <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>FILTER BY CATEGORY (optional)</label>
-                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-                  {(skillsCats.length>0?skillsCats:['Technology','Business','Design','Soft Skills','Languages','Certifications']).map(cat=>{
-                    const active=(form.skills_categories||[]).includes(cat);
-                    return <button key={cat} onClick={()=>set("skills_categories",active?(form.skills_categories||[]).filter(c=>c!==cat):[...(form.skills_categories||[]),cat])}
-                      style={{padding:"3px 10px",borderRadius:99,border:`1.5px solid ${active?"#3b5bdb":"#e8eaed"}`,background:active?"#3b5bdb":"white",color:active?"white":"#6b7280",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F}}>{cat}</button>;
-                  })}
-                </div>
-                <div style={{fontSize:10,color:C.text3,marginTop:4}}>Leave blank to show all skill categories</div>
-              </div>
-              <div style={{display:"flex",gap:8}}>
-                {[{v:true,l:"Multi select (recommended)"},{v:false,l:"Single select"}].map(({v,l})=>(
-                  <button key={String(v)} onClick={()=>set("skills_multi",v)}
-                    style={{flex:1,padding:"6px",borderRadius:8,border:`2px solid ${form.skills_multi===v?"#3b5bdb":"#e8eaed"}`,background:form.skills_multi===v?"#3b5bdb":"#fff",color:form.skills_multi===v?"#fff":"#6b7280",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:F}}>
-                    {l}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {form.field_type === "people" && (
-            <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
-              <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>People Field Settings</div>
-              <div style={{marginBottom:8}}>
-                <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>OBJECT TO LINK</label>
-                <Inp value={form.related_object_slug} onChange={v=>set("related_object_slug",v)} placeholder="people"/>
-                <div style={{fontSize:10,color:C.text3,marginTop:2}}>Object slug (e.g. people, users)</div>
-              </div>
-              <div style={{display:"flex",gap:8}}>
-                {[{v:false,l:"Single select"},{v:true,l:"Multi select"}].map(({v,l})=>(
-                  <button key={String(v)} onClick={()=>set("people_multi",v)}
-                    style={{flex:1,padding:"6px",borderRadius:8,border:`2px solid ${form.people_multi===v?"#3b5bdb":"#e8eaed"}`,background:form.people_multi===v?"#3b5bdb":"#fff",color:form.people_multi===v?"#fff":"#6b7280",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:F}}>
-                    {l}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-            <Inp label="Placeholder" value={form.placeholder} onChange={v=>set("placeholder",v)}/>
-            <Inp label="Help Text" value={form.help_text} onChange={v=>set("help_text",v)}/>
-          </div>
-          <div style={{display:"flex",gap:16,marginBottom:16}}>
-            {form.field_type !== "section_separator" && [{k:"is_required",l:"Required"},{k:"show_in_list",l:"Show in list"}].map(({k,l})=>(
-              <label key={k} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,fontWeight:600,color:C.text2}}>
-                <input type="checkbox" checked={!!form[k]} onChange={e=>set(k,e.target.checked)}/>{l}
-              </label>
-            ))}
-          </div>
-          <div style={{display:"flex",gap:8,justifyContent:"flex-end",borderTop:`1px solid ${C.border}`,paddingTop:16}}>
-            <Btn v="secondary" onClick={onClose}>Cancel</Btn>
-            <Btn onClick={handle} disabled={saving||!form.name}>{saving?"Saving…":isEdit?"Save Changes":"Add Field"}</Btn>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ── Create object modal ───────────────────────────────────────────────────
-  const CreateObjectModal = ({ onClose }) => {
-    const [form, setForm] = useState({name:"",plural_name:"",slug:"",color:"#6366f1",description:""});
-    const [saving, setSaving] = useState(false);
-    const [autoSlug, setAutoSlug] = useState(true);
-    const [autoPlural, setAutoPlural] = useState(true);
-    const set = (k,v) => setForm(f=>({...f,[k]:v}));
-    const handleName = v => { set("name",v); if(autoSlug) set("slug",v.toLowerCase().replace(/[^a-z0-9]/g,"-").replace(/--+/g,"-").replace(/^-|-$/g,"")); if(autoPlural) set("plural_name",v+"s"); };
-    const handle = async () => { setSaving(true); await createObject(form); setSaving(false); };
-    return (
-      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
-        <div style={{background:"#fff",borderRadius:16,padding:"24px 28px",width:440,fontFamily:F,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}>
-          <div style={{fontSize:16,fontWeight:700,color:C.text1,fontFamily:"'Space Grotesk', sans-serif",letterSpacing:"-0.3px",marginBottom:16}}>New Object</div>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <Inp label="Name" value={form.name} onChange={handleName} required/>
-              <Inp label="Plural Name" value={form.plural_name} onChange={v=>{set("plural_name",v);setAutoPlural(false);}}/>
-            </div>
-            <Inp label="Slug" value={form.slug} onChange={v=>{set("slug",v);setAutoSlug(false);}} help="Used in API and URLs"/>
-            <Inp label="Description" value={form.description} onChange={v=>set("description",v)}/>
-            <div>
-              <label style={{fontSize:12,fontWeight:600,color:C.text2,display:"block",marginBottom:6}}>Color</label>
-              <div style={{display:"flex",gap:6}}>
-                {COLORS_DM.map(c=><button key={c} onClick={()=>set("color",c)} style={{width:26,height:26,borderRadius:"50%",background:c,border:"none",cursor:"pointer",outline:form.color===c?`3px solid ${c}`:"none",outlineOffset:2}}/>)}
-              </div>
-            </div>
-          </div>
-          <div style={{display:"flex",gap:8,justifyContent:"flex-end",borderTop:`1px solid ${C.border}`,paddingTop:16,marginTop:16}}>
-            <Btn v="secondary" onClick={onClose}>Cancel</Btn>
-            <Btn onClick={handle} disabled={saving||!form.name} style={{background:form.color}}>{saving?"Creating…":"Create Object"}</Btn>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   if (!selEnv) return <div style={{padding:40,textAlign:"center",color:C.text3}}>Loading…</div>;
 
@@ -1791,8 +1695,8 @@ const DataModelSection = () => {
         </div>
       )}
 
-      {showCreate && <CreateObjectModal onClose={()=>setShowCreate(false)}/>}
-      {(showField||editField) && <FieldModal field={editField} onClose={()=>{setShowField(false);setEditField(null);}}/>}
+      {showCreate && <CreateObjectModal selEnv={selEnv} onCreated={()=>{ reloadObjects(); }} onClose={()=>setShowCreate(false)}/>}
+      {(showField||editField) && <FieldModal field={editField} selEnv={selEnv} selObj={selObj} onSaved={reloadFields} onClose={()=>{setShowField(false);setEditField(null);}}/>}
     </div>
   );
 };

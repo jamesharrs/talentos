@@ -1942,7 +1942,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         interviewTypes.length?`\n\nAVAILABLE INTERVIEW TYPES:\n${interviewTypes.map(t=>`- ${t.name} (id:${t.id}, duration:${t.duration}min, format:${t.format||t.interview_format||'Video Call'})`).join("\n")}`
           :"\n\nINTERVIEW TYPES: None configured yet — you can still schedule a custom interview.",
         // Live list context (current filters, record count, visible fields from RecordsView)
-        listContext ? `\n\nCURRENT LIST STATE:\n${JSON.stringify(listContext)}` : "",
+        listContext ? `\n\nCURRENT LIST STATE (USE THIS to answer questions about the visible records — breakdowns show exact counts per value):\n${typeof listContext === 'string' ? listContext : JSON.stringify(listContext, null, 2)}` : "",
         // Live objects context for dashboard/report creation
         objects.length ? `\n\nLIVE OBJECTS (use these slugs and IDs for dashboard panels):\n${objects.map(o=>`- ${o.plural_name||o.name} | slug: ${o.slug} | id: ${o.id}`).join("\n")}` : "",
         // RBAC: inject user role so AI knows what actions are allowed

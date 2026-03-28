@@ -6685,30 +6685,56 @@ function buildListContext(object, records, total, fields) {
   if (!object || !records) return null;
   const lines = [];
   lines.push("OBJECT: " + (object.plural_name || object.name) + " (slug: " + (object.slug||"") + ")");
-  lines.push("TOTAL: " + total + (records.length < total ? " (showing " + records.length + ")" : ""));
-  // Field api_keys so copilot can reference them exactly
+  lines.push("TOTAL_VISIBLE: " + records.length + (records.length < total ? " (of " + total + " total — use APPLY_FILTER to narrow further)" : " records"));
+
+  // Field map: api_key → field_type
+  const fieldMap = {};
   if (fields && fields.length) {
-    lines.push("FIELDS: " + fields.slice(0,20).map(f => f.api_key + " (" + f.field_type + ")").join(", "));
+    fields.forEach(f => { fieldMap[f.api_key] = f.field_type; });
+    lines.push("FIELDS: " + fields.slice(0,25).map(f => f.api_key + " (" + f.field_type + ")").join(", "));
   }
+
+  // Auto-generate breakdowns for every groupable field that has values
+  // Include select/status/boolean fields AND text fields with ≤20 distinct values
+  const breakdownFields = fields
+    ? fields.filter(f => ['select','multi_select','status','boolean','rating','text','textarea'].includes(f.field_type))
+    : [];
+
+  // Always include these common fields even without schema
+  const alwaysCheck = ['status','department','current_title','job_title','location','work_type',
+    'employment_type','person_type','source','nationality','category','type'];
+
+  const checkedKeys = new Set([
+    ...breakdownFields.map(f => f.api_key),
+    ...alwaysCheck
+  ]);
+
+  for (const key of checkedKeys) {
+    const counts = {};
+    records.forEach(r => {
+      const v = r.data?.[key];
+      if (v === null || v === undefined || v === '') return;
+      const vals = Array.isArray(v) ? v : [String(v)];
+      vals.forEach(val => { counts[val] = (counts[val] || 0) + 1; });
+    });
+    const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+    // Only include if there are values and ≤30 distinct values (avoid free-text explosion)
+    if (entries.length > 0 && entries.length <= 30) {
+      lines.push(key + ": " + entries.map(([k,v]) => k + "=" + v).join(", "));
+    }
+  }
+
+  // Sample record names for context
   const getName = r => {
     const d = r.data || {};
     return (d.first_name ? (d.first_name + " " + (d.last_name || "")).trim() : null)
       || d.job_title || d.pool_name || d.name || "";
   };
-  const statuses = {};
-  records.forEach(r => { const s = r.data?.status; if (s) statuses[s] = (statuses[s] || 0) + 1; });
-  if (Object.keys(statuses).length)
-    lines.push("Status breakdown: " +
-      Object.entries(statuses).map(([k,v]) => k + ": " + v).join(", "));
-  const depts = {};
-  records.forEach(r => { const d = r.data?.department; if (d) depts[d] = (depts[d] || 0) + 1; });
-  if (Object.keys(depts).length)
-    lines.push("Department breakdown: " +
-      Object.entries(depts).map(([k,v]) => k + ": " + v).join(", "));
-  const names = records.slice(0, 15).map(getName).filter(Boolean);
+  const names = records.slice(0, 10).map(getName).filter(Boolean);
   if (names.length)
-    lines.push("Sample records: " + names.join(", ") +
-      (total > 15 ? " ... and " + (total - 15) + " more" : ""));
+    lines.push("sample_names: " + names.join(", ") +
+      (records.length > 10 ? " ... +" + (records.length - 10) + " more" : ""));
+
   return lines.join("\n");
 }
 

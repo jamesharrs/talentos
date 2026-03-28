@@ -351,6 +351,132 @@ function DemoDataTab({ client, stats }) {
   );
 }
 
+// ── Client Error Logs Tab ─────────────────────────────────────────────────────
+function ClientErrorLogsTab({ clientId }) {
+  const [logs, setLogs] = useState([]); const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true); const [search, setSearch] = useState('');
+  const [severity, setSeverity] = useState(''); const [page, setPage] = useState(1);
+  const LIMIT = 30;
+
+  const load = () => {
+    setLoading(true);
+    const q = new URLSearchParams({ page, limit: LIMIT, ...(search&&{search}), ...(severity&&{severity}) });
+    fetch(`/api/superadmin/clients/${clientId}/error-logs?${q}`)
+      .then(r=>r.json()).then(d=>{ setLogs(d.logs||[]); setTotal(d.total||0); setLoading(false); })
+      .catch(()=>setLoading(false));
+  };
+  useEffect(()=>{ load(); },[clientId,page,severity]);
+  useEffect(()=>{ setPage(1); },[search,severity]);
+  const SEV_COLOR = { error:'#ef4444', warning:'#F59E0B', info:C.accent };
+
+  return (
+    <div style={cardSt}>
+      <div style={{display:'flex',gap:8,padding:'12px 18px',borderBottom:`1px solid ${C.border}`,alignItems:'center'}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load()} placeholder="Search errors…"
+          style={{flex:1,padding:'7px 11px',borderRadius:7,border:`1px solid ${C.border}`,background:'#1e2433',color:C.text1,fontSize:12,fontFamily:'inherit',outline:'none'}}/>
+        <select value={severity} onChange={e=>setSeverity(e.target.value)}
+          style={{padding:'7px 10px',borderRadius:7,border:`1px solid ${C.border}`,background:'#1e2433',color:C.text2,fontSize:12,fontFamily:'inherit'}}>
+          <option value="">All severities</option>
+          <option value="error">Error</option>
+          <option value="warning">Warning</option>
+          <option value="info">Info</option>
+        </select>
+        <span style={{fontSize:11,color:C.text3,whiteSpace:'nowrap'}}>{total} total</span>
+      </div>
+      {loading ? <div style={{padding:40,textAlign:'center',color:C.text3}}>Loading…</div>
+      : !logs.length ? <div style={{padding:40,textAlign:'center',color:C.text3}}>No error logs found.</div>
+      : logs.map(l=>(
+        <div key={l.id} style={{padding:'12px 18px',borderBottom:`1px solid ${C.border}`}}>
+          <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+            <span style={{fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:99,background:`${SEV_COLOR[l.severity]||C.accent}20`,color:SEV_COLOR[l.severity]||C.accent,border:`1px solid ${SEV_COLOR[l.severity]||C.accent}40`,flexShrink:0,marginTop:1}}>{l.severity||'error'}</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,color:l.resolved?C.text3:C.text1,fontWeight:600,marginBottom:2,textDecoration:l.resolved?'line-through':undefined}}>{l.message}</div>
+              <div style={{fontSize:10,color:C.text3,display:'flex',gap:12,flexWrap:'wrap'}}>
+                {l.code&&<span style={{fontFamily:'monospace'}}>{l.code}</span>}
+                {l.user_email&&<span>👤 {l.user_email}</span>}
+                {l.url&&<span style={{maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>🔗 {l.url}</span>}
+                <span>{new Date(l.created_at).toLocaleString()}</span>
+              </div>
+              {l.component&&<div style={{fontSize:10,color:C.text3,marginTop:2,fontFamily:'monospace',opacity:.7}}>{l.component}</div>}
+            </div>
+            {l.resolved&&<span style={{fontSize:10,color:'#0CAF77',fontWeight:700,flexShrink:0}}>✓ Resolved</span>}
+          </div>
+        </div>
+      ))}
+      {total>LIMIT&&(
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 18px'}}>
+          <button disabled={page<=1} onClick={()=>setPage(p=>p-1)} style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${C.border}`,background:'transparent',color:C.text2,fontSize:12,cursor:page>1?'pointer':'default',fontFamily:'inherit'}}>← Prev</button>
+          <span style={{fontSize:11,color:C.text3}}>Page {page} of {Math.ceil(total/LIMIT)}</span>
+          <button disabled={page>=Math.ceil(total/LIMIT)} onClick={()=>setPage(p=>p+1)} style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${C.border}`,background:'transparent',color:C.text2,fontSize:12,cursor:page<Math.ceil(total/LIMIT)?'pointer':'default',fontFamily:'inherit'}}>Next →</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Client Activity Tab ───────────────────────────────────────────────────────
+function ClientActivityTab({ clientId }) {
+  const [items, setItems] = useState([]); const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true); const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const LIMIT = 40;
+  const ACTION_COLORS = { create:'#0CAF77', update:C.accent, delete:'#ef4444', login:'#F59E0B', logout:C.text3, promote:'#7c3aed', export:C.cyan };
+  function actionColor(a){ return ACTION_COLORS[a?.toLowerCase()] || C.text3; }
+  function timeAgo(ts){ const d=Date.now()-new Date(ts); if(d<60000)return'just now'; if(d<3600000)return`${Math.floor(d/60000)}m ago`; if(d<86400000)return`${Math.floor(d/3600000)}h ago`; return new Date(ts).toLocaleDateString(); }
+
+  const load = () => {
+    setLoading(true);
+    const q = new URLSearchParams({ page, limit: LIMIT, ...(search&&{search}) });
+    fetch(`/api/superadmin/clients/${clientId}/activity?${q}`)
+      .then(r=>r.json()).then(d=>{ setItems(d.items||[]); setTotal(d.total||0); setLoading(false); })
+      .catch(()=>setLoading(false));
+  };
+  useEffect(()=>{ load(); },[clientId,page]);
+  useEffect(()=>{ setPage(1); },[search]);
+
+  return (
+    <div style={cardSt}>
+      <div style={{display:'flex',gap:8,padding:'12px 18px',borderBottom:`1px solid ${C.border}`,alignItems:'center'}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load()} placeholder="Search activity…"
+          style={{flex:1,padding:'7px 11px',borderRadius:7,border:`1px solid ${C.border}`,background:'#1e2433',color:C.text1,fontSize:12,fontFamily:'inherit',outline:'none'}}/>
+        <span style={{fontSize:11,color:C.text3,whiteSpace:'nowrap'}}>{total} events</span>
+      </div>
+      {loading ? <div style={{padding:40,textAlign:'center',color:C.text3}}>Loading…</div>
+      : !items.length ? <div style={{padding:40,textAlign:'center',color:C.text3}}>No activity recorded yet.</div>
+      : items.map((l,i)=>{
+        const action = l.action||l.type||'event';
+        const col = actionColor(action);
+        return (
+          <div key={l.id||i} style={{display:'flex',alignItems:'flex-start',gap:12,padding:'10px 18px',borderBottom:`1px solid ${C.border}`}}>
+            <div style={{width:28,height:28,borderRadius:'50%',background:`${col}20`,border:`1.5px solid ${col}40`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1}}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={col} strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="4"/></svg>
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:2}}>
+                <span style={{fontSize:11,fontWeight:700,color:col,textTransform:'uppercase',letterSpacing:'0.04em'}}>{action}</span>
+                {l.record_name&&<span style={{fontSize:12,color:C.text1,fontWeight:600}}>{l.record_name}</span>}
+                {l.entity_type&&<span style={{fontSize:11,color:C.text3}}>{l.entity_type}</span>}
+              </div>
+              <div style={{fontSize:10,color:C.text3,display:'flex',gap:10}}>
+                {l.user_email&&<span>👤 {l.user_email}</span>}
+                {l.environment_name&&<span>🌐 {l.environment_name}</span>}
+                <span>{timeAgo(l.created_at)}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      {total>LIMIT&&(
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 18px'}}>
+          <button disabled={page<=1} onClick={()=>setPage(p=>p-1)} style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${C.border}`,background:'transparent',color:C.text2,fontSize:12,cursor:page>1?'pointer':'default',fontFamily:'inherit'}}>← Prev</button>
+          <span style={{fontSize:11,color:C.text3}}>Page {page} of {Math.ceil(total/LIMIT)}</span>
+          <button disabled={page>=Math.ceil(total/LIMIT)} onClick={()=>setPage(p=>p+1)} style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${C.border}`,background:'transparent',color:C.text2,fontSize:12,cursor:page<Math.ceil(total/LIMIT)?'pointer':'default',fontFamily:'inherit'}}>Next →</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Create Client User Modal ──────────────────────────────────────────────────
 function CreateClientUserModal({ client, onClose, onCreated }) {
   const [form, setForm] = useState({ first_name:'', last_name:'', email:'', role_id:'', environment_id:'', password:'' });
@@ -521,7 +647,7 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
       )}
 
       <div style={{display:'flex',gap:4,marginBottom:16,background:C.surface2,borderRadius:10,padding:4,width:'fit-content'}}>
-        {[['overview','Overview'],['environments','Environments'],['users','Users'],['demo','Demo Data'],['log','Provision Log']].map(([id,label])=>(
+        {[['overview','Overview'],['environments','Environments'],['users','Users'],['demo','Demo Data'],['errors','Error Logs'],['activity','Activity'],['log','Provision Log']].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)} style={TAB(id)}>{label}</button>
         ))}
       </div>
@@ -693,6 +819,9 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
       {tab==='demo' && (
         <DemoDataTab client={client} stats={stats} />
       )}
+
+      {tab==='errors' && <ClientErrorLogsTab clientId={clientId}/>}
+      {tab==='activity' && <ClientActivityTab clientId={clientId}/>}
 
       {tab==='log' && (
         <div style={cardSt}>

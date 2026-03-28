@@ -751,7 +751,44 @@ router.patch('/:id/users/:userId', express.json(), (req, res) => {
   res.json(s.users[idx]);
 });
 
-router.post('/provision', async (req, res) => {
+// ── GET /:id/error-logs — error logs for this client's environments ───────────
+router.get('/:id/error-logs', (req, res) => {
+  ensureCollections();
+  const s = getStore();
+  const client = (s.clients||[]).find(c=>c.id===req.params.id&&!c.deleted_at);
+  if (!client) return res.status(404).json({ error: 'Not found' });
+  const envIds = new Set((s.client_environments||[]).filter(e=>e.client_id===client.id&&!e.deleted_at).map(e=>e.id));
+  const { page=1, limit=50, severity, resolved, search } = req.query;
+  let logs = (s.error_logs||[]).filter(l=>envIds.has(l.environment_id));
+  if (severity) logs = logs.filter(l=>l.severity===severity);
+  if (resolved!==undefined) logs = logs.filter(l=>String(l.resolved)===resolved);
+  if (search) { const q=search.toLowerCase(); logs=logs.filter(l=>l.message?.toLowerCase().includes(q)||l.code?.toLowerCase().includes(q)||l.user_email?.toLowerCase().includes(q)); }
+  logs = [...logs].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const total = logs.length;
+  const offset = (Number(page)-1)*Number(limit);
+  res.json({ logs: logs.slice(offset,offset+Number(limit)), total, page:Number(page) });
+});
+
+// ── GET /:id/activity — activity log for this client's environments ───────────
+router.get('/:id/activity', (req, res) => {
+  ensureCollections();
+  const s = getStore();
+  const client = (s.clients||[]).find(c=>c.id===req.params.id&&!c.deleted_at);
+  if (!client) return res.status(404).json({ error: 'Not found' });
+  const envIds = new Set((s.client_environments||[]).filter(e=>e.client_id===client.id&&!e.deleted_at).map(e=>e.id));
+  const ts = client.tenant_slug ? loadTenantStore(client.tenant_slug) : s;
+  const { page=1, limit=50, search, action } = req.query;
+  let logs = [
+    ...(ts.activity_log||[]).filter(l=>envIds.has(l.environment_id)),
+    ...(s.audit_log||[]).filter(l=>l.user_id&&(s.users||[]).find(u=>u.id===l.user_id&&u.client_id===client.id)),
+  ];
+  if (action) logs = logs.filter(l=>l.action===action||l.type===action);
+  if (search) { const q=search.toLowerCase(); logs=logs.filter(l=>(l.action||l.type||'').toLowerCase().includes(q)||(l.record_name||l.entity_id||'').toLowerCase().includes(q)); }
+  logs = [...logs].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const total = logs.length;
+  const offset = (Number(page)-1)*Number(limit);
+  res.json({ items: logs.slice(offset,offset+Number(limit)), total, page:Number(page) });
+});
   const { client, environment, admin_user, template } = req.body;
   if (!client?.name)      return res.status(400).json({ error: 'client.name required' });
   if (!admin_user?.email) return res.status(400).json({ error: 'admin_user.email required' });

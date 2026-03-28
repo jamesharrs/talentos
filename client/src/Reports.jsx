@@ -60,6 +60,7 @@ export default function Reports({environment,initialReport}){
   const[savingReport,setSavingReport]=useState(false);const[showSaveDialog,setShowSaveDialog]=useState(false);
   const[activeChartFilter,setActiveChartFilter]=useState(null);
   const skipReset=useRef(false);
+  const runReportRef=useRef(null); // lets applyPreset call runReport without circular dep
 
   useEffect(()=>{if(!environment?.id)return;api.get(`/objects?environment_id=${environment.id}`).then(d=>setObjects(Array.isArray(d)?d:[]));api.get(`/saved-views?environment_id=${environment.id}`).then(d=>setSavedList(Array.isArray(d)?d:[]));}, [environment?.id]);
 
@@ -93,9 +94,9 @@ export default function Reports({environment,initialReport}){
     if (presetFilters.length)       setFilters(presetFilters);
     if (presetFormulas.length)      setFormulas(presetFormulas);
     setPanel("build");
-    // Pass overrides directly so runReport doesn't use stale state closures
-    setTimeout(() => runReport(obj.id, presetGroupBy, presetFilters), 300);
-  }, [objects, runReport]);
+    // Use ref so no circular dependency with runReport useCallback
+    setTimeout(() => runReportRef.current?.(obj.id, presetGroupBy, presetFilters), 300);
+  }, [objects]); // runReport accessed via ref — not needed as dep
 
   // React to initialReport prop (first load / navigating from elsewhere)
   useEffect(()=>{
@@ -126,6 +127,9 @@ export default function Reports({environment,initialReport}){
       setResults(grouped);if(!chartX&&gb)setChartX("_group");if(!chartY&&gb)setChartY("_count");setActiveChartFilter(null);
     }catch(e){console.error(e);}finally{setRunning(false);}
   },[selObject,environment?.id,filters,groupBy,sortBy,sortDir,formulas,chartX,chartY]);
+
+  // Keep ref in sync so applyPreset always calls the latest runReport
+  useEffect(()=>{ runReportRef.current = runReport; }, [runReport]);
 
   const saveReport=async()=>{if(!reportName||!selObject)return;setSavingReport(true);const cfg={name:reportName,object_id:selObject,environment_id:environment?.id,is_shared:reportShared,filters,group_by:groupBy,sort_by:sortBy,sort_dir:sortDir,formulas,chart_type:chartType,chart_x:chartX,chart_y:chartY,columns:selCols};const d=await api.post("/api/saved-views",cfg);if(d?.id){setSavedList(p=>[...p,d]);setReportName("");setShowSaveDialog(false);}setSavingReport(false);};
   const loadReport=(sv)=>{skipReset.current=true;setSelObject(sv.object_id||selObject);if(sv.filters)setFilters(sv.filters);if(sv.group_by)setGroupBy(sv.group_by);if(sv.sort_by)setSortBy(sv.sort_by);if(sv.sort_dir)setSortDir(sv.sort_dir);if(sv.formulas)setFormulas(sv.formulas);if(sv.chart_type)setChartType(sv.chart_type);if(sv.chart_x)setChartX(sv.chart_x);if(sv.chart_y)setChartY(sv.chart_y);if(sv.columns)setSelCols(sv.columns);};

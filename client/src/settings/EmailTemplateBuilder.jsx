@@ -1,6 +1,7 @@
 // EmailTemplateBuilder.jsx — Settings → Email Templates
 // Block editor for email templates with brand kit integration, merge tags, and live preview
 import { useState, useEffect, useCallback, useRef } from "react";
+import api from '../apiClient.js';
 
 const F = "'DM Sans', -apple-system, sans-serif";
 const C = {
@@ -8,13 +9,6 @@ const C = {
   text1: "var(--t-text1, #111827)", text2: "var(--t-text2, #374151)", text3: "var(--t-text3, #6b7280)", text4: "var(--t-text4, #9ca3af)",
   border: "var(--t-border, #e5e7eb)", card: "var(--t-card, #ffffff)", bg: "var(--t-bg, #f9fafb)",
   green: "#059669", red: "#dc2626", amber: "#d97706", purple: "#7c3aed",
-};
-
-const api = {
-  get: u => fetch(`/api${u}`).then(r => r.json()),
-  post: (u, b) => fetch(`/api${u}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json()),
-  patch: (u, b) => fetch(`/api${u}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json()),
-  del: u => fetch(`/api${u}`, { method: 'DELETE' }).then(r => r.json()),
 };
 
 const ICON_PATHS = {

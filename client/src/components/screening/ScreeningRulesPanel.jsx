@@ -1,6 +1,7 @@
 // ScreeningRulesPanel.jsx — Panel for Job records showing configurable screening criteria
 // Renders inside the record detail right column as a collapsible panel
 import { useState, useEffect, useCallback } from "react";
+import api from '../../apiClient.js';
 
 const F = "'DM Sans', -apple-system, sans-serif";
 const C = {
@@ -10,13 +11,6 @@ const C = {
   green: "#059669", red: "#dc2626", amber: "#d97706", purple: "#7c3aed",
 };
 
-const api = {
-  get: u => fetch(`/api${u}`).then(r => r.json()),
-  post: (u, b) => fetch(`/api${u}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json()),
-  put: (u, b) => fetch(`/api${u}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json()),
-  patch: (u, b) => fetch(`/api${u}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json()),
-  del: u => fetch(`/api${u}`, { method: 'DELETE' }).then(r => r.json()),
-};
 
 const ICON_PATHS = {
   shield: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",

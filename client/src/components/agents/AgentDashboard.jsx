@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import api from '../../apiClient.js';
 
 const F = "'DM Sans', -apple-system, sans-serif";
 const C = {
@@ -7,11 +8,6 @@ const C = {
   accentLight: "var(--t-accent-light, #EEF2FF)",
   text1: "var(--t-text1, #111827)", text2: "var(--t-text2, #374151)", text3: "var(--t-text3, #9CA3AF)",
   green: "#10b981", red: "#ef4444", amber: "#f59e0b", purple: "#7c3aed",
-};
-
-const api = {
-  get: (u) => fetch(`/api${u}`).then(r => r.json()).catch(() => null),
-  post: (u, b) => fetch(`/api${u}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) }).then(r => r.json()).catch(() => null),
 };
 
 function Ic({ n, s = 16, c = "currentColor" }) {

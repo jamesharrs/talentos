@@ -1,16 +1,9 @@
 // client/src/settings/CompanyDocuments.jsx — Document management with visibility control
 import { useState, useEffect, useCallback, useRef } from "react";
+import api, { tFetch } from '../apiClient.js';
 
 const F = "'Geist', -apple-system, sans-serif";
 const C = { accent:'#4361EE', accentLight:'#EEF2FF', text1:'#111827', text2:'#374151', text3:'#6B7280', border:'#E5E7EB', green:'#0CA678', amber:'#F59F00', red:'#EF4444', surface:'#FAFBFD' };
-const api = {
-  get: u => fetch(`/api${u}`).then(r=>r.json()),
-  post: (u,b) => fetch(`/api${u}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
-  patch: (u,b) => fetch(`/api${u}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
-  delete: u => fetch(`/api${u}`,{method:'DELETE'}).then(r=>r.json()),
-  upload: (u,fd) => fetch(`/api${u}`,{method:'POST',body:fd}).then(r=>r.json()),
-};
-
 const PATHS = { plus:'M12 5v14M5 12h14', trash:'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6', x:'M18 6L6 18M6 6l12 12',
   search:'M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z', upload:'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12',
   file:'M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z', eye:'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z',
@@ -77,7 +70,7 @@ export default function CompanyDocuments({ environment }) {
     fd.append('name', file.name.replace(/\.[^.]+$/, ''));
     fd.append('category', 'Other');
     fd.append('visibility', 'internal');
-    await api.upload('/company-documents', fd);
+    await tFetch('/api/company-documents', { method: 'POST', body: fd }).then(r => r.json());
     if (fileRef.current) fileRef.current.value = '';
     setUploading(false);
     setShowUpload(false);

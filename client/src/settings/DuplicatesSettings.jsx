@@ -1,10 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
+import api from '../apiClient.js';
 const F = "'DM Sans',-apple-system,sans-serif";
 const C = { accent:"#4361EE",accentLight:"#EEF2FF",text1:"#111827",text2:"#374151",text3:"#9ca3af",border:"#E5E7EB",surface:"white",bg:"#F9FAFB",green:"#0ca678",red:"#ef4444",amber:"#f59f00" };
-const api = {
-  get: p => fetch(p,{headers:{'x-user-id':localStorage.getItem('talentos_user_id')||'','x-tenant-slug':localStorage.getItem('talentos_tenant')||''}}).then(r=>r.json()),
-  post:(p,b)=>fetch(p,{method:'POST',headers:{'Content-Type':'application/json','x-user-id':localStorage.getItem('talentos_user_id')||'','x-tenant-slug':localStorage.getItem('talentos_tenant')||''},body:JSON.stringify(b)}).then(r=>r.json()),
-};
 const Ic=({n,s=14,c="currentColor"})=>{
   const P={search:"M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z",users:"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",check:"M20 6L9 17l-5-5",x:"M18 6L6 18M6 6l12 12",shuffle:"M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5",loader:"M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4",merge:"M8 6h13M8 12h8M8 18h13M3 6h.01M3 12h.01M3 18h.01"};
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d={P[n]||""}/></svg>;
@@ -96,7 +93,7 @@ export default function DuplicatesSettings({environment}){
 
   useEffect(()=>{
     if(!environment?.id) return;
-    api.get(`/api/objects?environment_id=${environment.id}`).then(d=>{
+    api.get(`/objects?environment_id=${environment.id}`).then(d=>{
       const objs=Array.isArray(d)?d:[];
       setObjects(objs);
       const ppl=objs.find(o=>o.slug==="people"||o.name?.toLowerCase()==="person");
@@ -108,13 +105,13 @@ export default function DuplicatesSettings({environment}){
     if(!selObject||!environment?.id) return;
     setScanning(true); setPairs([]); setScanned(false);
     try{
-      const result=await api.post('/api/duplicates/scan',{environment_id:environment.id,object_id:selObject.id,threshold});
+      const result=await api.post('/duplicates/scan',{environment_id:environment.id,object_id:selObject.id,threshold});
       setPairs(Array.isArray(result.pairs)?result.pairs:[]); setScanned(true);
     }finally{setScanning(false);}
   },[selObject,environment?.id,threshold]);
 
   const handleMerge=async(keepId,discardId,strategy)=>{
-    await api.post('/api/duplicates/merge',{keep_id:keepId,discard_id:discardId,merge_strategy:strategy});
+    await api.post('/duplicates/merge',{keep_id:keepId,discard_id:discardId,merge_strategy:strategy});
     setToast("Records merged successfully");
     setTimeout(()=>setToast(null),3000);
   };

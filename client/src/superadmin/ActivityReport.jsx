@@ -1,6 +1,7 @@
 // client/src/superadmin/ActivityReport.jsx
 // Environment activity report for the Super Admin console
 import { useState, useEffect, useCallback } from 'react';
+import api from '../apiClient.js';
 
 const F = "'Geist','DM Sans',-apple-system,sans-serif";
 const C = {
@@ -13,9 +14,6 @@ const C = {
   blue:'#60A5FA', blueLight:'#60A5FA18',
 };
 
-const api = {
-  get: p => fetch(`/api${p}`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
-};
 
 // Simple SVG icon helper
 const Ic = ({ d, s = 14, c = C.text2 }) => (

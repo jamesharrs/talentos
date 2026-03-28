@@ -1,6 +1,7 @@
 // DataImportSettings.jsx — Settings → Import/Export → Data Import tab
 // Full wizard: Upload → Map Fields → Dedup Check → Review → Commit
 import { useState, useEffect, useCallback, useRef } from "react";
+import api from '../apiClient.js';
 
 const F = "'DM Sans', -apple-system, sans-serif";
 const C = {
@@ -10,11 +11,6 @@ const C = {
   green: "#059669", red: "#dc2626", amber: "#d97706", purple: "#7c3aed",
 };
 
-const api = {
-  get: u => fetch(u.startsWith('http') ? u : `/api${u}`).then(r => r.json()),
-  post: (u, b) => fetch(`/api${u}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json()),
-  del: u => fetch(`/api${u}`, { method: 'DELETE' }).then(r => r.json()),
-};
 
 // ── Icon helper ───────────────────────────────────────────────────────────────
 const ICON_PATHS = {

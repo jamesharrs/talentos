@@ -1,4 +1,4 @@
-import { tFetch } from "./apiClient.js";
+import api, { tFetch } from "./apiClient.js";
 import { IntegrationMonitor } from "./IntegrationMonitor.jsx";
 // client/src/Integrations.jsx
 import { useState, useEffect, useCallback } from "react";
@@ -11,12 +11,6 @@ const C = {
 };
 const F = "'DM Sans',-apple-system,sans-serif";
 
-const api = {
-  get:    (u)    => fetch(u).then(r=>r.json()),
-  post:   (u,b)  => fetch(u,{method:'POST',  headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
-  patch:  (u,b)  => fetch(u,{method:'PATCH', headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
-  delete: (u)    => fetch(u,{method:'DELETE'}).then(r=>r.json()),
-};
 
 function Ic({n,s=16,c="currentColor"}){
   const paths={

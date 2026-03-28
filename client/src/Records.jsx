@@ -1825,190 +1825,6 @@ const FilterBar = ({ fields = [], filters = [], onEditFilter, onRemoveFilter }) 
     </div>
   );
 };
-// (legacy unused state kept below for reference, not rendered)
-const _FilterBarLegacy = ({ fields = [], filters = [], onChange }) => {
-  const [open, setOpen]         = useState(false);
-  const [fSearch, setFSearch]   = useState("");
-  const [draft, setDraft]       = useState(null); // { field, op, value }
-  const anchorRef               = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const h = e => { if (anchorRef.current && !anchorRef.current.contains(e.target)) { setOpen(false); setDraft(null); setFSearch(""); } };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open]);
-
-  const TYPE_OPS = {
-    text:["contains","does not contain","is","is not","starts with","is empty","not empty"],
-    textarea:["contains","does not contain","is empty","not empty"],
-    number:["=","≠","<",">","≤","≥","is empty","not empty"],
-    currency:["=","≠","<",">","≤","≥","is empty","not empty"],
-    date:["is","before","after","is empty","not empty"],
-    boolean:["is true","is false"],
-    select:["is","is not","is empty","not empty"],
-    multi_select:["includes","excludes","is empty","not empty"],
-    email:["contains","is","is empty","not empty"],
-    url:["contains","is empty","not empty"],
-    phone:["contains","is","is empty","not empty"],
-    rating:["=","≠","<",">"],
-  };
-  const NO_VAL_OPS = ["is empty","not empty","is true","is false"];
-  const getOps    = f => TYPE_OPS[f?.field_type] || TYPE_OPS.text;
-  const needsVal  = op => !NO_VAL_OPS.includes(op);
-  const typeLabel = t => ({text:"Aa",textarea:"¶",number:"#",currency:"$",date:"📅",select:"▾",multi_select:"▾▾",boolean:"☑",email:"@",url:"🔗",phone:"☎",rating:"★"}[t] || (t||"?").slice(0,2).toUpperCase());
-
-  const pickField = f => { setDraft({ field:f, op:getOps(f)[0], value:"" }); setFSearch(""); };
-  const addFilter = () => {
-    if (!draft?.field) return;
-    onChange([...(filters||[]), { id:Date.now()+"", fieldId:draft.field.id, op:draft.op, value:draft.value }]);
-    setDraft(null); setOpen(false);
-  };
-  const removeFilter = id => onChange((filters||[]).filter(f => f.id !== id));
-  const visFields = fields.filter(f => !fSearch || f.name.toLowerCase().includes(fSearch.toLowerCase()));
-
-  return (
-    <div style={{ display:"flex", flexWrap:"wrap", gap:6, alignItems:"center" }}>
-      {/* Active chips */}
-      {(filters||[]).map(filt => {
-        const field = fields.find(f => f.id === filt.fieldId);
-        return (
-          <div key={filt.id} style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 8px 4px 10px",
-            borderRadius:20, background:C.accentLight, border:`1.5px solid ${C.accent}`, fontSize:12, color:C.accent, fontWeight:600, whiteSpace:"nowrap" }}>
-            <span style={{ color:C.text2, fontWeight:400 }}>{field?.name}</span>
-            <span style={{ color:C.text3, fontWeight:400, margin:"0 1px" }}>{filt.op}</span>
-            {filt.value && <span style={{ fontStyle:"italic" }}>{filt.value}</span>}
-            <button onClick={() => removeFilter(filt.id)}
-              style={{ background:"none", border:"none", cursor:"pointer", padding:"0 0 0 3px", display:"flex", color:C.accent, opacity:0.6 }}
-              onMouseEnter={e=>e.currentTarget.style.opacity="1"} onMouseLeave={e=>e.currentTarget.style.opacity="0.6"}>
-              <Ic n="x" s={11} c={C.accent}/>
-            </button>
-          </div>
-        );
-      })}
-
-      {/* + Add filter button + 2-step popover */}
-      <div ref={anchorRef} style={{ position:"relative" }}>
-        <button onClick={() => { setOpen(v=>!v); setDraft(null); setFSearch(""); }}
-          style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 10px", borderRadius:8,
-            border:`1px dashed ${open ? C.accent : C.border}`, background: open ? C.accentLight : "transparent",
-            fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F,
-            color: open ? C.accent : C.text3, transition:"all .12s" }}
-          onMouseEnter={e=>{if(!open){e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}}
-          onMouseLeave={e=>{if(!open){e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text3;}}}>
-          <Ic n="plus" s={12}/> Add filter
-        </button>
-
-        {open && (
-          <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, zIndex:500,
-            background:C.surface, border:`1px solid ${C.border}`, borderRadius:12,
-            boxShadow:"0 8px 28px rgba(0,0,0,.13)", width: draft ? 300 : 220, overflow:"hidden" }}>
-
-            {!draft ? (
-              /* ── Step 1: searchable field picker ── */
-              <>
-                <div style={{ padding:"9px 10px 7px", borderBottom:`1px solid ${C.border}` }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:6,
-                    background:"var(--t-surface2,#f4f5f8)", borderRadius:8, padding:"6px 9px" }}>
-                    <Ic n="search" s={12} c={C.text3}/>
-                    <input autoFocus value={fSearch} onChange={e=>setFSearch(e.target.value)}
-                      placeholder="Search fields…"
-                      style={{ border:"none", background:"transparent", outline:"none",
-                        fontSize:12, color:C.text1, fontFamily:F, flex:1 }}/>
-                  </div>
-                </div>
-                <div style={{ maxHeight:250, overflowY:"auto", padding:"4px 0" }}>
-                  {visFields.length === 0 && (
-                    <div style={{ padding:"12px", fontSize:12, color:C.text3, textAlign:"center" }}>No fields match</div>
-                  )}
-                  {visFields.map(f => (
-                    <button key={f.id} onClick={() => pickField(f)}
-                      style={{ width:"100%", textAlign:"left", padding:"7px 12px", border:"none",
-                        background:"transparent", cursor:"pointer", fontFamily:F, fontSize:13,
-                        color:C.text1, display:"flex", alignItems:"center", gap:8 }}
-                      onMouseEnter={e=>e.currentTarget.style.background="var(--t-surface2,#f4f5f8)"}
-                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                      <span style={{ fontSize:10, color:C.text3, background:"var(--t-surface2,#f0f1f4)",
-                        padding:"1px 5px", borderRadius:4, fontWeight:700, minWidth:28, textAlign:"center" }}>
-                        {typeLabel(f.field_type)}
-                      </span>
-                      {f.name}
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              /* ── Step 2: operator + value builder ── */
-              <div style={{ padding:13 }}>
-                {/* Header with back + field name */}
-                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:11 }}>
-                  <button onClick={() => setDraft(null)}
-                    style={{ background:"none", border:"none", cursor:"pointer", padding:0,
-                      color:C.text3, display:"flex" }}>
-                    <Ic n="chevL" s={14} c={C.text3}/>
-                  </button>
-                  <span style={{ fontSize:13, fontWeight:700, color:C.text1, flex:1 }}>{draft.field.name}</span>
-                  <span style={{ fontSize:10, color:C.text3, background:"var(--t-surface2,#f0f1f4)",
-                    padding:"1px 5px", borderRadius:4, fontWeight:700, textTransform:"uppercase" }}>
-                    {typeLabel(draft.field.field_type)}
-                  </span>
-                </div>
-
-                {/* Condition / operator */}
-                <div style={{ marginBottom:9 }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:C.text3,
-                    textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:4 }}>Condition</div>
-                  <select value={draft.op}
-                    onChange={e => setDraft(d => ({ ...d, op:e.target.value, value:"" }))}
-                    style={{ width:"100%", padding:"6px 9px", borderRadius:8, fontSize:12,
-                      border:`1px solid ${C.border}`, background:C.surface, color:C.text1,
-                      fontFamily:F, cursor:"pointer" }}>
-                    {getOps(draft.field).map(op => <option key={op} value={op}>{op}</option>)}
-                  </select>
-                </div>
-
-                {/* Value input */}
-                {needsVal(draft.op) && draft.field.field_type !== "boolean" && (
-                  <div style={{ marginBottom:11 }}>
-                    <div style={{ fontSize:10, fontWeight:700, color:C.text3,
-                      textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:4 }}>Value</div>
-                    {(draft.field.field_type==="select"||draft.field.field_type==="multi_select") && draft.field.options?.length ? (
-                      <select value={draft.value}
-                        onChange={e => setDraft(d => ({ ...d, value:e.target.value }))}
-                        style={{ width:"100%", padding:"6px 9px", borderRadius:8, fontSize:12,
-                          border:`1px solid ${C.border}`, background:C.surface, color:C.text1, fontFamily:F }}>
-                        <option value="">Select…</option>
-                        {draft.field.options.map(o => <option key={o} value={o}>{o}</option>)}
-                      </select>
-                    ) : (
-                      <input autoFocus value={draft.value}
-                        onChange={e => setDraft(d => ({ ...d, value:e.target.value }))}
-                        onKeyDown={e => e.key === "Enter" && addFilter()}
-                        placeholder="Filter value…"
-                        type={draft.field.field_type==="date"?"date":draft.field.field_type==="number"||draft.field.field_type==="currency"?"number":"text"}
-                        style={{ width:"100%", padding:"6px 9px", borderRadius:8, fontSize:12,
-                          border:`1px solid ${C.border}`, background:C.surface, color:C.text1,
-                          fontFamily:F, boxSizing:"border-box" }}/>
-                    )}
-                  </div>
-                )}
-
-                {/* Apply */}
-                <button onClick={addFilter}
-                  disabled={needsVal(draft.op) && !draft.value && draft.field.field_type !== "boolean"}
-                  style={{ width:"100%", padding:"7px", borderRadius:8, background:C.accent, color:"#fff",
-                    border:"none", cursor:"pointer", fontSize:12, fontWeight:700, fontFamily:F,
-                    opacity:(needsVal(draft.op)&&!draft.value&&draft.field.field_type!=="boolean")?0.4:1 }}>
-                  Apply filter
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
 /* ─── Bulk Action Bar ─────────────────────────────────────────────────────── */
 // ─── Bulk Confirm Modal ───────────────────────────────────────────────────────
@@ -2172,12 +1988,12 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
       const nonPeople = (allObjects || []).filter(o => o.slug !== "people");
       const [recordGroups, allAssignments] = await Promise.all([
         Promise.all(nonPeople.map(async o => {
-          const recs = await fetch(`/api/records?object_id=${o.id}&environment_id=${environment.id}&limit=200`)
-            .then(r => r.json()).catch(() => ({ records: [] }));
+          const recs = await api.get(`/records?object_id=${o.id}&environment_id=${environment.id}&limit=200`)
+            .catch(() => ({ records: [] }));
           return (recs.records || []).map(r => ({ ...r, object_name: o.name, object_color: o.color }));
         })),
-        fetch(`/api/workflows/assignments/all?environment_id=${environment.id}`)
-          .then(r => r.json()).catch(() => []),
+        api.get(`/workflows/assignments/all?environment_id=${environment.id}`)
+          .catch(() => []),
       ]);
       const allRecs = recordGroups.flat();
       const assignmentMap = {};
@@ -2680,10 +2496,9 @@ const InlineStatusPicker = ({ record, statusOptions, onUpdate }) => {
   const handleChange = async (newStatus) => {
     setSaving(true); setOpen(false);
     try {
-      const updated = await fetch(`/api/records/${record.id}`, {
-        method:"PATCH", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ data: { ...record.data, status: newStatus } })
-      }).then(r => r.json());
+      const updated = await api.patch(`/records/${record.id}`, {
+        data: { ...record.data, status: newStatus }
+      });
       onUpdate?.(updated);
     } catch(e) { console.error(e); }
     setSaving(false);
@@ -5317,8 +5132,8 @@ const SuggestedActions = ({ record, environment, onAction }) => {
   const [hovered, setHovered]   = useState(null);
   useEffect(() => {
     if (!record?.id || !environment?.id) return;
-    fetch(`/api/records/${record.id}/suggested-actions?environment_id=${environment.id}`)
-      .then(r => r.json()).then(d => { if (Array.isArray(d) && d.length) setActions(d); }).catch(()=>{});
+    api.get(`/records/${record.id}/suggested-actions?environment_id=${environment.id}`)
+      .then(d => { if (Array.isArray(d) && d.length) setActions(d); }).catch(()=>{});
   }, [record?.id, environment?.id]);
   if (!actions.length || dismissed) return null;
   const actionIcon = (type) => {
@@ -6741,10 +6556,7 @@ function buildListContext(object, records, total, fields) {
 export default function RecordsView({ environment, object, onOpenRecord, initialFilter, session, autoCreate, onAutoCreateConsumed, allObjects = [] }) {
   // Make environment available to PeoplePicker without prop drilling
   useEffect(() => { _currentEnvId = environment?.id; }, [environment?.id]);
-  // Debug log on mount
-  useEffect(() => {
-    console.log('[RecordsView] mounted', { object_id: object?.id, object_slug: object?.slug, env_id: environment?.id, env_name: environment?.name, session_user: session?.user?.email, session_env: session?.user?.environment_id });
-  }, [object?.id, environment?.id]);
+
   const [records, setRecords]   = useState([]);
   const [fields,  setFields]    = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -6887,7 +6699,6 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
       api.get(`/fields?object_id=${object.id}`),
       api.get(`/records?object_id=${object.id}&environment_id=${environment.id}&page=${page}&limit=50${search?`&search=${encodeURIComponent(search)}`:""}`),
     ]);
-    console.log('[RecordsView] load', { object_id: object.id, env_id: environment.id, fields_count: Array.isArray(f)?f.length:'err', records_total: r?.pagination?.total, records_loaded: r?.records?.length, error: r?.error });
     const loadedFields = Array.isArray(f) ? f : [];
     setFields(loadedFields);
     // Restore saved column order/selection, or use defaults

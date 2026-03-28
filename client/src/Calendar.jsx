@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import api from './apiClient.js';
 
 const F = "'Geist', -apple-system, sans-serif";
 const C = {
@@ -38,12 +39,6 @@ const VIEWS = ["month", "week", "day", "agenda"];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-const api = {
-  get: url => fetch(url).then(r => r.json()),
-  post: (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => r.json()),
-  patch: (url, body) => fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => r.json()),
-  del: url => fetch(url, { method: "DELETE" }).then(r => r.json()),
-};
 
 function fmt(d) { return d.toISOString().slice(0, 10); }
 function today() { return fmt(new Date()); }
@@ -434,13 +429,13 @@ export default function CalendarModule({ environment }) {
 
   const handleSaveTask = async form => {
     if(taskModal?.task) await api.patch(`/calendar/tasks/${taskModal.task.id}`, {...form, environment_id:envId});
-    else await api.post("/api/calendar/tasks", {...form, environment_id:envId});
+    else await api.post("/calendar/tasks", {...form, environment_id:envId});
     setTaskModal(null); setSelectedItem(null); load();
   };
   const handleDeleteTask = async id => { await api.del(`/calendar/tasks/${id}`); setTaskModal(null); setSelectedItem(null); load(); };
   const handleSaveEvent = async form => {
     if(eventModal?.event) await api.patch(`/calendar/events/${eventModal.event.id}`, {...form, environment_id:envId});
-    else await api.post("/api/calendar/events", {...form, environment_id:envId});
+    else await api.post("/calendar/events", {...form, environment_id:envId});
     setEventModal(null); load();
   };
   const handleDeleteEvent = async id => { await api.del(`/calendar/events/${id}`); setEventModal(null); setSelectedItem(null); load(); };

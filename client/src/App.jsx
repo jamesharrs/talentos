@@ -831,14 +831,14 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
   useEffect(() => {
     const load = async () => {
       try {
-        const d = await fetch(`/api/notifications?limit=30`).then(r => r.json());
+        const d = await api.get(`/notifications?limit=30`);
         if (d && Array.isArray(d.notifications)) {
           setNotifs(d.notifications);
           setUnread(d.unread || 0);
         }
       } catch(e) { console.error("notif fetch failed", e); }
       try {
-        const rel = await fetch(`/api/release-notes`).then(r => r.json());
+        const rel = await api.get(`/release-notes`);
         setReleases(Array.isArray(rel) ? rel : []);
       } catch(e) {}
     };
@@ -850,18 +850,18 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
   useEffect(() => { const h = e => { if (bellRef.current && !bellRef.current.contains(e.target)) setBellOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
 
   const markRead = async (id) => {
-    await fetch(`/api/notifications/${id}/read`, { method:"PATCH" });
+    await api.patch(`/notifications/${id}/read`);
     setNotifs(prev => prev.map(n => n.id === id ? {...n, read_at: new Date().toISOString()} : n));
     setUnread(prev => Math.max(0, prev - 1));
   };
   const markAllRead = async () => {
-    await fetch("/api/notifications/read-all", { method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ environment_id: selectedEnv?.id }) });
+    await api.patch("/notifications/read-all", { environment_id: selectedEnv?.id });
     setNotifs(prev => prev.map(n => ({...n, read_at: n.read_at || new Date().toISOString()})));
     setUnread(0);
   };
   const deleteNotif = async (id, e) => {
     e.stopPropagation();
-    await fetch(`/api/notifications/${id}`, { method:"DELETE" });
+    await api.delete(`/notifications/${id}`);
     setNotifs(prev => prev.filter(n => n.id !== id));
     setUnread(prev => notifs.find(n=>n.id===id && !n.read_at) ? Math.max(0,prev-1) : prev);
   };
@@ -893,7 +893,7 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
     if (!q.trim() || !selectedEnv?.id) { setResults([]); return; }
     setLoading(true);
     try {
-      const data = await fetch(`/api/records/search?q=${encodeURIComponent(q)}&environment_id=${selectedEnv.id}&limit=6`).then(r => r.json());
+      const data = await api.get(`/records/search?q=${encodeURIComponent(q)}&environment_id=${selectedEnv.id}&limit=6`);
       setResults(Array.isArray(data) ? data : []);
     } catch { setResults([]); }
     setLoading(false);

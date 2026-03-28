@@ -3,7 +3,6 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recha
 
 const C = { card:"#fff", accent:"var(--t-accent,#4361ee)", text1:"var(--t-text1,#111827)", text2:"var(--t-text2,#374151)", text3:"var(--t-text3,#9ca3af)", border:"var(--t-border,#f0f0f0)", green:"#0ca678", amber:"#f59f00", red:"#e03131", purple:"#7c3aed", blue:"#3b82f6", teal:"#0d9488" };
 const F = "'DM Sans',-apple-system,sans-serif";
-const api = { get: async url => { const r = await fetch(url); if (!r.ok) throw new Error(await r.text()); return r.json(); } };
 
 const PATHS = {
   users:"M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M9 7a4 4 0 100 8 4 4 0 000-8z",

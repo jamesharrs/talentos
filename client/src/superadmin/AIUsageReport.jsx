@@ -1,6 +1,7 @@
 // client/src/superadmin/AIUsageReport.jsx
 // AI token usage tracking, per-client breakdown, cost estimation, quotas
 import { useState, useEffect, useCallback } from 'react';
+import api from '../apiClient.js';
 
 const F = "'Geist','DM Sans',-apple-system,sans-serif";
 const C = {
@@ -14,9 +15,6 @@ const C = {
   cyan:'#22D3EE',
 };
 
-const api = {
-  get: p => fetch(`/api${p}`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
-};
 
 const Ic = ({ d, s = 14, c = C.text2 }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={d}/></svg>

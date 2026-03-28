@@ -1,5 +1,6 @@
 // client/src/ReleaseNotes.jsx
 import { useState, useEffect, useRef } from "react";
+import api from "./apiClient.js";
 
 const F = "var(--t-font, 'Geist', sans-serif)";
 
@@ -27,12 +28,7 @@ const Ic = ({ n, s = 16, c = "currentColor" }) => (
   </svg>
 );
 
-const api = {
-  get:   async p => { const r = await fetch(`/api${p}`); return r.json(); },
-  post:  async (p, b) => { const r = await fetch(`/api${p}`, { method:'POST',  headers:{'Content-Type':'application/json'}, body: JSON.stringify(b) }); return r.json(); },
-  patch: async (p, b) => { const r = await fetch(`/api${p}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(b) }); return r.json(); },
-  del:   async p =>    { const r = await fetch(`/api${p}`, { method:'DELETE' }); return r.json(); },
-};
+
 
 // ── WhatsNew bell button (for top bar) ───────────────────────────────────────
 export function WhatsNewButton() {

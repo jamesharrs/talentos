@@ -1,4 +1,5 @@
 import { tFetch } from "./apiClient.js";
+import api from "./apiClient.js";
 // client/src/Inbox.jsx
 import { useState, useEffect, useCallback, useRef } from "react";
 
@@ -11,12 +12,6 @@ const C = {
 };
 const F = "'Geist', -apple-system, sans-serif";
 
-const api = {
-  get: (url) => fetch(`/api${url}`).then(r => r.json()),
-  post: (url, body) => fetch(`/api${url}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()),
-  patch: (url, body) => fetch(`/api${url}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()),
-  delete: (url) => fetch(`/api${url}`, { method: 'DELETE' }).then(r => r.json()),
-};
 
 const PATHS = {
   inbox: "M22 12h-6l-2 3H10l-2-3H2M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z",

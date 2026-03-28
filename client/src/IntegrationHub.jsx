@@ -1,15 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import api from './apiClient.js';
 
 const F = "'DM Sans',-apple-system,sans-serif";
 const C = { bg:"#F8F9FB", card:"#fff", border:"#E5E7EB", text1:"#111827", text2:"#374151", text3:"#9CA3AF",
   accent:"#4361EE", accentLight:"#EEF2FF", success:"#10B981", danger:"#EF4444", warning:"#F59E0B" };
-const api = {
-  get:  u => fetch(`/api${u}`).then(r=>r.json()),
-  post: (u,b) => fetch(`/api${u}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>r.json()),
-  patch:(u,b) => fetch(`/api${u}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>r.json()),
-  del:  u => fetch(`/api${u}`,{method:"DELETE"}).then(r=>r.json()),
-};
-
 const ICON_PATHS = {
   webhook:"M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71",
   zap:"M13 2L3 14h9l-1 8 10-12h-9l1-8", globe:"M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z",

@@ -1567,24 +1567,36 @@ function CreateObjectModal({ selEnv, onCreated, onClose }) {
   );
 }
 
-const DataModelSection = () => {
+const DataModelSection = ({ environment: activeEnv }) => {
   const [envs,       setEnvs]       = useState([]);
-  const [selEnv,     setSelEnv]     = useState(null);
+  // selEnv starts from the app-level selectedEnv, falls back to first in list
+  const [selEnv,     setSelEnv]     = useState(activeEnv || null);
   const [objects,    setObjects]    = useState([]);
   const [selObj,     setSelObj]     = useState(null);
   const [fields,     setFields]     = useState([]);
+
+  // Sync selEnv when the app-level environment changes (e.g. switching sandbox ↔ production)
+  useEffect(() => {
+    if (activeEnv?.id && activeEnv.id !== selEnv?.id) {
+      setSelEnv(activeEnv);
+      setSelObj(null);
+    }
+  }, [activeEnv?.id]);
   const [showCreate, setShowCreate] = useState(false);
   const [showField,  setShowField]  = useState(false);
   const [editField,  setEditField]  = useState(null);
   const [loading,    setLoading]    = useState(false);
 
-  // Load envs
+  // Load envs for the picker dropdown — but don't override selEnv if already set from app context
   useEffect(() => {
     api.get("/environments").then(d => {
       const list = Array.isArray(d) ? d : [];
       setEnvs(list);
-      const def = list.find(e => e.is_default) || list[0];
-      if (def) setSelEnv(def);
+      // Only set default if we have no environment from the app context
+      if (!selEnv) {
+        const def = list.find(e => e.is_default) || list[0];
+        if (def) setSelEnv(def);
+      }
     });
   }, []);
 
@@ -2548,7 +2560,7 @@ export default function SettingsPage({ currentUser, environment, initialSection,
             searchQuery={search}
           />
         )}
-        {activeSection==="datamodel"  && <DataModelSection/>}
+        {activeSection==="datamodel"  && <DataModelSection environment={environment}/>}
         {activeSection==="users"      && <UsersSection/>}
         {activeSection==="groups"     && <GroupsSection environment={environment}/>}
         {activeSection==="roles"      && <RolesSection environment={environment}/>}

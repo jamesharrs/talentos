@@ -27,8 +27,8 @@ router.get('/', (req, res) => {
   const objects = query('objects', o=>o.environment_id===environment_id).sort((a,b)=>a.sort_order-b.sort_order);
   const withCounts = objects.map(o => ({
     ...o,
-    field_count: query('fields', f=>f.object_id===o.id).length,
-    record_count: query('records', r=>r.object_id===o.id&&!r.deleted_at).length,
+    field_count: query('fields', f=>f.object_id===o.id && (!f.environment_id || f.environment_id===environment_id)).length,
+    record_count: query('records', r=>r.object_id===o.id&&r.environment_id===environment_id&&!r.deleted_at).length,
   }));
   res.json(withCounts);
 });
@@ -36,7 +36,12 @@ router.get('/', (req, res) => {
 router.get('/:id', (req, res) => {
   const obj = findOne('objects', o=>o.id===req.params.id);
   if (!obj) return res.status(404).json({error:'Not found'});
-  const fields = query('fields', f=>f.object_id===req.params.id).sort((a,b)=>a.sort_order-b.sort_order);
+  const { environment_id } = req.query;
+  const fields = query('fields', f => {
+    if (f.object_id !== req.params.id) return false;
+    if (environment_id && f.environment_id && f.environment_id !== environment_id) return false;
+    return true;
+  }).sort((a,b)=>a.sort_order-b.sort_order);
   res.json({...obj, fields});
 });
 

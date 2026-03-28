@@ -6819,6 +6819,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   // Clear selection when object/page/search/filters change
   useEffect(() => { setSelectedIds(new Set()); }, [object?.id, page, search, activeFilters.length]);
   useEffect(() => { setActiveListName(null); }, [object?.id]);
+  const [activeTab, setActiveTab] = useState("records");
 
   // Listen for copilot filter commands — talentos:apply-filter
   useEffect(() => {

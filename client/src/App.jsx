@@ -827,8 +827,9 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Load notifications + release notes
+  // Load notifications + release notes — only when authenticated
   useEffect(() => {
+    if (!userId) return; // don't fire before login
     const load = async () => {
       try {
         const d = await api.get(`/notifications?limit=30`);
@@ -845,7 +846,7 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
     load();
     const timer = setInterval(load, 30000);
     return () => clearInterval(timer);
-  }, []);
+  }, [userId]); // re-run after login
 
   useEffect(() => { const h = e => { if (bellRef.current && !bellRef.current.contains(e.target)) setBellOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
 

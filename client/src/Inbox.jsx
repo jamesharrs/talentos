@@ -437,6 +437,10 @@ export function useInboxUnreadCount(environmentId) {
   const [count, setCount] = useState(0);
   useEffect(() => {
     if (!environmentId) return;
+    // Confirm a session exists before polling — avoids 401s before login
+    let sess = null;
+    try { sess = JSON.parse(localStorage.getItem('talentos_session') || 'null'); } catch {}
+    if (!sess?.user?.id) return;
     const poll = async () => {
       try { const d = await tFetch(`/api/inbox/unread-count?environment_id=${environmentId}`).then(r => r.json()); setCount(d.count || 0); } catch {}
     };

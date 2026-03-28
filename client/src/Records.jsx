@@ -6697,6 +6697,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
     setLoading(true);
     const [f, r] = await Promise.all([
       api.get(`/fields?object_id=${object.id}&environment_id=${environment.id}`),
+      api.get(`/records?object_id=${object.id}&environment_id=${environment.id}&page=${page}&limit=50${search?`&search=${encodeURIComponent(search)}`:""}`),
     ]);
     const loadedFields = Array.isArray(f) ? f : [];
     setFields(loadedFields);
@@ -7048,6 +7049,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
     Promise.all(otherObjs.map(async o => {
       const [flds, recs] = await Promise.all([
         api.get(`/fields?object_id=${o.id}&environment_id=${environment.id}`),
+        api.get(`/records?object_id=${o.id}&environment_id=${environment.id}&limit=500`),
       ]);
       return { objId: o.id, fields: Array.isArray(flds) ? flds : [], records: (recs.records || []) };
     })).then(results => {

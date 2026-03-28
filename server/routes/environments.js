@@ -14,6 +14,19 @@ router.get('/', (req, res) => {
   const currentTenant = getCurrentTenant();
   const isTenantContext = currentTenant && currentTenant !== 'master';
 
+  // Super admins always see all environments regardless of tenant context
+  if (isSuperAdmin) {
+    const envs = query('environments', () => true)
+      .sort((a, b) => {
+        if (b.is_default && !a.is_default) return 1;
+        if (a.is_default && !b.is_default) return -1;
+        if (a.is_sandbox && !b.is_sandbox) return 1;
+        if (!a.is_sandbox && b.is_sandbox) return -1;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+    return res.json(envs);
+  }
+
   // Tenant context: look up the environment from master client_environments
   // (tenant stores don't always have a populated environments array)
   if (isTenantContext && user?.environment_id) {

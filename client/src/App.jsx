@@ -566,7 +566,7 @@ const ObjectSchemaView = ({ object, allObjects, environmentId, onBack }) => {
   const [search, setSearch] = useState("");
 
   const loadFields = useCallback(async () => {
-    const data = await api.get(`/fields?object_id=${object.id}`);
+    const data = await api.get(`/fields?object_id=${object.id}&environment_id=${environmentId}`);
     setFields(Array.isArray(data) ? data : []);
     setLoading(false);
   }, [object.id]);
@@ -1426,7 +1426,7 @@ function RecordPage({ recordId, objectId, environment, allObjects, onBack, onNav
       if (!obj) { setLoading(false); return; }
       const [recResp, fields] = await Promise.all([
         api.get(`/records/${recordId}`),
-        api.get(`/fields?object_id=${objectId}`),
+        api.get(`/fields?object_id=${objectId}&environment_id=${environment?.id}`),
       ]);
       const record = recResp?.id ? recResp : null;
       if (!record) { setLoading(false); return; }

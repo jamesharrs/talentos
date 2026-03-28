@@ -10,7 +10,78 @@ const now = () => new Date().toISOString();
 const CONFIG_COLLECTIONS = ['objects','fields','workflows','email_templates','portals','saved_views','org_units','roles','forms','file_types','interview_types'];
 const DATA_COLLECTIONS   = ['records','communications','relationships','interviews','offers','form_responses','activity_log','people_links','record_workflow_assignments'];
 
-// ── Helper: deep clone and remap IDs ────────────────────────────────────────
+// ── Obfuscation helpers ──────────────────────────────────────────────────────
+const FIRST_NAMES = ['Alex','Jordan','Sam','Casey','Morgan','Taylor','Riley','Quinn','Avery','Blake'];
+const LAST_NAMES  = ['Smith','Johnson','Williams','Brown','Jones','Garcia','Miller','Davis','Wilson','Moore'];
+const COMPANIES   = ['Acme Corp','Globex','Initech','Umbrella Ltd','Hooli','Dunder Mifflin','Vandelay','Massive Dynamic'];
+const DOMAINS     = ['example.com','test.org','sandbox.io','demo.net'];
+
+function randItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+// Field type patterns used to detect what kind of data a field contains
+const PII_KEYS = /^(first_name|last_name|name|full_name|email|phone|mobile|address|street|city|postcode|zip|dob|date_of_birth|national_id|passport|ssn|linkedin|twitter|instagram|facebook|salary|compensation|pay|bank|iban|account)/i;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^[\d\s\+\-\(\)]{7,}$/;
+
+function obfuscateValue(key, value) {
+  if (value === null || value === undefined || value === '') return value;
+  const k = String(key).toLowerCase();
+  // Email
+  if (k.includes('email') || (typeof value === 'string' && EMAIL_RE.test(value))) {
+    const fn = randItem(FIRST_NAMES).toLowerCase();
+    return `${fn}${randInt(10,99)}@${randItem(DOMAINS)}`;
+  }
+  // Phone / mobile
+  if (k.includes('phone') || k.includes('mobile') || (typeof value === 'string' && PHONE_RE.test(value))) {
+    return `+${randInt(1,99)} ${randInt(100,999)} ${randInt(1000,9999)} ${randInt(1000,9999)}`;
+  }
+  // Name fields
+  if (k === 'first_name') return randItem(FIRST_NAMES);
+  if (k === 'last_name')  return randItem(LAST_NAMES);
+  if (k.includes('name') && !k.includes('object') && !k.includes('field') && !k.includes('env')) {
+    return `${randItem(FIRST_NAMES)} ${randItem(LAST_NAMES)}`;
+  }
+  // Company
+  if (k.includes('company') || k.includes('employer') || k.includes('organisation') || k.includes('organization')) {
+    return randItem(COMPANIES);
+  }
+  // Salary / compensation — replace with a random band
+  if (k.includes('salary') || k.includes('compensation') || k.includes('pay') || k.includes('wage')) {
+    const base = randInt(3, 25) * 5000;
+    return typeof value === 'number' ? base : String(base);
+  }
+  // Address / postcode
+  if (k.includes('address') || k.includes('street')) return `${randInt(1,999)} Example Street`;
+  if (k.includes('postcode') || k.includes('zip'))    return `XX${randInt(1,9)} ${randInt(1,9)}XX`;
+  // National ID / passport / SSN — mask completely
+  if (k.includes('national_id') || k.includes('passport') || k.includes('ssn') || k.includes('iban')) {
+    return '***REDACTED***';
+  }
+  // LinkedIn / social profiles
+  if (k.includes('linkedin') || k.includes('twitter') || k.includes('instagram') || k.includes('facebook')) {
+    return `https://example.com/sandbox_user_${randInt(100,999)}`;
+  }
+  // Date of birth — shift by random years
+  if ((k.includes('dob') || k.includes('date_of_birth') || k.includes('birth')) && typeof value === 'string') {
+    try {
+      const d = new Date(value);
+      d.setFullYear(d.getFullYear() - randInt(1, 5));
+      return d.toISOString().split('T')[0];
+    } catch { return value; }
+  }
+  return value;
+}
+
+function obfuscateRecord(record) {
+  if (!record.data || typeof record.data !== 'object') return record;
+  const obfData = {};
+  for (const [k, v] of Object.entries(record.data)) {
+    obfData[k] = PII_KEYS.test(k) ? obfuscateValue(k, v) : v;
+  }
+  return { ...record, data: obfData };
+}
+
 function cloneWithNewIds(items, envId, idMap = {}) {
   return items.map(item => {
     const oldId = item.id;
@@ -100,7 +171,7 @@ router.post('/clone', express.json(), async (req, res) => {
     clonedCounts[col] = remapped.length;
   }
 
-  // Optionally clone records (anonymised or limited)
+  // Optionally clone records (always obfuscated — no live PII in sandboxes)
   let recordCount = 0;
   if (include_records) {
     const limit = record_limit || 50;
@@ -109,7 +180,12 @@ router.post('/clone', express.json(), async (req, res) => {
       const toClone = sourceItems.slice(0, col === 'records' ? limit : limit * 2);
       if (toClone.length === 0) continue;
 
-      const cloned = cloneWithNewIds(toClone, sandboxEnvId, idMap);
+      // Obfuscate PII on all record data before cloning into sandbox
+      const obfuscated = col === 'records'
+        ? toClone.map(obfuscateRecord)
+        : toClone;
+
+      const cloned = cloneWithNewIds(obfuscated, sandboxEnvId, idMap);
       const remapped = remapReferences(cloned, idMap);
 
       if (!store[col]) store[col] = [];

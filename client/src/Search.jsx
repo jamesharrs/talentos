@@ -242,7 +242,7 @@ export default function SearchPage({ environment, onNavigateToRecord }) {
       // Load all fields first, then set objects so search can't run with empty fields
       const fieldMap = {};
       await Promise.all(objs.map(async obj => {
-        const fs = await api.get(`/fields?object_id=${obj.id}`);
+        const fs = await api.get(`/fields?object_id=${obj.id}&environment_id=${environment.id}`);
         fieldMap[obj.id] = Array.isArray(fs) ? fs : [];
       }));
       setFields(fieldMap);

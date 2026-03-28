@@ -66,7 +66,7 @@ export default function Reports({environment,initialReport}){
 
   useEffect(()=>{
     if(!selObject)return;
-    api.get(`/fields?object_id=${selObject}`).then(d=>{
+    api.get(`/fields?object_id=${selObject}&environment_id=${environment?.id}`).then(d=>{
       const f=Array.isArray(d)?d:[];setFields(f);
       if(!skipReset.current){setSelCols(f.filter(x=>x.show_in_list).map(x=>x.id));setGroupBy("");setSortBy("");setFilters([]);setFormulas([]);setChartX("");setChartY("");setResults(null);setActiveChartFilter(null);}
       skipReset.current=false;

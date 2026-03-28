@@ -675,7 +675,7 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
 
   useEffect(() => {
     if (!objectId) return;
-    api.get(`/fields?object_id=${objectId}`).then(fs => setFields(Array.isArray(fs) ? fs : []));
+    api.get(`/fields?object_id=${objectId}&environment_id=${environment?.id}`).then(fs => setFields(Array.isArray(fs) ? fs : []));
   }, [objectId]);
 
   const addStep = () => {

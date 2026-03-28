@@ -29,10 +29,13 @@ const VALID = [
 router.get('/', (req, res) => {
   const { object_id, environment_id } = req.query;
   if (!object_id) return res.status(400).json({error:'object_id required'});
-  // IMPORTANT: filter by environment_id when provided to prevent sandbox/prod bleed
   const fields = query('fields', f => {
     if (f.object_id !== object_id) return false;
-    if (environment_id && f.environment_id && f.environment_id !== environment_id) return false;
+    // If environment_id provided, only return fields that belong to it
+    // (or legacy fields with no environment_id which are treated as global/system)
+    if (environment_id) {
+      if (f.environment_id && f.environment_id !== environment_id) return false;
+    }
     return true;
   }).sort((a,b) => a.sort_order - b.sort_order);
   res.json(fields);

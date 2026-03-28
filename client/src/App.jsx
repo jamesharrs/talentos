@@ -37,6 +37,7 @@ const Interviews      = lazyWithRetry(() => import("./Interviews.jsx"));
 const OffersModule    = lazyWithRetry(() => import("./Offers.jsx"));
 const SuperAdminConsole = lazyWithRetry(() => import("./SuperAdminConsole.jsx"));
 const AgentsModule      = lazyWithRetry(() => import("./Agents.jsx"));
+const AvailabilityPickerPage = lazyWithRetry(() => import("./AvailabilityPicker.jsx"));
 const IntegrationsPage  = lazyWithRetry(() => import("./IntegrationsSettings.jsx"));
 const HelpPage          = lazyWithRetry(() => import("./Help.jsx"));
 const CompanySetupWizard = lazyWithRetry(() => import("./CompanySetupWizard.jsx"));
@@ -1489,8 +1490,7 @@ function App() {
 
   // Availability picker — public route for interview coordination
   if (window.location.pathname.startsWith('/availability/')) {
-    const AvailabilityPicker = lazy(() => import("./AvailabilityPicker.jsx"));
-    return <Suspense fallback={<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"sans-serif",color:"#9ca3af"}}>Loading…</div>}><AvailabilityPicker/></Suspense>;
+    return <Suspense fallback={<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"sans-serif",color:"#9ca3af"}}>Loading…</div>}><AvailabilityPickerPage/></Suspense>;
   }
 
   // Bot interview route — public, no login required

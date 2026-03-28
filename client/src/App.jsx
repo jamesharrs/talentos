@@ -779,6 +779,8 @@ const EnvironmentBadge = ({ env, selected, onClick }) => (
 
 // ─── Global Search Bar ────────────────────────────────────────────────────────
 const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateToRecord, onCreateRecord, onNavigateToCalendar, historySlot, activeDashTab, onDashboardNav }) => {
+  // userId must be read locally — GlobalSearch is module-level, not inside App()
+  const userId = getSession()?.user?.id || null;
   const [query,       setQuery]       = useState("");
   const [results,     setResults]     = useState([]);
   const [open,        setOpen]        = useState(false);

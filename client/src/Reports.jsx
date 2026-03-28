@@ -74,16 +74,37 @@ export default function Reports({environment,initialReport}){
 
   useEffect(()=>{
     if(!initialReport||!objects.length)return;
-    const obj=objects.find(o=>o.slug===initialReport.object||o.name?.toLowerCase().includes(initialReport.object));
-    if(obj){skipReset.current=true;setSelObject(obj.id);if(initialReport.groupBy)setGroupBy(initialReport.groupBy);if(initialReport.chartType)setChartType(initialReport.chartType);if(initialReport.formulas)setFormulas(initialReport.formulas);if(initialReport.filters)setFilters(initialReport.filters);setPanel("build");setTimeout(()=>runReport(obj.id,initialReport.groupBy),400);}
+    // preset may use objectSlug (from App.jsx handler) or object (legacy)
+    const slug = initialReport.objectSlug || initialReport.object || "";
+    const obj = objects.find(o =>
+      o.slug === slug ||
+      o.id   === (initialReport.objectId || "") ||
+      o.name?.toLowerCase().includes(slug.toLowerCase())
+    );
+    if(obj){
+      skipReset.current=true;
+      setSelObject(obj.id);
+      // support both camelCase (groupBy) and snake_case (group_by) from different callers
+      if(initialReport.groupBy||initialReport.group_by)   setGroupBy(initialReport.groupBy||initialReport.group_by);
+      if(initialReport.chartType||initialReport.chart_type) setChartType(initialReport.chartType||initialReport.chart_type||"bar");
+      if(initialReport.formulas)  setFormulas(initialReport.formulas);
+      if(initialReport.filters)   setFilters(initialReport.filters);
+      setPanel("build");
+      // pass preset values directly so runReport doesn't use stale state closures
+      const presetFilters  = initialReport.filters  || [];
+      const presetGroupBy  = initialReport.groupBy  || initialReport.group_by  || "";
+      const presetFormulas = initialReport.formulas || [];
+      setTimeout(()=>runReport(obj.id, presetGroupBy, presetFilters), 400);
+    }
   },[initialReport,objects]);
 
-  const runReport=useCallback(async(objectId,grpBy)=>{
+  const runReport=useCallback(async(objectId,grpBy,overrideFilters)=>{
     const oid=objectId||selObject;if(!oid||!environment?.id)return;setRunning(true);
     try{
       const res=await api.get(`/records?object_id=${oid}&environment_id=${environment.id}&limit=500`);
       const raw=Array.isArray(res?.records)?res.records:[];let rows=raw.map(r=>({_id:r.id,_createdAt:r.created_at,...r.data}));
-      const af=filters.filter(f=>f.field&&f.op);
+      // use overrideFilters when called from initialReport effect (state not yet updated)
+      const af=(overrideFilters||filters).filter(f=>f.field&&f.op);
       if(af.length)rows=rows.filter(row=>af.every(f=>{const v=String(row[f.field]||"").toLowerCase(),fv=String(f.value||"").toLowerCase();switch(f.op){case"contains":return v.includes(fv);case"is":return v===fv;case"is not":return v!==fv;case"is empty":return!row[f.field];case"is not empty":return!!row[f.field];case">":return parseFloat(row[f.field])>parseFloat(f.value);case"<":return parseFloat(row[f.field])<parseFloat(f.value);case"≥":return parseFloat(row[f.field])>=parseFloat(f.value);case"≤":return parseFloat(row[f.field])<=parseFloat(f.value);case"=":return parseFloat(row[f.field])===parseFloat(f.value);case"includes":return(Array.isArray(row[f.field])?row[f.field]:[row[f.field]]).some(x=>String(x).toLowerCase()===fv);default:return true;}}));
       const gb=grpBy||groupBy;let grouped=rows;
       if(gb){const groups={};rows.forEach(r=>{const k=String(r[gb]||"Unknown");if(!groups[k])groups[k]=[];groups[k].push(r);});grouped=Object.entries(groups).map(([key,members])=>({_group:key,_count:members.length,...members.reduce((acc,m)=>{Object.keys(m).forEach(k=>{if(typeof m[k]==="number")acc[k]=(acc[k]||0)+m[k];});return acc;},{})}))}

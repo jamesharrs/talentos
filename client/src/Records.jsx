@@ -7131,6 +7131,14 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
     return recs;
   }, [records, activeFilters, fields, sortBy, sortDir, linkedJobs]);
 
+  // Re-broadcast list context whenever displayed records change (filters applied, sort changed etc.)
+  useEffect(() => {
+    if (!displayedRecords.length && !records.length) return;
+    window.dispatchEvent(new CustomEvent("talentos:list-context", {
+      detail: buildListContext(object, displayedRecords, displayedRecords.length, fields)
+    }));
+  }, [displayedRecords, fields]);
+
   const handleLoadView = (view) => {
     skipColRestoreRef.current = true;
     if (view.filters)           setActiveFilters(view.filters);

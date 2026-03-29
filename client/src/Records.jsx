@@ -4659,7 +4659,7 @@ const StableMatchPanel = memo(({ recordId, objectName, environment, record, onNa
 
 
 // ── PanelCard — defined at module level (uses useRef, can't be nested) ──
-const PanelCard = ({ id, compact, openPanels, setOpenPanels, openPanelsKey, PanelContent, startPanelDrag, overSlot, overZone,
+const PanelCard = ({ id, compact, openPanels, setOpenPanels, openPanelsKey, renderPanel, startPanelDrag, overSlot, overZone,
   draggingPanel, notes, attachments, clearZone, reportZone }) => {
   const meta = PANEL_META[id];
   if (!meta) return null;
@@ -4672,7 +4672,7 @@ const PanelCard = ({ id, compact, openPanels, setOpenPanels, openPanelsKey, Pane
 
   const cardRef = useRef(null);
 
-  if (compact) return <div style={{ padding:"16px" }}><PanelContent id={id}/></div>;
+  if (compact) return <div style={{ padding:"16px" }}>{renderPanel({id})}</div>;
 
   const borderColor = zone === "middle" ? C.accent : C.border;
   const shadow = zone === "middle"
@@ -4741,13 +4741,13 @@ const PanelCard = ({ id, compact, openPanels, setOpenPanels, openPanelsKey, Pane
           </span>
         </div>
       </div>
-      {isOpen && <div style={{ padding:"16px", position:"relative", zIndex:2 }}><PanelContent id={id}/></div>}
+      {isOpen && <div style={{ padding:"16px", position:"relative", zIndex:2 }}>{renderPanel({id})}</div>}
     </div>
   );
 };
 
 // ── Tabbed group card — defined at module level (hooks must not be in nested functions) ──
-const GroupCard = ({ ids, overSlot, overZone, openPanels, setOpenPanels, openPanelsKey, panelOrder, savePanelOrder, removePanel, PanelContent, startPanelDrag }) => {
+const GroupCard = ({ ids, overSlot, overZone, openPanels, setOpenPanels, openPanelsKey, panelOrder, savePanelOrder, removePanel, renderPanel, startPanelDrag }) => {
   const repId   = ids[0];
   const cardRef = useRef(null);
   const tabStripRef = useRef(null);
@@ -4975,7 +4975,7 @@ const GroupCard = ({ ids, overSlot, overZone, openPanels, setOpenPanels, openPan
       {/* Active tab content */}
       {isGroupOpen && (
         <div style={{ padding:"16px" }}>
-          <PanelContent id={safeActive}/>
+          {renderPanel({id:safeActive})}
         </div>
       )}
     </div>
@@ -5773,8 +5773,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   );
 
 
-  // ── Panel content renderer ── (useCallback so identity is stable between renders)
-  const PanelContent = useCallback(({ id }) => {
+  // ── Panel content renderer ── (lowercase = render function, NOT a React component)
+  const renderPanel = useCallback(({ id }) => {
     if (id==="comms") return canRecord('record_view_comms') ? (
       <CommunicationsPanel record={record} environment={environment} externalCompose={composeType} onExternalComposeDone={()=>setComposeType(null)} initialJobContext={activeJobContext}/>
     ) : <AccessDeniedPanel label="Communications"/>;
@@ -5965,7 +5965,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         </div>
         <div style={{ flex:1, overflow:"auto", padding:"24px" }}>
           {tab==="fields"  && fieldsPanelJSX}
-          {tab!=="fields"  && <PanelContent id={tab}/>}
+          {tab!=="fields"  && renderPanel({id:tab})}
         </div>
       </div>
     </>
@@ -6374,13 +6374,13 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
               if (validIds.length === 0) return null;
               if (validIds.length === 1) {
                 const id = validIds[0];
-                return <div key={id}>{DropIndicator({beforeRepId:id, afterRepId:prevRepId})}<PanelCard id={id} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} PanelContent={PanelContent} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/></div>;
+                return <div key={id}>{DropIndicator({beforeRepId:id, afterRepId:prevRepId})}<PanelCard id={id} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} renderPanel={renderPanel} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/></div>;
               }
               const repId = validIds[0];
               return (
                 <div key={repId}>
                   {DropIndicator({beforeRepId:repId, afterRepId:prevRepId})}
-                  <GroupCard ids={validIds} overSlot={overSlot} overZone={overZone} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} panelOrder={panelOrder} savePanelOrder={savePanelOrder} removePanel={removePanel} PanelContent={PanelContent} startPanelDrag={startPanelDrag}/>
+                  <GroupCard ids={validIds} overSlot={overSlot} overZone={overZone} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} panelOrder={panelOrder} savePanelOrder={savePanelOrder} removePanel={removePanel} renderPanel={renderPanel} startPanelDrag={startPanelDrag}/>
                 </div>
               );
             }
@@ -6388,7 +6388,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
             return (
               <div key={slot}>
                 {DropIndicator({beforeRepId:slot, afterRepId:prevRepId})}
-                <PanelCard id={slot} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} PanelContent={PanelContent} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/>
+                <PanelCard id={slot} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} renderPanel={renderPanel} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/>
               </div>
             );
           })}

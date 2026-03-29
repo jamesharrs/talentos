@@ -3092,13 +3092,13 @@ function PlatformUserSection({ record }) {
     </div>
   );
 
-  if (!open) return Header();
-  if (loading) return <>{Header()}<div style={{ fontSize:12, color:C.text3, padding:"6px 0" }}>Loading…</div></>;
+  if (!open) return <Header/>;
+  if (loading) return <><Header/><div style={{ fontSize:12, color:C.text3, padding:"6px 0" }}>Loading…</div></>;
 
   // ── No linked user ──
   if (!user) return (
     <>
-      {Header()}
+      <Header/>
       <div style={{ background:"#f8f9fc", borderRadius:12, border:`1px solid ${C.border}`, overflow:"hidden" }}>
         {!creating ? (
           <div style={{ padding:"18px 16px", textAlign:"center" }}>
@@ -3164,7 +3164,7 @@ function PlatformUserSection({ record }) {
 
   return (
     <>
-      {Header()}
+      <Header/>
       <div style={{ background:"#f8f9fc", borderRadius:12, overflow:"hidden", border:`1px solid ${C.border}` }}>
         {editing ? (
           <div style={{ padding:"14px 16px", display:"flex", flexDirection:"column", gap:10 }}>

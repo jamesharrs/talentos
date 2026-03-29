@@ -724,7 +724,7 @@ const DatasetPicker = ({ field, value, onChange }) => {
     if (!field.dataset_id) return;
     const cacheKey = field.dataset_id;
     if (_datasetCache[cacheKey]) { setOptions(_datasetCache[cacheKey]); return; }
-    tFetch(`/datasets/${cacheKey}`).then(r=>r.json()).then(d => {
+    tFetch(`/api/datasets/${cacheKey}`).then(r=>r.json()).then(d => {
       const opts = (d.options||[]).filter(o=>o.is_active!==false).map(o=>({ id: o.id, label: o.label, color: o.color }));
       _datasetCache[cacheKey] = opts;
       setOptions(opts);
@@ -812,7 +812,7 @@ const SkillsPicker = ({ field, value, onChange, environment }) => {
     if (!envId) return;
     const cacheKey = `skills_${envId}_${(allowedCats||[]).join(",")}`;
     if (_skillsCache[cacheKey]) { setSkills(_skillsCache[cacheKey]); return; }
-    tFetch(`/enterprise/skills?environment_id=${envId}`).then(r=>r.json()).then(d => {
+    tFetch(`/api/enterprise/skills?environment_id=${envId}`).then(r=>r.json()).then(d => {
       let all = Array.isArray(d) ? d.filter(s=>s.is_active!==false) : [];
       if (allowedCats) all = all.filter(s => allowedCats.includes(s.category));
       _skillsCache[cacheKey] = all;
@@ -2405,7 +2405,7 @@ function StagePill({ linkInfo, onStageChange }) {
     setSaving(true);
     setOpen(false);
     try {
-      await tFetch(`/workflows/people-links/${linkInfo.link_id}`, {
+      await tFetch(`/api/workflows/people-links/${linkInfo.link_id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stage_id: step.id, stage_name: step.name }),
@@ -3273,14 +3273,14 @@ function ReportingPanel({ record, environment }) {
   const load = useCallback(async () => {
     if (!record?.id || !environment?.id) return;
     const [r, pplObj] = await Promise.all([
-      tFetch(`/relationships?environment_id=${environment.id}&record_id=${record.id}`).then(r=>r.json()),
-      tFetch(`/objects?environment_id=${environment.id}`).then(r=>r.json()),
+      tFetch(`/api/relationships?environment_id=${environment.id}&record_id=${record.id}`).then(r=>r.json()),
+      tFetch(`/api/objects?environment_id=${environment.id}`).then(r=>r.json()),
     ]);
     setRels(Array.isArray(r) ? r : []);
     // Find people objects with relationships enabled
     const personObj = (Array.isArray(pplObj) ? pplObj : []).find(o => o.slug === "people");
     if (personObj) {
-      const ppl = await tFetch(`/records?object_id=${personObj.id}&environment_id=${environment.id}&limit=200`).then(r=>r.json());
+      const ppl = await tFetch(`/api/records?object_id=${personObj.id}&environment_id=${environment.id}&limit=200`).then(r=>r.json());
       setAllPeople(Array.isArray(ppl?.records) ? ppl.records : []);
     }
   }, [record?.id, environment?.id]);
@@ -3312,7 +3312,7 @@ function ReportingPanel({ record, environment }) {
   };
 
   const handleDelete = async (id) => {
-    await tFetch(`/relationships/${id}`, { method:"DELETE" });
+    await tFetch(`/api/relationships/${id}`, { method:"DELETE" });
     load();
   };
 
@@ -3557,7 +3557,7 @@ const JobQuestionsPanel = ({ record, environment }) => {
 
   const save = async (ids) => {
     setSaving(true);
-    await tFetch(`/question-bank/jobs/${record.id}`, {
+    await tFetch(`/api/question-bank/jobs/${record.id}`, {
       method:"PUT", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ question_ids: ids }),
     });
@@ -3584,7 +3584,7 @@ const JobQuestionsPanel = ({ record, environment }) => {
     const d = record.data || {};
     setGenerating(true);
     try {
-      const res = await tFetch(`/question-bank/jobs/${record.id}/generate`, {
+      const res = await tFetch(`/api/question-bank/jobs/${record.id}/generate`, {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ job_title: d.job_title||d.name, department: d.department, description: d.description, skills: d.skills, count: genCount }),
       });
@@ -3616,7 +3616,7 @@ const JobQuestionsPanel = ({ record, environment }) => {
       // Assign library questions to the job
       if (libraryIds.length) {
         const ids = [...assigned.map(q=>q.id), ...libraryIds];
-        await tFetch(`/question-bank/jobs/${record.id}`, {
+        await tFetch(`/api/question-bank/jobs/${record.id}`, {
           method:"PUT", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({ question_ids: ids }),
         });
@@ -3624,7 +3624,7 @@ const JobQuestionsPanel = ({ record, environment }) => {
 
       // Job-only questions: save directly on the job (no library entry)
       if (jobOnlyQs.length) {
-        await tFetch(`/question-bank/jobs/${record.id}/direct`, {
+        await tFetch(`/api/question-bank/jobs/${record.id}/direct`, {
           method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({ questions: jobOnlyQs }),
         });
@@ -3708,7 +3708,7 @@ const JobQuestionsPanel = ({ record, environment }) => {
                           <button onClick={async ()=>{
                             if (q._job_only) {
                               // Remove job-only question via the direct endpoint
-                              await tFetch(`/question-bank/jobs/${record.id}/direct/${q.id}`, {method:"DELETE"});
+                              await tFetch(`/api/question-bank/jobs/${record.id}/direct/${q.id}`, {method:"DELETE"});
                               load();
                             } else {
                               const ids=assigned.filter(a=>a.id!==q.id&&!a._job_only).map(a=>a.id);
@@ -3824,7 +3824,7 @@ const CoordinationPanel = ({ record, environment }) => {
   const appUrl = window.location.origin;
   const load = useCallback(async () => {
     setLoading(true);
-    try { const r = await tFetch(`/interview-coordinator/runs?candidate_id=${record.id}`).then(r=>r.json()); setRuns(Array.isArray(r)?r:[]); } catch(e){}
+    try { const r = await tFetch(`/api/interview-coordinator/runs?candidate_id=${record.id}`).then(r=>r.json()); setRuns(Array.isArray(r)?r:[]); } catch(e){}
     setLoading(false);
   }, [record.id]);
   useEffect(() => { load(); }, [load]);
@@ -3953,7 +3953,7 @@ const FormsPanel = ({ record, environment, objectSlug }) => {
   const handleSubmit = async () => {
     if (!activeForm) return;
     setSubmitting(true);
-    const res = await tFetch(`/forms/${activeForm.id}/submissions`, {
+    const res = await tFetch(`/api/forms/${activeForm.id}/submissions`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ record_id:record.id, record_name:record.data?.first_name ? `${record.data.first_name} ${record.data.last_name||''}`.trim() : record.id, data: formData, environment_id: environment?.id, submitted_by:'Admin' }),
     });
@@ -5515,7 +5515,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const handleCvParse = async (att) => {
     setCvParseAtt(att); setCvParsing(true); setCvParseResult(null);
     try {
-      const res  = await tFetch(`/cv-parse`, {
+      const res  = await tFetch(`/api/cv-parse`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ attachment_id: att.id }),

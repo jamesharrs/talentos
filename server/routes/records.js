@@ -8,6 +8,15 @@ const { hasPermission, hasGlobalAction, applyFieldVisibility, applyFieldVisibili
 let agentEngine = null;
 const getEngine = () => { if (!agentEngine) agentEngine = require('../agent-engine'); return agentEngine; };
 
+// Lazy-load workflow trigger to avoid circular deps
+let _triggerWorkflows = null;
+const fireTrigger = (...args) => {
+  if (!_triggerWorkflows) {
+    try { _triggerWorkflows = require('./workflows').triggerWorkflows; } catch(e) {}
+  }
+  if (_triggerWorkflows) _triggerWorkflows(...args).catch(()=>{});
+};
+
 
 // Resolve object slug for permission checks
 function getObjectSlug(objectId) {
@@ -238,8 +247,9 @@ router.post('/', (req, res) => {
   const resolvedData = resolveAutoNumbers(object_id, data);
   const record = insert('records', {id:uuidv4(),object_id,environment_id,data:resolvedData,org_unit_id,created_by:created_by||null,created_at:new Date().toISOString(),updated_at:new Date().toISOString(),deleted_at:null});
   insert('activity', {id:uuidv4(),environment_id,record_id:record.id,object_id,action:'created',actor:created_by||null,changes:resolvedData,created_at:new Date().toISOString()});
-  // Fire agent triggers
+  // Fire agent triggers + workflow automation triggers
   getEngine().fireEventTrigger('record_created', record, null).catch(()=>{});
+  fireTrigger('record_created', record, []);
   res.status(201).json(record);
 });
 
@@ -264,6 +274,9 @@ router.patch('/:id', (req, res) => {
   const changedFields = Object.keys(data || {});
   getEngine().fireEventTrigger('record_updated', updated, changedFields).catch(()=>{});
   getEngine().fireEventTrigger('stage_changed', updated, changedFields).catch(()=>{});
+  fireTrigger('record_updated', updated, changedFields);
+  // Fire stage_changed separately if status field changed
+  if (changedFields.includes('status')) fireTrigger('stage_changed', updated, changedFields);
   res.json(updated);
 });
 

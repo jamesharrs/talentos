@@ -131,6 +131,197 @@ async function executeAgentActions(agent, record_id, record, environment_id) {
   return logs;
 }
 
+// ── Trigger & Condition helpers ───────────────────────────────────────────────
+
+/**
+ * Evaluate a single step condition against a record.
+ * Returns true if the step should run (no condition, or condition passes).
+ */
+function evaluateCondition(condition, record) {
+  if (!condition || !condition.field) return true; // no condition = always run
+  const val = String(record.data?.[condition.field] ?? '').toLowerCase();
+  const target = String(condition.value ?? '').toLowerCase();
+  switch (condition.operator) {
+    case 'equals':          return val === target;
+    case 'not_equals':      return val !== target;
+    case 'contains':        return val.includes(target);
+    case 'not_contains':    return !val.includes(target);
+    case 'is_empty':        return !record.data?.[condition.field];
+    case 'is_not_empty':    return !!record.data?.[condition.field];
+    case 'greater_than':    return parseFloat(val) > parseFloat(target);
+    case 'less_than':       return parseFloat(val) < parseFloat(target);
+    default:                return true;
+  }
+}
+
+/**
+ * Check if a workflow's trigger matches an incoming event.
+ * event: 'record_created' | 'record_updated' | 'field_changed' | 'stage_changed'
+ * changedFields: array of field api_keys that changed (for field_changed trigger)
+ */
+function matchesTrigger(wf, event, record, changedFields) {
+  const t = wf.trigger_type;
+  if (!t || t === 'manual') return false;
+
+  if (t === 'record_created' && event === 'record_created') return true;
+
+  if (t === 'record_updated' && event === 'record_updated') return true;
+
+  if (t === 'field_changed' && event === 'record_updated') {
+    const watchField = wf.trigger_config?.field;
+    const watchValue = wf.trigger_config?.value;
+    if (!watchField) return false;
+    if (!(changedFields || []).includes(watchField)) return false;
+    if (watchValue) {
+      const actualVal = String(record.data?.[watchField] ?? '').toLowerCase();
+      return actualVal === String(watchValue).toLowerCase();
+    }
+    return true;
+  }
+
+  if (t === 'stage_changed' && event === 'stage_changed') {
+    const watchField = wf.trigger_config?.field || 'status';
+    const watchValue = wf.trigger_config?.value;
+    if (!(changedFields || []).includes(watchField)) return false;
+    if (watchValue) {
+      const actualVal = String(record.data?.[watchField] ?? '').toLowerCase();
+      return actualVal === String(watchValue).toLowerCase();
+    }
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Fired from the records route whenever a record is created or updated.
+ * Runs any matching automation workflows for the object.
+ */
+async function triggerWorkflows(event, record, changedFields) {
+  ensureTables();
+  const store = getStore();
+  const wfs = (store.workflows || []).filter(w =>
+    !w.deleted_at &&
+    w.active &&
+    w.workflow_type === 'automation' &&
+    w.object_id === record.object_id &&
+    w.environment_id === record.environment_id &&
+    matchesTrigger(w, event, record, changedFields)
+  );
+  if (!wfs.length) return;
+
+  for (const wf of wfs) {
+    try {
+      const steps = (store.workflow_steps || [])
+        .filter(s => s.workflow_id === wf.id)
+        .sort((a, b) => a.order - b.order);
+
+      // Re-fetch record so it's current after any previous step mutations
+      const freshRecord = () => findOne('records', r => r.id === record.id) || record;
+      let currentRecord = freshRecord();
+
+      for (const step of steps) {
+        // Evaluate step condition
+        if (!evaluateCondition(step.condition, currentRecord)) {
+          insert('workflow_runs', { id: uuidv4(), workflow_id: wf.id, record_id: record.id, step_id: step.id, type: step.type || 'placeholder', status: 'skipped', output: `Condition not met: ${step.condition?.field} ${step.condition?.operator} ${step.condition?.value}`, error: null, triggered_by: event, created_at: new Date().toISOString() });
+          continue;
+        }
+
+        const actions = stepActions(step);
+        if (actions.length === 0) {
+          insert('workflow_runs', { id: uuidv4(), workflow_id: wf.id, record_id: record.id, step_id: step.id, type: 'placeholder', status: 'done', output: step.name ? `Passed: ${step.name}` : 'Stage passed', error: null, triggered_by: event, created_at: new Date().toISOString() });
+          continue;
+        }
+
+        const actionOutputs = [];
+        for (const action of actions) {
+          const cfg = action.config || {};
+          let output = '', status = 'done';
+          try {
+            if (action.type === 'stage_change') {
+              const newData = { ...currentRecord.data, status: cfg.to_stage };
+              update('records', r => r.id === record.id, { data: newData });
+              currentRecord = freshRecord();
+              output = `Stage → ${cfg.to_stage}`;
+            } else if (action.type === 'update_field') {
+              const newData = { ...currentRecord.data, [cfg.field_key || cfg.field]: cfg.field_value || cfg.value };
+              update('records', r => r.id === record.id, { data: newData });
+              currentRecord = freshRecord();
+              output = `${cfg.field_key || cfg.field} → ${cfg.field_value || cfg.value}`;
+            } else if (action.type === 'ai_prompt') {
+              const prompt = (cfg.prompt || '').replace(/\{\{(\w+)\}\}/g, (_, k) => currentRecord.data?.[k] ?? `{{${k}}}`);
+              const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+                body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 500, messages: [{ role: 'user', content: `Record:\n${JSON.stringify(currentRecord.data,null,2)}\n\n${prompt}` }] })
+              });
+              const aiData = await resp.json();
+              const aiOut = aiData.content?.[0]?.text || '';
+              if (cfg.output_field && aiOut) {
+                const newData = { ...currentRecord.data, [cfg.output_field]: aiOut };
+                update('records', r => r.id === record.id, { data: newData });
+                currentRecord = freshRecord();
+              }
+              output = aiOut.slice(0, 200);
+            } else if (action.type === 'send_email') {
+              const s2 = getStore();
+              const resolved = resolveRecipient(cfg, currentRecord, s2);
+              if (resolved.error) { output = `⚠ ${resolved.error}`; status = 'warning'; }
+              else {
+                const subject = (cfg.subject || '').replace(/\{\{(\w+)\}\}/g, (_, k) => currentRecord.data?.[k] ?? `{{${k}}}`);
+                const body    = (cfg.body    || '').replace(/\{\{(\w+)\}\}/g, (_, k) => currentRecord.data?.[k] ?? `{{${k}}}`);
+                try {
+                  const msg = require('../services/messaging');
+                  for (const r of resolved.emails) await msg.sendEmail({ to: r.email, subject, text: body, html: body.replace(/\n/g,'<br>') });
+                  output = `Email → ${resolved.emails.map(r=>r.email).join(', ')}`;
+                } catch(e) { output = `[Sim] Email → ${resolved.emails.map(r=>r.email).join(', ')}`; }
+              }
+            } else if (action.type === 'webhook') {
+              await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ record_id: record.id, event, timestamp: new Date().toISOString() }) }).catch(()=>{});
+              output = `POST → ${cfg.url}`;
+            } else if (action.type === 'run_agent') {
+              const agentId = cfg.agent_id;
+              if (!agentId) { output = '⚠ No agent selected'; status = 'warning'; }
+              else {
+                const agent = findOne('agents', a => a.id === agentId && !a.deleted_at);
+                if (!agent) { output = `⚠ Agent not found`; status = 'warning'; }
+                else {
+                  const logs = await executeAgentActions(agent, record.id, currentRecord, wf.environment_id);
+                  output = logs.map(l => l.step).join(' | ');
+                  status = logs.some(l => l.step?.startsWith('⚠')) ? 'warning' : 'done';
+                }
+              }
+            } else {
+              output = `${action.type} (auto)`;
+            }
+          } catch(err) { output = `Error: ${err.message}`; status = 'error'; }
+          actionOutputs.push({ type: action.type, output, status });
+        }
+
+        insert('workflow_runs', {
+          id: uuidv4(), workflow_id: wf.id, record_id: record.id, step_id: step.id,
+          type: step.automation_type || 'auto',
+          status: actionOutputs.some(a => a.status==='error') ? 'error' : actionOutputs.some(a => a.status==='warning') ? 'warning' : 'done',
+          output: actionOutputs.map(a => a.output).join(' → '),
+          error: null, triggered_by: event, created_at: new Date().toISOString()
+        });
+      }
+      // Debounced Postgres sync after all steps
+      try {
+        const pg = require('../db/postgres');
+        if (pg.isEnabled()) {
+          const { getCurrentTenant } = require('../db/init');
+          const tenant = getCurrentTenant() || 'master';
+          await pg.saveCollection(tenant, 'workflow_runs', getStore().workflow_runs);
+          await pg.saveCollection(tenant, 'records',      getStore().records);
+        }
+      } catch(e) {}
+    } catch(err) {
+      console.error(`[triggerWorkflows] workflow ${wf.id} error:`, err.message);
+    }
+  }
+}
+
 // Ensure tables exist
 const ensureTables = () => {
   const store = getStore();
@@ -282,6 +473,15 @@ router.post('/:id/run', async (req, res) => {
   for (const step of steps) {
     const stepResult = { step_id: step.id, type: step.automation_type || 'placeholder', name: step.name || '', status: 'pending', output: null, error: null };
     try {
+      // Check step condition before running
+      if (!evaluateCondition(step.condition, record)) {
+        stepResult.status = 'skipped';
+        stepResult.output = `Condition not met: ${step.condition?.field} ${step.condition?.operator} "${step.condition?.value}"`;
+        runLog.push(stepResult);
+        insert('workflow_runs', { id: uuidv4(), workflow_id: wf.id, record_id, step_id: step.id, type: step.type, status: 'skipped', output: stepResult.output, error: null, created_at: new Date().toISOString() });
+        continue;
+      }
+
       const actions = stepActions(step);
 
       // Placeholder step — no actions
@@ -670,3 +870,4 @@ router.delete('/people-links/:id', (req, res) => {
 });
 
 module.exports = router;
+module.exports.triggerWorkflows = triggerWorkflows;

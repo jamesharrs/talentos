@@ -36,6 +36,7 @@ const PATHS = {
   copy:       "M8 4H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2M8 4a2 2 0 012-2h4a2 2 0 012 2M8 4h8",
   eye:        "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 100 6 3 3 0 000-6z",
   workflow:   "M22 12h-4l-3 9L9 3l-3 9H2",
+  chevD:      "M6 9l6 6 6-6",
   user:       "M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z",
   briefcase:  "M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2",
   settings:   "M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z",
@@ -62,6 +63,15 @@ const AUTOMATION_TYPES = [
 
 // Keep STEP_TYPES as alias for display in run results etc.
 const STEP_TYPES = AUTOMATION_TYPES;
+
+// ─── Trigger type definitions ─────────────────────────────────────────────────
+const TRIGGER_TYPES = [
+  { value: "manual",         label: "Manual only",       icon: "play",       color: "#9ca3af", desc: "Run this workflow by hand from the Run panel or record view" },
+  { value: "record_created", label: "Record created",    icon: "plus",       color: "#0ca678", desc: "Fires whenever a new record is created for this object" },
+  { value: "record_updated", label: "Record updated",    icon: "edit",       color: "#3b5bdb", desc: "Fires whenever any field on a record is saved" },
+  { value: "field_changed",  label: "Field changes to",  icon: "tag",        color: "#f59f00", desc: "Fires when a specific field changes, optionally to a specific value" },
+  { value: "stage_changed",  label: "Stage changes to",  icon: "arrowRight", color: "#7c3aed", desc: "Fires when the status/stage field is updated, optionally to a specific value" },
+];
 
 const automationDef = (type) => AUTOMATION_TYPES.find(s => s.type === type);
 const stepDef = (type) => automationDef(type) || { type:"placeholder", label:"Stage", icon:"chevRight", color:"#9ca3af", desc:"Process stage" };
@@ -445,6 +455,36 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
         </div>
       </div>
 
+      {/* ── Step Condition ── */}
+      <div style={{ padding: "6px 12px 0", background: step.condition?.field ? "#fffbeb" : "transparent", borderTop: step.condition?.field ? `1px solid #fde68a` : "none" }}>
+        {step.condition?.field ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0" }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#b45309", background: "#fef3c7", borderRadius: 5, padding: "2px 6px" }}>CONDITION</span>
+            <select value={step.condition?.field || ""} onChange={e => onChange({ ...step, condition: { ...step.condition, field: e.target.value } })}
+              style={{ fontSize: 11, padding: "3px 7px", border: `1px solid ${C.border}`, borderRadius: 6, fontFamily: F, outline: "none", background: "white", color: C.text1 }}>
+              <option value="">Choose field…</option>
+              {fields.map(f => <option key={f.api_key} value={f.api_key}>{f.name}</option>)}
+            </select>
+            <select value={step.condition?.operator || "equals"} onChange={e => onChange({ ...step, condition: { ...step.condition, operator: e.target.value } })}
+              style={{ fontSize: 11, padding: "3px 7px", border: `1px solid ${C.border}`, borderRadius: 6, fontFamily: F, outline: "none", background: "white", color: C.text1 }}>
+              {[["equals","equals"],["not_equals","not equals"],["contains","contains"],["not_contains","not contains"],["is_empty","is empty"],["is_not_empty","is not empty"],["greater_than",">"],["less_than","<"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+            </select>
+            {!["is_empty","is_not_empty"].includes(step.condition?.operator||"equals") && (
+              <input value={step.condition?.value || ""} onChange={e => onChange({ ...step, condition: { ...step.condition, value: e.target.value } })} placeholder="value…"
+                style={{ flex: 1, fontSize: 11, padding: "3px 8px", border: `1px solid ${C.border}`, borderRadius: 6, fontFamily: F, outline: "none", color: C.text1 }}/>
+            )}
+            <button onClick={() => onChange({ ...step, condition: {} })} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex", color: C.text3 }} title="Remove condition">
+              <Ic n="x" s={11}/>
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => onChange({ ...step, condition: { field: "", operator: "equals", value: "" } })}
+            style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 0", background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 10, fontWeight: 600, fontFamily: F, marginBottom: 2 }}>
+            <Ic n="plus" s={9}/> Add condition
+          </button>
+        )}
+      </div>
+
       {/* ── Action list ── */}
       <div style={{ padding: "8px 12px 10px", borderTop: `1px solid ${firstAuto ? firstAuto.color+"20" : C.border}`, background: firstAuto ? `${firstAuto.color}04` : "transparent", display:"flex", flexDirection:"column", gap:8 }}>
 
@@ -658,6 +698,8 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
   const [desc, setDesc]       = useState(workflow?.description || "");
   const [wfType, setWfType]   = useState(workflow?.workflow_type || "automation");
   const [sharing, setSharing] = useState(workflow?.sharing || { visibility: "private", user_ids: [], group_ids: [] });
+  const [triggerType, setTriggerType] = useState(workflow?.trigger_type || "manual");
+  const [triggerConfig, setTriggerConfig] = useState(workflow?.trigger_config || {});
   const [steps, setSteps]     = useState(workflow?.steps || []);
   const [saving, setSaving]   = useState(false);
   const [fields, setFields]   = useState([]);
@@ -700,9 +742,9 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
     try {
       let wf;
       if (workflow?.id) {
-        wf = await api.patch(`/workflows/${workflow.id}`, { name, object_id: objectId, description: desc, workflow_type: wfType, sharing });
+        wf = await api.patch(`/workflows/${workflow.id}`, { name, object_id: objectId, description: desc, workflow_type: wfType, trigger_type: triggerType, trigger_config: triggerConfig, sharing });
       } else {
-        wf = await api.post("/workflows", { name, object_id: objectId, description: desc, environment_id: environment.id, workflow_type: wfType, sharing });
+        wf = await api.post("/workflows", { name, object_id: objectId, description: desc, environment_id: environment.id, workflow_type: wfType, trigger_type: triggerType, trigger_config: triggerConfig, sharing });
       }
       if (!wf?.id) throw new Error("Server did not return a workflow ID");
       await api.put(`/workflows/${wf.id}/steps`, { steps: steps.map(migrateStep) });
@@ -782,6 +824,49 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
               <SharePicker value={sharing} onChange={setSharing} environmentId={environment?.id}/>
             </div>
           </div>
+
+          {/* ── Trigger ── (automation workflows only) */}
+          {wfType === "automation" && (() => {
+            const tDef = TRIGGER_TYPES.find(t => t.value === triggerType) || TRIGGER_TYPES[0];
+            return (
+              <div style={{ background: C.surface, borderRadius: 14, border: `1.5px solid ${tDef.color}40`, overflow: "hidden" }}>
+                {/* Header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: `${tDef.color}08` }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: tDef.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Ic n={tDef.icon} s={13} c="white"/>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: C.text1 }}>Trigger</div>
+                    <div style={{ fontSize: 11, color: C.text3 }}>When should this workflow run automatically?</div>
+                  </div>
+                </div>
+                {/* Trigger picker */}
+                <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {TRIGGER_TYPES.map(t => (
+                      <button key={t.value} onClick={() => { setTriggerType(t.value); setTriggerConfig({}); }}
+                        style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8, border: `1.5px solid ${triggerType===t.value ? t.color : C.border}`, background: triggerType===t.value ? `${t.color}12` : "transparent", color: triggerType===t.value ? t.color : C.text3, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: F, transition: "all .1s" }}>
+                        <Ic n={t.icon} s={10}/>{t.label}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Field/value config for field_changed and stage_changed */}
+                  {(triggerType === "field_changed" || triggerType === "stage_changed") && (
+                    <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                      <select value={triggerConfig.field || ""} onChange={e => setTriggerConfig(c => ({ ...c, field: e.target.value }))}
+                        style={{ flex: 1, padding: "7px 10px", border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, fontFamily: F, outline: "none", background: "white", color: C.text1 }}>
+                        <option value="">Any field</option>
+                        {fields.map(f => <option key={f.api_key} value={f.api_key}>{f.name}</option>)}
+                      </select>
+                      <input value={triggerConfig.value || ""} onChange={e => setTriggerConfig(c => ({ ...c, value: e.target.value }))} placeholder="Optional: only when value equals…"
+                        style={{ flex: 1.5, boxSizing: "border-box", padding: "7px 10px", border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, fontFamily: F, outline: "none", color: C.text1 }}/>
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11, color: C.text3 }}>{tDef.desc}</div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Steps */}
           <div>
@@ -878,8 +963,8 @@ const RunPanel = ({ workflow, environment, objects, onClose }) => {
     setRunning(false);
   };
 
-  const statusColor = (s) => s === "done" ? C.green : s === "error" ? C.red : C.orange;
-  const statusBg    = (s) => s === "done" ? C.greenLight : s === "error" ? C.redLight : C.orangeLight;
+  const statusColor = (s) => s === "done" ? C.green : s === "error" ? C.red : s === "skipped" ? C.text3 : C.orange;
+  const statusBg    = (s) => s === "done" ? C.greenLight : s === "error" ? C.redLight : s === "skipped" ? "#f3f4f6" : C.orangeLight;
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -960,7 +1045,7 @@ const RunPanel = ({ workflow, environment, objects, onClose }) => {
                     <div style={{ padding: "10px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
                       {r.result.steps?.map((step, j) => (
                         <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 10px", borderRadius: 8, background: statusBg(step.status) }}>
-                          <Ic n={step.status === "done" ? "check" : "x"} s={13} c={statusColor(step.status)}/>
+                          <Ic n={step.status === "done" ? "check" : step.status === "skipped" ? "arrowRight" : "x"} s={13} c={statusColor(step.status)}/>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontSize: 12, fontWeight: 600, color: C.text1 }}>{stepDef(step.type).label}</div>
                             {step.output && <div style={{ fontSize: 11, color: C.text2, marginTop: 2, whiteSpace: "pre-wrap" }}>{step.output}</div>}

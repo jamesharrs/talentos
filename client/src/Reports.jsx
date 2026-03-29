@@ -5,6 +5,7 @@ import {
   FunnelChart, Funnel, LabelList,
   XAxis, YAxis, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
+import apiClient from "./apiClient.js";
 
 const B = {
   purple:"#7F77DD", purpleLight:"#AFA9EC", rose:"#D4537E", teal:"#1D9E75",
@@ -13,11 +14,12 @@ const B = {
 const PALETTE = [B.purple,B.rose,B.teal,B.amber,B.purpleLight,"#E87FAA","#5DCAA5","#F0803C","#60A5FA","#34D399"];
 const F = "'DM Sans',-apple-system,sans-serif";
 
+// Use shared apiClient so session headers (X-Session-Id etc.) are attached
 const api = {
-  get:    p    => fetch(p).then(r=>r.json()).catch(()=>null),
-  post:   (p,b)=> fetch(p,{method:"POST",  headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>r.json()).catch(()=>null),
-  patch:  (p,b)=> fetch(p,{method:"PATCH", headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>r.json()).catch(()=>null),
-  delete: p    => fetch(p,{method:"DELETE"}).then(r=>r.json()).catch(()=>null),
+  get:    p    => apiClient.get(p).catch(()=>null),
+  post:   (p,b)=> apiClient.post(p,b).catch(()=>null),
+  patch:  (p,b)=> apiClient.patch(p,b).catch(()=>null),
+  delete: p    => apiClient.delete(p).catch(()=>null),
 };
 
 function evalFormula(expr, row) {

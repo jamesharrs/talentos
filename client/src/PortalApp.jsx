@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import PortalPageRenderer from './portals/PortalPageRenderer.jsx'
+import CandidateCopilot from './CandidateCopilot.jsx'
 
 const api = {
   get: p => fetch(`/api${p}`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
@@ -65,7 +66,10 @@ export default function PortalApp({ slug }) {
   }
 
   // Public portal — render directly
-  return <PortalPageRenderer portal={portal} api={api}/>
+  return (<>
+    <PortalPageRenderer portal={portal} api={api}/>
+    <CandidateCopilot portal={portal} api={api}/>
+  </>);
 }
 
 // ─── Internal Portal Gate ─────────────────────────────────────────────────────
@@ -131,7 +135,7 @@ function InternalPortalGate({ portal, api }) {
   }
 
   if (checking) return <Spinner color={primary}/>
-  if (user) return <PortalPageRenderer portal={portal} api={api}/>
+  if (user) return (<><PortalPageRenderer portal={portal} api={api}/><CandidateCopilot portal={portal} api={api}/></>);
 
   // Login screen
   const font = br.font || "'Geist', sans-serif"

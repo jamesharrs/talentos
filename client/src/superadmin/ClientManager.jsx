@@ -574,6 +574,48 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
   const [loadingTD,setLoadingTD]=useState(false); const [tdResults,setTdResults]=useState({});
   const [showCreateUser,setShowCreateUser]=useState(false);
 
+  // ── Portal users (for /support login) ───────────────────────────────────────
+  const [portalUsers,   setPortalUsers]   = useState([]);
+  const [loadingPortal, setLoadingPortal] = useState(false);
+  const [showPortalModal,setShowPortalModal] = useState(false);
+  const [editPortalUser, setEditPortalUser]  = useState(null);
+  const [portalForm,    setPortalForm]    = useState({ name:'', email:'', password:'', role:'member' });
+  const [portalError,   setPortalError]   = useState('');
+  const [savingPortal,  setSavingPortal]  = useState(false);
+
+  const loadPortalUsers = async () => {
+    if (!clientId) return;
+    setLoadingPortal(true);
+    const res = await fetch(`/api/portal-auth/users?client_id=${clientId}`).then(r=>r.json()).catch(()=>[]);
+    setPortalUsers(Array.isArray(res) ? res : []);
+    setLoadingPortal(false);
+  };
+
+  const openNewPortalUser  = () => { setEditPortalUser(null); setPortalForm({ name:'', email:'', password:'', role:'member' }); setPortalError(''); setShowPortalModal(true); };
+  const openEditPortalUser = u  => { setEditPortalUser(u); setPortalForm({ name:u.name, email:u.email, password:'', role:u.role||'member' }); setPortalError(''); setShowPortalModal(true); };
+
+  const savePortalUser = async () => {
+    if (!portalForm.name || !portalForm.email) { setPortalError('Name and email are required.'); return; }
+    if (!editPortalUser && !portalForm.password) { setPortalError('Password is required for new users.'); return; }
+    setSavingPortal(true); setPortalError('');
+    try {
+      const body = { ...portalForm, client_id: clientId, client_name: client?.name || '' };
+      if (!body.password) delete body.password;
+      const url    = editPortalUser ? `/api/portal-auth/users/${editPortalUser.id}` : '/api/portal-auth/users';
+      const method = editPortalUser ? 'PATCH' : 'POST';
+      const res = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r=>r.json());
+      if (res.error) { setPortalError(res.error); return; }
+      setShowPortalModal(false);
+      loadPortalUsers();
+    } finally { setSavingPortal(false); }
+  };
+
+  const revokePortalUser = async (uid) => {
+    if (!confirm('Deactivate this portal user? They will no longer be able to log in to /support.')) return;
+    await fetch(`/api/portal-auth/users/${uid}`, { method:'DELETE' });
+    loadPortalUsers();
+  };
+
   const onRefresh = () => {
     fetch(`/api/superadmin/clients/${clientId}`,{headers:{'Content-Type':'application/json'}})
       .then(r=>r.json()).then(d=>{ if(!d.error) setClient(d); }).catch(()=>{});
@@ -602,7 +644,7 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
 
   useEffect(()=>{
     Promise.all([sa.get(`/${clientId}`),sa.get(`/${clientId}/stats`)])
-      .then(([c,s])=>{ setClient(c); setStats(s); setLoading(false); });
+      .then(([c,s])=>{ setClient(c); setStats(s); setLoading(false); loadPortalUsers(); });
   },[clientId]);
 
   if (loading) return <div style={{color:C.text3,padding:40}}>Loading…</div>;
@@ -804,7 +846,127 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
         </div>
       )}
 
-      {/* Create User Modal */}
+      {/* ── Portal Users tab — people who log into /support ───────────────────── */}
+      {tab==='users' && (
+        <div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+            <div style={{fontSize:13,color:C.text2}}>
+              {loadingPortal ? 'Loading…' : `${portalUsers.filter(u=>u.status==='active').length} portal user${portalUsers.filter(u=>u.status==='active').length!==1?'s':''}`}
+            </div>
+            <button onClick={openNewPortalUser}
+              style={{padding:'6px 14px',borderRadius:8,border:'none',background:C.accent,color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+              + Add User
+            </button>
+          </div>
+
+          <div style={cardSt}>
+            {!portalUsers.length ? (
+              <div style={{padding:40,textAlign:'center',color:C.text3,fontSize:13}}>
+                No portal users yet. Add the first user above.
+              </div>
+            ) : (
+              <table style={{width:'100%',borderCollapse:'collapse'}}>
+                <thead>
+                  <tr style={{borderBottom:`1px solid ${C.border}`}}>
+                    {['Name','Email','Role','Status','Last Login',''].map(h=>(
+                      <th key={h} style={{padding:'10px 14px',textAlign:'left',fontSize:11,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.05em'}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {portalUsers.map(u=>(
+                    <tr key={u.id} style={{borderBottom:`1px solid ${C.border}`}}>
+                      <td style={{padding:'12px 14px'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                          <div style={{width:30,height:30,borderRadius:'50%',background:C.accent+'33',color:C.accent,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0}}>
+                            {(u.name||'?')[0].toUpperCase()}
+                          </div>
+                          <span style={{fontWeight:600,color:C.text1,fontSize:13}}>{u.name}</span>
+                        </div>
+                      </td>
+                      <td style={{padding:'12px 14px',color:C.text2,fontSize:13}}>{u.email}</td>
+                      <td style={{padding:'12px 14px'}}>
+                        <span style={{padding:'2px 8px',borderRadius:99,fontSize:11,fontWeight:700,
+                          background:u.role==='admin'?C.purple+'22':C.accent+'22',
+                          color:u.role==='admin'?C.purple:C.accent}}>
+                          {u.role||'member'}
+                        </span>
+                      </td>
+                      <td style={{padding:'12px 14px'}}><StatusBadge status={u.status||'active'}/></td>
+                      <td style={{padding:'12px 14px',color:C.text3,fontSize:12}}>
+                        {u.last_login ? new Date(u.last_login).toLocaleDateString() : 'Never'}
+                      </td>
+                      <td style={{padding:'12px 14px'}}>
+                        <div style={{display:'flex',gap:6}}>
+                          <button onClick={()=>openEditPortalUser(u)}
+                            style={{padding:'4px 10px',borderRadius:6,border:`1px solid ${C.border}`,background:'transparent',color:C.text2,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Edit</button>
+                          {u.status==='active' && (
+                            <button onClick={()=>revokePortalUser(u.id)}
+                              style={{padding:'4px 10px',borderRadius:6,border:`1px solid ${C.red}40`,background:'transparent',color:C.red,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Revoke</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div style={{marginTop:12,padding:'10px 14px',borderRadius:8,background:C.accent+'11',border:`1px solid ${C.accent}33`,fontSize:12,color:C.text2}}>
+            💡 Portal users log in at <strong style={{color:C.accent}}>{window.location.origin}/support</strong> with their email and password.
+          </div>
+
+          {/* Add / Edit Portal User Modal */}
+          {showPortalModal && (
+            <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.75)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
+              onClick={e=>e.target===e.currentTarget&&setShowPortalModal(false)}>
+              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:16,width:440,padding:28}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+                  <div style={{fontSize:16,fontWeight:700,color:C.text1}}>{editPortalUser?'Edit Portal User':'New Portal User'}</div>
+                  <button onClick={()=>setShowPortalModal(false)} style={{background:'none',border:'none',color:C.text3,cursor:'pointer',fontSize:22,lineHeight:1}}>×</button>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                  {[['Full Name','text','name'],['Email Address','email','email']].map(([label,type,key])=>(
+                    <div key={key}>
+                      <label style={{fontSize:11,fontWeight:700,color:C.text3,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.05em'}}>{label}</label>
+                      <input type={type} value={portalForm[key]} onChange={e=>setPortalForm(f=>({...f,[key]:e.target.value}))}
+                        style={{width:'100%',background:'rgba(255,255,255,0.05)',border:`1px solid ${C.border}`,borderRadius:8,color:C.text1,padding:'9px 12px',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'inherit'}}/>
+                    </div>
+                  ))}
+                  <div>
+                    <label style={{fontSize:11,fontWeight:700,color:C.text3,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.05em'}}>
+                      Password {editPortalUser && <span style={{fontWeight:400}}>(leave blank to keep current)</span>}
+                    </label>
+                    <input type='password' value={portalForm.password} onChange={e=>setPortalForm(f=>({...f,password:e.target.value}))}
+                      placeholder={editPortalUser?'Leave blank to keep current':'Set a secure password'}
+                      style={{width:'100%',background:'rgba(255,255,255,0.05)',border:`1px solid ${C.border}`,borderRadius:8,color:C.text1,padding:'9px 12px',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'inherit'}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:700,color:C.text3,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.05em'}}>Role</label>
+                    <select value={portalForm.role} onChange={e=>setPortalForm(f=>({...f,role:e.target.value}))}
+                      style={{width:'100%',background:'rgba(255,255,255,0.05)',border:`1px solid ${C.border}`,borderRadius:8,color:C.text1,padding:'9px 12px',fontSize:13,outline:'none',fontFamily:'inherit'}}>
+                      <option value='member'>Member — can view and create cases</option>
+                      <option value='admin'>Admin — full portal access</option>
+                    </select>
+                  </div>
+                  {portalError && <div style={{padding:'8px 12px',borderRadius:8,background:'#ef444422',color:'#ef4444',fontSize:12,fontWeight:600}}>{portalError}</div>}
+                </div>
+                <div style={{display:'flex',gap:10,marginTop:20}}>
+                  <button onClick={()=>setShowPortalModal(false)}
+                    style={{flex:1,padding:'10px',borderRadius:8,border:`1px solid ${C.border}`,background:'transparent',color:C.text2,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+                  <button onClick={savePortalUser} disabled={savingPortal}
+                    style={{flex:2,padding:'10px',borderRadius:8,border:'none',background:C.accent,color:'#fff',fontSize:13,fontWeight:700,cursor:savingPortal?'not-allowed':'pointer',opacity:savingPortal?.6:1,fontFamily:'inherit'}}>
+                    {savingPortal?'Saving…':editPortalUser?'Save Changes':'Create User'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Create App User Modal (kept for backward compatibility) */}
       {showCreateUser && (
         <CreateClientUserModal
           client={client}

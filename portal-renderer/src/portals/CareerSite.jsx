@@ -287,7 +287,7 @@ export default function CareerSite({ portal, objects, api }) {
 
       {/* Footer */}
       <div style={{ borderTop:'1px solid #E8ECF8', padding:'24px', textAlign:'center', marginTop:40 }}>
-        <p style={{ margin:0, fontSize:12, color:'#9DA8C7' }}>Powered by TalentOS · {br.company_name || ''}</p>
+        <p style={{ margin:0, fontSize:12, color:'#9DA8C7' }}>Powered by Vercentic · {br.company_name || ''}</p>
       </div>
     </div>
   )

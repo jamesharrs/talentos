@@ -4,6 +4,7 @@ import HMPortal from './portals/HMPortal.jsx'
 import AgencyPortal from './portals/AgencyPortal.jsx'
 import OnboardingPortal from './portals/OnboardingPortal.jsx'
 import BotInterview from './BotInterview.jsx'
+import CandidateCopilot from './CandidateCopilot.jsx'
 
 const api = {
   get: p => fetch(`/api${p}`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
@@ -71,12 +72,17 @@ export default function App() {
   if (error || !portal) return <ErrorScreen message={error}/>
 
   const props = { portal, objects, api }
+  const PortalComponent = {
+    career_site: CareerSite, hm_portal: HMPortal,
+    agency_portal: AgencyPortal, onboarding: OnboardingPortal,
+  }[portal.type];
 
-  switch (portal.type) {
-    case 'career_site':   return <CareerSite   {...props}/>
-    case 'hm_portal':     return <HMPortal     {...props}/>
-    case 'agency_portal': return <AgencyPortal {...props}/>
-    case 'onboarding':    return <OnboardingPortal {...props}/>
-    default:              return <ErrorScreen message={`Unknown portal type: ${portal.type}`}/>
-  }
+  if (!PortalComponent) return <ErrorScreen message={`Unknown portal type: ${portal.type}`}/>;
+
+  return (
+    <>
+      <PortalComponent {...props}/>
+      <CandidateCopilot portal={portal} api={api} />
+    </>
+  );
 }

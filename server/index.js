@@ -106,6 +106,7 @@ app.use('/api/notifications',     require('./routes/notifications'));
 app.use('/api/workflows',         require('./routes/workflows'));
 app.use('/api/interviews',        require('./routes/interviews'));
 app.use('/api/interview-types',   require('./routes/interview_types'));
+app.use('/api/interview-plans',   require('./routes/interview_plans'));
 app.use('/api/interview-coordinator', require('./routes/interview_coordinator'));
 app.use('/api/offers',            require('./routes/offers'));
 app.use('/api/calendar',          require('./routes/calendar'));

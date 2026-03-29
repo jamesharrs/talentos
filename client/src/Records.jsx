@@ -20,6 +20,7 @@ import { authHeaders } from './apiClient.js';
 import TalentCardModal from './TalentCard.jsx';
 import ScreeningRulesPanel from './ScreeningRulesPanel.jsx';
 import LinkedInFinderButton from './LinkedInFinder.jsx';
+import { InterviewPlanPanel } from './InterviewPlanPanel.jsx';
 
 // Bare fetch wrapper that always includes X-Tenant-Slug + X-User-Id headers.
 // Use this instead of raw fetch() anywhere in this file.
@@ -3908,6 +3909,7 @@ export const PANEL_META = {
   user:         { icon:"user",          label:"Platform User",       defaultOpen:true  },
   scorecard:    { icon:"clipboard",     label:"Scorecards",          defaultOpen:false },
   questions:    { icon:"help-circle",   label:"Interview Questions", defaultOpen:false },
+  interview_plan: { icon:"calendar",    label:"Interview Plan",      defaultOpen:true  },
   screening:    { icon:"shield",        label:"Screening Rules",     defaultOpen:true  },
 };
 
@@ -3916,7 +3918,7 @@ export const getDefaultPanelOrder = (objectName) => {
   if (objectName === "Person") base.splice(1, 0, "linked", "reporting");
   if (["Person","Job"].includes(objectName)) base.push("match");
   if (objectName === "Person") base.push("scorecard");
-  if (objectName === "Job") { base.push("questions"); base.push("screening"); }
+  if (objectName === "Job") { base.unshift("interview_plan"); base.push("questions"); base.push("screening"); }
   return base;
 };
 
@@ -5912,6 +5914,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     if (id==="scorecard") return <ScorecardPanel record={record} environment={environment}/>;
     if (id==="questions") return <JobQuestionsPanel record={record} environment={environment}/>;
     if (id==="screening") return <ScreeningRulesPanel record={record} environment={environment}/>;
+    if (id==="interview_plan") return <InterviewPlanPanel record={record} environment={environment} onNavigate={onNavigate}/>;
 
     if (id==="match") return (
       <StableMatchPanel

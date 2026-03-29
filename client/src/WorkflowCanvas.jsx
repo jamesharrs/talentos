@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   ReactFlow, Background, Controls, MiniMap, addEdge,
   useNodesState, useEdgesState, Handle, Position, Panel,
@@ -571,8 +572,8 @@ export default function WorkflowCanvas({ workflow, environment, steps: initialSt
     }
   };
 
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", flexDirection: "column", fontFamily: F, background: "#f5f6fa" }}>
+  return createPortal(
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", fontFamily: F, background: "#f5f6fa" }}>
       {/* Top bar */}
       <div style={{ height: 52, background: C.surface, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 12, padding: "0 16px", flexShrink: 0, zIndex: 10 }}>
         <button onClick={onClose} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", cursor: "pointer", fontSize: 12, fontFamily: F, color: C.text2 }}>
@@ -653,6 +654,7 @@ export default function WorkflowCanvas({ workflow, environment, steps: initialSt
           />
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

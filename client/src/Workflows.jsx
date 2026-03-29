@@ -758,11 +758,14 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
     }
   };
 
-  // Canvas mode — full-screen overlay
-  if (viewMode === "canvas" && workflow?.id) {
+  // Canvas mode — full-screen overlay via portal (bypasses stacking context)
+  if (viewMode === "canvas") {
+    const canvasWfObj = workflow?.id ? workflow : window.__pendingCanvasWf;
+    if (!canvasWfObj?.id) { setViewMode("list"); return null; }
+    delete window.__pendingCanvasWf;
     return (
       <WorkflowCanvas
-        workflow={{ ...workflow, name, object_id: objectId }}
+        workflow={{ ...canvasWfObj, name, object_id: objectId }}
         environment={environment}
         steps={steps}
         triggerType={triggerType}
@@ -792,9 +795,24 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
             <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{workflow?.id ? "Edit Workflow" : "New Workflow"}</div>
             <div style={{ fontSize: 12, color: C.text3 }}>{steps.length} step{steps.length !== 1 ? "s" : ""}</div>
           </div>
-          {/* View mode toggle */}
-          {workflow?.id && (
-            <button onClick={() => setViewMode("canvas")} title="Open visual canvas"
+          {/* View mode toggle — always visible once name+object selected */}
+          {(name.trim() && objectId) && (
+            <button onClick={async () => {
+              // If new workflow, save first to get an id
+              if (!workflow?.id) {
+                if (!environment?.id) return;
+                setSaving(true);
+                try {
+                  const wf = await api.post("/workflows", { name, object_id: objectId, description: desc, environment_id: environment.id, workflow_type: wfType, trigger_type: triggerType, trigger_config: triggerConfig, sharing });
+                  if (!wf?.id) throw new Error("No id returned");
+                  if (steps.length > 0) await api.put(`/workflows/${wf.id}/steps`, { steps: steps.map(migrateStep) });
+                  onSave({ ...wf, steps }); // update parent so workflow.id is set
+                  // Re-open as canvas with saved workflow
+                  window.__pendingCanvasWf = wf;
+                } catch(err) { window.__toast?.alert("Save failed: " + err.message); return; } finally { setSaving(false); }
+              }
+              setViewMode("canvas");
+            }} title="Open visual canvas"
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: `1.5px solid ${C.accent}40`, background: C.accentLight, color: C.accent, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: F }}>
               <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={3} y={3} width={18} height={18} rx={3}/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
               Visual Canvas
@@ -1102,6 +1120,7 @@ export default function WorkflowsPage({ environment }) {
   const [objects, setObjects]       = useState([]);
   const [loading, setLoading]       = useState(true);
   const [editing, setEditing]       = useState(null);  // null | workflow | {}
+  const [canvasWf, setCanvasWf]     = useState(null);  // workflow to open in canvas
   const [running, setRunning]       = useState(null);  // workflow to run
   const [filterObj, setFilterObj]   = useState("");
 

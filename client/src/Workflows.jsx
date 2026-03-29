@@ -702,7 +702,7 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
   const [triggerType, setTriggerType] = useState(workflow?.trigger_type || "manual");
   const [triggerConfig, setTriggerConfig] = useState(workflow?.trigger_config || {});
   const [steps, setSteps]     = useState(workflow?.steps || []);
-  const [viewMode, setViewMode] = useState("list"); // "list" | "canvas"
+  const [viewMode, setViewMode] = useState(workflow?._openCanvas ? "canvas" : "list"); // "list" | "canvas"
   const [saving, setSaving]   = useState(false);
   const [fields, setFields]   = useState([]);
   const [objects, setObjects] = useState(parentObjects || []);
@@ -1139,12 +1139,93 @@ const RunPanel = ({ workflow, environment, objects, onClose }) => {
 };
 
 // ─── Main Workflows Page ──────────────────────────────────────────────────────
+// ─── Canvas New Modal ─────────────────────────────────────────────────────────
+// Lightweight "name + object" picker that creates a workflow then opens the canvas.
+function CanvasNewModal({ objects, environment, onClose, onCreated }) {
+  const [name, setName]       = useState("");
+  const [objectId, setObjectId] = useState(objects[0]?.id || "");
+  const [wfType, setWfType]   = useState("automation");
+  const [saving, setSaving]   = useState(false);
+
+  const create = async () => {
+    if (!name.trim() || !objectId || !environment?.id) return;
+    setSaving(true);
+    try {
+      const wf = await api.post("/workflows", { name, object_id: objectId, description: "", environment_id: environment.id, workflow_type: wfType, trigger_type: "manual", trigger_config: {}, sharing: { visibility: "private", user_ids: [], group_ids: [] } });
+      if (!wf?.id) throw new Error("No id returned");
+      onCreated(wf);
+    } catch(err) { alert("Failed: " + err.message); } finally { setSaving(false); }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 9500, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ width: 480, background: "#fff", borderRadius: 18, boxShadow: "0 24px 80px rgba(0,0,0,.2)", overflow: "hidden", fontFamily: F }}>
+        {/* Header */}
+        <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg,${C.accent},${C.ai})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2}><rect x={3} y={3} width={18} height={18} rx={3}/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
+            </div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>New Visual Workflow</div>
+              <div style={{ fontSize: 12, color: C.text3 }}>Set up the basics, then build in the canvas</div>
+            </div>
+            <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", padding: 6, display: "flex", borderRadius: 8 }}><Ic n="x" s={16} c={C.text3}/></button>
+          </div>
+        </div>
+        {/* Body */}
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <label>
+            <div style={{ fontSize: 11, fontWeight: 600, color: C.text2, marginBottom: 6 }}>Workflow name *</div>
+            <input autoFocus value={name} onChange={e => setName(e.target.value)} onKeyDown={e => e.key === "Enter" && create()} placeholder="e.g. Application Review Process"
+              style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", border: `1.5px solid ${C.border}`, borderRadius: 9, fontSize: 14, fontFamily: F, outline: "none", color: C.text1, fontWeight: 600 }}/>
+          </label>
+          <label>
+            <div style={{ fontSize: 11, fontWeight: 600, color: C.text2, marginBottom: 6 }}>Linked object *</div>
+            <select value={objectId} onChange={e => setObjectId(e.target.value)}
+              style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.border}`, borderRadius: 9, fontSize: 13, fontFamily: F, outline: "none", background: "white", color: C.text1 }}>
+              <option value="">Select…</option>
+              {objects.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+          </label>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: C.text2, marginBottom: 8 }}>Workflow type</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[
+                { value: "automation",  label: "⚡ Automation",     desc: "Automated steps" },
+                { value: "pipeline",    label: "📋 Record Pipeline", desc: "Drive a record's stage" },
+                { value: "people_link", label: "👥 Linked Person",   desc: "Stages for linked people" },
+              ].map(t => (
+                <button key={t.value} onClick={() => setWfType(t.value)}
+                  style={{ flex: 1, padding: "8px 10px", borderRadius: 9, border: `2px solid ${wfType===t.value?C.accent:C.border}`, background: wfType===t.value?C.accentLight:"white", cursor: "pointer", fontFamily: F, textAlign: "left" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: wfType===t.value?C.accent:C.text1 }}>{t.label}</div>
+                  <div style={{ fontSize: 10, color: C.text3, marginTop: 2 }}>{t.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        {/* Footer */}
+        <div style={{ padding: "14px 24px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ padding: "9px 18px", borderRadius: 9, border: `1px solid ${C.border}`, background: "transparent", color: C.text2, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: F }}>Cancel</button>
+          <button onClick={create} disabled={saving || !name.trim() || !objectId}
+            style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 20px", borderRadius: 9, border: "none", background: (!name.trim()||!objectId) ? C.border : `linear-gradient(135deg,${C.accent},${C.ai})`, color: "white", fontSize: 13, fontWeight: 700, cursor: (!name.trim()||!objectId)?"not-allowed":"pointer", fontFamily: F, opacity: saving?.6:1 }}>
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.5}><rect x={3} y={3} width={18} height={18} rx={3}/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
+            {saving ? "Creating…" : "Open in Canvas"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function WorkflowsPage({ environment }) {
   const [workflows, setWorkflows]   = useState([]);
   const [objects, setObjects]       = useState([]);
   const [loading, setLoading]       = useState(true);
   const [editing, setEditing]       = useState(null);  // null | workflow | {}
   const [canvasWf, setCanvasWf]     = useState(null);  // workflow to open in canvas
+  const [canvasNew, setCanvasNew]   = useState(false); // show "new canvas WF" quick-setup modal
   const [running, setRunning]       = useState(null);  // workflow to run
   const [filterObj, setFilterObj]   = useState("");
 
@@ -1191,10 +1272,19 @@ export default function WorkflowsPage({ environment }) {
           <option value="">All objects</option>
           {objects.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
-        <button onClick={() => setEditing({})}
-          style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 18px", borderRadius: 9, border: "none", background: `linear-gradient(135deg,${C.accent},${C.ai})`, color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: F, boxShadow: "0 2px 12px rgba(99,102,241,.3)" }}>
-          <Ic n="plus" s={15} c="white"/> New Workflow
-        </button>
+        {/* New Workflow — split button */}
+        <div style={{ display: "flex", borderRadius: 9, overflow: "hidden", boxShadow: "0 2px 12px rgba(99,102,241,.3)" }}>
+          <button onClick={() => setEditing({})}
+            style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 18px", border: "none", background: `linear-gradient(135deg,${C.accent},${C.ai})`, color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: F }}>
+            <Ic n="plus" s={15} c="white"/> New Workflow
+          </button>
+          <div style={{ width: 1, background: "rgba(255,255,255,.25)" }}/>
+          <button onClick={() => setCanvasNew(true)} title="Build in Visual Canvas"
+            style={{ display: "flex", alignItems: "center", gap: 5, padding: "9px 13px", border: "none", background: `linear-gradient(135deg,${C.accent},${C.ai})`, color: "white", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: F, borderLeft: "1px solid rgba(255,255,255,.2)" }}>
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><rect x={3} y={3} width={18} height={18} rx={3}/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
+            Canvas
+          </button>
+        </div>
       </div>
 
       {/* Content */}
@@ -1285,6 +1375,22 @@ export default function WorkflowsPage({ environment }) {
       {/* Run panel */}
       {running && (
         <RunPanel workflow={running} environment={environment} objects={objects} onClose={() => setRunning(null)}/>
+      )}
+
+      {/* New workflow in Canvas — quick setup modal */}
+      {canvasNew && createPortal(
+        <CanvasNewModal
+          objects={objects}
+          environment={environment}
+          onClose={() => setCanvasNew(false)}
+          onCreated={(wf) => {
+            setWorkflows(ws => [...ws, wf]);
+            setCanvasNew(false);
+            // Open in canvas via WorkflowEditor in canvas mode
+            setEditing({ ...wf, _openCanvas: true });
+          }}
+        />,
+        document.body
       )}
     </div>
   );

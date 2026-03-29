@@ -5242,6 +5242,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const _permCtx = usePermCtx();
   const canRecord = (flag) => _permCtx ? _permCtx.canGlobal(flag) : true;
   // ── Job context — Person records only ────────────────────────────────────
+  const [highlightEmptyFields, setHighlightEmptyFields] = useState(false);
   const [showFormPicker, setShowFormPicker] = useState(false);
   const [availableForms, setAvailableForms]  = useState([]);
   const [activeJobContext, setActiveJobContext] = useState(null); // null=General, string=job record id
@@ -6266,7 +6267,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   return (
     <div style={{ display:"flex", flexDirection:"column", flex:1, minHeight:0, overflow:"hidden", background:"#F4F6FB" }}>
       <FunctionalityBar/>
-      <SuggestedActions record={record} environment={environment} objectName={objectName} objectColor={objectColor} onCompose={(type)=>setComposeType(type)}/>
+      <SuggestedActions record={record} environment={environment} objectName={objectName} objectColor={objectColor} onAction={handleSuggestedAction}/>
       {/* Full-width Linked People widget — only shown on non-Person objects */}
       {objectName !== "Person" && (
         <div style={{ flexShrink:0, borderBottom:`1px solid ${C.border}` }}>

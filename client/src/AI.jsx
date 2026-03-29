@@ -1262,6 +1262,20 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   const [input,        setInput]        = useState("");
 
   // Broadcast dock state so App.jsx can shrink the content area
+
+  // AI Suggested Action → fire a Copilot prompt
+  useEffect(() => {
+    var handler = function(e) {
+      var prompt = e.detail && e.detail.prompt;
+      if (!prompt) return;
+      setOpen(true);
+      // Small delay so the panel animates open before the message is sent
+      setTimeout(function() { sendMessage(prompt); }, 150);
+    };
+    window.addEventListener('talentos:copilotPrompt', handler);
+    return function() { window.removeEventListener('talentos:copilotPrompt', handler); };
+  }, [sendMessage]);
+
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("talentos:copilot-dock", { detail: { docked: open && docked } }));
   }, [open, docked]);

@@ -6041,6 +6041,13 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   };
 
   // ── Functionality bar (full page only) ──
+
+  // Handler for AI suggested action strip — fires the Copilot with the action prompt
+  const handleSuggestedAction = (action) => {
+    const prompt = action.prompt || action.description || action.label || action.title || "Help me with this action";
+    window.dispatchEvent(new CustomEvent("talentos:copilotPrompt", { detail: { prompt } }));
+  };
+
   const COMM_OPTIONS = [
     { type:"email",    label:"Send Email",    icon:"✉️" },
     { type:"sms",      label:"Send SMS",      icon:"💬" },

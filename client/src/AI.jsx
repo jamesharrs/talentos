@@ -1261,7 +1261,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   const [messages,     setMessages]     = useState([]);
   const [input,        setInput]        = useState("");
 
-  // Broadcast dock state so App.jsx can shrink the content area
+  // Stable ref so event handlers can call sendMessage without TDZ / stale closure
+  const sendMessageRef = useRef(null);
 
   // AI Suggested Action → fire a Copilot prompt
   useEffect(() => {
@@ -1270,11 +1271,11 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       if (!prompt) return;
       setOpen(true);
       // Small delay so the panel animates open before the message is sent
-      setTimeout(function() { sendMessage(prompt); }, 150);
+      setTimeout(function() { if (sendMessageRef.current) sendMessageRef.current(prompt); }, 150);
     };
     window.addEventListener('talentos:copilotPrompt', handler);
     return function() { window.removeEventListener('talentos:copilotPrompt', handler); };
-  }, [sendMessage]);
+  }, []); // empty deps — uses ref, never stale
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("talentos:copilot-dock", { detail: { docked: open && docked } }));
@@ -2079,6 +2080,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     setLoadingLabel("");
     setTimeout(()=>inputRef.current?.focus(),100);
   };
+  // Keep ref current so the copilotPrompt event handler always has the latest sendMessage
+  useEffect(() => { sendMessageRef.current = sendMessage; });
 
   const handleConfirmCreate = async () => {    if(!pendingRecord||!environment?.id) return;
     // RBAC: check create permission on the target object

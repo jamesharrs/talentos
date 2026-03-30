@@ -1320,7 +1320,7 @@ export default function OrgChart({ environment }) {
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handleUpdate   = async (id, data) => { await api.patch(`/org-units/${id}`, data); load(); };
   const handleDelete   = async (id) => {
-    if (!confirm("Delete this org unit?")) return;
+    if (!(await window.__confirm({ title:'Delete this org unit?', danger:true }))) return;
     setSelectedId(null); await api.del(`/org-units/${id}`); load();
   };
   const handleAddChild = (parentId) => { setNewParent(parentId); setSelectedId(null); setShowAdd(true); };

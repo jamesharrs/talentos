@@ -212,13 +212,13 @@ export default function QuestionBankSettings() {
     else    await api.post("/question-bank/questions", form);
     setShowAddQ(false); setEditQ(null); load();
   };
-  const handleDeleteQ = async (id) => { if (!confirm("Delete this question?")) return; await api.del(`/question-bank/questions/${id}`); load(); };
+  const handleDeleteQ = async (id) => { if (!(await window.__confirm({ title:'Delete this question?', danger:true }))) return; await api.del(`/question-bank/questions/${id}`); load(); };
   const handleSaveT = async (form, id) => {
     if (id) await api.patch(`/question-bank/templates/${id}`, form);
     else    await api.post("/question-bank/templates", form);
     setShowAddT(false); setEditT(null); load();
   };
-  const handleDeleteT = async (id) => { if (!confirm("Delete this template?")) return; await api.del(`/question-bank/templates/${id}`); load(); };
+  const handleDeleteT = async (id) => { if (!(await window.__confirm({ title:'Delete this template?', danger:true }))) return; await api.del(`/question-bank/templates/${id}`); load(); };
 
   const filtered = questions.filter(q => {
     if (filterType && q.type !== filterType) return false;

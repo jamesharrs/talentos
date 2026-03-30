@@ -420,7 +420,7 @@ export function FormsList({ environment }) {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this form? All responses will be lost.')) return;
+    if (!(await window.__confirm({ title:'Delete this form? All responses will be lost.', danger:true }))) return;
     await api.del(`/forms/${id}`); load();
   };
 
@@ -764,7 +764,7 @@ export function RecordFormPanel({ record, objectSlug, environment, currentUser, 
   };
 
   const handleUnlink = async (linkId) => {
-    if (!confirm('Remove this form from this record?')) return;
+    if (!(await window.__confirm({ title:'Remove this form from this record?', danger:true }))) return;
     await api.delete(`/forms/links/${linkId}`);
     setLinks(prev => prev.filter(l => l.id !== linkId));
     if (activeLink?.id === linkId) setActiveLink(null);
@@ -790,7 +790,7 @@ export function RecordFormPanel({ record, objectSlug, environment, currentUser, 
   };
 
   const handleDeleteResponse = async (formId, responseId) => {
-    if (!confirm('Delete this response?')) return;
+    if (!(await window.__confirm({ title:'Delete this response?', danger:true }))) return;
     await api.delete(`/forms/${formId}/responses/${responseId}`);
     const d = await api.get(`/forms/${formId}/responses?record_id=${record.id}`);
     setResponses(prev => ({ ...prev, [formId]: Array.isArray(d) ? d : [] }));

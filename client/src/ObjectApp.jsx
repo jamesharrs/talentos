@@ -233,7 +233,7 @@ const RecordDetail = ({record, objectDef, onClose, onUpdate, onDelete}) => {
   const listFields = fields.filter(f=>f.show_in_list && f.api_key !== primaryField?.api_key);
 
   const handleDelete = async () => {
-    if (!confirm(`Delete this ${objectDef.name}? This cannot be undone.`)) return;
+    if (!(await window.__confirm({ title:`Delete this ${objectDef.name}? This cannot be undone.`, danger:true }))) return;
     await api.del(`/records/${record.id}`);
     onDelete(record.id);
   };
@@ -378,7 +378,7 @@ const TableView = ({objectDef, environmentId, onSelectRecord}) => {
   };
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Delete ${selectedIds.size} records?`)) return;
+    if (!(await window.__confirm({ title:`Delete ${selectedIds.size} records?`, danger:true }))) return;
     for (const id of selectedIds) await api.del(`/records/${id}`);
     setSelectedIds(new Set());
     load();

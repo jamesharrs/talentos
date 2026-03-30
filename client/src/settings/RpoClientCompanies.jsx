@@ -142,7 +142,7 @@ export default function RpoClientCompanies({ environment }) {
     const updated = clients.map(c=>c.id===editClient.id?{...c,...form}:c); setClients(updated); await saveAll(updated); setEditClient(null); setShowModal(false);
   };
   const handleDelete = async (id) => {
-    if (!window.confirm("Remove this client?")) return;
+    if (!(await window.__confirm({ title:'Remove this client?', danger:true }))) return;
     const updated = clients.filter(c=>c.id!==id); setClients(updated); await saveAll(updated);
   };
   const handleToggleRpo = async () => { const next=!rpoMode; setRpoMode(next); await saveAll(clients,next); };

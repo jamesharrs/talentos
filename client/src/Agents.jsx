@@ -806,7 +806,7 @@ export default function AgentsModule({ environment }) {
   };
 
   const handleDelete = async (id) => {
-    if(!window.confirm('Delete this agent?')) return;
+    if (!(await window.__confirm({ title:'Delete this agent?', danger:true }))) return;
     await api.del(`/agents/${id}`);
     load();
   };

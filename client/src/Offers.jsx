@@ -514,7 +514,7 @@ function OfferDetail({ offer: initialOffer, onClose, onUpdated, onDeleted }) {
   };
 
   const doDelete = async () => {
-    if (!confirm("Delete this offer? This cannot be undone.")) return;
+    if (!(await window.__confirm({ title:'Delete this offer? This cannot be undone.', danger:true }))) return;
     await api.del(`/offers/${offer.id}`);
     onDeleted(offer.id);
   };

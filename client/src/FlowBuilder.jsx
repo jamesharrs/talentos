@@ -361,7 +361,7 @@ export default function FlowBuilder({environment}) {
   useEffect(()=>{load();},[load]);
 
   const toggle = async f=>{await api.post(`/flows/${f.id}/enable`,{enabled:!f.enabled});setFlows(fs=>fs.map(x=>x.id===f.id?{...x,enabled:!f.enabled}:x));};
-  const del    = async f=>{if(!window.confirm(`Delete "${f.name}"?`))return;await api.delete(`/flows/${f.id}`);setFlows(fs=>fs.filter(x=>x.id!==f.id));};
+  const del    = async f=>{if (!(await window.__confirm({ title:`Delete "${f.name}"?`, danger:true }))) return;await api.delete(`/flows/${f.id}`);setFlows(fs=>fs.filter(x=>x.id!==f.id));};
   const run    = async f=>{setRunning(r=>({...r,[f.id]:true}));await api.post(`/flows/${f.id}/run`,{payload:{_test:true}});setRunning(r=>({...r,[f.id]:false}));load();};
   const copy   = f=>{const u=`${window.location.origin}/api/flows/webhook/${f.id}`;navigator.clipboard?.writeText(u);};
 

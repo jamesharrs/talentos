@@ -222,7 +222,7 @@ const UsersSection = () => {
   };
 
   const handleDeactivate = async (id) => {
-    if (!confirm("Deactivate this user?")) return;
+    if (!(await window.__confirm({ title:'Deactivate this user?' }))) return;
     await api.del(`/users/${id}`);
     load();
   };
@@ -1629,7 +1629,7 @@ const DataModelSection = ({ environment: activeEnv }) => {
   };
 
   const deleteField = async (f) => {
-    if (!confirm(`Delete field "${f.name}"? This removes data from all records.`)) return;
+    if (!(await window.__confirm({ title:`Delete field "${f.name}"? This removes data from all records.`, danger:true }))) return;
     await api.del(`/fields/${f.id}`);
     reloadFields();
   };

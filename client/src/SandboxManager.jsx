@@ -428,7 +428,7 @@ const SandboxDetail = ({ sandbox, onBack, onRefresh }) => {
   useEffect(() => { loadDiff(); loadSnapshots(); }, [loadDiff, loadSnapshots]);
 
   const handleRollback = async () => {
-    if (!confirm("This will revert ALL production config to the state before the last promotion. Are you sure?")) return;
+    if (!(await window.__confirm({ title:'This will revert ALL production config to the state before the last promotion. Are you sure?', danger:true }))) return;
     setRollingBack(true);
     try {
       await api.post(`/sandboxes/${sandbox.id}/rollback`, {});
@@ -449,7 +449,7 @@ const SandboxDetail = ({ sandbox, onBack, onRefresh }) => {
   };
 
   const handleArchive = async () => {
-    if (!confirm(`Archive "${sandbox.name}"? This will mark it as archived and optionally clean up sandbox data.`)) return;
+    if (!(await window.__confirm({ title:`Archive "${sandbox.name}"? This will mark it as archived and optionally clean up sandbox data.`, danger:true }))) return;
     try {
       await api.delete(`/sandboxes/${sandbox.id}?cleanup=true`);
       onBack?.();

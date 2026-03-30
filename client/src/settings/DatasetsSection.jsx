@@ -163,7 +163,7 @@ export default function DatasetsSection({ environment }) {
 
   async function handleDelete(ds) {
     if (ds.is_system) return;
-    if (!confirm(`Delete "${ds.name}"? This cannot be undone.`)) return;
+    if (!(await window.__confirm({ title:`Delete "${ds.name}"? This cannot be undone.`, danger:true }))) return;
     await api.delete(`/datasets/${ds.id}`);
     load();
   }

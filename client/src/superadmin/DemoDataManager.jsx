@@ -144,7 +144,7 @@ export default function DemoDataManager() {
 
   async function handleClear() {
     if (!envId) return;
-    if (!window.confirm('Remove all demo data from this environment?')) return;
+    if (!(await window.__confirm({ title:'Remove all demo data from this environment?', danger:true }))) return;
     setClearing(true); addLog('Clearing demo data…', 'dim');
     try {
       const res = await fetch(apiUrl('/superadmin/demo/clear'), {

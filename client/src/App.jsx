@@ -591,7 +591,7 @@ const ObjectSchemaView = ({ object, allObjects, environmentId, onBack }) => {
   };
 
   const handleDeleteField = async (field) => {
-    if (!confirm(`Delete field "${field.name}"? This will remove data for all records.`)) return;
+    if (!(await window.__confirm({ title:`Delete field "${field.name}"? This will remove data for all records.`, danger:true }))) return;
     await api.delete(`/fields/${field.id}`);
     loadFields();
   };

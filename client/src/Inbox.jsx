@@ -208,7 +208,7 @@ const MessageDetail = ({ msgId, environmentId, onUpdate, onNavigate }) => {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Delete this message?')) return;
+    if (!(await window.__confirm({ title:'Delete this message?', danger:true }))) return;
     await api.delete(`/inbox/${msgId}`);
     onUpdate?.({ deleted: true });
   };

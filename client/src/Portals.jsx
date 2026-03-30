@@ -3298,7 +3298,7 @@ export default function PortalsPage({ environment, onFullScreen }) {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Delete this portal?")) return;
+    if (!(await window.__confirm({ title:'Delete this portal?', danger:true }))) return;
     await api.delete(`/portals/${id}`);
     load();
   };

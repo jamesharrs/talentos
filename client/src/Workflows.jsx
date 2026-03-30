@@ -1243,7 +1243,7 @@ export default function WorkflowsPage({ environment }) {
   useEffect(() => { load(); }, [load]);
 
   const deleteWorkflow = async (id) => {
-    if (!confirm("Delete this workflow?")) return;
+    if (!(await window.__confirm({ title:'Delete this workflow?', danger:true }))) return;
     await api.delete(`/workflows/${id}`);
     setWorkflows(w => w.filter(x => x.id !== id));
   };
@@ -1584,7 +1584,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
   };
 
   const removeLink = async (linkId) => {
-    if (!confirm("Remove this person from the pipeline?")) return;
+    if (!(await window.__confirm({ title:'Remove this person from the pipeline?', danger:true }))) return;
     await api.delete(`/workflows/people-links/${linkId}`);
     setPeopleLinks(ls => ls.filter(l => l.id !== linkId));
     if (peopleLinks.length <= 1) setSelectedStage(null);
@@ -2195,7 +2195,7 @@ export function LinkedRecordsPanel({ record, environment, onNavigate, activeJobC
   };
 
   const removeLink = async (linkId) => {
-    if (!confirm("Remove this link?")) return;
+    if (!(await window.__confirm({ title:'Remove this link?', danger:true }))) return;
     await api.delete(`/workflows/people-links/${linkId}`);
     setLinks(ls => ls.filter(l => l.id !== linkId));
   };

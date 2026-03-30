@@ -119,7 +119,7 @@ function OutboundWebhooksTab({ envId }) {
   const loadDeliveries = async whId=>{ setDeliveryView(whId); const d=await api.get(`/webhooks/${whId}/deliveries?limit=50`); setDeliveries(d.deliveries||[]); };
   const handleSave = async form=>{ if(modal?.webhook) await api.patch(`/webhooks/${modal.webhook.id}`,form); else await api.post("/webhooks",{...form,environment_id:envId}); setModal(null); load(); };
   const handleToggle = async wh=>{ await api.post(`/webhooks/${wh.id}/toggle`); load(); };
-  const handleDelete = async wh=>{ if(!confirm(`Delete "${wh.name}"?`)) return; await api.del(`/webhooks/${wh.id}`); load(); };
+  const handleDelete = async wh=>{ if (!(await window.__confirm({ title:`Delete "${wh.name}"?`, danger:true }))) return; await api.del(`/webhooks/${wh.id}`); load(); };
   const handleTest = async wh=>{ const r=await api.post(`/webhooks/${wh.id}/test`); alert(r.status==="success"?"Test delivered!":"Failed: "+(r.error||"Unknown")); loadDeliveries(wh.id); };
   const handleRetry = async (whId,dId)=>{ await api.post(`/webhooks/${whId}/deliveries/${dId}/retry`); loadDeliveries(whId); };
   if(loading) return <div style={{textAlign:"center",color:C.text3,padding:40}}>Loading webhooks…</div>;
@@ -242,7 +242,7 @@ function InboundWebhooksTab({ envId }) {
   const load = useCallback(async ()=>{ setLoading(true); const d=await api.get(`/webhooks/inbound?environment_id=${envId}`); setEndpoints(Array.isArray(d)?d:[]); setLoading(false); },[envId]);
   useEffect(()=>{load();},[load]);
   const handleSave = async form=>{ await api.post("/webhooks/inbound",{...form,environment_id:envId}); setModal(null); load(); };
-  const handleDelete = async ep=>{ if(!confirm(`Delete "${ep.name}"?`)) return; await api.del(`/webhooks/inbound/${ep.id}`); load(); };
+  const handleDelete = async ep=>{ if (!(await window.__confirm({ title:`Delete "${ep.name}"?`, danger:true }))) return; await api.del(`/webhooks/inbound/${ep.id}`); load(); };
   const copyUrl = ep=>{ const baseUrl=window.location.origin.replace(":3000",":3001"); navigator.clipboard.writeText(`${baseUrl}/api/webhooks/inbound/receive/${ep.token}`); setCopied(ep.id); setTimeout(()=>setCopied(null),2000); };
   if(loading) return <div style={{textAlign:"center",color:C.text3,padding:40}}>Loading…</div>;
   const ACTION_LABELS = { create_record:"Create Record", trigger_workflow:"Trigger Workflow", emit_event:"Emit Event", custom:"Custom" };

@@ -226,7 +226,7 @@ export default function FileTypesSettings({environment,objects:objectsProp}) {
     else             await api.post('/file-types',data);
     setShowForm(false); setEditType(null); load();
   };
-  const handleDelete = async(id) => { if(!confirm('Delete this file type?'))return; await api.del(`/file-types/${id}`); load(); };
+  const handleDelete = async(id) => { if (!(await window.__confirm({ title:'Delete this file type?', danger:true }))) return; await api.del(`/file-types/${id}`); load(); };
 
   return (
     <div style={{fontFamily:F}}>

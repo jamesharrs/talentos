@@ -89,7 +89,7 @@ export default function CompanyDocuments({ environment }) {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this document?')) return;
+    if (!(await window.__confirm({ title:'Delete this document?', danger:true }))) return;
     await api.delete(`/company-documents/${id}`);
     load();
   };

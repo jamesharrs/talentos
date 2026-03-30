@@ -221,7 +221,7 @@ export default function GroupsSection({ environment }) {
   useEffect(()=>{ if(environment?.id) load(); },[environment?.id]);
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this group? It will be removed from all sharing configurations.')) return;
+    if (!(await window.__confirm({ title:'Delete this group? It will be removed from all sharing configurations.', danger:true }))) return;
     await tFetch(`/api/groups/${id}`, { method:'DELETE' });
     load();
   };

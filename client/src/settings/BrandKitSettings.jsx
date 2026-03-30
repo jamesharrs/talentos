@@ -125,7 +125,7 @@ export default function BrandKitSettings({ environment }) {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this brand kit? Portals and templates using it will need to be reassigned.')) return;
+    if (!(await window.__confirm({ title:'Delete this brand kit? Portals and templates using it will need to be reassigned.', danger:true }))) return;
     await api.del(`/brand-kits/${id}`);
     load();
   };

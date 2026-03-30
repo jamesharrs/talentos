@@ -155,7 +155,7 @@ export default function EmailTemplateBuilder({ environment }) {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this template?')) return;
+    if (!(await window.__confirm({ title:'Delete this template?', danger:true }))) return;
     await api.del(`/email-builder/${id}`);
     load();
   };

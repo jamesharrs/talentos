@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import { ToastProvider } from './Toast.jsx'
 import { I18nProvider } from './i18n/I18nContext.jsx'
+import { ConfirmProvider } from './ConfirmDialog.jsx'
 import ErrorBoundary, { setupGlobalErrorHandlers } from './ErrorBoundary.jsx'
 import { MobileShell } from './MobileApp.jsx'
 import { getSession } from './usePermissions.js'
@@ -54,10 +55,12 @@ if (isMobileDevice && existingSession) {
     <React.StrictMode>
       <ErrorBoundary>
         <ToastProvider>
+          <ConfirmProvider>
           <I18nProvider>
             <App />
             <SpeedInsights />
           </I18nProvider>
+          </ConfirmProvider>
         </ToastProvider>
       </ErrorBoundary>
     </React.StrictMode>

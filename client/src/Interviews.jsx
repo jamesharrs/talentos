@@ -806,7 +806,7 @@ export default function Interviews({ environment }) {
   };
 
   const handleDeleteType = async (id) => {
-    if (!confirm("Delete this interview type?")) return;
+    if (!(await window.__confirm({ title:'Delete this interview type?', danger:true }))) return;
     await api.del(`/interview-types/${id}`); load();
   };
 
@@ -825,7 +825,7 @@ export default function Interviews({ environment }) {
   };
 
   const handleDeleteScheduled = async (id) => {
-    if (!confirm("Cancel this interview?")) return;
+    if (!(await window.__confirm({ title:'Cancel this interview?' }))) return;
     await api.del(`/interviews/${id}`); load();
   };
 

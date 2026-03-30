@@ -611,7 +611,7 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
   };
 
   const revokePortalUser = async (uid) => {
-    if (!confirm('Deactivate this portal user? They will no longer be able to log in to /support.')) return;
+    if (!(await window.__confirm({ title:'Deactivate this portal user? They will no longer be able to log in to /support.' }))) return;
     await fetch(`/api/portal-auth/users/${uid}`, { method:'DELETE' });
     loadPortalUsers();
   };
@@ -624,7 +624,7 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
   };
 
   const handleLoadTestData = async (envId) => {
-    if (!confirm('Load standard test data? This adds 15 people, 8 jobs and 3 talent pools.')) return;
+    if (!(await window.__confirm({ title:'Load standard test data? This adds 15 people, 8 jobs and 3 talent pools.' }))) return;
     setLoadingTD(true);
     try {
       const slug = client?.tenant_slug;
@@ -1054,7 +1054,7 @@ export function ProvisionWizard({ onDone, onCancel }) {
   };
 
   const handleLoadTestData = async (envId) => {
-    if (!confirm('Load standard test data? This adds 15 people, 8 jobs and 3 talent pools.')) return;
+    if (!(await window.__confirm({ title:'Load standard test data? This adds 15 people, 8 jobs and 3 talent pools.' }))) return;
     setLoadingTD(true); setTdResult(null);
     try {
       const r = await fetch('/api/superadmin/clients/load-test-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ environment_id: envId, tenant_slug: client?.tenant_slug }) });

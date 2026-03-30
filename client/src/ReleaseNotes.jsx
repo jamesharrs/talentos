@@ -196,7 +196,7 @@ export function ReleaseNotesAdmin() {
   };
 
   const handleDelete = async id => {
-    if (!confirm('Delete this release note?')) return;
+    if (!(await window.__confirm({ title:'Delete this release note?', danger:true }))) return;
     await api.del(`/release-notes/${id}`); await load();
   };
 

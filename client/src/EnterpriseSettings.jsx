@@ -81,7 +81,7 @@ function SkillsSection({environment}) {
   async function handleSeedRels(){setSeedingRels(true); const r=await api.post('/skills-intel/seed-relationships',{environment_id:envId}); setSeedingRels(false); if(r.error)window.__toast?.alert(r.error); else window.__toast?.alert(`Seeded ${r.inserted} relationships`);}
   async function handleGenEmb(){setGeneratingEmb(true); setEmbMsg('Generating embeddings via Vercentic AI…'); const r=await api.post('/skills-intel/generate-embeddings',{environment_id:envId}); setGeneratingEmb(false); setEmbMsg(r.error?`Error: ${r.error}`:`Done — ${r.done} embeddings generated`); load();}
   async function handleSave(form){setSaving(true); if(modal.mode==='edit') await api.patch(`/enterprise/skills/${modal.skill.id}`,{...form,environment_id:envId}); else await api.post('/enterprise/skills',{...form,environment_id:envId}); setSaving(false); setModal(null); load();}
-  async function handleDelete(id){if(!confirm('Delete this skill?'))return; await api.delete(`/enterprise/skills/${id}`); load();}
+  async function handleDelete(id){if (!(await window.__confirm({ title:'Delete this skill?', danger:true }))) return; await api.delete(`/enterprise/skills/${id}`); load();}
 
   return <div>
     <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}}>
@@ -326,7 +326,7 @@ function CompetenciesSection({environment}) {
       {comps.map(c=><div key={c.id} style={{background:'white',borderRadius:12,border:`1.5px solid ${C.border}`,padding:16}}>
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:8}}>
           <div><div style={{fontSize:14,fontWeight:700,color:C.text1,fontFamily:F}}>{c.name}</div><div style={{fontSize:11,color:C.text3,fontFamily:F}}>{c.category}</div></div>
-          <div style={{display:'flex',gap:4}}><button onClick={()=>setModal({mode:'edit',comp:c})} style={{background:'none',border:'none',cursor:'pointer'}}><Ic n="edit" s={13} c={C.text4}/></button><button onClick={async()=>{if(confirm('Delete?')){await api.delete(`/enterprise/competencies/${c.id}`);load();}}} style={{background:'none',border:'none',cursor:'pointer'}}><Ic n="trash" s={13} c={C.red}/></button></div>
+          <div style={{display:'flex',gap:4}}><button onClick={()=>setModal({mode:'edit',comp:c})} style={{background:'none',border:'none',cursor:'pointer'}}><Ic n="edit" s={13} c={C.text4}/></button><button onClick={async()=>{if (await window.__confirm({ title:'Delete?', danger:true })) {await api.delete(`/enterprise/competencies/${c.id}`);load();}}} style={{background:'none',border:'none',cursor:'pointer'}}><Ic n="trash" s={13} c={C.red}/></button></div>
         </div>
         {c.description&&<div style={{fontSize:12,color:C.text3,fontFamily:F,marginBottom:8}}>{c.description}</div>}
         <div style={{display:'flex',flexWrap:'wrap',gap:4}}>{(c.levels||[]).map(l=><span key={l.level} style={{fontSize:10,padding:'2px 7px',borderRadius:99,background:C.accentLight,color:C.accent,fontWeight:700,fontFamily:F}}>{l.label}</span>)}</div>
@@ -371,7 +371,7 @@ function JobLevelsSection({environment}) {
         <div style={{width:36,height:36,borderRadius:8,background:C.accentLight,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><span style={{fontSize:11,fontWeight:800,color:C.accent,fontFamily:F}}>{l.code}</span></div>
         <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:C.text1,fontFamily:F}}>{l.name}</div>{l.description&&<div style={{fontSize:11,color:C.text3,fontFamily:F}}>{l.description}</div>}</div>
         <button onClick={()=>setModal({mode:'edit',level:l})} style={{background:'none',border:'none',cursor:'pointer'}}><Ic n="edit" s={13} c={C.text4}/></button>
-        <button onClick={async()=>{if(confirm('Delete?')){await api.delete(`/enterprise/job-levels/${l.id}`);load();}}} style={{background:'none',border:'none',cursor:'pointer'}}><Ic n="trash" s={13} c={C.red}/></button>
+        <button onClick={async()=>{if (await window.__confirm({ title:'Delete?', danger:true })) {await api.delete(`/enterprise/job-levels/${l.id}`);load();}}} style={{background:'none',border:'none',cursor:'pointer'}}><Ic n="trash" s={13} c={C.red}/></button>
       </div>)}</div>
     </div>;})}
     {modal&&<JobLevelModal open level={modal.level} onSave={handleSave} saving={saving} onClose={()=>setModal(null)}/>}
@@ -411,7 +411,7 @@ function LocationsSection({environment}) {
         <tbody>{locs.map(l=><tr key={l.id} style={{borderBottom:`1px solid ${C.border}`}}>
           <td style={{padding:'10px 14px',fontWeight:700,color:C.text1}}>{l.name}</td><td style={{padding:'10px 14px',color:C.text2}}>{l.city||'—'}</td><td style={{padding:'10px 14px',color:C.text2}}>{l.country||'—'}</td><td style={{padding:'10px 14px',color:C.text3}}>{l.region||'—'}</td><td style={{padding:'10px 14px',color:C.text3,fontSize:12}}>{l.timezone}</td>
           <td style={{padding:'10px 14px'}}><Badge color={l.is_remote?C.purple:C.green} light>{l.is_remote?'Remote':'Office'}</Badge></td>
-          <td style={{padding:'10px 14px'}}><div style={{display:'flex',gap:4}}><button onClick={()=>setModal({mode:'edit',loc:l})} style={{background:'none',border:'none',cursor:'pointer'}}><Ic n="edit" s={14} c={C.text4}/></button><button onClick={async()=>{if(confirm('Delete?')){await api.delete(`/enterprise/locations/${l.id}`);load();}}} style={{background:'none',border:'none',cursor:'pointer'}}><Ic n="trash" s={14} c={C.red}/></button></div></td>
+          <td style={{padding:'10px 14px'}}><div style={{display:'flex',gap:4}}><button onClick={()=>setModal({mode:'edit',loc:l})} style={{background:'none',border:'none',cursor:'pointer'}}><Ic n="edit" s={14} c={C.text4}/></button><button onClick={async()=>{if (await window.__confirm({ title:'Delete?', danger:true })) {await api.delete(`/enterprise/locations/${l.id}`);load();}}} style={{background:'none',border:'none',cursor:'pointer'}}><Ic n="trash" s={14} c={C.red}/></button></div></td>
         </tr>)}</tbody>
       </table>
     </div>}
@@ -455,7 +455,7 @@ function CompBandsSection({environment}) {
           <td style={{padding:'10px 14px',color:C.text2}}>{getLocName(b.location_id)}</td><td style={{padding:'10px 14px',color:C.text3}}>{b.currency}</td>
           <td style={{padding:'10px 14px',color:C.green,fontWeight:600}}>{Number(b.min_salary).toLocaleString()}</td><td style={{padding:'10px 14px',fontWeight:600,color:C.text1}}>{Number(b.mid_salary).toLocaleString()}</td><td style={{padding:'10px 14px',color:C.red,fontWeight:600}}>{Number(b.max_salary).toLocaleString()}</td>
           <td style={{padding:'10px 14px',color:C.text3}}>{b.bonus_target_pct}%</td>
-          <td style={{padding:'10px 14px'}}><div style={{display:'flex',gap:4}}><button onClick={()=>setModal({mode:'edit',band:b})} style={{background:'none',border:'none',cursor:'pointer'}}><Ic n="edit" s={14} c={C.text4}/></button><button onClick={async()=>{if(confirm('Delete?')){await api.delete(`/enterprise/comp-bands/${b.id}`);load();}}} style={{background:'none',border:'none',cursor:'pointer'}}><Ic n="trash" s={14} c={C.red}/></button></div></td>
+          <td style={{padding:'10px 14px'}}><div style={{display:'flex',gap:4}}><button onClick={()=>setModal({mode:'edit',band:b})} style={{background:'none',border:'none',cursor:'pointer'}}><Ic n="edit" s={14} c={C.text4}/></button><button onClick={async()=>{if (await window.__confirm({ title:'Delete?', danger:true })) {await api.delete(`/enterprise/comp-bands/${b.id}`);load();}}} style={{background:'none',border:'none',cursor:'pointer'}}><Ic n="trash" s={14} c={C.red}/></button></div></td>
         </tr>)}</tbody>
       </table>
     </div>}

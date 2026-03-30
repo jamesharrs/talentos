@@ -82,7 +82,7 @@ export default function ErrorLogViewer() {
   };
 
   const handleDelete = async (log) => {
-    if (!confirm('Delete this error log permanently?')) return;
+    if (!(await window.__confirm({ title:'Delete this error log permanently?', danger:true }))) return;
     await fetch(`/api/error-logs/${log.id}`, { method:'DELETE' });
     setSelected(null); load();
   };

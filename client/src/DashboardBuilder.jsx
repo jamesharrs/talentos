@@ -250,7 +250,7 @@ export default function DashboardBuilder({ environment, session, onBack }) {
     setSaving(false);
     if (d.id) { setDashboards(prev=>[d,...prev]); setCreateModal(false); setNewDash({name:"",description:"",color:"#4f46e5",icon:"layout"}); handleEdit({...d,panels:[]}); }
   };
-  const handleDelete = async id => { if(!window.confirm("Delete this dashboard?"))return; await api.delete(`/dashboards/${id}`); setDashboards(prev=>prev.filter(d=>d.id!==id)); };
+  const handleDelete = async id => { if (!(await window.__confirm({ title:'Delete this dashboard?', danger:true }))) return; await api.delete(`/dashboards/${id}`); setDashboards(prev=>prev.filter(d=>d.id!==id)); };
   const handleDuplicate = async dash => { const d=await api.post(`/dashboards/${dash.id}/duplicate`,{}); if(d.id){setDashboards(prev=>[d,...prev]);flash("Duplicated");} };
   const handleSetDefault = async dash => { await api.patch(`/dashboards/${dash.id}`,{is_default:true}); setDashboards(prev=>prev.map(d=>({...d,is_default:d.id===dash.id}))); flash("Set as default"); };
   const handleEdit = async dash => { const full=await api.get(`/dashboards/${dash.id}`); setEditing(full.id?full:{...dash,panels:[]}); setView("builder"); setSelPanel(null); };

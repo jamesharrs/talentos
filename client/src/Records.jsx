@@ -6784,7 +6784,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Delete this record?")) return;
+    if (!(await window.__confirm({ title:'Delete this record?', danger:true }))) return;
     await api.del(`/records/${id}?environment_id=${environment.id}`);
     if (selected?.id===id) setSelected(null);
     load();

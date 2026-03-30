@@ -370,7 +370,7 @@ export default function DocumentBuilder({ environment, session }) {
                 onUse={tmpl=>setGenModal(tmpl)}
                 onEdit={tmpl=>setEditModal(tmpl)}
                 onDelete={async id=>{
-                  if(confirm("Delete this template?")) {
+                  if (await window.__confirm({ title:'Delete this template?', danger:true })) {
                     await api.delete(`/documents/templates/${id}`);
                     setTemplates(ts=>ts.filter(t=>t.id!==id));
                   }

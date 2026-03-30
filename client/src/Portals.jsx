@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { FeedbackConfigPanel, FeedbackReports } from './portals/FeedbackConfig.jsx';
+import PortalTemplatePicker from './PortalTemplatePicker.jsx';
+import { PORTAL_TEMPLATES, getTemplatesForType, applyTemplate } from './portalTemplates.js';
 import api from './apiClient.js';
 const F = "'Geist', -apple-system, sans-serif";
 const C = {
@@ -119,148 +121,17 @@ const defaultRow  = (preset="1") => ({
 });
 const defaultPage = () => ({ id:uid(), name:"Home", slug:"/", rows:[defaultRow("1")], seo:{ title:"", description:"", ogImage:"" } });
 
-// ─── Portal Templates ─────────────────────────────────────────────────────────
+// ─── Portal Templates — now imported from portalTemplates.js ──────────────────
+// Legacy TEMPLATES array for backwards compat with existing code
 const TEMPLATES = [
-  {
-    id: "career_site",
-    name: "Career Site",
-    desc: "Branded job listings, company story and application experience",
-    icon: "🌐",
-    accent: "#4361EE",
-    tags: ["Public", "Jobs", "Apply"],
-    theme: {
-      primaryColor:"#4361EE", secondaryColor:"#7C3AED",
-      bgColor:"#FFFFFF", textColor:"#0F1729", accentColor:"#F79009",
-      fontFamily:"'Plus Jakarta Sans', sans-serif", headingFont:"'Plus Jakarta Sans', sans-serif",
-      fontSize:"16px", headingWeight:"700",
-      borderRadius:"10px", buttonStyle:"filled", buttonRadius:"10px", maxWidth:"1200px",
-    },
-    pages: [
-      { id:"p1", name:"Home", slug:"/", rows:[
-        { id:"r1", preset:"1", bgColor:"", bgImage:"", overlayOpacity:0, padding:"xl",
-          cells:[{ id:"c1", widgetType:"hero", widgetConfig:{ headline:"Find Your Next Opportunity", subheading:"Join a team building something meaningful. Explore open roles across engineering, product, design and more.", ctaText:"See Open Roles" }}]},
-        { id:"r2", preset:"1", bgColor:"#F8F9FF", bgImage:"", overlayOpacity:0, padding:"md",
-          cells:[{ id:"c2", widgetType:"stats", widgetConfig:{ stats:[{value:"500+",label:"Team Members"},{value:"12",label:"Global Offices"},{value:"40+",label:"Nationalities"},{value:"4.8★",label:"Glassdoor"}]}}]},
-        { id:"r3", preset:"2", bgColor:"", bgImage:"", overlayOpacity:0, padding:"lg",
-          cells:[
-            { id:"c3", widgetType:"text", widgetConfig:{ heading:"Why work with us?", content:"We believe great work happens when talented people have the freedom to do their best work. We offer flexible hours, competitive pay, and a culture built on trust and transparency." }},
-            { id:"c4", widgetType:"image", widgetConfig:{ url:"" }},
-          ]},
-        { id:"r4", preset:"1", bgColor:"", bgImage:"", overlayOpacity:0, padding:"lg",
-          cells:[{ id:"c5", widgetType:"jobs", widgetConfig:{}}]},
-        { id:"r5", preset:"1", bgColor:"#0F1729", bgImage:"", overlayOpacity:0, padding:"lg",
-          cells:[{ id:"c6", widgetType:"text", widgetConfig:{ heading:"Ready to apply?", content:"We review every application carefully. If there's a match, our team will be in touch within 5 business days." }}]},
-      ]},
-      { id:"p2", name:"Apply", slug:"/apply", rows:[
-        { id:"r6", preset:"1", bgColor:"", bgImage:"", overlayOpacity:0, padding:"lg",
-          cells:[{ id:"c7", widgetType:"form", widgetConfig:{ title:"Submit Your Application" }}]},
-      ]},
-    ],
-  },
-
-  {
-    id: "hm_portal",
-    name: "Hiring Manager Portal",
-    desc: "Review candidates, leave feedback and manage your open requisitions",
-    icon: "💼",
-    accent: "#334155",
-    tags: ["Internal", "Review", "Feedback"],
-    theme: {
-      primaryColor:"#334155", secondaryColor:"#475569",
-      bgColor:"#F8FAFC", textColor:"#0F172A", accentColor:"#6366F1",
-      fontFamily:"'Inter', sans-serif", headingFont:"'Inter', sans-serif",
-      fontSize:"15px", headingWeight:"600",
-      borderRadius:"8px", buttonStyle:"filled", buttonRadius:"6px", maxWidth:"1100px",
-    },
-    pages: [
-      { id:"p1", name:"Dashboard", slug:"/", rows:[
-        { id:"r1", preset:"1", bgColor:"#1E293B", bgImage:"", overlayOpacity:0, padding:"md",
-          cells:[{ id:"c1", widgetType:"hero", widgetConfig:{ headline:"Hiring Manager Portal", subheading:"Your candidates, interviews and open roles — all in one place.", ctaText:"View Open Roles" }}]},
-        { id:"r2", preset:"3", bgColor:"", bgImage:"", overlayOpacity:0, padding:"md",
-          cells:[
-            { id:"c2", widgetType:"stats", widgetConfig:{ stats:[{value:"8",label:"Open Reqs"}]}},
-            { id:"c3", widgetType:"stats", widgetConfig:{ stats:[{value:"24",label:"In Pipeline"}]}},
-            { id:"c4", widgetType:"stats", widgetConfig:{ stats:[{value:"6",label:"This Week"}]}},
-          ]},
-        { id:"r3", preset:"1", bgColor:"", bgImage:"", overlayOpacity:0, padding:"md",
-          cells:[{ id:"c5", widgetType:"jobs", widgetConfig:{}}]},
-      ]},
-      { id:"p2", name:"Feedback", slug:"/feedback", rows:[
-        { id:"r4", preset:"1", bgColor:"", bgImage:"", overlayOpacity:0, padding:"lg",
-          cells:[{ id:"c6", widgetType:"form", widgetConfig:{ title:"Interview Scorecard" }}]},
-      ]},
-    ],
-  },
-
-  {
-    id: "onboarding",
-    name: "Onboarding Portal",
-    desc: "Welcome new hires with a guided post-offer journey and document collection",
-    icon: "🚀",
-    accent: "#0D9488",
-    tags: ["New Hire", "Documents", "Welcome"],
-    theme: {
-      primaryColor:"#0D9488", secondaryColor:"#0891B2",
-      bgColor:"#F0FDFA", textColor:"#134E4A", accentColor:"#F59E0B",
-      fontFamily:"'Outfit', sans-serif", headingFont:"'Outfit', sans-serif",
-      fontSize:"16px", headingWeight:"700",
-      borderRadius:"12px", buttonStyle:"filled", buttonRadius:"999px", maxWidth:"960px",
-    },
-    pages: [
-      { id:"p1", name:"Welcome", slug:"/", rows:[
-        { id:"r1", preset:"1", bgColor:"", bgImage:"", overlayOpacity:0, padding:"xl",
-          cells:[{ id:"c1", widgetType:"hero", widgetConfig:{ headline:"Welcome to the team! 👋", subheading:"We're so excited to have you on board. This portal will guide you through everything you need to do before Day 1.", ctaText:"Get Started" }}]},
-        { id:"r2", preset:"3", bgColor:"", bgImage:"", overlayOpacity:0, padding:"md",
-          cells:[
-            { id:"c2", widgetType:"stats", widgetConfig:{ stats:[{value:"Step 1",label:"Upload Documents"}]}},
-            { id:"c3", widgetType:"stats", widgetConfig:{ stats:[{value:"Step 2",label:"Complete Profile"}]}},
-            { id:"c4", widgetType:"stats", widgetConfig:{ stats:[{value:"Step 3",label:"Meet the Team"}]}},
-          ]},
-        { id:"r3", preset:"2", bgColor:"", bgImage:"", overlayOpacity:0, padding:"lg",
-          cells:[
-            { id:"c5", widgetType:"text", widgetConfig:{ heading:"Before Day 1", content:"Complete your onboarding checklist at your own pace. Our People team is available if you have any questions — just reply to your welcome email." }},
-            { id:"c6", widgetType:"team", widgetConfig:{}},
-          ]},
-      ]},
-      { id:"p2", name:"Documents", slug:"/documents", rows:[
-        { id:"r4", preset:"1", bgColor:"", bgImage:"", overlayOpacity:0, padding:"lg",
-          cells:[{ id:"c7", widgetType:"form", widgetConfig:{ title:"Upload Your Documents" }}]},
-      ]},
-    ],
-  },
-
-  {
-    id: "agency",
-    name: "Agency Portal",
-    desc: "Let agencies submit candidates against open roles with full pipeline visibility",
-    icon: "🤝",
-    accent: "#D97706",
-    tags: ["Agency", "Submit", "External"],
-    theme: {
-      primaryColor:"#D97706", secondaryColor:"#B45309",
-      bgColor:"#FFFBEB", textColor:"#1C1917", accentColor:"#0D9488",
-      fontFamily:"'Raleway', sans-serif", headingFont:"'Raleway', sans-serif",
-      fontSize:"16px", headingWeight:"700",
-      borderRadius:"8px", buttonStyle:"outline", buttonRadius:"8px", maxWidth:"1100px",
-    },
-    pages: [
-      { id:"p1", name:"Home", slug:"/", rows:[
-        { id:"r1", preset:"1", bgColor:"#78350F", bgImage:"", overlayOpacity:0, padding:"lg",
-          cells:[{ id:"c1", widgetType:"hero", widgetConfig:{ headline:"Agency Submission Portal", subheading:"Submit candidates for active roles and track your submissions through our hiring pipeline.", ctaText:"View Open Roles" }}]},
-        { id:"r2", preset:"2", bgColor:"", bgImage:"", overlayOpacity:0, padding:"lg",
-          cells:[
-            { id:"c2", widgetType:"stats", widgetConfig:{ stats:[{value:"12",label:"Active Roles"},{value:"48h",label:"Avg Response"}]}},
-            { id:"c3", widgetType:"text", widgetConfig:{ heading:"How it works", content:"Browse open roles below, then use the submission form to share your candidate's details. We'll review and respond within 48 hours with next steps." }},
-          ]},
-        { id:"r3", preset:"1", bgColor:"", bgImage:"", overlayOpacity:0, padding:"md",
-          cells:[{ id:"c4", widgetType:"jobs", widgetConfig:{}}]},
-      ]},
-      { id:"p2", name:"Submit Candidate", slug:"/submit", rows:[
-        { id:"r4", preset:"1", bgColor:"", bgImage:"", overlayOpacity:0, padding:"lg",
-          cells:[{ id:"c5", widgetType:"form", widgetConfig:{ title:"Submit a Candidate" }}]},
-      ]},
-    ],
-  },
+  { id:"career_site", name:"Career Site", desc:"Branded job listings and application experience", icon:"", accent:"#4361EE", tags:["Public","Jobs","Apply"],
+    theme:{ primaryColor:"#4361EE",secondaryColor:"#7C3AED",bgColor:"#FFFFFF",textColor:"#0F1729",fontFamily:"'Plus Jakarta Sans', sans-serif",buttonStyle:"filled",buttonRadius:"10px",maxWidth:"1200px" }, pages:[] },
+  { id:"hm_portal", name:"Hiring Manager Portal", desc:"Review candidates and manage requisitions", icon:"", accent:"#334155", tags:["Internal","Review"],
+    theme:{ primaryColor:"#334155",secondaryColor:"#475569",bgColor:"#F8FAFC",textColor:"#0F172A",fontFamily:"'Inter', sans-serif",buttonStyle:"filled",buttonRadius:"6px",maxWidth:"1100px" }, pages:[] },
+  { id:"onboarding", name:"Onboarding Portal", desc:"Welcome new hires with guided post-offer journey", icon:"", accent:"#0D9488", tags:["New Hire","Welcome"],
+    theme:{ primaryColor:"#0D9488",secondaryColor:"#0891B2",bgColor:"#F0FDFA",textColor:"#134E4A",fontFamily:"'Outfit', sans-serif",buttonStyle:"filled",buttonRadius:"999px",maxWidth:"960px" }, pages:[] },
+  { id:"agency_portal", name:"Agency Portal", desc:"Let agencies submit candidates against open roles", icon:"", accent:"#D97706", tags:["Agency","Submit"],
+    theme:{ primaryColor:"#D97706",secondaryColor:"#B45309",bgColor:"#FFFBEB",textColor:"#1C1917",fontFamily:"'Raleway', sans-serif",buttonStyle:"outline",buttonRadius:"8px",maxWidth:"1100px" }, pages:[] },
 ];
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -3217,6 +3088,7 @@ export default function PortalsPage({ environment, onFullScreen }) {
   const loadStats=useCallback(async(list)=>{if(!list?.length)return;const res=await Promise.all(list.map(p=>api.get('/portal-analytics/'+p.id+'/stats?days=30').catch(()=>null)));const m={};list.forEach((p,i)=>{if(res[i])m[p.id]=res[i];});setAnalytics(m);},[]);
   const [newName, setNewName] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState(null); // null = blank
+  const [templatePickerType, setTemplatePickerType] = useState(null); // portal type for rich template picker
 
   const load = useCallback(async () => {
     if (!environment?.id) return;
@@ -3276,24 +3148,58 @@ export default function PortalsPage({ environment, onFullScreen }) {
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
-    const tmpl = TEMPLATES.find(t=>t.id===selectedTemplate);
-    // Deep-clone template pages and give fresh IDs
-    const pages = tmpl
-      ? JSON.parse(JSON.stringify(tmpl.pages)).map(pg=>({
-          ...pg, id:uid(),
-          rows:pg.rows.map(r=>({...r,id:uid(),cells:r.cells.map(c=>({...c,id:uid()}))}))
-        }))
-      : [defaultPage()];
+    // If a portal type is selected (not blank), show the rich template picker instead
+    if (selectedTemplate) {
+      setTemplatePickerType(selectedTemplate);
+      setCreating(false);
+      return;
+    }
+    // Blank canvas — create immediately
     const p = {
       name: newName.trim(),
       slug: `/${newName.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-")}`,
       environment_id: environment.id,
       status: "draft",
-      theme: tmpl ? {...tmpl.theme} : defaultTheme(),
-      pages,
+      theme: defaultTheme(),
+      pages: [defaultPage()],
     };
     const created = await api.post("/portals", p);
     setNewName(""); setCreating(false); setSelectedTemplate(null);
+    setEditing(created);
+  };
+
+  const handleApplyRichTemplate = async (richTemplate) => {
+    const applied = applyTemplate(richTemplate, uid);
+    const name = newName.trim() || richTemplate.name + ' Portal';
+    const p = {
+      name,
+      slug: `/${name.toLowerCase().replace(/[^a-z0-9]+/g,"-")}`,
+      environment_id: environment.id,
+      status: "draft",
+      type: templatePickerType,
+      theme: applied.theme,
+      nav: applied.nav,
+      footer: applied.footer,
+      pages: applied.pages,
+    };
+    const created = await api.post("/portals", p);
+    setNewName(""); setTemplatePickerType(null); setSelectedTemplate(null);
+    setEditing(created);
+  };
+
+  const handleSkipTemplate = async () => {
+    const name = newName.trim() || 'New Portal';
+    const p = {
+      name,
+      slug: `/${name.toLowerCase().replace(/[^a-z0-9]+/g,"-")}`,
+      environment_id: environment.id,
+      status: "draft",
+      type: templatePickerType,
+      theme: defaultTheme(),
+      pages: [defaultPage()],
+    };
+    const created = await api.post("/portals", p);
+    setNewName(""); setTemplatePickerType(null); setSelectedTemplate(null);
     setEditing(created);
   };
 
@@ -3419,10 +3325,27 @@ export default function PortalsPage({ environment, onFullScreen }) {
                     fontSize:13,fontFamily:F,outline:"none",color:C.text1,boxSizing:"border-box"}}/>
                 <Btn v="secondary" onClick={()=>{setCreating(false);setSelectedTemplate(null);setNewName("");}}>Cancel</Btn>
                 <Btn onClick={handleCreate} disabled={!newName.trim()}>
-                  {selectedTemplate?"Use Template":"Create blank"}
+                  {selectedTemplate?"Choose Layout →":"Create blank"}
                 </Btn>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rich Template Picker Overlay */}
+      {templatePickerType && (
+        <div style={{position:"fixed",inset:0,background:"rgba(15,23,41,.5)",zIndex:1000,overflowY:"auto",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"40px 24px"}}>
+          <div style={{background:C.surface,borderRadius:20,width:"100%",maxWidth:1160,boxShadow:"0 24px 80px rgba(0,0,0,.25)",overflow:"hidden",position:"relative"}}>
+            <button onClick={()=>{setTemplatePickerType(null);setCreating(true);}}
+              style={{position:"absolute",top:16,right:16,zIndex:10,background:"none",border:"none",cursor:"pointer",color:C.text3,padding:4}}>
+              <Ic n="x" s={18}/>
+            </button>
+            <PortalTemplatePicker
+              portalType={templatePickerType}
+              onSelect={handleApplyRichTemplate}
+              onSkip={handleSkipTemplate}
+            />
           </div>
         </div>
       )}

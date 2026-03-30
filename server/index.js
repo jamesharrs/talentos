@@ -91,6 +91,7 @@ app.use('/api/doc-extract',       require('./routes/doc_extract'));
 app.use('/api/linkedin-search',   require('./routes/linkedin_search'));
 app.use('/api/company-research',  require('./routes/company_research'));
 app.use('/api/skills-intel',      require('./routes/skills_intelligence'));
+app.use('/api/analytics',         require('./routes/analytics'));
 app.use('/api/skills-import',     require('./routes/skills_import'));
 app.use('/api/agents',            require('./routes/agents'));
 app.use('/api/ai-interview',      require('./routes/ai_interview'));

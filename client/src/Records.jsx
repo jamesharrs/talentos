@@ -14,6 +14,7 @@ import { COUNTRIES, COUNTRY_MAP, PHONE_CODES, formatPhone,
 import { TasksEventsPanel } from "./TasksEventsPanel.jsx";
 import { ScorecardPanel } from "./Scorecards.jsx";
 import AiBadge, { isAiGenerated } from "./AiBadge.jsx";
+import InsightsPanel from "./InsightsPanel.jsx";
 
 import api from './apiClient.js';
 import { authHeaders } from './apiClient.js';
@@ -810,7 +811,7 @@ const SkillsPicker = ({ field, value, onChange, environment }) => {
   useEffect(() => {
     const envId = environment?.id || window._currentEnvId;
     if (!envId) return;
-    const cacheKey = `skills_${envId}_${(allowedCats||[]).join(",")}`;
+    const cacheKey = `skills_v2_${envId}_${(allowedCats||[]).join(",")}`;
     if (_skillsCache[cacheKey]) { setSkills(_skillsCache[cacheKey]); return; }
     tFetch(`/api/enterprise/skills?environment_id=${envId}`).then(r=>r.json()).then(d => {
       let all = Array.isArray(d) ? d.filter(s=>s.is_active!==false) : [];
@@ -3911,6 +3912,7 @@ export const PANEL_META = {
   questions:    { icon:"help-circle",   label:"Interview Questions", defaultOpen:false },
   interview_plan: { icon:"calendar",    label:"Interview Plan",      defaultOpen:true  },
   screening:    { icon:"shield",        label:"Screening Rules",     defaultOpen:true  },
+  insights: { icon:"barChart", label:"Insights", defaultOpen:true },
 };
 
 export const getDefaultPanelOrder = (objectName) => {
@@ -3918,7 +3920,9 @@ export const getDefaultPanelOrder = (objectName) => {
   if (objectName === "Person") base.splice(1, 0, "linked", "reporting");
   if (["Person","Job"].includes(objectName)) base.push("match");
   if (objectName === "Person") base.push("scorecard");
-  if (objectName === "Job") { base.unshift("interview_plan"); base.push("questions"); base.push("screening"); }
+  if (objectName === "Job") { base.unshift("interview_plan"); base.push("questions"); base.push("screening"); 
+  if (objectName === "Job" || objectName === "Jobs") base.unshift("insights"); }
+
   return base;
 };
 
@@ -5787,6 +5791,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     if (id==="notes") return canRecord('record_add_note') || canRecord('record_view_comms') ? (
       <NotesPanel record={record} notes={notes} onNotesChange={load} canAdd={canRecord('record_add_note')} canDelete={canRecord('record_delete_note')} linkedJobRecords={linkedJobRecords} activeJobContext={activeJobContext}/>
     ) : <AccessDeniedPanel label="Notes"/>;
+      if (id === "insights") return <InsightsPanel record={record} environment={environment} />;
+
 
     if (id==="attachments") return (
       <div>

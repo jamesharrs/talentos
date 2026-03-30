@@ -10,5 +10,8 @@
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
+  },
+  "watch": {
+    "pattern": "server/**"
   }
 }

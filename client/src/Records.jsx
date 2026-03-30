@@ -5399,7 +5399,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   useEffect(() => { load(); setEditing({}); setTab("fields"); }, [record.id, load]);
 
   // Click-based types save immediately when value changes; text types wait for explicit save
-  const CLICK_SAVE_TYPES = ["select","multi_select","boolean","rating","people","lookup","multi_lookup"];
+  const CLICK_SAVE_TYPES = ["select","multi_select","boolean","rating","people","lookup","multi_lookup","skills","dataset"];
 
   const handleFieldEdit = (key, value, fieldType) => {
     setEditing(e=>({...e,[key]:value}));
@@ -5410,9 +5410,13 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   };
 
   const handleSaveFieldValue = async (key, oldValue, newValue) => {
-    const oldStr = oldValue === null || oldValue === undefined ? "" : String(oldValue);
-    const newStr = newValue === null || newValue === undefined ? "" : String(newValue);
-    if (oldStr === newStr) { setEditing(e=>{ const n={...e}; delete n[key]; return n; }); return; }
+    // Array-aware equality check (for skills, multi_select, people fields)
+    const serialize = v => {
+      if (v === null || v === undefined) return "";
+      if (Array.isArray(v)) return JSON.stringify([...v].sort());
+      return String(v);
+    };
+    if (serialize(oldValue) === serialize(newValue)) { setEditing(e=>{ const n={...e}; delete n[key]; return n; }); return; }
     setSaving(true);
     const fieldDef = fields.find(f=>f.api_key===key);
     const updated = await api.patch(`/records/${record.id}`, {

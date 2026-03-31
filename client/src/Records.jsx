@@ -6155,19 +6155,18 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
             <option value="">Select file type…</option>
             {fileTypes.map(ft=><option key={ft.id} value={ft.id}>{ft.name}</option>)}
           </select>
-          <div
-            onClick={()=>fileInputRef.current?.click()}
+          <label
             onDragOver={e=>{e.preventDefault();setUploadDragging(true);}}
             onDragLeave={()=>setUploadDragging(false)}
-            onDrop={handleDropUpload}
-            style={{ width:'100%', border:`2px dashed ${uploadDragging?C.accent:C.border}`, borderRadius:12, padding:'16px', textAlign:'center', cursor:'pointer', background:uploadDragging?`${C.accent}06`:'transparent', fontFamily:F, color:uploadDragging?C.accent:C.text3, transition:'all .15s', boxSizing:'border-box' }}>
+            onDrop={e=>{e.preventDefault();setUploadDragging(false);const f=e.dataTransfer.files?.[0];if(f)handleFileUpload(f,selectedFileType);}}
+            style={{ display:'block', width:'100%', border:`2px dashed ${uploadDragging?C.accent:C.border}`, borderRadius:12, padding:'16px', textAlign:'center', cursor:'pointer', background:uploadDragging?`${C.accent}06`:'transparent', fontFamily:F, color:uploadDragging?C.accent:C.text3, transition:'all .15s', boxSizing:'border-box' }}>
+            <input type="file" style={{display:'none'}}
+              onChange={e=>{ const f=e.target.files?.[0]; if(f) handleFileUpload(f, selectedFileType); e.target.value=''; }}/>
             {uploading
               ? <><Ic n="upload" s={16}/><div style={{fontSize:12,marginTop:4}}>Uploading…</div></>
               : <><Ic n="upload" s={16}/><div style={{fontSize:12,marginTop:4,fontWeight:600}}>Click or drop file to upload</div><div style={{fontSize:10,marginTop:2}}>{selectedFileType?fileTypes.find(t=>t.id===selectedFileType)?.allowed_formats?.join(', '):'Select a file type above first'}</div></>
             }
-          </div>
-          <input ref={fileInputRef} type="file" style={{display:'none'}}
-            onChange={e=>{ const f=e.target.files?.[0]; if(f) handleFileUpload(f, selectedFileType); e.target.value=''; }}/>
+          </label>
           {uploadError && <div style={{ marginTop:6, fontSize:11, color:'#ef4444', fontWeight:600, padding:'6px 8px', background:'#fef2f2', borderRadius:6, border:'1px solid #fecaca' }}>{uploadError}</div>}
         </div>}
 

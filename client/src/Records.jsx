@@ -6140,7 +6140,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     if (id==="attachments") return (
       <div>
         {/* File type selector + drop zone */}
-        {canRecord('record_upload_file') && <div style={{ marginBottom:8 }}>
+        {<div style={{ marginBottom:8 }}>
           <select value={selectedFileType} onChange={e=>setSelectedFileType(e.target.value)}
             style={{ width:'100%', padding:'7px 10px', borderRadius:8, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, color:C.text2, background:C.surface, marginBottom:8 }}>
             <option value="">Select file type…</option>
@@ -6290,7 +6290,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
     return null;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [record, notes, attachments, fields, environment, objectName, composeType, fileTypes, cvParsing, cvParseAtt, docExtracting, docExtractAtt, uploading, uploadDragging, selectedFileType, currentObject, allObjects, openPanels]);
+  }, [record, notes, attachments, fields, environment, objectName, composeType, fileTypes, cvParsing, cvParseAtt, docExtracting, docExtractAtt, uploading, uploadDragging, selectedFileType, currentObject, allObjects, openPanels, _permCtx]);
 
 
   // PanelCard is defined at module level above RecordDetail

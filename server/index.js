@@ -44,7 +44,7 @@ const AUTH_EXEMPT = [
   '/auth/login', '/auth/me',
   '/users/login', '/users/auth/login',
   '/health', '/environments',
-  '/portals/public', '/portals/slug',
+  '/portals/public', '/portals/by-slug',
   '/portal-analytics', '/portal-feedback', '/portal-copilot',
   '/superadmin', '/bot', '/analytics',
   '/tenant-reset', '/cleanup-seeds', '/seed-dashboards',

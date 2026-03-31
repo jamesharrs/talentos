@@ -16,6 +16,7 @@ import QuestionBankSettings from "./settings/QuestionBankSettings.jsx";
 import FeatureFlagsSettings from "./settings/FeatureFlagsSettings.jsx";
 import AiMatchingSettings from "./settings/AiMatchingSettings.jsx";
 import { FormsList } from "./Forms.jsx";
+import NotificationsSection from './NotificationsSection';
 
 import IntegrationsSettings from "./IntegrationsSettings.jsx";
 import DatasetsSection from "./settings/DatasetsSection.jsx";
@@ -2339,6 +2340,7 @@ const NAV_GROUPS = [
     items: [
       { id:"appearance",  icon:"sun",       label:"Appearance" },
       { id:"language",    icon:"globe",     label:"Language" },
+      { id:"notifications", icon:"bell",  label:"Notifications" },
       { id:"setup_wizard", icon:"building", label:"Company Profile" },
     ],
   },
@@ -2580,6 +2582,7 @@ export default function SettingsPage({ currentUser, environment, initialSection,
         {activeSection==="duplicates" && <DuplicatesSettings environment={environment}/>}
         {activeSection==="forms"      && <FormsList environment={environment}/>}
         {activeSection==="appearance" && <AppearanceSection/>}
+        {activeSection==="notifications" && <NotificationsSection/>}
         {activeSection==="language"   && <LanguageSection/>}
         {activeSection==="workflows"  && <WorkflowsPage environment={environment}/>}
         {activeSection==="portals"    && <PortalsPage environment={environment} onFullScreen={setFullScreenMode}/>}

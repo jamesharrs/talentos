@@ -6,7 +6,7 @@ import SharePicker from "./SharePicker.jsx";
 import api from './apiClient.js';
 import WorkflowCanvas from "./WorkflowCanvas.jsx";
 
-const F = "'Geist', -apple-system, sans-serif";
+const F = "'Plus Jakarta Sans', -apple-system, sans-serif";
 const C = {
   bg: "#f5f6fa", surface: "#ffffff", border: "#e5e7eb",
   text1: "#111827", text2: "#374151", text3: "#9ca3af",

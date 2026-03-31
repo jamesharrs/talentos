@@ -30,7 +30,7 @@ const tFetch = (url, opts = {}) => {
   return fetch(url, { ...opts, headers: h });
 };
 
-const F  = "'Geist', -apple-system, sans-serif";
+const F  = "'Plus Jakarta Sans', -apple-system, sans-serif";
 const C  = {
   bg:"#f4f5f8", surface:"#ffffff", border:"#e8eaed", border2:"#d1d5db",
   text1:"#111827", text2:"#4b5563", text3:"#9ca3af", accent:"#3b5bdb",

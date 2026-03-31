@@ -47,7 +47,7 @@ const api = {
   del:   p     => tFetch(`/api${p}`,{method:"DELETE",  headers:getAuthHeaders()}).then(r=>r.json()),
 };
 
-const F = "'Geist', -apple-system, sans-serif";
+const F = "'Plus Jakarta Sans', -apple-system, sans-serif";
 const C = { bg:"#f8f9fc", surface:"#ffffff", border:"#e8eaed", border2:"#d1d5db", text1:"#111827", text2:"#4b5563", text3:"#9ca3af", accent:"#3b5bdb" };
 
 // ── Primitives ───────────────────────────────────────────────────────────────
@@ -435,11 +435,20 @@ const InviteUserModal = ({roles, orgUnits, onSave, onClose}) => {
         <div style={{width:48,height:48,borderRadius:"50%",background:"#f0fdf4",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}><Ic n="check" s={24} c="#16a34a"/></div>
         <p style={{fontSize:14,color:C.text1,fontWeight:600,margin:"0 0 8px"}}>{result.first_name} {result.last_name} has been invited</p>
         <p style={{fontSize:12,color:C.text3,margin:"0 0 20px"}}>Share these credentials securely. They must change their password on first login.</p>
+        <div style={{background:"#FFFBEB",borderRadius:8,padding:"10px 12px",marginTop:8,marginBottom:4,border:"1px solid #FCD34D",fontSize:12,color:"#92400E",lineHeight:1.5}}>
+          <strong>Note:</strong> Email delivery requires SendGrid to be configured in Settings → Integrations. Until then, please share these credentials manually.
+        </div>
         <div style={{background:"#f8f9fc",borderRadius:10,padding:16,textAlign:"left"}}>
           <div style={{fontSize:12,color:C.text3,marginBottom:4}}>Temporary credentials</div>
           <div style={{fontSize:13,fontFamily:"ui-monospace,monospace",color:C.text1}}>Email: <strong>{result.email}</strong></div>
           <div style={{fontSize:13,fontFamily:"ui-monospace,monospace",color:C.text1,marginTop:4}}>Password: <strong>{result.temp_password}</strong></div>
         </div>
+        <button onClick={()=>{
+          const text = "Login: " + window.location.origin + "\nEmail: " + result.email + "\nPassword: " + result.temp_password;
+          navigator.clipboard.writeText(text).then(()=>alert('Credentials copied!'));
+        }} style={{marginTop:10,width:"100%",padding:"8px",borderRadius:8,border:"1px solid #e5e7eb",background:"white",color:"#3b5bdb",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          📋 Copy Credentials
+        </button>
         <Btn style={{marginTop:16}} onClick={onClose}>Done</Btn>
       </div>
     </Modal>
@@ -1228,7 +1237,7 @@ const PersonTypeConfig = ({ object, onUpdate }) => {
           onKeyDown={e=>{ if(e.key==="Enter") addOption(); }}
           placeholder="Add option…"
           style={{ flex:1, padding:"6px 10px", borderRadius:8, border:"1px solid #fed7aa",
-            fontSize:12, fontFamily:"'Geist', sans-serif", outline:"none" }}/>
+            fontSize:12, fontFamily:"'Plus Jakarta Sans', sans-serif", outline:"none" }}/>
         <button onClick={addOption} disabled={!newOpt.trim()||saving}
           style={{ padding:"6px 14px", borderRadius:8, border:"none",
             background:"#f59e0b", color:"white", fontSize:12, fontWeight:700,
@@ -2002,7 +2011,12 @@ function LanguageSection() {
                 background: isActive ? C.accentLight : C.surface,
                 cursor: isLoading ? "wait" : "pointer", fontFamily:F, transition:"all .15s",
                 opacity: isLoading ? 0.7 : 1 }}>
-              <span style={{ fontSize:20 }}>{lang.flag}</span>
+              <span style={{ fontSize:13, fontWeight:800, color: isActive ? C.accent : C.text2,
+                background: isActive ? C.accentLight : '#f1f3f5', padding:'3px 7px',
+                borderRadius:5, fontFamily:'system-ui', letterSpacing:'0.5px',
+                minWidth:30, textAlign:'center', display:'inline-block' }}>
+                {lang.code.toUpperCase()}
+              </span>
               <div style={{ textAlign:"left", flex:1 }}>
                 <div style={{ fontSize:13, fontWeight:700, color: isActive ? C.accent : C.text1 }}>{lang.label}</div>
                 <div style={{ fontSize:10, color:C.text3, marginTop:1 }}>

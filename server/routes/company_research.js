@@ -101,30 +101,8 @@ router.post('/research', async (req, res) => {
     try { profile = JSON.parse(profileText.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim()); }
     catch(e) { return res.status(500).json({ error: 'Failed to parse research results', raw: profileText.slice(0,500) }); }
 
-    // ── Step 2: Wait 30s to clear rate limit window, then generate templates ──
-    console.log('Research complete, waiting 30s before template generation...');
-    await new Promise(res => setTimeout(res, 30000));
-
-    const tData = await callAI({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2000,
-      // No web search tool needed for templates — saves tokens
-      tools: undefined,
-      system: 'Write email templates for recruiters. Return ONLY valid JSON.',
-      messages: [{ role: 'user', content: `5 recruiting email templates for ${profile.name} (${profile.industry}, ${profile.tone} tone).
-Return ONLY: {"templates":[
-{"name":"Initial Outreach","category":"outreach","subject":"...","body":"Use {{candidate_name}},{{job_title}},{{company_name}}"},
-{"name":"Interview Invitation","category":"interview","subject":"...","body":"Use {{candidate_name}},{{interview_date}},{{interview_time}}"},
-{"name":"Offer Letter","category":"offer","subject":"...","body":"Use {{candidate_name}},{{job_title}},{{salary}},{{start_date}}"},
-{"name":"Rejection","category":"rejection","subject":"...","body":"Use {{candidate_name}},{{job_title}}"},
-{"name":"Welcome Aboard","category":"onboarding","subject":"...","body":"Use {{candidate_name}},{{start_date}}"}]}` }]
-    });
-
-    let emailTemplates = [];
-    let tText = ''; for (const b of tData.content||[]) { if (b.type==='text') tText += b.text; }
-    try { emailTemplates = JSON.parse(tText.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim()).templates||[]; } catch(e) {
-      console.log('Template parse failed, using empty templates');
-    }
+    // Template generation removed — use Email Templates section instead
+    const emailTemplates = [];
 
     const industryKey = (profile.industry||'default').toLowerCase();
     const suggestedFields = INDUSTRY_FIELD_SUGGESTIONS[industryKey] || INDUSTRY_FIELD_SUGGESTIONS.default;

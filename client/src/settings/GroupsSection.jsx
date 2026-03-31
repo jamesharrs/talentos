@@ -4,7 +4,7 @@ import { tFetch } from "../apiClient.js";
 import { useState, useEffect } from "react";
 import SharePicker from "../SharePicker.jsx";
 
-const F = "'Geist', -apple-system, sans-serif";
+const F = "'Plus Jakarta Sans', -apple-system, sans-serif";
 const C = { accent:"#4361EE", accentLight:"#eef1ff", text1:"#111827", text2:"#374151",
   text3:"#9ca3af", border:"#e5e7eb", bg:"#f9fafb", green:"#0ca678", red:"#e03131" };
 
@@ -61,7 +61,7 @@ function GroupModal({ group, users, environmentId, onClose, onSave }) {
     setSaving(true);
     const url = isEdit ? `/api/groups/${group.id}` : '/api/groups';
     const method = isEdit ? 'PATCH' : 'POST';
-    await fetch(url, { method, headers:{'Content-Type':'application/json'},
+    await tFetch(url, { method, headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ ...form, environment_id: environmentId }) });
     setSaving(false);
     onSave();

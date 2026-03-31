@@ -49,9 +49,21 @@ export const SCHEMES = {
   },
 };
 
+// Dynamically load Google Fonts at runtime
+function loadGoogleFont(fontName) {
+  if (!fontName || typeof document === 'undefined') return;
+  const clean = fontName.replace(/'/g, '').split(',')[0].trim();
+  const id = 'gf-' + clean.replace(/\s+/g, '-').toLowerCase();
+  if (document.getElementById(id)) return;
+  const link = document.createElement('link');
+  link.id = id; link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=' + encodeURIComponent(clean) + ':wght@300;400;500;600;700;800&display=swap';
+  document.head.appendChild(link);
+}
+
 export const FONTS = {
-  geist:   { label: "Geist (Vercentic)", value: "'Geist', -apple-system, sans-serif" },
-  dm:      { label: "DM Sans",  value: "'Geist', -apple-system, sans-serif" },
+  geist:   { label: "Geist (Vercentic)", value: "'Plus Jakarta Sans', -apple-system, sans-serif" },
+  dm:      { label: "DM Sans",  value: "'Plus Jakarta Sans', -apple-system, sans-serif" },
   inter:   { label: "Inter",    value: "'Inter', -apple-system, sans-serif" },
   jakarta: { label: "Jakarta",  value: "'Plus Jakarta Sans', -apple-system, sans-serif" },
   mono:    { label: "Mono",     value: "'JetBrains Mono', 'Fira Code', ui-monospace, monospace" },

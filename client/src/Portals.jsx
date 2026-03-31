@@ -3,7 +3,7 @@ import { FeedbackConfigPanel, FeedbackReports } from './portals/FeedbackConfig.j
 import PortalTemplatePicker from './PortalTemplatePicker.jsx';
 import { PORTAL_TEMPLATES, getTemplatesForType, applyTemplate } from './portalTemplates.js';
 import api from './apiClient.js';
-const F = "'Geist', -apple-system, sans-serif";
+const F = "'Plus Jakarta Sans', -apple-system, sans-serif";
 const C = {
   bg:"#F3F4F8", surface:"#FFFFFF", surface2:"#F8F9FC",
   border:"#E8ECF8", border2:"#D1D5DB",
@@ -59,7 +59,7 @@ const WIDGET_TYPES = [
 ];
 
 const FONT_OPTS = [
-  { value:"'Geist', sans-serif",           label:"Geist (Vercentic)" },
+  { value:"'Plus Jakarta Sans', sans-serif",           label:"Geist (Vercentic)" },
   { value:"'Inter', sans-serif",             label:"Inter" },
   { value:"'Plus Jakarta Sans', sans-serif", label:"Jakarta Sans" },
   { value:"'Outfit', sans-serif",            label:"Outfit" },
@@ -108,7 +108,7 @@ const uid = () => Math.random().toString(36).slice(2,10);
 const defaultTheme = () => ({
   primaryColor:"#4361EE", secondaryColor:"#7C3AED",
   bgColor:"#FFFFFF", textColor:"#0F1729", accentColor:"#F79009",
-  fontFamily:"'Geist', sans-serif", headingFont:"'Geist', sans-serif",
+  fontFamily:"'Plus Jakarta Sans', sans-serif", headingFont:"'Plus Jakarta Sans', sans-serif",
   fontSize:"16px", headingWeight:"700",
   borderRadius:"8px", buttonStyle:"filled", buttonRadius:"8px",
   maxWidth:"1200px",
@@ -425,7 +425,7 @@ const FeedbackTab = ({ portal, onChange, accent, api: apiProp }) => {
       {[["configure","Configure"],["reports","Reports"]].map(([id,l])=>(
         <button key={id} onClick={()=>setSub(id)} style={{flex:1,padding:"7px 0",borderRadius:8,border:`1.5px solid ${sub===id?(accent||"#4361EE"):"#E5E7EB"}`,
           background:sub===id?((accent||"#4361EE")+"0A"):"transparent",fontSize:12,fontWeight:sub===id?700:400,
-          cursor:"pointer",fontFamily:"'Geist',sans-serif",color:sub===id?(accent||"#4361EE"):"#6B7280"}}>{l}</button>
+          cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif",color:sub===id?(accent||"#4361EE"):"#6B7280"}}>{l}</button>
       ))}
     </div>
     {sub==="configure"&&<FeedbackConfigPanel portal={portal} onChange={onChange} accent={accent}/>}

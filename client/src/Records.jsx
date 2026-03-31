@@ -5828,11 +5828,13 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     }).catch(()=>{});
   }, [currentObject.slug]);
 
+  const [uploadError, setUploadError] = useState('');
   const handleFileUpload = async (file, fileTypeId) => {
     if (!file) return;
     setUploading(true);
+    setUploadError('');
     try {
-      const ft     = fileTypes.find(t => t.id === fileTypeId);
+      const ft = fileTypes.find(t => t.id === fileTypeId);
       const formData = new FormData();
       formData.append('file',           file);
       formData.append('record_id',      record.id);
@@ -5841,8 +5843,12 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       formData.append('uploaded_by',    'Admin');
       formData.append('environment_id', currentObject.environment_id || environment?.id || '');
       const res = await tFetch('/api/attachments/upload', { method:'POST', body: formData });
-      const att = await res.json();
-      if (res.ok) {
+      if (!res.ok) {
+        let errMsg = `Upload failed (${res.status})`;
+        try { const e = await res.json(); errMsg = e.error || errMsg; } catch {}
+        setUploadError(errMsg);
+      } else {
+        const att = await res.json();
         load();
         if (ft?.parse_cv) {
           if (confirm(`"${ft.name}" file uploaded. Parse CV fields automatically?`)) {
@@ -5850,7 +5856,10 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
           }
         }
       }
-    } catch(e) { console.error('Upload error:', e); }
+    } catch(e) {
+      console.error('Upload error:', e);
+      setUploadError(`Upload error: ${e.message}`);
+    }
     setUploading(false);
   };
 
@@ -6159,6 +6168,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
           </div>
           <input ref={fileInputRef} type="file" style={{display:'none'}}
             onChange={e=>{ const f=e.target.files?.[0]; if(f) handleFileUpload(f, selectedFileType); e.target.value=''; }}/>
+          {uploadError && <div style={{ marginTop:6, fontSize:11, color:'#ef4444', fontWeight:600, padding:'6px 8px', background:'#fef2f2', borderRadius:6, border:'1px solid #fecaca' }}>{uploadError}</div>}
         </div>}
 
         {/* File list */}
@@ -6290,7 +6300,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
     return null;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [record, notes, attachments, fields, environment, objectName, composeType, fileTypes, cvParsing, cvParseAtt, docExtracting, docExtractAtt, uploading, uploadDragging, selectedFileType, currentObject, allObjects, openPanels, _permCtx]);
+  }, [record, notes, attachments, fields, environment, objectName, composeType, fileTypes, cvParsing, cvParseAtt, docExtracting, docExtractAtt, uploading, uploadDragging, selectedFileType, currentObject, allObjects, openPanels, _permCtx, uploadError]);
 
 
   // PanelCard is defined at module level above RecordDetail

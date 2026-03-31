@@ -3115,8 +3115,7 @@ const RecordWorkflows = ({ record, objectId, environment, objectName, onNavigate
           onConfirm={({salary,currency,bonus,expiry,notes})=>{ const wf=offerModal.wf; setOfferModal(null); runWorkflow(wf,{offer_salary:salary,offer_currency:currency,offer_bonus:bonus,offer_expiry:expiry,offer_notes:notes}); }}
         />
       )}
-      {/* Pipeline + People Link section */}
-      <RecordPipelinePanel record={record} objectId={objectId} environment={environment} objectName={objectName} onNavigate={onNavigate}/>
+
 
       {/* Automation workflows */}
       {automationWfs.length > 0 && (
@@ -4046,7 +4045,7 @@ export const PANEL_META = {
   attachments:  { icon:"paperclip",     label:"Files",               defaultOpen:true  },
   forms:        { icon:"clipboard",     label:"Forms",               defaultOpen:false },
   activity:     { icon:"activity",      label:"Activity",            defaultOpen:false },
-  workflows:    { icon:"layers",        label:"Pipeline",            defaultOpen:false },
+  // workflows panel removed
   linked:       { icon:"link",          label:"Linked Records",      defaultOpen:true  },
   match:        { icon:"sparkles",      label:"Recommendations",     defaultOpen:false },
   reporting:    { icon:"gitBranch",     label:"Reporting",           defaultOpen:true  },
@@ -4059,7 +4058,7 @@ export const PANEL_META = {
 };
 
 export const getDefaultPanelOrder = (objectName) => {
-  const base = ["tasks","comms","coordination","notes","attachments","forms","activity","workflows"];
+  const base = ["tasks","comms","coordination","notes","attachments","forms","activity"];
   if (objectName === "Person") base.splice(1, 0, "linked", "reporting");
   if (["Person","Job"].includes(objectName)) base.push("match");
   if (objectName === "Person") base.push("scorecard");
@@ -6041,7 +6040,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
     if (id==="activity") return <ActivityPanel record={record}/>;
 
-    if (id==="workflows") return <RecordWorkflows record={record} objectId={record.object_id} environment={environment} objectName={objectName} onNavigate={onNavigate}/>;
+    // Pipeline panel removed
     if (id==="tasks")     return <TasksEventsPanel record={record} environment={environment}/>;
     if (id==="forms")     return <div>
           <div style={{
@@ -6110,7 +6109,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     { id:"notes",       icon:"messageSquare", label:`Notes${notes.length?` (${notes.length})`:""}` },
     { id:"attachments", icon:"paperclip",     label:`Files${attachments.length?` (${attachments.length})`:""}` },
     { id:"forms",       icon:"form",          label:"Forms" },
-    { id:"workflows",   icon:"layers",        label:"Pipeline" },
+
     ...( objectName === "Person" ? [{ id:"linked", icon:"link", label:"Linked Records" }] : [] ),
     ...( ["Person","Job"].includes(objectName) ? [{ id:"match", icon:"sparkles", label:"Recommendations" }] : [] ),
   ];

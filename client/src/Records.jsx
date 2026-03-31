@@ -3182,6 +3182,80 @@ const RecordWorkflows = ({ record, objectId, environment, objectName, onNavigate
 };
 
 
+/* ─── File Preview Modal ────────────────────────────────────────────────────── */
+const FilePreviewModal = ({ att, onClose }) => {
+  const ext = (att.ext || att.name?.split('.').pop() || '').toLowerCase();
+  const isImage = ['jpg','jpeg','png','gif','webp','svg'].includes(ext);
+  const isPdf   = ext === 'pdf';
+  const isText  = ['txt','csv','md','log'].includes(ext);
+  const fileUrl = att.url || '#';
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div onClick={onClose}
+      style={{ position:'fixed', inset:0, background:'rgba(10,14,30,.75)', zIndex:9700, display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+      <div onClick={e=>e.stopPropagation()}
+        style={{ background:'#fff', borderRadius:14, width:'100%', maxWidth:940, maxHeight:'92vh', display:'flex', flexDirection:'column', overflow:'hidden', boxShadow:'0 32px 80px rgba(0,0,0,.4)' }}>
+
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom:'1px solid #e8eaed', flexShrink:0 }}>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:'#111827', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{att.name}</div>
+            <div style={{ fontSize:11, color:'#9ca3af', marginTop:1 }}>
+              {att.file_type_name && <span style={{ marginRight:8, fontWeight:600, color:'#3b5bdb' }}>{att.file_type_name}</span>}
+              {att.size ? `${Math.round(att.size/1024)} KB · ` : ''}{ext.toUpperCase()}
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+            <a href={fileUrl} download={att.name}
+              style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:8, border:'1px solid #e8eaed', background:'#f8f9fc', color:'#374151', fontSize:12, fontWeight:600, textDecoration:'none' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Download
+            </a>
+            <button onClick={onClose}
+              style={{ width:30, height:30, borderRadius:8, border:'1px solid #e8eaed', background:'#f8f9fc', cursor:'pointer', color:'#6b7280', fontSize:18, lineHeight:1, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'inherit' }}>
+              ×
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div style={{ flex:1, overflow:'hidden', background:'#f4f5f8', display:'flex', alignItems:'stretch', justifyContent:'center', minHeight:0 }}>
+          {isPdf && (
+            <iframe
+              src={fileUrl + '#toolbar=1&navpanes=1&scrollbar=1&view=FitH'}
+              title={att.name}
+              style={{ width:'100%', border:'none', minHeight:'78vh' }}
+            />
+          )}
+          {isImage && (
+            <div style={{ overflow:'auto', width:'100%', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+              <img src={fileUrl} alt={att.name}
+                style={{ maxWidth:'100%', maxHeight:'78vh', objectFit:'contain', borderRadius:8, boxShadow:'0 4px 24px rgba(0,0,0,.15)' }}/>
+            </div>
+          )}
+          {isText && (
+            <iframe src={fileUrl} title={att.name}
+              style={{ width:'100%', border:'none', minHeight:'78vh', background:'white' }}/>
+          )}
+          {!isPdf && !isImage && !isText && (
+            <div style={{ textAlign:'center', padding:48, color:'#6b7280', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', flex:1 }}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" style={{ marginBottom:12 }}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <div style={{ fontSize:13, fontWeight:600, color:'#374151', marginBottom:6 }}>Preview not available for .{ext} files</div>
+              <a href={fileUrl} download={att.name} style={{ fontSize:12, color:'#3b5bdb', fontWeight:600, textDecoration:'none' }}>Download to view</a>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ─── Record Detail (slide-in panel + full-page 2-col layout) ─────────────── */
 
 /* ─── User Panel — shows linked platform user on a Person record ─────────── */
@@ -5628,6 +5702,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const [cvParseResult,   setCvParseResult]   = useState(null);
   const [cvParsing,       setCvParsing]       = useState(false);
   const [cvParseAtt,      setCvParseAtt]      = useState(null);
+  const [previewAtt,      setPreviewAtt]      = useState(null);
   const [selectedFileType, setSelectedFileType] = useState('');
   const [docExtractResult,   setDocExtractResult]   = useState(null);
   const [docExtracting,      setDocExtracting]      = useState(false);
@@ -6006,6 +6081,12 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                     </button>
                   )}
                   {att.url && att.url !== '#' && (
+                    <button onClick={()=>setPreviewAtt(att)} title="Preview"
+                      style={{ background:'none', border:'none', cursor:'pointer', padding:4, color:C.accent, display:'flex', alignItems:'center' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                  )}
+                  {att.url && att.url !== '#' && (
                     <a href={att.url} target="_blank" rel="noreferrer"
                       style={{ background:'none', border:'none', cursor:'pointer', padding:4, color:C.text3, display:'flex' }}>
                       <Ic n="link" s={13}/>
@@ -6020,6 +6101,12 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
             );
           })
         }
+
+        {/* File Preview Modal */}
+        {previewAtt && ReactDOM.createPortal(
+          <FilePreviewModal att={previewAtt} onClose={()=>setPreviewAtt(null)}/>,
+          document.body
+        )}
 
         {/* CV Parse Modal */}
         {cvParseResult && (

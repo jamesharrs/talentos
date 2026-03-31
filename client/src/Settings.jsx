@@ -1399,6 +1399,10 @@ function FieldModal({ field, selEnv, selObj, onSaved, onClose }) {
     section_label: field?.section_label||"",
     related_object_slug: field?.related_object_slug||"people",
     people_multi: field?.people_multi!==undefined ? !!field.people_multi : true,
+    people_filter_field: field?.people_filter_field || "",
+    people_filter_value: field?.people_filter_value || "",
+    people_selection_mode: field?.people_selection_mode || "all",
+    people_allowed_ids: field?.people_allowed_ids || [],
     dataset_id: field?.dataset_id||"",
     dataset_multi: field?.dataset_multi!==undefined ? !!field.dataset_multi : false,
     skills_multi: field?.skills_multi!==undefined ? !!field.skills_multi : true,
@@ -1430,6 +1434,10 @@ function FieldModal({ field, selEnv, selObj, onSaved, onClose }) {
         options: ["select","multi_select","status"].includes(form.field_type) ? form.options.split(",").map(s=>s.trim()).filter(Boolean) : undefined,
         related_object_slug: form.field_type === "people" ? form.related_object_slug : undefined,
         people_multi: form.field_type === "people" ? form.people_multi : undefined,
+        people_filter_field: form.field_type === "people" ? form.people_filter_field : undefined,
+        people_filter_value: form.field_type === "people" ? form.people_filter_value : undefined,
+        people_selection_mode: form.field_type === "people" ? form.people_selection_mode : undefined,
+        people_allowed_ids: form.field_type === "people" ? form.people_allowed_ids : undefined,
         dataset_id: form.field_type === "dataset" ? form.dataset_id : undefined,
         dataset_multi: form.field_type === "dataset" ? form.dataset_multi : undefined,
         skills_multi: form.field_type === "skills" ? form.skills_multi : undefined,
@@ -1462,21 +1470,7 @@ function FieldModal({ field, selEnv, selObj, onSaved, onClose }) {
         </div>
         {["select","multi_select","status"].includes(form.field_type) && <div style={{marginBottom:12}}><Inp label="Options (comma-separated)" value={form.options} onChange={v=>set("options",v)} placeholder="Option A, Option B"/></div>}
         {form.field_type === "people" && (
-          <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>
-            <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>People Field Settings</div>
-            <div style={{marginBottom:8}}>
-              <label style={{fontSize:11,fontWeight:600,color:C.text3,display:"block",marginBottom:4}}>OBJECT TO LINK</label>
-              <Inp value={form.related_object_slug} onChange={v=>set("related_object_slug",v)} placeholder="people"/>
-            </div>
-            <div style={{display:"flex",gap:8}}>
-              {[{v:false,l:"Single select"},{v:true,l:"Multi select"}].map(({v,l})=>(
-                <button key={String(v)} onClick={()=>set("people_multi",v)}
-                  style={{flex:1,padding:"6px",borderRadius:8,border:`2px solid ${form.people_multi===v?"#3b5bdb":"#e8eaed"}`,background:form.people_multi===v?"#3b5bdb":"#fff",color:form.people_multi===v?"#fff":"#6b7280",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:F}}>
-                  {l}
-                </button>
-              ))}
-            </div>
-          </div>
+          <PeopleFieldConfig form={form} set={set} selEnv={selEnv} F={F}/>
         )}
         {form.field_type === "dataset" && (
           <div style={{marginBottom:12,padding:"12px",background:"#f8f9fc",borderRadius:10,border:"1px solid #e8eaed"}}>

@@ -554,7 +554,8 @@ const PeoplePicker = ({ field, value, onChange }) => {
   // Load options once — use module-level cache keyed by objectId+envId
   useEffect(() => {
     if (!open || !_currentEnvId) return;
-    const cacheKey = `${field.lookup_object_id||field.related_object_slug||'people'}_${_currentEnvId}`;
+    const filterSuffix = field.people_filter_field ? `_${field.people_filter_field}_${field.people_filter_value}` : '';
+    const cacheKey = `${field.lookup_object_id||field.related_object_slug||'people'}_${_currentEnvId}${filterSuffix}`;
     if (_pickerCache[cacheKey]) { setOptions(_pickerCache[cacheKey]); setLoaded(true); return; }
     if (loaded) return;
 
@@ -562,7 +563,18 @@ const PeoplePicker = ({ field, value, onChange }) => {
       api.get(`/records?object_id=${objectId}&environment_id=${_currentEnvId}&limit=200`)
         .then(res => {
           const recs = Array.isArray(res) ? res : (res.records || []);
-          const opts = recs.map(r => ({
+          // Apply people_filter if configured on this field
+          let filteredRecs = recs;
+          if (field.people_filter_field && field.people_filter_value) {
+            const fk = field.people_filter_field;
+            const fv = field.people_filter_value.toLowerCase();
+            filteredRecs = recs.filter(r => {
+              const val = r.data?.[fk];
+              if (Array.isArray(val)) return val.some(v => String(v).toLowerCase() === fv);
+              return String(val || "").toLowerCase() === fv;
+            });
+          }
+          const opts = filteredRecs.map(r => ({
             id: r.id,
             name: `${r.data?.first_name||""} ${r.data?.last_name||""}`.trim() || r.data?.name || r.data?.job_title || r.id
           }));

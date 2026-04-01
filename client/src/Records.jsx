@@ -7113,7 +7113,12 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     <div style={{ display:"flex", flexDirection:"column", flex:1, minHeight:0, overflow:"hidden", background:"#F4F6FB" }}>
       <FunctionalityBar/>
       <SuggestedActions record={record} environment={environment} objectName={objectName} objectColor={objectColor} onAction={handleSuggestedAction}/>
-      {/* Full-width Linked People widget — moved to toolbar */}
+      {/* Full-width Linked People widget — funnel bar, non-Person objects only */}
+      {objectName !== "Person" && (
+        <div style={{ flexShrink:0, borderBottom:`1px solid ${C.border}` }}>
+          <PeoplePipelineWidget record={record} objectId={record.object_id} environment={environment} onNavigate={onNavigate}/>
+        </div>
+      )}
 
       {/* 2-col body */}
       <div ref={containerRef} style={{ flex:1, display:"flex", overflow:"hidden", minHeight:0, userSelect:draggingCol.current?"none":"auto" }}>

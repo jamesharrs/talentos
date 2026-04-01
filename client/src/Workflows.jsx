@@ -1823,16 +1823,17 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                   <defs>
                     <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
                       {allGroups.map(({ cat }, i) => (
-                        <stop key={i} offset={`${(i / (n-1||1)) * 100}%`} stopColor={cat.color} stopOpacity="0.35"/>
+                        <stop key={i} offset={`${(i / (n-1||1)) * 100}%`} stopColor={cat.color} stopOpacity="0.18"/>
                       ))}
                     </linearGradient>
-                    {/* Outer glow layer */}
                     <linearGradient id={gradId+"2"} x1="0%" y1="0%" x2="100%" y2="0%">
                       {allGroups.map(({ cat }, i) => (
-                        <stop key={i} offset={`${(i / (n-1||1)) * 100}%`} stopColor={cat.color} stopOpacity="0.12"/>
+                        <stop key={i} offset={`${(i / (n-1||1)) * 100}%`} stopColor={cat.color} stopOpacity="0.07"/>
                       ))}
                     </linearGradient>
-                    <filter id="blur1"><feGaussianBlur stdDeviation="5"/></filter>
+                    <filter id="blur1" x="-20%" y="-50%" width="140%" height="200%">
+                      <feGaussianBlur stdDeviation="6"/>
+                    </filter>
                   </defs>
                   {/* Outer soft glow (blurred, scaled slightly larger) */}
                   <g transform={`translate(${totalW * -0.03}, ${H * -0.08}) scale(1.06, 1.16)`}>
@@ -1840,28 +1841,14 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                   </g>
                   {/* Main funnel */}
                   <path d={fullPath} fill={`url(#${gradId})`}/>
-                  {/* Separator lines between segments */}
+                  {/* Separator lines — very subtle */}
                   {allGroups.map((_, i) => {
                     if (i === 0) return null;
                     const x = i * W;
                     const topY = allPts[i+1]?.topY ?? H/2 - PAD;
                     const botY = allPts[i+1]?.botY ?? H/2 + PAD;
                     return <line key={i} x1={x} y1={topY} x2={x} y2={botY}
-                      stroke="white" strokeWidth="1" strokeOpacity="0.4"/>;
-                  })}
-                  {/* Count labels — only show when count > 0 */}
-                  {allGroups.map(({ cat }, i) => {
-                    const cx = i * W + W/2;
-                    const count = counts[i];
-                    if (!count) return null;
-                    return (
-                      <text key={i} x={cx} y={H/2 + 5} textAnchor="middle"
-                        fontSize="12" fontWeight="700"
-                        fill={cat.color} fillOpacity="0.9"
-                        style={{ fontFamily:"inherit" }}>
-                        {count}
-                      </text>
-                    );
+                      stroke="white" strokeWidth="1.5" strokeOpacity="0.5"/>;
                   })}
                 </svg>
 
@@ -1880,36 +1867,41 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
             );
           })()}
 
-          {/* Category label + controls row */}
-          <div style={{ display:"flex", alignItems:"center", borderBottom:`1px solid ${C.border}` }}>
-            {/* Category name pills */}
-            <div style={{ display:"flex", flex:1, minWidth:0 }}>
-              {allGroups.map(({ cat, steps }) => {
-                const count = steps.reduce((n, s) => n + (countByStage[s.id] || 0), 0);
-                const isExpanded = expandedCat === cat.id;
-                return (
-                  <button key={cat.id}
-                    onClick={() => {
-                      const next = isExpanded ? null : cat.id;
-                      setExpandedCat(next);
-                      setSelectedStage(next ? "__cat__" : null);
-                    }}
-                    style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center",
-                      gap:5, padding:"5px 8px", border:"none",
-                      borderBottom: isExpanded ? `2px solid ${cat.color}` : "2px solid transparent",
-                      background: isExpanded ? `${cat.color}0e` : "transparent",
-                      cursor:"pointer", fontFamily:F, transition:"all .12s", minWidth:40 }}>
-                    <span style={{ width:7, height:7, borderRadius:"50%",
-                      background: cat.color, flexShrink:0, opacity: count>0?1:0.3 }}/>
-                    <span style={{ fontSize:11, fontWeight: isExpanded ? 700 : 500,
-                      color: isExpanded ? cat.color : count>0 ? C.text2 : "#9ca3af",
-                      whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                      {cat.name}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            {/* Category label row — count + name, click to expand */}
+            <div style={{ display:"flex", alignItems:"center", borderBottom:`1px solid ${C.border}` }}>
+              <div style={{ display:"flex", flex:1, minWidth:0 }}>
+                {allGroups.map(({ cat, steps }) => {
+                  const count = steps.reduce((n, s) => n + (countByStage[s.id] || 0), 0);
+                  const isExpanded = expandedCat === cat.id;
+                  return (
+                    <button key={cat.id}
+                      onClick={() => {
+                        const next = isExpanded ? null : cat.id;
+                        setExpandedCat(next);
+                        setSelectedStage(next ? "__cat__" : null);
+                      }}
+                      style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center",
+                        gap:6, padding:"6px 8px", border:"none",
+                        borderBottom: isExpanded ? `2px solid ${cat.color}` : "2px solid transparent",
+                        background: isExpanded ? `${cat.color}0a` : "transparent",
+                        cursor:"pointer", fontFamily:F, transition:"all .12s", minWidth:50 }}>
+                      {/* Count badge */}
+                      <span style={{
+                        minWidth:20, height:20, borderRadius:99, display:"flex",
+                        alignItems:"center", justifyContent:"center",
+                        background: count > 0 ? cat.color : "#f3f4f6",
+                        color: count > 0 ? "white" : "#9ca3af",
+                        fontSize:11, fontWeight:700, padding:"0 6px", flexShrink:0,
+                      }}>{count}</span>
+                      <span style={{
+                        fontSize:11, fontWeight: isExpanded ? 700 : 500,
+                        color: isExpanded ? cat.color : count > 0 ? C.text2 : "#9ca3af",
+                        whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+                      }}>{cat.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
 
             {/* Right: workflow name + gear + add */}
             <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 14px",

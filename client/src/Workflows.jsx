@@ -1563,6 +1563,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
   const [saving, setSaving]               = useState(false);
   const [categories, setCategories]       = useState([]);
   const [expandedCat, setExpandedCat]     = useState(null);
+  const [showWfPicker, setShowWfPicker]   = useState(false);
 
   const peopleLinkWf = assignments.find(a => a.type === "people_link")?.workflow;
   const plSteps      = peopleLinkWf?.steps || [];
@@ -1585,6 +1586,14 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
   };
 
   useEffect(() => { load(); }, [record?.id, environment?.id]);
+
+  // Close workflow picker on outside click
+  useEffect(() => {
+    if (!showWfPicker) return;
+    const handler = (e) => { if (!e.target.closest('[data-wfpicker]')) setShowWfPicker(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showWfPicker]);
 
   const assignWorkflow = async (workflow_id) => {
     setSaving(true);
@@ -1825,7 +1834,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
         );
       })()}
 
-      {/* Header row — only shown when category bar is NOT rendering (no stages, or no workflow) */}
+      {/* Header row */}
       <div style={{ padding:"8px 16px", display:"flex", alignItems:"center", gap:8, borderBottom: hasStages ? "none" : `1px solid #f3f0ff` }}>
 
         {/* Label */}
@@ -1834,17 +1843,63 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
           Linked People
         </span>
 
-        {/* Workflow selector — compact, inline */}
-        <select value={peopleLinkWf?.id||""} onChange={e=>assignWorkflow(e.target.value)} disabled={saving}
-          style={{ padding:"3px 8px", border:`1px solid ${C.border}`, borderRadius:7, fontSize:12,
-            fontFamily:F, outline:"none", background:"white", color:C.text2, maxWidth:200, flexShrink:0 }}>
-          <option value="">— Select workflow —</option>
-          {peopleLinkOptions.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-        </select>
+        {/* Workflow name — locked if people exist, gear icon to change if empty */}
+        {peopleLinkWf ? (
+          <span style={{ fontSize:12, color:C.text3, display:"flex", alignItems:"center", gap:5 }}>
+            {peopleLinkWf.name}
+            {/* Only allow changing the workflow if no people are linked yet */}
+            {peopleLinks.length === 0 && (
+              <div style={{ position:"relative" }} data-wfpicker="1">
+                <button
+                  onClick={() => setShowWfPicker(p => !p)}
+                  title="Change workflow"
+                  style={{ background:"none", border:"none", cursor:"pointer", padding:"2px 4px", display:"flex",
+                    alignItems:"center", color:C.text3, borderRadius:4 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+                  </svg>
+                </button>
+                {showWfPicker && (
+                  <div style={{ position:"absolute", top:"100%", left:0, zIndex:200, background:"white",
+                    border:`1px solid ${C.border}`, borderRadius:9, boxShadow:"0 4px 16px rgba(0,0,0,.1)",
+                    minWidth:180, padding:6, marginTop:4 }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:C.text3, textTransform:"uppercase",
+                      letterSpacing:".06em", padding:"4px 8px 6px" }}>Change workflow</div>
+                    {peopleLinkOptions.map(w => (
+                      <button key={w.id} onClick={() => { assignWorkflow(w.id); setShowWfPicker(false); }}
+                        style={{ display:"block", width:"100%", padding:"7px 10px", borderRadius:6, border:"none",
+                          background: w.id === peopleLinkWf.id ? "#f5f3ff" : "transparent",
+                          color: w.id === peopleLinkWf.id ? "#7c3aed" : C.text1,
+                          fontSize:13, fontWeight: w.id === peopleLinkWf.id ? 700 : 400,
+                          cursor:"pointer", fontFamily:F, textAlign:"left" }}>
+                        {w.name}
+                      </button>
+                    ))}
+                    <div style={{ borderTop:`1px solid ${C.border}`, margin:"6px 0 2px" }}/>
+                    <button onClick={() => { assignWorkflow(""); setShowWfPicker(false); }}
+                      style={{ display:"block", width:"100%", padding:"6px 10px", borderRadius:6, border:"none",
+                        background:"transparent", color:"#ef4444", fontSize:12, cursor:"pointer",
+                        fontFamily:F, textAlign:"left" }}>
+                      Remove workflow
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </span>
+        ) : (
+          /* No workflow assigned yet — show compact selector */
+          <select value="" onChange={e => { if (e.target.value) assignWorkflow(e.target.value); }} disabled={saving}
+            style={{ padding:"3px 8px", border:`1px solid ${C.border}`, borderRadius:7, fontSize:12,
+              fontFamily:F, outline:"none", background:"white", color:C.text3, maxWidth:200, flexShrink:0 }}>
+            <option value="">— Assign workflow —</option>
+            {peopleLinkOptions.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        )}
 
         <div style={{ flex:1 }}/>
 
-        {/* Add Person button — always accessible in header */}
+        {/* Add Person button */}
         {canRecord('record_add_to_pipeline') && hasStages && (
           <button onClick={openAddPerson}
             style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 12px", borderRadius:99,

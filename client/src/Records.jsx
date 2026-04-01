@@ -1146,28 +1146,37 @@ const RecordFormModal = ({ fields, record, objectName, onSave, onClose, environm
                       <div style={{ padding:16, textAlign:"center", fontSize:12, color:C.text3 }}>Loading…</div>
                     ) : copyRecords.filter(r => {
                         const d = r.data || {};
-                        const label = [d.first_name, d.last_name, d.job_title, d.name, d.pool_name].filter(Boolean).join(" ");
-                        return !copySearch || label.toLowerCase().includes(copySearch.toLowerCase());
+                        const searchLabel = [d.first_name, d.last_name, d.job_title, d.name, d.pool_name].filter(Boolean).join(" ");
+                        return !copySearch || searchLabel.toLowerCase().includes(copySearch.toLowerCase());
                       }).slice(0, 30).map(r => {
                         const d = r.data || {};
-                        const label = [d.first_name, d.last_name].filter(Boolean).join(" ") || d.job_title || d.name || d.pool_name || r.id.slice(0,8);
-                        const sub = d.job_title || d.department || d.category || "";
+                        // Build a clean label — prefer full name for people, job title for jobs
+                        const hasPerson = d.first_name || d.last_name;
+                        const label = hasPerson
+                          ? [d.first_name, d.last_name].filter(Boolean).join(" ")
+                          : (d.job_title || d.name || d.pool_name || "Untitled");
+                        // Subtitle must differ from label
+                        const sub = hasPerson
+                          ? [d.job_title, d.department, d.location].filter(Boolean).join(" · ")
+                          : [d.department, d.location, d.status].filter(Boolean).join(" · ");
+                        const initials = label.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase() || "?";
                         return (
                           <button key={r.id} onClick={() => handleCopyRecord(r)}
-                            style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"9px 14px",
+                            style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
                               border:"none", background:"transparent", cursor:"pointer", textAlign:"left",
-                              fontFamily:"inherit", borderBottom:`1px solid ${C.border}` }}
+                              fontFamily:"inherit", transition:"background .1s" }}
                             onMouseEnter={e=>e.currentTarget.style.background="#f0f4ff"}
                             onMouseLeave={e=>e.currentTarget.style.background="transparent"}
                           >
-                            <div style={{ width:28, height:28, borderRadius:"50%", background:C.accent, display:"flex",
+                            <div style={{ width:32, height:32, borderRadius:"50%", background:C.accent, display:"flex",
                               alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                              <span style={{ color:"white", fontSize:11, fontWeight:700 }}>{label[0]?.toUpperCase()||"?"}</span>
+                              <span style={{ color:"white", fontSize:12, fontWeight:700 }}>{initials}</span>
                             </div>
-                            <div>
-                              <div style={{ fontSize:13, fontWeight:600, color:C.text1 }}>{label}</div>
-                              {sub && <div style={{ fontSize:11, color:C.text3 }}>{sub}</div>}
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontSize:13, fontWeight:600, color:C.text1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{label}</div>
+                              {sub && <div style={{ fontSize:11, color:C.text3, marginTop:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{sub}</div>}
                             </div>
+                            <Ic n="chevR" s={12} c={C.text3}/>
                           </button>
                         );
                       })
@@ -7366,9 +7375,11 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   useEffect(() => { load(); }, [load]);
 
   const handleCreate = async (data) => {
-    await api.post("/records", { object_id:object.id, environment_id:environment.id, data, created_by:"Admin" });
+    const created = await api.post("/records", { object_id:object.id, environment_id:environment.id, data, created_by:"Admin" });
     await load();
     setShowForm(false);
+    // Open the newly created record immediately
+    if (created?.id) onOpenRecord?.(created.id, object.id);
   };
 
   const handleUpdate = async (data) => {

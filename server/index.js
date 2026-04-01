@@ -50,6 +50,7 @@ const AUTH_EXEMPT = [
   '/attachments/file',
   '/tenant-reset', '/cleanup-seeds', '/seed-dashboards',
   '/error-logs', '/ai', '/translate', '/linkedin-search',
+  '/chrome-import',
 ];
 app.use('/api', (req, res, next) => {
   if (AUTH_EXEMPT.some(p => req.path === p || req.path.startsWith(p + '/'))) return next();
@@ -167,6 +168,7 @@ app.use('/api/superadmin',        require('./routes/superadmin'));
 app.use('/api/superadmin/clients', require('./routes/superadmin_clients'));
 app.use('/api/superadmin/demo',   require('./routes/demo_seed'));
 app.use('/api/tenant-reset',      require('./routes/admin_reset'));
+app.use('/api/chrome-import',     require('./routes/chrome_import'));
 
 // Run post-load migrations
 require('./routes/enterprise_settings').migrate();

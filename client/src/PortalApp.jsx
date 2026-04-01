@@ -54,7 +54,21 @@ export default function PortalApp({ slug }) {
         setObjects(Array.isArray(objs) ? objs : [])
         setLoading(false)
       })
-      .catch(() => { setError('This portal is not available.'); setLoading(false); })
+      .catch(async (err) => {
+        // Try to get a friendlier error message from the response
+        try {
+          const resp = await fetch(`/api/portals/slug/${cleanSlug}`);
+          const body = await resp.json();
+          if (body.code === 'DRAFT') {
+            setError(`"${body.name}" exists but hasn't been published yet. Open the portal builder and click Publish.`);
+          } else {
+            setError(body.error || 'This portal is not available.');
+          }
+        } catch {
+          setError('This portal is not available. It may have been unpublished or the URL is incorrect.');
+        }
+        setLoading(false);
+      })
   }, [slug])
 
   if (loading) return <Spinner color={portal?.branding?.primary_color}/>

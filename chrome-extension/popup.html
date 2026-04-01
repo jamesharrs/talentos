@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { width:360px; font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif; background:#fff; color:#111827; }
+.header { display:flex; align-items:center; gap:10px; padding:16px 18px; background:linear-gradient(135deg,#0F1729,#1a2744); color:white; }
+.logo-mark { width:30px; height:30px; border-radius:8px; background:linear-gradient(135deg,#3b5bdb,#4361ee); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px; }
+.logo-text { font-size:15px; font-weight:800; letter-spacing:-0.02em; }
+.logo-sub { font-size:10px; color:#94a3b8; letter-spacing:0.05em; text-transform:uppercase; }
+.status-bar { display:flex; align-items:center; gap:8px; padding:10px 18px; background:#f0fdf4; border-bottom:1px solid #d1fae5; font-size:12px; color:#065f46; font-weight:600; }
+.status-bar.disconnected { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+.status-bar.unconfigured { background:#fffbeb; border-color:#fde68a; color:#92400e; }
+.status-dot { width:7px; height:7px; border-radius:50%; background:#10b981; flex-shrink:0; }
+.status-bar.disconnected .status-dot { background:#ef4444; }
+.status-bar.unconfigured .status-dot { background:#f59e0b; }
+.section { padding:14px 18px; border-bottom:1px solid #f3f4f6; }
+.section-label { font-size:10px; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; }
+.field { margin-bottom:10px; }
+.field label { display:block; font-size:11px; font-weight:600; color:#6b7280; margin-bottom:4px; }
+.field input,.field select { width:100%; padding:7px 10px; border:1.5px solid #e5e7eb; border-radius:8px; font-size:13px; color:#111827; font-family:inherit; background:white; transition:border-color 0.15s; }
+.field input:focus,.field select:focus { outline:none; border-color:#3b5bdb; box-shadow:0 0 0 3px rgba(59,91,219,0.08); }
+.field input::placeholder { color:#d1d5db; }
+.field-hint { font-size:10px; color:#9ca3af; margin-top:3px; }
+.btn-row { display:flex; gap:8px; margin-top:12px; }
+.btn { flex:1; padding:8px 14px; border-radius:8px; border:none; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; transition:all 0.15s; }
+.btn-primary { background:#3b5bdb; color:white; }
+.btn-primary:hover { background:#364fc7; }
+.btn-secondary { background:white; color:#374151; border:1.5px solid #e5e7eb; }
+.btn-secondary:hover { background:#f9fafb; }
+.import-item { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #f9fafb; }
+.import-avatar { width:30px; height:30px; border-radius:8px; background:#eef1ff; color:#3b5bdb; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; flex-shrink:0; }
+.import-name { font-size:13px; font-weight:600; color:#111827; }
+.import-time { font-size:11px; color:#9ca3af; }
+.empty-state { text-align:center; padding:20px; color:#9ca3af; font-size:12px; }
+.footer { padding:10px 18px; background:#f9fafb; border-top:1px solid #f3f4f6; display:flex; align-items:center; justify-content:space-between; }
+.footer-text { font-size:10px; color:#9ca3af; }
+.footer-link { font-size:11px; color:#3b5bdb; text-decoration:none; font-weight:600; }
+.footer-link:hover { text-decoration:underline; }
+.toast { display:none; padding:8px 14px; background:#0CAF77; color:white; font-size:12px; font-weight:600; text-align:center; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo-mark">V</div>
+    <div><div class="logo-text">Vercentic</div><div class="logo-sub">Talent Sourcing</div></div>
+  </div>
+  <div class="status-bar unconfigured" id="status-bar">
+    <div class="status-dot"></div><span id="status-text">Not configured</span>
+  </div>
+  <div class="toast" id="toast"></div>
+  <div class="section">
+    <div class="section-label">Connection</div>
+    <div class="field">
+      <label>API URL</label>
+      <input type="url" id="apiUrl" placeholder="https://your-app.up.railway.app">
+      <div class="field-hint">Your Vercentic backend URL (Railway or localhost)</div>
+    </div>
+    <div class="field">
+      <label>Environment</label>
+      <select id="envSelect" disabled><option value="">Enter API URL first</option></select>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="testBtn">Test Connection</button>
+      <button class="btn btn-primary" id="saveBtn">Save</button>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">Recent Imports</div>
+    <div id="imports-list"><div class="empty-state">No profiles imported yet.<br>Browse to a profile page and click the Vercentic button.</div></div>
+  </div>
+  <div class="footer">
+    <span class="footer-text">v1.0.0</span>
+    <a class="footer-link" id="openApp" href="#" target="_blank">Open Vercentic ↗</a>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

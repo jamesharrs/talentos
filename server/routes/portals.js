@@ -32,15 +32,6 @@ router.get('/', (req, res) => {
 });
 
 // GET /:id
-router.get('/:id', (req, res) => {
-  ensure();
-  const store = getStore();
-  const portal = (store.portals || []).find(p => p.id === req.params.id && !p.deleted_at);
-  if (!portal) return res.status(404).json({ error: 'Portal not found' });
-  res.json(portal);
-});
-
-// GET /slug/:slug — public lookup
 router.get('/slug/:slug', (req, res) => {
   ensure();
   const store = getStore();
@@ -48,7 +39,7 @@ router.get('/slug/:slug', (req, res) => {
   const envId = req.query.environment_id; // optional — scopes lookup to specific environment
 
   const matches = (store.portals || []).filter(p =>
-    (p.slug === slug || p.slug === req.params.slug) && p.status === 'published' && !p.deleted_at
+    (p.slug === slug || p.slug === req.params.slug) && (p.status === 'published' || req.currentUser) && !p.deleted_at
     && (!envId || p.environment_id === envId)
   );
 
@@ -62,6 +53,16 @@ router.get('/slug/:slug', (req, res) => {
   res.json({ ...portal, branding: portal.theme || portal.branding || {}, type: portal.type || 'career_site' });
 });
 
+
+router.get('/:id', (req, res) => {
+  ensure();
+  const store = getStore();
+  const portal = (store.portals || []).find(p => p.id === req.params.id && !p.deleted_at);
+  if (!portal) return res.status(404).json({ error: 'Portal not found' });
+  res.json(portal);
+});
+
+// GET /slug/:slug — public lookup
 // POST / — create
 router.post('/', (req, res) => {
   if (_checkGA(req, res, 'manage_portals') === false) return;

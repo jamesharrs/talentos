@@ -32,14 +32,19 @@ app.use('/api/chrome-import', (req, res, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
-app.use(cors({
+const corsMiddleware = cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
     const ok = allowedOrigins.some(o => typeof o === 'string' ? o === origin : o.test(origin));
     cb(ok ? null : new Error('CORS'), ok);
   },
   credentials: true,
-}));
+});
+// Skip the strict CORS check for chrome-import (handled by its own permissive middleware above)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/chrome-import')) return next();
+  corsMiddleware(req, res, next);
+});
 app.use(express.json({ limit: '10mb' }));
 
 // ── Middleware ────────────────────────────────────────────────────────────────

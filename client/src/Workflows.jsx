@@ -1818,78 +1818,43 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
             const gradId = 'funnelGrad';
 
             return (
-              <div style={{ position:"relative", width:"100%", cursor:"pointer" }}>
-                <svg viewBox={`0 0 ${totalW} ${H}`} preserveAspectRatio="none"
-                  style={{ width:"100%", height:64, display:"block" }}>
-                  <defs>
-                    <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#93C5FD" stopOpacity="0.12"/>
-                      <stop offset="100%" stopColor="#BAE6FD" stopOpacity="0.08"/>
-                    </linearGradient>
-                    <linearGradient id={gradId+"2"} x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#93C5FD" stopOpacity="0.15"/>
-                      <stop offset="100%" stopColor="#BAE6FD" stopOpacity="0.08"/>
-                    </linearGradient>
-                    <filter id="blur1" x="-20%" y="-50%" width="140%" height="200%">
-                      <feGaussianBlur stdDeviation="6"/>
-                    </filter>
-                  </defs>
-                  {/* Outer soft glow (blurred, scaled slightly larger) */}
-                  <g transform={`translate(${totalW * -0.03}, ${H * -0.08}) scale(1.06, 1.16)`}>
-                    <path d={fullPath} fill={`url(#${gradId}2)`} filter="url(#blur1)"/>
-                  </g>
-                  {/* Main funnel */}
-                  <path d={fullPath} fill={`url(#${gradId})`}/>
-                  {/* Separator lines — consistent, at each segment boundary with HPAD inset */}
-                  {allGroups.map((_, i) => {
-                    if (i === 0) return null;
-                    const x = HPAD + i * W;
-                    return <line key={i} x1={x} y1={0} x2={x} y2={H}
-                      stroke="#BAE6FD" strokeWidth="1" strokeOpacity="0.9"/>;
-                  })}
-                  {/* no count labels in SVG — rendered as HTML overlay below */}
-                </svg>
-
-                {/* Count number overlays — HTML on top of SVG for crisp rendering */}
-                <div style={{ position:"absolute", top:0, left:HPAD, right:HPAD, bottom:0,
-                  display:"flex", pointerEvents:"none" }}>
-                  {allGroups.map(({ cat }, i) => {
-                    const count = counts[i];
-                    return (
-                      <div key={cat.id} style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        {count > 0 && (
-                          <span style={{
-                            fontSize: 13, fontWeight: 500, color: "#2563EB",
-                            fontFamily: "'DM Sans', -apple-system, sans-serif",
-                            lineHeight: 1,
-                          }}>
-                            {count}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Invisible click targets — one per segment, offset by HPAD */}
-                <div style={{ position:"absolute", top:0, left:0, right:0, bottom:0,
-                  display:"flex", paddingLeft: HPAD, paddingRight: HPAD }}>
-                  {allGroups.map(({ cat }, i) => (
-                    <div key={cat.id} style={{ flex:1, cursor:"pointer" }}
+              {/* Box-per-segment layout */}
+              <div style={{ display:"flex", width:"100%", gap:4, padding:"4px 0" }}>
+                {allGroups.map(({ cat }, i) => {
+                  const count = counts[i];
+                  const isExpanded = expandedCat === cat.id;
+                  return (
+                    <div key={cat.id} style={{ flex:1, minWidth:0, cursor:"pointer",
+                      height:56, borderRadius:8,
+                      border:`1px solid ${isExpanded ? cat.color : "#e8edf5"}`,
+                      background: isExpanded ? `${cat.color}0d` : "#f8fafc",
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      transition:"all .15s" }}
                       onClick={() => {
-                        const next = expandedCat === cat.id ? null : cat.id;
+                        const next = isExpanded ? null : cat.id;
                         setExpandedCat(next);
                         setSelectedStage(next ? "__cat__" : null);
-                      }}/>
-                  ))}
-                </div>
+                      }}>
+                      {count > 0 && (
+                        <span style={{
+                          fontSize: 15, fontWeight: 500,
+                          color: isExpanded ? cat.color : "#2563EB",
+                          fontFamily: "'DM Sans', -apple-system, sans-serif",
+                          lineHeight: 1,
+                        }}>
+                          {count}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             );
           })()}
 
             {/* Category label row — count + name, click to expand */}
             <div style={{ display:"flex", alignItems:"center", borderBottom:`1px solid ${C.border}` }}>
-              <div style={{ display:"flex", flex:1, minWidth:0 }}>
+              <div style={{ display:"flex", flex:1, minWidth:0, gap:4 }}>
                 {allGroups.map(({ cat, steps }) => {
                   const count = steps.reduce((n, s) => n + (countByStage[s.id] || 0), 0);
                   const isExpanded = expandedCat === cat.id;
@@ -1901,7 +1866,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                         setSelectedStage(next ? "__cat__" : null);
                       }}
                       style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center",
-                        gap:6, padding:"6px 8px", border:"none",
+                        gap:5, padding:"5px 4px", border:"none",
                         borderBottom: isExpanded ? `2px solid ${cat.color}` : "2px solid transparent",
                         background: isExpanded ? `${cat.color}0a` : "transparent",
                         cursor:"pointer", fontFamily:F, transition:"all .12s", minWidth:50 }}>

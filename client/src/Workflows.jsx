@@ -1885,17 +1885,18 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                         borderBottom: isExpanded ? `2px solid ${cat.color}` : "2px solid transparent",
                         background: isExpanded ? `${cat.color}0a` : "transparent",
                         cursor:"pointer", fontFamily:F, transition:"all .12s", minWidth:50 }}>
-                      {/* Count badge */}
+                      {/* Count badge — only show when > 0 */}
+                      {count > 0 && (
+                        <span style={{
+                          minWidth:20, height:20, borderRadius:99, display:"flex",
+                          alignItems:"center", justifyContent:"center",
+                          background: cat.color, color:"white",
+                          fontSize:11, fontWeight:700, padding:"0 6px", flexShrink:0,
+                        }}>{count}</span>
+                      )}
                       <span style={{
-                        minWidth:20, height:20, borderRadius:99, display:"flex",
-                        alignItems:"center", justifyContent:"center",
-                        background: count > 0 ? cat.color : "#f3f4f6",
-                        color: count > 0 ? "white" : "#9ca3af",
-                        fontSize:11, fontWeight:700, padding:"0 6px", flexShrink:0,
-                      }}>{count}</span>
-                      <span style={{
-                        fontSize:11, fontWeight: isExpanded ? 700 : 500,
-                        color: isExpanded ? cat.color : count > 0 ? C.text2 : "#9ca3af",
+                        fontSize:11, fontWeight: isExpanded ? 700 : count > 0 ? 500 : 400,
+                        color: isExpanded ? cat.color : count > 0 ? C.text2 : "#c4c9d4",
                         whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
                       }}>{cat.name}</span>
                     </button>

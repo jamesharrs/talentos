@@ -1561,6 +1561,8 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
   const [addingPerson, setAddingPerson]   = useState(false);
   const [personSearch, setPersonSearch]   = useState("");
   const [saving, setSaving]               = useState(false);
+  const [categories, setCategories]       = useState([]);
+  const [expandedCat, setExpandedCat]     = useState(null);
 
   const peopleLinkWf = assignments.find(a => a.type === "people_link")?.workflow;
   const plSteps      = peopleLinkWf?.steps || [];
@@ -1569,14 +1571,16 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
   const load = async () => {
     if (!record?.id || !environment?.id) return;
     setLoading(true);
-    const [asgn, wfs, links] = await Promise.all([
+    const [asgn, wfs, links, cats] = await Promise.all([
       api.get(`/workflows/assignments?record_id=${record.id}`),
       api.get(`/workflows?environment_id=${environment.id}`),
       api.get(`/workflows/people-links?target_record_id=${record.id}`),
+      api.get(`/stage-categories?environment_id=${environment.id}`),
     ]);
     setAssignments(Array.isArray(asgn) ? asgn : []);
     setAllWorkflows(Array.isArray(wfs)  ? wfs  : []);
     setPeopleLinks(Array.isArray(links) ? links : []);
+    setCategories(Array.isArray(cats)   ? cats  : []);
     setLoading(false);
   };
 
@@ -1686,6 +1690,92 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
 
   return (
     <div style={{ fontFamily:F, background:"white" }}>
+
+      {/* ── Category bar (shows when steps have category_id assigned) ─────── */}
+      {(() => {
+        const stepsWithCat = plSteps.filter(s => s.category_id);
+        if (!hasStages || stepsWithCat.length === 0 || categories.length === 0) return null;
+
+        // Group steps by category
+        const catGroups = categories
+          .map(cat => ({
+            cat,
+            steps: plSteps.filter(s => s.category_id === cat.id),
+          }))
+          .filter(g => g.steps.length > 0);
+
+        if (catGroups.length === 0) return null;
+
+        return (
+          <div style={{ borderBottom:`1px solid #f3f0ff` }}>
+            {/* Category segment bar */}
+            <div style={{ display:"flex", gap:0, padding:"0 16px", paddingTop:8, overflowX:"auto" }}>
+              {catGroups.map(({ cat, steps }, idx) => {
+                const count = steps.reduce((n, s) => n + (countByStage[s.id] || 0), 0);
+                const isExpanded = expandedCat === cat.id;
+                return (
+                  <button key={cat.id} onClick={() => setExpandedCat(isExpanded ? null : cat.id)}
+                    style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+                      padding:"6px 16px 8px", border:`1.5px solid ${isExpanded ? cat.color : C.border}`,
+                      borderBottom: isExpanded ? `1.5px solid ${cat.color}` : `1.5px solid ${C.border}`,
+                      marginBottom: -2, borderRadius: idx === 0 ? "8px 0 0 0" : idx === catGroups.length-1 ? "0 8px 0 0" : "0",
+                      background: isExpanded ? cat.color : "transparent",
+                      color: isExpanded ? "white" : C.text2,
+                      cursor:"pointer", fontFamily:F, flexShrink:0, transition:"all .15s",
+                      minWidth:70 }}>
+                    <span style={{ fontSize:18, fontWeight:800, color: isExpanded ? "white" : cat.color, lineHeight:1 }}>{count}</span>
+                    <span style={{ fontSize:10, fontWeight:600, whiteSpace:"nowrap" }}>{cat.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Expanded category: show its stages as sub-pills */}
+            {expandedCat && (() => {
+              const group = catGroups.find(g => g.cat.id === expandedCat);
+              if (!group) return null;
+              return (
+                <div style={{ padding:"10px 16px 12px", background:`${group.cat.color}08`,
+                  borderTop:`2px solid ${group.cat.color}` }}>
+                  <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                    {group.steps.map(step => {
+                      const count   = countByStage[step.id] || 0;
+                      const isActive = selectedStage === step.id;
+                      return (
+                        <button key={step.id}
+                          onClick={() => setSelectedStage(isActive ? null : step.id)}
+                          style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 12px",
+                            borderRadius:99, border:`1.5px solid ${isActive ? group.cat.color : C.border}`,
+                            background: isActive ? group.cat.color : "white",
+                            color: isActive ? "white" : C.text1,
+                            cursor:"pointer", fontFamily:F, fontSize:12, fontWeight:600, transition:"all .15s" }}>
+                          {step.name}
+                          <span style={{ fontSize:11, fontWeight:800, padding:"0 5px", borderRadius:99,
+                            background: isActive ? "rgba(255,255,255,.25)" : `${group.cat.color}20`,
+                            color: isActive ? "white" : group.cat.color }}>
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    {/* Add person quick-action in expanded cat */}
+                    {canRecord('record_add_to_pipeline') && (
+                      <button onClick={openAddPerson}
+                        style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 12px",
+                          borderRadius:99, border:`1.5px dashed ${group.cat.color}`,
+                          background:"transparent", color:group.cat.color,
+                          cursor:"pointer", fontFamily:F, fontSize:12, fontWeight:600 }}>
+                        + Add person
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        );
+      })()}
+
       {/* Single header row — label + workflow picker + pills + Add Person */}
       <div style={{ padding:"10px 16px", display:"flex", alignItems:"center", gap:10, flexWrap:"wrap", borderBottom:`1px solid #f3f0ff` }}>
 

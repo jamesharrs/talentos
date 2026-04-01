@@ -6,6 +6,7 @@ import { MatchingEngine } from "./AI.jsx";
 import CommunicationsPanel from "./Communications.jsx";
 import SharePicker from "./SharePicker.jsx";
 import { RecordPipelinePanel, PeoplePipelineWidget, LinkedRecordsPanel } from "./Workflows.jsx";
+import CategoryPipelineBar from "./CategoryPipelineBar.jsx";
 import { RecordFormPanel } from "./Forms.jsx";
 import { evaluateFormula, formatFormulaResult } from "./utils/formula.js";
 import { COUNTRIES, COUNTRY_MAP, PHONE_CODES, formatPhone,

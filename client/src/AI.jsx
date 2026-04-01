@@ -2672,11 +2672,75 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
   const copyMessage = (text,id) => { navigator.clipboard.writeText(text); setCopied(id); setTimeout(()=>setCopied(null),2000); };
 
-  const renderMessage = (content) => content
-    .replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>")
-    .replace(/^[•\-] (.+)$/gm,'<span style="display:block;padding-left:10px;margin:2px 0">• $1</span>')
-    .replace(/\n\n/g,"<br/>")
-    .replace(/\n(?!<span)/g,"<br/>");
+  const renderMessage = (content) => {
+    if (!content) return "";
+    let html = content;
+
+    // ── Tables: | col | col | rows ────────────────────────────────────────────
+    html = html.replace(/((?:\|.+\|\n?)+)/g, (block) => {
+      const rows = block.trim().split("\n").filter(r => r.trim());
+      if (rows.length < 2) return block;
+      const isSep = (r) => /^\|[-\s|:]+\|$/.test(r.trim());
+      let out = '<table style="border-collapse:collapse;width:100%;margin:10px 0;font-size:12px;">';
+      let inBody = false;
+      rows.forEach((row, i) => {
+        if (isSep(row)) { inBody = true; return; }
+        const cells = row.split("|").slice(1,-1).map(c=>c.trim());
+        const isHeader = !inBody && i === 0;
+        const tag = isHeader ? "th" : "td";
+        const rowStyle = isHeader
+          ? 'style="background:#f0f4ff;"'
+          : (i % 2 === 0 ? 'style="background:#fafafa;"' : '');
+        out += `<tr ${rowStyle}>`;
+        cells.forEach(cell => {
+          const cellStyle = isHeader
+            ? `style="padding:7px 12px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;white-space:nowrap;"`
+            : `style="padding:7px 12px;color:#374151;border-bottom:1px solid #f0f0f0;"`;
+          out += `<${tag} ${cellStyle}>${cell}</${tag}>`;
+        });
+        out += "</tr>";
+      });
+      out += "</table>";
+      return out;
+    });
+
+    // ── Code blocks ────────────────────────────────────────────────────────────
+    html = html.replace(/```[\s\S]*?```/g, match => {
+      const code = match.replace(/^```\w*\n?/, "").replace(/```$/, "");
+      return `<pre style="background:#1e1e2e;color:#cdd6f4;padding:10px 14px;border-radius:8px;font-size:11px;overflow-x:auto;margin:6px 0;line-height:1.5;">${code.replace(/</g,"&lt;")}</pre>`;
+    });
+
+    // ── Inline code ─────────────────────────────────────────────────────────────
+    html = html.replace(/`([^`]+)`/g,
+      `<code style="background:#f0f4ff;color:#4361ee;padding:1px 5px;border-radius:4px;font-size:11px;">$1</code>`);
+
+    // ── Headers ─────────────────────────────────────────────────────────────────
+    html = html.replace(/^### (.+)$/gm, `<div style="font-weight:700;font-size:12px;color:#374151;margin:10px 0 4px;text-transform:uppercase;letter-spacing:0.05em;">$1</div>`);
+    html = html.replace(/^## (.+)$/gm,  `<div style="font-weight:700;font-size:13px;color:#1f2937;margin:12px 0 6px;">$1</div>`);
+    html = html.replace(/^# (.+)$/gm,   `<div style="font-weight:700;font-size:14px;color:#111827;margin:12px 0 6px;">$1</div>`);
+
+    // ── Bold / italic ─────────────────────────────────────────────────────────
+    html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/\*(.+?)\*/g,     "<em>$1</em>");
+
+    // ── Numbered lists ─────────────────────────────────────────────────────────
+    html = html.replace(/^(\d+)\. (.+)$/gm,
+      `<div style="display:flex;gap:8px;padding:2px 0;"><span style="color:#7c3aed;font-weight:700;min-width:16px;">$1.</span><span>$2</span></div>`);
+
+    // ── Bullet lists ─────────────────────────────────────────────────────────
+    html = html.replace(/^[•\-\*] (.+)$/gm,
+      `<div style="display:flex;gap:8px;padding:2px 0;"><span style="color:#7c3aed;margin-top:1px;">•</span><span>$1</span></div>`);
+
+    // ── Horizontal rules ──────────────────────────────────────────────────────
+    html = html.replace(/^---+$/gm, `<hr style="border:none;border-top:1px solid #e5e7eb;margin:10px 0;"/>`);
+
+    // ── Paragraphs ────────────────────────────────────────────────────────────
+    html = html.replace(/\n\n/g, `</p><p style="margin:6px 0;">`);
+    html = html.replace(/\n/g, "<br/>");
+    html = `<p style="margin:0;">${html}</p>`;
+
+    return html;
+  };
 
   const getObjForSlug  = (slug)  => objects.find(o=>o.slug===slug);
   const getFieldsForSlug = (slug) => { const o=getObjForSlug(slug); return o?(fields[o.id]||[]):[];  };

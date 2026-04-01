@@ -1823,8 +1823,8 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                   style={{ width:"100%", height:64, display:"block" }}>
                   <defs>
                     <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#93C5FD" stopOpacity="0.5"/>
-                      <stop offset="100%" stopColor="#BAE6FD" stopOpacity="0.3"/>
+                      <stop offset="0%" stopColor="#93C5FD" stopOpacity="0.12"/>
+                      <stop offset="100%" stopColor="#BAE6FD" stopOpacity="0.08"/>
                     </linearGradient>
                     <linearGradient id={gradId+"2"} x1="0%" y1="0%" x2="100%" y2="0%">
                       <stop offset="0%" stopColor="#93C5FD" stopOpacity="0.15"/>
@@ -1857,8 +1857,8 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                     return (
                       <text key={i} x={cx} y={H / 2 + 5}
                         textAnchor="middle" dominantBaseline="middle"
-                        fontSize="13" fontWeight="700" letterSpacing="-0.3"
-                        fill="#3B82F6" fillOpacity="0.85"
+                        fontSize="13" fontWeight="500" letterSpacing="-0.3"
+                        fill="#3B82F6" fillOpacity="0.6"
                         fontFamily="'Space Grotesk', 'DM Sans', system-ui, sans-serif"
                         style={{ pointerEvents:"none" }}>
                         {count}

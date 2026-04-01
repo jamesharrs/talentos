@@ -1691,34 +1691,84 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
   return (
     <div style={{ fontFamily:F, background:"white" }}>
 
-      {/* ── Category bar (shows when steps have category_id assigned) ─────── */}
+      {/* ── Category bar ──────────────────────────────────────────────────── */}
       {(() => {
-        const stepsWithCat = plSteps.filter(s => s.category_id);
-        if (!hasStages || stepsWithCat.length === 0 || categories.length === 0) return null;
+        if (!hasStages || categories.length === 0) return null;
 
-        // Group steps by category
+        // Auto-map steps to categories:
+        // 1. Use explicit category_id if set
+        // 2. Fall back to keyword matching on stage name
+        const KEYWORDS = {
+          'New':            ['new','applied','application','received','submitted','sourced','register','enquir'],
+          'Screening':      ['screen','review','cv','resume','phone','call','pre','qualify','longlist','shortlist','initial'],
+          'Assessment':     ['assess','test','exercise','task','psychometric','aptitude','technical test','homework'],
+          'Interviewing':   ['interview','meet','panel','video','zoom','teams','onsite','visit','second','third','final'],
+          'Reference Check':['reference','background','check','verify','compliance','right to work','rtw'],
+          'Offer':          ['offer','package','salary','negotiate','verbal','written','contract'],
+          'Pre-boarding':   ['preboard','pre-board','onboard','joining','paperwork','contract signed'],
+          'Placed':         ['placed','hired','hire','accepted','started','joined','won'],
+          'Not Suitable':   ['reject','declined','failed','unsuccessful','not suitable','drop','remove'],
+          'Withdrawn':      ['withdrawn','withdrew','not interested'],
+          'Offer Declined': ['offer declined','declined offer'],
+          'Talent Pool':    ['talent pool','pool','future','keep warm','nurture'],
+          'On Hold':        ['hold','pause','paused','defer','frozen'],
+        };
+        const guessCategory = (stepName) => {
+          const lower = (stepName || '').toLowerCase();
+          for (const [catName, kws] of Object.entries(KEYWORDS)) {
+            if (kws.some(kw => lower.includes(kw))) return catName;
+          }
+          return null;
+        };
+
+        const stepToCatId = {};
+        plSteps.forEach(s => {
+          if (s.category_id) {
+            stepToCatId[s.id] = s.category_id;
+          } else {
+            const guessed = guessCategory(s.name);
+            if (guessed) {
+              const cat = categories.find(c => c.name === guessed);
+              if (cat) stepToCatId[s.id] = cat.id;
+            }
+          }
+        });
+
+        // Group steps by category (only categories that have steps)
         const catGroups = categories
           .map(cat => ({
             cat,
-            steps: plSteps.filter(s => s.category_id === cat.id),
+            steps: plSteps.filter(s => stepToCatId[s.id] === cat.id),
           }))
           .filter(g => g.steps.length > 0);
 
-        if (catGroups.length === 0) return null;
+        const uncatSteps = plSteps.filter(s => !stepToCatId[s.id]);
+
+        if (catGroups.length === 0 && uncatSteps.length === 0) return null;
+
+        // Add uncategorised group at the end if any
+        const allGroups = [
+          ...catGroups,
+          ...(uncatSteps.length > 0 ? [{ cat: { id: '__uncat__', name: 'Other', color: '#94A3B8' }, steps: uncatSteps }] : []),
+        ];
 
         return (
           <div style={{ borderBottom:`1px solid #f3f0ff` }}>
             {/* Category segment bar */}
             <div style={{ display:"flex", gap:0, padding:"0 16px", paddingTop:8, overflowX:"auto" }}>
-              {catGroups.map(({ cat, steps }, idx) => {
+              {allGroups.map(({ cat, steps }, idx) => {
                 const count = steps.reduce((n, s) => n + (countByStage[s.id] || 0), 0);
                 const isExpanded = expandedCat === cat.id;
                 return (
-                  <button key={cat.id} onClick={() => setExpandedCat(isExpanded ? null : cat.id)}
+                  <button key={cat.id} onClick={() => {
+                    setExpandedCat(isExpanded ? null : cat.id);
+                    // If collapsing, also clear stage selection
+                    if (isExpanded) setSelectedStage(null);
+                  }}
                     style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2,
                       padding:"6px 16px 8px", border:`1.5px solid ${isExpanded ? cat.color : C.border}`,
                       borderBottom: isExpanded ? `1.5px solid ${cat.color}` : `1.5px solid ${C.border}`,
-                      marginBottom: -2, borderRadius: idx === 0 ? "8px 0 0 0" : idx === catGroups.length-1 ? "0 8px 0 0" : "0",
+                      marginBottom: -2, borderRadius: idx === 0 ? "8px 0 0 0" : idx === allGroups.length-1 ? "0 8px 0 0" : "0",
                       background: isExpanded ? cat.color : "transparent",
                       color: isExpanded ? "white" : C.text2,
                       cursor:"pointer", fontFamily:F, flexShrink:0, transition:"all .15s",
@@ -1730,16 +1780,16 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
               })}
             </div>
 
-            {/* Expanded category: show its stages as sub-pills */}
+            {/* Expanded category: sub-stages */}
             {expandedCat && (() => {
-              const group = catGroups.find(g => g.cat.id === expandedCat);
+              const group = allGroups.find(g => g.cat.id === expandedCat);
               if (!group) return null;
               return (
                 <div style={{ padding:"10px 16px 12px", background:`${group.cat.color}08`,
                   borderTop:`2px solid ${group.cat.color}` }}>
-                  <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                  <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
                     {group.steps.map(step => {
-                      const count   = countByStage[step.id] || 0;
+                      const count    = countByStage[step.id] || 0;
                       const isActive = selectedStage === step.id;
                       return (
                         <button key={step.id}
@@ -1750,7 +1800,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                             color: isActive ? "white" : C.text1,
                             cursor:"pointer", fontFamily:F, fontSize:12, fontWeight:600, transition:"all .15s" }}>
                           {step.name}
-                          <span style={{ fontSize:11, fontWeight:800, padding:"0 5px", borderRadius:99,
+                          <span style={{ fontSize:11, fontWeight:800, padding:"0 5px", borderRadius:99, lineHeight:"16px",
                             background: isActive ? "rgba(255,255,255,.25)" : `${group.cat.color}20`,
                             color: isActive ? "white" : group.cat.color }}>
                             {count}
@@ -1758,7 +1808,6 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                         </button>
                       );
                     })}
-                    {/* Add person quick-action in expanded cat */}
                     {canRecord('record_add_to_pipeline') && (
                       <button onClick={openAddPerson}
                         style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 12px",

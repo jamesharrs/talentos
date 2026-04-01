@@ -1774,29 +1774,30 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
             const maxCount = Math.max(...counts, 1);
             const W = 100; // viewBox width per segment
             const H = 70;  // viewBox height
-            const PAD = 8; // vertical padding
+            const PAD = 16; // vertical padding (top+bottom)
+            const HPAD = 12; // horizontal padding (left+right inset)
             const n = allGroups.length;
-            const totalW = n * W;
+            const totalW = n * W + HPAD * 2;
 
-            // Compute half-height for each segment boundary
-            // Entry and exit heights per segment
+            // Half-height at each segment: zero = very thin sliver, max = almost full height
             const halfH = (i) => {
               const c = counts[i] || 0;
-              return PAD + (H - 2*PAD) * (0.15 + 0.85 * (c / maxCount));
+              if (c === 0) return 3;
+              return PAD + (H/2 - PAD) * (c / maxCount);
             };
 
-            // Build smooth SVG path: top curve + bottom curve
-            // We use cubic bezier between segment midpoints
+            // Build smooth SVG path: segment midpoints with HPAD inset
             const pts = allGroups.map((_, i) => ({
-              x: i * W + W/2,
+              x: HPAD + i * W + W/2,
               topY: H/2 - halfH(i),
               botY: H/2 + halfH(i),
             }));
-            // Add entry and exit points
             const allPts = [
-              { x: 0, topY: pts[0].topY, botY: pts[0].botY },
+              { x: 0,       topY: pts[0].topY,              botY: pts[0].botY },
+              { x: HPAD,    topY: pts[0].topY,              botY: pts[0].botY },
               ...pts,
-              { x: totalW, topY: pts[pts.length-1].topY, botY: pts[pts.length-1].botY },
+              { x: totalW - HPAD, topY: pts[pts.length-1].topY, botY: pts[pts.length-1].botY },
+              { x: totalW,        topY: pts[pts.length-1].topY, botY: pts[pts.length-1].botY },
             ];
 
             const catCmd = (arr, key) => {
@@ -1839,25 +1840,25 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                   </g>
                   {/* Main funnel */}
                   <path d={fullPath} fill={`url(#${gradId})`}/>
-                  {/* Separator lines — very subtle */}
+                  {/* Separator lines — consistent, at each segment boundary with HPAD inset */}
                   {allGroups.map((_, i) => {
                     if (i === 0) return null;
-                    const x = i * W;
-                    const topY = allPts[i+1]?.topY ?? H/2 - PAD;
-                    const botY = allPts[i+1]?.botY ?? H/2 + PAD;
+                    const x = HPAD + i * W;
+                    const topY = pts[i] ? pts[i].topY : H/2 - 3;
+                    const botY = pts[i] ? pts[i].botY : H/2 + 3;
                     return <line key={i} x1={x} y1={topY} x2={x} y2={botY}
-                      stroke="#93C5FD" strokeWidth="1" strokeOpacity="0.6"/>;
+                      stroke="#BAE6FD" strokeWidth="1" strokeOpacity="0.9"/>;
                   })}
                   {/* Count labels — centred in each segment, only when > 0 */}
                   {allGroups.map(({ cat }, i) => {
                     const count = counts[i];
                     if (!count) return null;
-                    const cx = i * W + W / 2;
+                    const cx = HPAD + i * W + W / 2;
                     return (
                       <text key={i} x={cx} y={H / 2 + 5}
                         textAnchor="middle" dominantBaseline="middle"
                         fontSize="14" fontWeight="700"
-                        fill="#3B82F6" fillOpacity="0.8"
+                        fill="#3B82F6" fillOpacity="0.85"
                         style={{ fontFamily:"inherit", pointerEvents:"none" }}>
                         {count}
                       </text>
@@ -1865,8 +1866,9 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                   })}
                 </svg>
 
-                {/* Invisible click targets over each segment */}
-                <div style={{ position:"absolute", top:0, left:0, right:0, bottom:0, display:"flex" }}>
+                {/* Invisible click targets — one per segment, offset by HPAD */}
+                <div style={{ position:"absolute", top:0, left:0, right:0, bottom:0,
+                  display:"flex", paddingLeft: HPAD, paddingRight: HPAD }}>
                   {allGroups.map(({ cat }, i) => (
                     <div key={cat.id} style={{ flex:1, cursor:"pointer" }}
                       onClick={() => {

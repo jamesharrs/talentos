@@ -1046,10 +1046,54 @@ const AvatarWithDupBadge = ({ name, color, size = 32, photoUrl, dupInfo }) => {
 };
 
 /* ─── Create / Edit Record Modal ───────────────────────────────────────────── */
-const RecordFormModal = ({ fields, record, objectName, onSave, onClose, environment }) => {
+const RecordFormModal = ({ fields, record, objectName, onSave, onClose, environment, object, records: existingRecords }) => {
   const [data, setData] = useState(record?.data || {});
   const [saving, setSaving] = useState(false);
+  const [copySearch, setCopySearch] = useState("");
+  const [showCopyPicker, setShowCopyPicker] = useState(false);
+  const [copyRecords, setCopyRecords] = useState([]);
+  const [copyLoading, setCopyLoading] = useState(false);
   const set = (k,v) => setData(d=>({...d,[k]:v}));
+  const isNew = !record;
+
+  // Load records for copy picker
+  const loadCopyRecords = async () => {
+    if (!object || !environment) return;
+    setCopyLoading(true);
+    try {
+      const res = await api.get(`/records?object_id=${object.id}&environment_id=${environment.id}&limit=100`);
+      const arr = Array.isArray(res) ? res : (res.records || []);
+      setCopyRecords(arr);
+    } finally { setCopyLoading(false); }
+  };
+
+  const handleCopyRecord = (rec) => {
+    // Copy all core field data, excluding system/audit fields
+    const excluded = new Set(['created_at','updated_at','created_by','id','object_id','environment_id']);
+    const copied = {};
+    Object.entries(rec.data || {}).forEach(([k,v]) => {
+      if (!excluded.has(k)) copied[k] = v;
+    });
+    setData(copied);
+    setShowCopyPicker(false);
+    setCopySearch("");
+  };
+
+  const openAICopilot = () => {
+    window.dispatchEvent(new CustomEvent("talentos:openCopilot", {
+      detail: { prompt: `Create a new ${objectName}` }
+    }));
+    onClose();
+  };
+
+  // Close copy picker on outside click
+  const copyRef = useRef(null);
+  useEffect(() => {
+    if (!showCopyPicker) return;
+    const handler = (e) => { if (copyRef.current && !copyRef.current.contains(e.target)) setShowCopyPicker(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showCopyPicker]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -1070,6 +1114,95 @@ const RecordFormModal = ({ fields, record, objectName, onSave, onClose, environm
           <h2 style={{ margin:0, fontSize:16, fontWeight:700, color:C.text1 }}>{record?"Edit":"New"} {objectName}</h2>
           <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, display:"flex" }}><Ic n="x" s={20}/></button>
         </div>
+
+        {/* Creation mode options – only for new records */}
+        {isNew && (
+          <div style={{ padding:"12px 24px", background:C.surface2||"#f8f9fb", borderBottom:`1px solid ${C.border}`, display:"flex", gap:8 }}>
+            {/* Copy existing */}
+            <div style={{ position:"relative", flex:1 }} ref={copyRef}>
+              <button
+                onClick={() => { setShowCopyPicker(v=>!v); if (!copyRecords.length) loadCopyRecords(); }}
+                style={{ width:"100%", display:"flex", alignItems:"center", gap:7, padding:"8px 12px", borderRadius:8,
+                  border:`1.5px solid ${C.border}`, background:"white", cursor:"pointer", fontSize:12, fontWeight:600,
+                  color:C.text2, fontFamily:"inherit", transition:"all .15s" }}
+                onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
+                onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}
+              >
+                <Ic n="copy" s={13} c={C.accent}/> Copy existing record
+              </button>
+
+              {showCopyPicker && (
+                <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, right:0, zIndex:1100,
+                  background:"white", borderRadius:10, border:`1px solid ${C.border}`,
+                  boxShadow:"0 8px 32px rgba(0,0,0,.12)", overflow:"hidden" }}>
+                  <div style={{ padding:"10px 12px", borderBottom:`1px solid ${C.border}` }}>
+                    <input autoFocus value={copySearch} onChange={e=>setCopySearch(e.target.value)}
+                      placeholder={`Search ${objectName}s…`}
+                      style={{ width:"100%", border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 10px",
+                        fontSize:12, outline:"none", fontFamily:"inherit", boxSizing:"border-box" }}/>
+                  </div>
+                  <div style={{ maxHeight:220, overflowY:"auto" }}>
+                    {copyLoading ? (
+                      <div style={{ padding:16, textAlign:"center", fontSize:12, color:C.text3 }}>Loading…</div>
+                    ) : copyRecords.filter(r => {
+                        const d = r.data || {};
+                        const label = [d.first_name, d.last_name, d.job_title, d.name, d.pool_name].filter(Boolean).join(" ");
+                        return !copySearch || label.toLowerCase().includes(copySearch.toLowerCase());
+                      }).slice(0, 30).map(r => {
+                        const d = r.data || {};
+                        const label = [d.first_name, d.last_name].filter(Boolean).join(" ") || d.job_title || d.name || d.pool_name || r.id.slice(0,8);
+                        const sub = d.job_title || d.department || d.category || "";
+                        return (
+                          <button key={r.id} onClick={() => handleCopyRecord(r)}
+                            style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"9px 14px",
+                              border:"none", background:"transparent", cursor:"pointer", textAlign:"left",
+                              fontFamily:"inherit", borderBottom:`1px solid ${C.border}` }}
+                            onMouseEnter={e=>e.currentTarget.style.background="#f0f4ff"}
+                            onMouseLeave={e=>e.currentTarget.style.background="transparent"}
+                          >
+                            <div style={{ width:28, height:28, borderRadius:"50%", background:C.accent, display:"flex",
+                              alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                              <span style={{ color:"white", fontSize:11, fontWeight:700 }}>{label[0]?.toUpperCase()||"?"}</span>
+                            </div>
+                            <div>
+                              <div style={{ fontSize:13, fontWeight:600, color:C.text1 }}>{label}</div>
+                              {sub && <div style={{ fontSize:11, color:C.text3 }}>{sub}</div>}
+                            </div>
+                          </button>
+                        );
+                      })
+                    }
+                    {!copyLoading && copyRecords.length === 0 && (
+                      <div style={{ padding:16, textAlign:"center", fontSize:12, color:C.text3 }}>No records found</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* AI create */}
+            <button onClick={openAICopilot}
+              style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:7, padding:"8px 12px",
+                borderRadius:8, border:`1.5px solid ${C.border}`, background:"white", cursor:"pointer",
+                fontSize:12, fontWeight:600, color:C.text2, fontFamily:"inherit", transition:"all .15s" }}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor="#7c3aed"; e.currentTarget.style.color="#7c3aed"; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.text2; }}
+            >
+              <Ic n="zap" s={13} c="#7c3aed"/> Create with AI
+            </button>
+
+            {/* Template – coming soon */}
+            <button disabled
+              style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:7, padding:"8px 12px",
+                borderRadius:8, border:`1.5px dashed ${C.border}`, background:"transparent", cursor:"not-allowed",
+                fontSize:12, fontWeight:600, color:C.text3, fontFamily:"inherit", opacity:0.6 }}
+              title="Templates – coming soon"
+            >
+              <Ic n="file-text" s={13} c={C.text3}/> Use template
+            </button>
+          </div>
+        )}
+
         <div style={{ flex:1, overflow:"auto", padding:"24px" }}>
           {sections.map(section => (
             <div key={section.label} style={{ marginBottom:28 }}>
@@ -7853,7 +7986,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
 
       {/* Create form */}
       {showForm && (
-        <RecordFormModal fields={fields} objectName={object.name} onSave={handleCreate} onClose={()=>setShowForm(false)} environment={environment}/>
+        <RecordFormModal fields={fields} objectName={object.name} onSave={handleCreate} onClose={()=>setShowForm(false)} environment={environment} object={object} records={records}/>
       )}
 
       {/* Edit form */}

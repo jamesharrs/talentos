@@ -1769,30 +1769,69 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
           {/* Main bar: category segments + right-side label/controls */}
           <div style={{ display:"flex", alignItems:"stretch", borderBottom:`1px solid ${C.border}` }}>
 
-            {/* Category segments */}
-            <div style={{ display:"flex", flex:1, overflowX:"auto", minWidth:0 }}>
-              {allGroups.map(({ cat, steps }) => {
-                const count = steps.reduce((n, s) => n + (countByStage[s.id] || 0), 0);
-                const isExpanded = expandedCat === cat.id;
-                return (
-                  <button key={cat.id}
-                    onClick={() => {
-                      const next = isExpanded ? null : cat.id;
-                      setExpandedCat(next);
-                      setSelectedStage(next ? "__cat__" : null);
-                    }}
-                    style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 18px",
-                      border:"none", flexShrink:0, cursor:"pointer", fontFamily:F,
-                      borderBottom: isExpanded ? `3px solid ${cat.color}` : "3px solid transparent",
-                      background: isExpanded ? `${cat.color}0f` : "white", transition:"all .15s" }}>
-                    <span style={{ fontSize:20, fontWeight:900, lineHeight:1,
-                      color: count > 0 ? cat.color : "#d1d5db" }}>{count}</span>
-                    <span style={{ fontSize:12, fontWeight:600, whiteSpace:"nowrap",
-                      color: isExpanded ? cat.color : count > 0 ? C.text2 : "#9ca3af" }}>{cat.name}</span>
-                  </button>
-                );
-              })}
-            </div>
+            {/* Category segments — proportional width funnel */}
+            {(() => {
+              const counts = allGroups.map(({ steps }) =>
+                steps.reduce((n, s) => n + (countByStage[s.id] || 0), 0));
+              const maxCount = Math.max(...counts, 1);
+              const total = counts.reduce((a, b) => a + b, 0);
+              return (
+                <div style={{ display:"flex", flex:1, minWidth:0, alignItems:"stretch" }}>
+                  {allGroups.map(({ cat, steps }, idx) => {
+                    const count = counts[idx];
+                    const isExpanded = expandedCat === cat.id;
+                    // flex grows with count — gives proportional width feel
+                    const flexVal = Math.max(count, 0.4);
+                    const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                    return (
+                      <button key={cat.id}
+                        onClick={() => {
+                          const next = isExpanded ? null : cat.id;
+                          setExpandedCat(next);
+                          setSelectedStage(next ? "__cat__" : null);
+                        }}
+                        style={{
+                          flex: flexVal, display:"flex", flexDirection:"column",
+                          alignItems:"center", justifyContent:"flex-end",
+                          padding:"0", border:"none", cursor:"pointer", fontFamily:F,
+                          position:"relative", overflow:"hidden",
+                          background: isExpanded ? `${cat.color}18` : "white",
+                          borderBottom: isExpanded ? `3px solid ${cat.color}` : "3px solid transparent",
+                          borderRight: idx < allGroups.length - 1 ? `1px solid ${C.border}` : "none",
+                          transition:"all .15s", minWidth:50,
+                        }}>
+                        {/* Fill bar — rises from bottom proportional to count vs max */}
+                        <div style={{
+                          position:"absolute", bottom:0, left:0, right:0,
+                          height: count > 0 ? `${Math.max((count / maxCount) * 55, 8)}%` : "0%",
+                          background: `${cat.color}${isExpanded ? "30" : "18"}`,
+                          transition:"height .3s ease",
+                        }}/>
+                        {/* Content above fill */}
+                        <div style={{ position:"relative", zIndex:1, padding:"10px 12px 8px",
+                          display:"flex", flexDirection:"column", alignItems:"center", gap:2, width:"100%" }}>
+                          <span style={{
+                            fontSize: count > 9 ? 18 : 20, fontWeight:900, lineHeight:1,
+                            color: count > 0 ? cat.color : "#d1d5db",
+                          }}>{count}</span>
+                          <span style={{
+                            fontSize:10, fontWeight:600, whiteSpace:"nowrap",
+                            color: isExpanded ? cat.color : count > 0 ? C.text2 : "#9ca3af",
+                            overflow:"hidden", textOverflow:"ellipsis", maxWidth:"100%",
+                          }}>{cat.name}</span>
+                          {/* Tiny % label when non-zero */}
+                          {count > 0 && total > 0 && (
+                            <span style={{ fontSize:9, color:`${cat.color}99`, fontWeight:700 }}>
+                              {pct}%
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
             {/* Right side: linked people label + workflow name + add button */}
             <div style={{ display:"flex", alignItems:"center", gap:8, padding:"0 14px",

@@ -1874,20 +1874,41 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                             </defs>
                             <path d={slicePath} fill={`url(#${gid})`}/>
                           </svg>
-                          {/* Count label */}
-                          <span style={{
-                            position:"relative", zIndex:1,
-                            fontSize: 15, fontWeight: 500,
-                            color: isExpanded ? cat.color : "#2563EB",
-                            fontFamily: "'DM Sans', -apple-system, sans-serif",
-                            lineHeight: 1,
-                          }}>
-                            {count}
-                          </span>
+                          <div style={{ position:"relative", zIndex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+                            <span style={{
+                              fontSize: 15, fontWeight: 500,
+                              color: isExpanded ? cat.color : "#2563EB",
+                              fontFamily: "'DM Sans', -apple-system, sans-serif",
+                              lineHeight: 1,
+                            }}>
+                              {count}
+                            </span>
+                            <span style={{
+                              fontSize: 10, fontWeight: 500,
+                              color: isExpanded ? cat.color : "#94a3b8",
+                              fontFamily: "'DM Sans', -apple-system, sans-serif",
+                              whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+                              maxWidth:"90%", textAlign:"center",
+                            }}>
+                              {cat.name}
+                            </span>
+                          </div>
                         </>
                       ) : (
-                        /* Empty — faint full-width bar */
-                        <div style={{ position:"absolute", left:12, right:12, height:4, background:"#e2e8f0", borderRadius:99 }}/>
+                        /* Empty — faint full-width bar + name */
+                        <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4 }}>
+                          <div style={{ position:"absolute", left:12, right:12, height:4, background:"#e2e8f0", borderRadius:99 }}/>
+                          <span style={{
+                            position:"relative", zIndex:1,
+                            fontSize: 10, fontWeight: 500,
+                            color: "#c4cdd8",
+                            fontFamily: "'DM Sans', -apple-system, sans-serif",
+                            whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+                            maxWidth:"90%", textAlign:"center", marginTop:16,
+                          }}>
+                            {cat.name}
+                          </span>
+                        </div>
                       )}
                     </div>
                   );

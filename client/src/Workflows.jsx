@@ -1822,14 +1822,12 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                   style={{ width:"100%", height:64, display:"block" }}>
                   <defs>
                     <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-                      {allGroups.map(({ cat }, i) => (
-                        <stop key={i} offset={`${(i / (n-1||1)) * 100}%`} stopColor={cat.color} stopOpacity="0.28"/>
-                      ))}
+                      <stop offset="0%" stopColor="#93C5FD" stopOpacity="0.5"/>
+                      <stop offset="100%" stopColor="#BAE6FD" stopOpacity="0.3"/>
                     </linearGradient>
                     <linearGradient id={gradId+"2"} x1="0%" y1="0%" x2="100%" y2="0%">
-                      {allGroups.map(({ cat }, i) => (
-                        <stop key={i} offset={`${(i / (n-1||1)) * 100}%`} stopColor={cat.color} stopOpacity="0.07"/>
-                      ))}
+                      <stop offset="0%" stopColor="#93C5FD" stopOpacity="0.15"/>
+                      <stop offset="100%" stopColor="#BAE6FD" stopOpacity="0.08"/>
                     </linearGradient>
                     <filter id="blur1" x="-20%" y="-50%" width="140%" height="200%">
                       <feGaussianBlur stdDeviation="6"/>
@@ -1848,7 +1846,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                     const topY = allPts[i+1]?.topY ?? H/2 - PAD;
                     const botY = allPts[i+1]?.botY ?? H/2 + PAD;
                     return <line key={i} x1={x} y1={topY} x2={x} y2={botY}
-                      stroke="white" strokeWidth="1.5" strokeOpacity="0.5"/>;
+                      stroke="#93C5FD" strokeWidth="1" strokeOpacity="0.6"/>;
                   })}
                   {/* Count labels — centred in each segment, only when > 0 */}
                   {allGroups.map(({ cat }, i) => {
@@ -1859,7 +1857,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                       <text key={i} x={cx} y={H / 2 + 5}
                         textAnchor="middle" dominantBaseline="middle"
                         fontSize="14" fontWeight="700"
-                        fill="white" fillOpacity="0.9"
+                        fill="#3B82F6" fillOpacity="0.8"
                         style={{ fontFamily:"inherit", pointerEvents:"none" }}>
                         {count}
                       </text>

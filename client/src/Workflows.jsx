@@ -1968,7 +1968,8 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
             );
           })()}
 
-            {/* Workflow picker row */}
+            {/* Workflow picker row — hidden when toolbar handles it */}
+            {!toolbarMode && (
             <div style={{ display:"flex", alignItems:"center", justifyContent:"flex-end", borderBottom:`1px solid ${C.border}` }}>
             <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 14px",
               borderLeft:`1px solid ${C.border}`, flexShrink:0 }}>
@@ -2026,6 +2027,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
               )}
             </div>
           </div>
+            )} {/* end !toolbarMode picker row */}
 
           {/* Expanded category: stage filter pills */}
           {expandedCat && (() => {

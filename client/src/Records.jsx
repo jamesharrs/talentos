@@ -7116,7 +7116,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       {/* Full-width Linked People widget — funnel bar, non-Person objects only */}
       {objectName !== "Person" && (
         <div style={{ flexShrink:0, borderBottom:`1px solid ${C.border}` }}>
-          <PeoplePipelineWidget record={record} objectId={record.object_id} environment={environment} onNavigate={onNavigate}/>
+          <PeoplePipelineWidget record={record} objectId={record.object_id} environment={environment} onNavigate={onNavigate} hidePicker/>
         </div>
       )}
 

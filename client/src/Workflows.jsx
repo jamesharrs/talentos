@@ -1576,7 +1576,7 @@ const guessCatName = (stepName) => {
   return null;
 };
 
-export function PeoplePipelineWidget({ record, objectId, environment, onNavigate, toolbarMode = false }) {
+export function PeoplePipelineWidget({ record, objectId, environment, onNavigate, toolbarMode = false, hidePicker = false }) {
   const _pc_ppw = _usePermCtx();
   const canRecord = (flag) => _pc_ppw ? _pc_ppw.canGlobal(flag) : true;
   const [assignments, setAssignments]     = useState([]);
@@ -1969,7 +1969,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
           })()}
 
             {/* Workflow picker row — hidden when toolbar handles it */}
-            {!toolbarMode && (
+            {!toolbarMode && !hidePicker && (
             <div style={{ display:"flex", alignItems:"center", justifyContent:"flex-end", borderBottom:`1px solid ${C.border}` }}>
             <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 14px",
               borderLeft:`1px solid ${C.border}`, flexShrink:0 }}>

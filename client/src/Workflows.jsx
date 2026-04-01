@@ -1849,24 +1849,29 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                     return <line key={i} x1={x} y1={topY} x2={x} y2={botY}
                       stroke="#BAE6FD" strokeWidth="1" strokeOpacity="0.9"/>;
                   })}
-                  {/* Count labels — centred in each segment, only when > 0 */}
+                  {/* no count labels in SVG — rendered as HTML overlay below */}
+                </svg>
+
+                {/* Count number overlays — HTML on top of SVG for crisp rendering */}
+                <div style={{ position:"absolute", top:0, left:HPAD, right:HPAD, bottom:0,
+                  display:"flex", pointerEvents:"none" }}>
                   {allGroups.map(({ cat }, i) => {
                     const count = counts[i];
-                    if (!count) return null;
-                    const cx = HPAD + i * W + W / 2;
                     return (
-                      <text key={i} x={cx} y={H / 2 + 5}
-                        textAnchor="middle" dominantBaseline="middle"
-                        fontSize="12" fontWeight="600" fontStyle="normal" letterSpacing="0"
-                        fontFamily="'DM Sans', -apple-system, sans-serif"
-                        fill="#1D4ED8" fillOpacity="0.9"
-                        fontFamily="'Space Grotesk', 'DM Sans', system-ui, sans-serif"
-                        style={{ pointerEvents:"none" }}>
-                        {count}
-                      </text>
+                      <div key={cat.id} style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        {count > 0 && (
+                          <span style={{
+                            fontSize: 13, fontWeight: 500, color: "#2563EB",
+                            fontFamily: "'DM Sans', -apple-system, sans-serif",
+                            lineHeight: 1,
+                          }}>
+                            {count}
+                          </span>
+                        )}
+                      </div>
                     );
                   })}
-                </svg>
+                </div>
 
                 {/* Invisible click targets — one per segment, offset by HPAD */}
                 <div style={{ position:"absolute", top:0, left:0, right:0, bottom:0,

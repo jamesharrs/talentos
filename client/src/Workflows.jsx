@@ -1817,39 +1817,43 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
             // Gradient stops
             const gradId = 'funnelGrad';
 
+            // Per-box: compute the funnel slice path clipped to each segment's x range
+            const BW = 100; // viewBox width per box
+            const BH = 56;  // viewBox height per box
+            const getSlicePath = (i) => {
+              // Map the full funnel coords to a per-box 0-BW viewBox
+              // fullPath uses totalW × H space; segment i occupies [i*W, (i+1)*W]
+              const xStart = i * W;
+              const xEnd   = (i + 1) * W;
+              // top-left, top-right, bottom-right, bottom-left of funnel at this slice
+              const topL = pts[i]   ? pts[i].topY   : H * 0.2;
+              const botL = pts[i]   ? pts[i].botY   : H * 0.8;
+              const topR = pts[i+1] ? pts[i+1].topY : H * 0.2;
+              const botR = pts[i+1] ? pts[i+1].botY : H * 0.8;
+              // Normalise to BW × BH
+              const scaleX = BW / (xEnd - xStart);
+              const scaleY = BH / H;
+              const tL = topL * scaleY;
+              const bL = botL * scaleY;
+              const tR = topR * scaleY;
+              const bR = botR * scaleY;
+              return `M0,${tL} L${BW},${tR} L${BW},${bR} L0,${bL} Z`;
+            };
+
             return (
-              <div style={{ position:"relative" }}>
-              {/* Funnel SVG — purely decorative background */}
-              <svg viewBox={`0 0 ${totalW} ${H}`} preserveAspectRatio="none"
-                style={{ position:"absolute", inset:0, width:"100%", height:"100%", pointerEvents:"none", zIndex:0 }}>
-                <defs>
-                  <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#93C5FD" stopOpacity="0.18"/>
-                    <stop offset="100%" stopColor="#BAE6FD" stopOpacity="0.10"/>
-                  </linearGradient>
-                  <linearGradient id={gradId+"g"} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#93C5FD" stopOpacity="0.20"/>
-                    <stop offset="100%" stopColor="#BAE6FD" stopOpacity="0.10"/>
-                  </linearGradient>
-                  <filter id={gradId+"blur"} x="-20%" y="-50%" width="140%" height="200%">
-                    <feGaussianBlur stdDeviation="6"/>
-                  </filter>
-                </defs>
-                <g transform={`translate(${totalW * -0.03}, ${H * -0.08}) scale(1.06, 1.16)`}>
-                  <path d={fullPath} fill={`url(#${gradId}g)`} filter={`url(#${gradId}blur)`}/>
-                </g>
-                <path d={fullPath} fill={`url(#${gradId})`}/>
-              </svg>
-              {/* Box-per-segment layout — sits on top of funnel */}
-              <div style={{ position:"relative", zIndex:1, display:"flex", width:"100%", gap:4, padding:"4px" }}>
+              <div>
+              {/* Box-per-segment layout — each box has its own funnel-slice background */}
+              <div style={{ display:"flex", width:"100%", gap:4, padding:"4px" }}>
                 {allGroups.map(({ cat }, i) => {
                   const count = counts[i];
                   const isExpanded = expandedCat === cat.id;
+                  const slicePath = getSlicePath(i);
+                  const gid = `${gradId}_${i}`;
                   return (
                     <div key={cat.id} style={{ flex:1, minWidth:0, cursor:"pointer",
-                      height:56, borderRadius:8,
+                      position:"relative", height:56, borderRadius:8, overflow:"hidden",
                       border:`1px solid ${isExpanded ? cat.color : "#e8edf5"}`,
-                      background: isExpanded ? `${cat.color}0d` : "#f8fafc",
+                      background: isExpanded ? `${cat.color}08` : "white",
                       display:"flex", alignItems:"center", justifyContent:"center",
                       transition:"all .15s" }}
                       onClick={() => {
@@ -1857,8 +1861,21 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                         setExpandedCat(next);
                         setSelectedStage(next ? "__cat__" : null);
                       }}>
+                      {/* Funnel slice as box background */}
+                      <svg viewBox={`0 0 ${BW} ${BH}`} preserveAspectRatio="none"
+                        style={{ position:"absolute", inset:0, width:"100%", height:"100%", pointerEvents:"none" }}>
+                        <defs>
+                          <linearGradient id={gid} x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#BFDBFE" stopOpacity={isExpanded ? "0.5" : "0.35"}/>
+                            <stop offset="100%" stopColor="#EFF6FF" stopOpacity={isExpanded ? "0.3" : "0.15"}/>
+                          </linearGradient>
+                        </defs>
+                        <path d={slicePath} fill={`url(#${gid})`}/>
+                      </svg>
+                      {/* Count label */}
                       {count > 0 && (
                         <span style={{
+                          position:"relative", zIndex:1,
                           fontSize: 15, fontWeight: 500,
                           color: isExpanded ? cat.color : "#2563EB",
                           fontFamily: "'DM Sans', -apple-system, sans-serif",

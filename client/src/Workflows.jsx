@@ -1763,86 +1763,161 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
   return (
     <div style={{ fontFamily:F, background:"white" }}>
 
-      {/* ── Unified category bar ─────────────────────────────────────────── */}
+      {/* ── SVG Funnel + category bar ──────────────────────────────────────── */}
       {hasStages && allGroups.length > 0 && (
         <div>
-          {/* Main bar: category segments + right-side label/controls */}
-          <div style={{ display:"flex", alignItems:"stretch", borderBottom:`1px solid ${C.border}` }}>
+          {/* SVG Funnel — organic flowing shape */}
+          {(() => {
+            const counts = allGroups.map(({ steps }) =>
+              steps.reduce((n, s) => n + (countByStage[s.id] || 0), 0));
+            const total = counts.reduce((a,b)=>a+b,0);
+            const maxCount = Math.max(...counts, 1);
+            const W = 100; // viewBox width per segment
+            const H = 60;  // viewBox height
+            const PAD = 10; // vertical padding
+            const n = allGroups.length;
+            const totalW = n * W;
 
-            {/* Category segments — proportional width funnel */}
-            {(() => {
-              const counts = allGroups.map(({ steps }) =>
-                steps.reduce((n, s) => n + (countByStage[s.id] || 0), 0));
-              const maxCount = Math.max(...counts, 1);
-              const total = counts.reduce((a, b) => a + b, 0);
-              return (
-                <div style={{ display:"flex", flex:1, minWidth:0, alignItems:"stretch" }}>
-                  {allGroups.map(({ cat, steps }, idx) => {
-                    const count = counts[idx];
-                    const isExpanded = expandedCat === cat.id;
-                    // flex grows with count — gives proportional width feel
-                    const flexVal = Math.max(count, 0.4);
-                    const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+            // Compute half-height for each segment boundary
+            // Entry and exit heights per segment
+            const halfH = (i) => {
+              const c = counts[i] || 0;
+              return PAD + (H - 2*PAD) * (0.15 + 0.85 * (c / maxCount));
+            };
+
+            // Build smooth SVG path: top curve + bottom curve
+            // We use cubic bezier between segment midpoints
+            const pts = allGroups.map((_, i) => ({
+              x: i * W + W/2,
+              topY: H/2 - halfH(i),
+              botY: H/2 + halfH(i),
+            }));
+            // Add entry and exit points
+            const allPts = [
+              { x: 0, topY: pts[0].topY, botY: pts[0].botY },
+              ...pts,
+              { x: totalW, topY: pts[pts.length-1].topY, botY: pts[pts.length-1].botY },
+            ];
+
+            const catCmd = (arr, key) => {
+              let d = `M ${arr[0].x} ${arr[0][key]}`;
+              for (let i = 0; i < arr.length - 1; i++) {
+                const cp1x = (arr[i].x + arr[i+1].x) / 2;
+                const cp2x = (arr[i].x + arr[i+1].x) / 2;
+                d += ` C ${cp1x} ${arr[i][key]}, ${cp2x} ${arr[i+1][key]}, ${arr[i+1].x} ${arr[i+1][key]}`;
+              }
+              return d;
+            };
+
+            const topPath = catCmd(allPts, 'topY');
+            const botPath = catCmd([...allPts].reverse(), 'botY');
+            const fullPath = topPath + ' ' + botPath.replace('M', 'L') + ' Z';
+
+            // Gradient stops
+            const gradId = 'funnelGrad';
+
+            return (
+              <div style={{ position:"relative", width:"100%", cursor:"pointer" }}>
+                <svg viewBox={`0 0 ${totalW} ${H}`} preserveAspectRatio="none"
+                  style={{ width:"100%", height:56, display:"block" }}>
+                  <defs>
+                    <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+                      {allGroups.map(({ cat }, i) => (
+                        <stop key={i} offset={`${(i / (n-1||1)) * 100}%`} stopColor={cat.color} stopOpacity="0.7"/>
+                      ))}
+                    </linearGradient>
+                    {/* Glow layers */}
+                    <linearGradient id={gradId+"2"} x1="0%" y1="0%" x2="100%" y2="0%">
+                      {allGroups.map(({ cat }, i) => (
+                        <stop key={i} offset={`${(i / (n-1||1)) * 100}%`} stopColor={cat.color} stopOpacity="0.25"/>
+                      ))}
+                    </linearGradient>
+                    <filter id="blur1"><feGaussianBlur stdDeviation="3"/></filter>
+                  </defs>
+                  {/* Outer glow (blurred wider path) */}
+                  <path d={fullPath} fill={`url(#${gradId}2)`} filter="url(#blur1)"
+                    transform={`scale(1.0) translate(0,0)`}/>
+                  {/* Main funnel */}
+                  <path d={fullPath} fill={`url(#${gradId})`}/>
+                  {/* Separator lines between segments */}
+                  {allGroups.map((_, i) => {
+                    if (i === 0) return null;
+                    const x = i * W;
+                    const topY = allPts[i+1]?.topY ?? H/2 - PAD;
+                    const botY = allPts[i+1]?.botY ?? H/2 + PAD;
+                    return <line key={i} x1={x} y1={topY} x2={x} y2={botY}
+                      stroke="white" strokeWidth="1" strokeOpacity="0.4"/>;
+                  })}
+                  {/* Count labels */}
+                  {allGroups.map(({ cat }, i) => {
+                    const cx = i * W + W/2;
+                    const count = counts[i];
                     return (
-                      <button key={cat.id}
-                        onClick={() => {
-                          const next = isExpanded ? null : cat.id;
-                          setExpandedCat(next);
-                          setSelectedStage(next ? "__cat__" : null);
-                        }}
-                        style={{
-                          flex: flexVal, display:"flex", flexDirection:"column",
-                          alignItems:"center", justifyContent:"flex-end",
-                          padding:"0", border:"none", cursor:"pointer", fontFamily:F,
-                          position:"relative", overflow:"hidden",
-                          background: isExpanded ? `${cat.color}18` : "white",
-                          borderBottom: isExpanded ? `3px solid ${cat.color}` : "3px solid transparent",
-                          borderRight: idx < allGroups.length - 1 ? `1px solid ${C.border}` : "none",
-                          transition:"all .15s", minWidth:50,
-                        }}>
-                        {/* Fill bar — rises from bottom proportional to count vs max */}
-                        <div style={{
-                          position:"absolute", bottom:0, left:0, right:0,
-                          height: count > 0 ? `${Math.max((count / maxCount) * 55, 8)}%` : "0%",
-                          background: `${cat.color}${isExpanded ? "30" : "18"}`,
-                          transition:"height .3s ease",
-                        }}/>
-                        {/* Content above fill */}
-                        <div style={{ position:"relative", zIndex:1, padding:"10px 12px 8px",
-                          display:"flex", flexDirection:"column", alignItems:"center", gap:2, width:"100%" }}>
-                          <span style={{
-                            fontSize: count > 9 ? 18 : 20, fontWeight:900, lineHeight:1,
-                            color: count > 0 ? cat.color : "#d1d5db",
-                          }}>{count}</span>
-                          <span style={{
-                            fontSize:10, fontWeight:600, whiteSpace:"nowrap",
-                            color: isExpanded ? cat.color : count > 0 ? C.text2 : "#9ca3af",
-                            overflow:"hidden", textOverflow:"ellipsis", maxWidth:"100%",
-                          }}>{cat.name}</span>
-                          {/* Tiny % label when non-zero */}
-                          {count > 0 && total > 0 && (
-                            <span style={{ fontSize:9, color:`${cat.color}99`, fontWeight:700 }}>
-                              {pct}%
-                            </span>
-                          )}
-                        </div>
-                      </button>
+                      <text key={i} x={cx} y={H/2+5} textAnchor="middle"
+                        fontSize={count > 9 ? 13 : 15} fontWeight="800"
+                        fill="white" style={{ fontFamily:"inherit" }}>
+                        {count}
+                      </text>
                     );
                   })}
-                </div>
-              );
-            })()}
+                </svg>
 
-            {/* Right side: linked people label + workflow name + add button */}
-            <div style={{ display:"flex", alignItems:"center", gap:8, padding:"0 14px",
+                {/* Invisible click targets over each segment */}
+                <div style={{ position:"absolute", top:0, left:0, right:0, bottom:0, display:"flex" }}>
+                  {allGroups.map(({ cat }, i) => (
+                    <div key={cat.id} style={{ flex:1, cursor:"pointer" }}
+                      onClick={() => {
+                        const next = expandedCat === cat.id ? null : cat.id;
+                        setExpandedCat(next);
+                        setSelectedStage(next ? "__cat__" : null);
+                      }}/>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Category label + controls row */}
+          <div style={{ display:"flex", alignItems:"center", borderBottom:`1px solid ${C.border}` }}>
+            {/* Category name pills */}
+            <div style={{ display:"flex", flex:1, minWidth:0 }}>
+              {allGroups.map(({ cat, steps }) => {
+                const count = steps.reduce((n, s) => n + (countByStage[s.id] || 0), 0);
+                const isExpanded = expandedCat === cat.id;
+                return (
+                  <button key={cat.id}
+                    onClick={() => {
+                      const next = isExpanded ? null : cat.id;
+                      setExpandedCat(next);
+                      setSelectedStage(next ? "__cat__" : null);
+                    }}
+                    style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center",
+                      gap:5, padding:"5px 8px", border:"none",
+                      borderBottom: isExpanded ? `2px solid ${cat.color}` : "2px solid transparent",
+                      background: isExpanded ? `${cat.color}0e` : "transparent",
+                      cursor:"pointer", fontFamily:F, transition:"all .12s", minWidth:40 }}>
+                    <span style={{ width:7, height:7, borderRadius:"50%",
+                      background: cat.color, flexShrink:0, opacity: count>0?1:0.3 }}/>
+                    <span style={{ fontSize:11, fontWeight: isExpanded ? 700 : 500,
+                      color: isExpanded ? cat.color : count>0 ? C.text2 : "#9ca3af",
+                      whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                      {cat.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Right: workflow name + gear + add */}
+            <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 14px",
               borderLeft:`1px solid ${C.border}`, flexShrink:0 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
                 <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
               </svg>
               {peopleLinkWf ? (
-                <span style={{ fontSize:11, color:C.text3, whiteSpace:"nowrap", maxWidth:130,
-                  overflow:"hidden", textOverflow:"ellipsis" }}>{peopleLinkWf.name}</span>
+                <span style={{ fontSize:11, color:C.text3, whiteSpace:"nowrap",
+                  maxWidth:130, overflow:"hidden", textOverflow:"ellipsis" }}>{peopleLinkWf.name}</span>
               ) : (
                 <select value="" onChange={e => { if (e.target.value) assignWorkflow(e.target.value); }}
                   style={{ padding:"2px 6px", border:`1px solid ${C.border}`, borderRadius:6,
@@ -1851,12 +1926,10 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                   {peopleLinkOptions.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
               )}
-              {/* Gear to change workflow when no people linked yet */}
               {peopleLinkWf && peopleLinks.length === 0 && (
                 <div style={{ position:"relative" }} data-wfpicker="1">
                   <button onClick={() => setShowWfPicker(p => !p)}
-                    style={{ background:"none", border:"none", cursor:"pointer", padding:"2px",
-                      display:"flex", color:C.text3 }}>
+                    style={{ background:"none", border:"none", cursor:"pointer", padding:"2px", display:"flex", color:C.text3 }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
                     </svg>
@@ -1884,7 +1957,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
               )}
               {canRecord('record_add_to_pipeline') && (
                 <button onClick={openAddPerson}
-                  style={{ display:"flex", alignItems:"center", gap:4, padding:"5px 11px", borderRadius:99,
+                  style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 11px", borderRadius:99,
                     border:`1.5px solid #7c3aed`, background:"#7c3aed", color:"white",
                     fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:F, whiteSpace:"nowrap" }}>
                   + Add

@@ -1853,7 +1853,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                     <div key={cat.id} style={{ flex:1, minWidth:0, cursor:"pointer",
                       position:"relative", height:56, borderRadius:8, overflow:"hidden",
                       border:`1px solid ${isExpanded ? cat.color : "#e8edf5"}`,
-                      background: isExpanded ? `${cat.color}08` : "white",
+                      background: "white",
                       display:"flex", alignItems:"center", justifyContent:"center",
                       transition:"all .15s" }}
                       onClick={() => {
@@ -1861,28 +1861,33 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                         setExpandedCat(next);
                         setSelectedStage(next ? "__cat__" : null);
                       }}>
-                      {/* Funnel slice as box background */}
-                      <svg viewBox={`0 0 ${BW} ${BH}`} preserveAspectRatio="none"
-                        style={{ position:"absolute", inset:0, width:"100%", height:"100%", pointerEvents:"none" }}>
-                        <defs>
-                          <linearGradient id={gid} x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stopColor="#BFDBFE" stopOpacity={isExpanded ? "0.5" : "0.35"}/>
-                            <stop offset="100%" stopColor="#EFF6FF" stopOpacity={isExpanded ? "0.3" : "0.15"}/>
-                          </linearGradient>
-                        </defs>
-                        <path d={slicePath} fill={`url(#${gid})`}/>
-                      </svg>
-                      {/* Count label */}
-                      {count > 0 && (
-                        <span style={{
-                          position:"relative", zIndex:1,
-                          fontSize: 15, fontWeight: 500,
-                          color: isExpanded ? cat.color : "#2563EB",
-                          fontFamily: "'DM Sans', -apple-system, sans-serif",
-                          lineHeight: 1,
-                        }}>
-                          {count}
-                        </span>
+                      {count > 0 ? (
+                        <>
+                          {/* Funnel slice background */}
+                          <svg viewBox={`0 0 ${BW} ${BH}`} preserveAspectRatio="none"
+                            style={{ position:"absolute", inset:0, width:"100%", height:"100%", pointerEvents:"none" }}>
+                            <defs>
+                              <linearGradient id={gid} x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stopColor="#BFDBFE" stopOpacity={isExpanded ? "0.5" : "0.35"}/>
+                                <stop offset="100%" stopColor="#EFF6FF" stopOpacity={isExpanded ? "0.3" : "0.15"}/>
+                              </linearGradient>
+                            </defs>
+                            <path d={slicePath} fill={`url(#${gid})`}/>
+                          </svg>
+                          {/* Count label */}
+                          <span style={{
+                            position:"relative", zIndex:1,
+                            fontSize: 15, fontWeight: 500,
+                            color: isExpanded ? cat.color : "#2563EB",
+                            fontFamily: "'DM Sans', -apple-system, sans-serif",
+                            lineHeight: 1,
+                          }}>
+                            {count}
+                          </span>
+                        </>
+                      ) : (
+                        /* Empty — just a faint centre line */
+                        <div style={{ width:"60%", height:1, background:"#e2e8f0", borderRadius:1 }}/>
                       )}
                     </div>
                   );

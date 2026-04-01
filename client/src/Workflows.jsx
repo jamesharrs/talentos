@@ -1979,25 +1979,6 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
               <div style={{ padding:"8px 16px 10px", background:`${group.cat.color}08`,
                 borderBottom:`1px solid ${C.border}` }}>
                 <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
-                  {/* All pill — always first */}
-                  {(() => {
-                    const catTotal = group.steps.reduce((n, s) => n + (countByStage[s.id] || 0), 0);
-                    const isAll = selectedStage === "__cat__";
-                    return (
-                      <button onClick={() => setSelectedStage("__cat__")}
-                        style={{ display:"flex", alignItems:"center", gap:6, padding:"4px 12px",
-                          borderRadius:99, border:`1.5px solid ${isAll ? group.cat.color : C.border}`,
-                          background: isAll ? group.cat.color : "white",
-                          color: isAll ? "white" : C.text1,
-                          cursor:"pointer", fontFamily:F, fontSize:12, fontWeight:600, transition:"all .15s" }}>
-                        All
-                        <span style={{ fontSize:11, fontWeight:800, padding:"0 5px", borderRadius:99,
-                          lineHeight:"16px",
-                          background: isAll ? "rgba(255,255,255,.25)" : `${group.cat.color}20`,
-                          color: isAll ? "white" : group.cat.color }}>{catTotal}</span>
-                      </button>
-                    );
-                  })()}
                   {group.steps.map(step => {
                     const count = countByStage[step.id] || 0;
                     const isActive = selectedStage === step.id;
@@ -2017,6 +1998,24 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                       </button>
                     );
                   })}
+                  {/* All — always last, shows everyone linked across all stages */}
+                  {(() => {
+                    const isAll = selectedStage === "__all__";
+                    return (
+                      <button onClick={() => setSelectedStage(isAll ? "__cat__" : "__all__")}
+                        style={{ display:"flex", alignItems:"center", gap:6, padding:"4px 12px",
+                          borderRadius:99, border:`1.5px solid ${isAll ? "#374151" : C.border}`,
+                          background: isAll ? "#374151" : "white",
+                          color: isAll ? "white" : C.text2,
+                          cursor:"pointer", fontFamily:F, fontSize:12, fontWeight:600, transition:"all .15s" }}>
+                        All
+                        <span style={{ fontSize:11, fontWeight:800, padding:"0 5px", borderRadius:99,
+                          lineHeight:"16px",
+                          background: isAll ? "rgba(255,255,255,.2)" : "#f3f4f6",
+                          color: isAll ? "white" : "#6b7280" }}>{peopleLinks.length}</span>
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
             );
@@ -2053,7 +2052,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                   {selectedLinks.length > 0
                     ? `${selectedLinks.length} selected`
                     : selectedStage === "__all__"
-                      ? `All — ${visiblePeople.length} ${visiblePeople.length===1?"person":"people"}`
+                      ? `All linked — ${visiblePeople.length} ${visiblePeople.length===1?"person":"people"}`
                       : selectedStage === "__cat__"
                         ? `${allGroups.find(g=>g.cat.id===expandedCat)?.cat.name || "Category"} — ${visiblePeople.length} ${visiblePeople.length===1?"person":"people"}`
                         : `${plSteps.find(s=>s.id===selectedStage)?.name} — ${visiblePeople.length} ${visiblePeople.length===1?"person":"people"}`}

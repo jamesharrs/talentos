@@ -60,6 +60,7 @@ const AUTH_EXEMPT = [
   '/portals/public', '/portals/by-slug', '/portals/slug',
   '/portal-analytics', '/portal-feedback', '/portal-copilot',
   '/campaign-links',
+    '/integrations',  
   '/superadmin', '/bot', '/analytics',
   '/attachments/file',
   '/tenant-reset', '/cleanup-seeds', '/seed-dashboards',

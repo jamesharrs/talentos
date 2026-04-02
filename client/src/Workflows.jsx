@@ -1004,6 +1004,7 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
   const [viewMode, setViewMode] = useState(workflow?._openCanvas ? "canvas" : "list"); // "list" | "canvas"
   const [flowType, setFlowType] = useState(workflow?.flow_type || 'unstructured');
   const [saving, setSaving]   = useState(false);
+  const [editingStepIdx, setEditingStepIdx] = useState(null);
   const [fields, setFields]         = useState([]);
   const [visibilityFields, setVisibilityFields] = useState([]);
   const [objects, setObjects] = useState(parentObjects || []);
@@ -1283,25 +1284,76 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
                 <div style={{ fontSize: 12, marginTop: 4 }}>Add steps below or use the Visual Canvas builder above</div>
               </div>
             )}
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {steps.map((step, i) => (
-                <div key={step.id} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  {/* Connector line */}
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 14, flexShrink: 0 }}>
-                    <div style={{ width: 24, height: 24, borderRadius: "50%", background: stepDef(step.type).color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "white" }}>{i + 1}</div>
-                    {i < steps.length - 1 && <div style={{ width: 2, flex: 1, minHeight: 20, background: `${stepDef(step.type).color}30`, marginTop: 4 }}/>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {steps.map((step, i) => {
+                const firstAuto = automationDef((step.actions||[])[0]?.type);
+                const accentCol = firstAuto?.color || C.text3;
+                const selCat = (step.category_id) ? null : null; // category lookup deferred
+                return (
+                <div key={step.id} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  {/* Connector */}
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+                    <div style={{ width: 24, height: 24, borderRadius: "50%", background: accentCol, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "white" }}>{i + 1}</div>
+                    {i < steps.length - 1 && <div style={{ width: 2, height: 16, background: `${accentCol}30`, marginTop: 4 }}/>}
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <StepCard step={step} index={i} total={steps.length} fields={fields} visibilityFields={visibilityFields} envId={environment?.id}
-                      allSteps={steps}
-                      onChange={updated => updateStep(i, updated)}
-                      onDelete={() => deleteStep(i)}
-                      onMoveUp={() => moveStep(i, -1)}
-                      onMoveDown={() => moveStep(i, 1)}/>
+                  {/* Compact row */}
+                  <div onClick={()=>setEditingStepIdx(i)}
+                    style={{ flex: 1, display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
+                      background: C.surface, border:`1.5px solid ${accentCol}30`, borderRadius:10,
+                      cursor:"pointer", transition:"all .12s" }}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor=accentCol;e.currentTarget.style.boxShadow=`0 2px 8px ${accentCol}18`;}}
+                    onMouseLeave={e=>{e.currentTarget.style.borderColor=`${accentCol}30`;e.currentTarget.style.boxShadow="none";}}>
+                    {/* Icon */}
+                    <div style={{ width:28, height:28, borderRadius:8, background:accentCol, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      <Ic n={firstAuto?.icon||"chevRight"} s={13} c="white"/>
+                    </div>
+                    {/* Name + info */}
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:C.text1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{step.name||"Untitled stage"}</div>
+                      <div style={{ fontSize:11, color:C.text3, marginTop:1 }}>
+                        {(step.actions||[]).length ? `${(step.actions||[]).length} action${(step.actions||[]).length>1?"s":""}` : "No actions"}
+                        {(step.visibility_rules||[]).length > 0 && ` · ${(step.visibility_rules||[]).length} visibility rule${(step.visibility_rules||[]).length>1?"s":""}`}
+                        {step.next_step_ids && ` · restricted transitions`}
+                      </div>
+                    </div>
+                    {/* Controls */}
+                    <div style={{ display:"flex", alignItems:"center", gap:2, flexShrink:0 }} onClick={e=>e.stopPropagation()}>
+                      <button onClick={()=>moveStep(i,-1)} disabled={i===0} style={{ background:"none",border:"none",cursor:i===0?"default":"pointer",opacity:i===0?.3:1,padding:4,display:"flex",transform:"rotate(-90deg)" }}><Ic n="chevRight" s={12} c={C.text3}/></button>
+                      <button onClick={()=>moveStep(i,1)} disabled={i===steps.length-1} style={{ background:"none",border:"none",cursor:i===steps.length-1?"default":"pointer",opacity:i===steps.length-1?.3:1,padding:4,display:"flex",transform:"rotate(90deg)" }}><Ic n="chevRight" s={12} c={C.text3}/></button>
+                      <button onClick={()=>deleteStep(i)} style={{ background:"none",border:"none",cursor:"pointer",padding:4,display:"flex" }}><Ic n="trash" s={13} c={C.red}/></button>
+                    </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
+
+            {/* ── Step editor modal ── */}
+            {editingStepIdx !== null && steps[editingStepIdx] && (
+              <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:2000, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}
+                onClick={()=>setEditingStepIdx(null)}>
+                <div onClick={e=>e.stopPropagation()}
+                  style={{ background:"white", borderRadius:18, width:"100%", maxWidth:720, maxHeight:"85vh", overflow:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.25)" }}>
+                  {/* Modal header */}
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 20px", borderBottom:`1px solid ${C.border}`, position:"sticky", top:0, background:"white", zIndex:1, borderRadius:"18px 18px 0 0" }}>
+                    <div style={{ fontSize:15, fontWeight:700, color:C.text1 }}>Edit Stage — {steps[editingStepIdx].name || "Untitled"}</div>
+                    <button onClick={()=>setEditingStepIdx(null)} style={{ background:"none", border:"none", cursor:"pointer", padding:6, display:"flex", borderRadius:8, color:C.text3 }}
+                      onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
+                      <Ic n="x" s={18}/>
+                    </button>
+                  </div>
+                  {/* StepCard content */}
+                  <div style={{ padding:"4px 0" }}>
+                    <StepCard step={steps[editingStepIdx]} index={editingStepIdx} total={steps.length} fields={fields} visibilityFields={visibilityFields} envId={environment?.id}
+                      allSteps={steps}
+                      onChange={updated => updateStep(editingStepIdx, updated)}
+                      onDelete={() => { deleteStep(editingStepIdx); setEditingStepIdx(null); }}
+                      onMoveUp={() => { moveStep(editingStepIdx, -1); setEditingStepIdx(Math.max(0, editingStepIdx-1)); }}
+                      onMoveDown={() => { moveStep(editingStepIdx, 1); setEditingStepIdx(Math.min(steps.length-1, editingStepIdx+1)); }}/>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Add step button */}

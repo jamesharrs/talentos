@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { CampaignLinksModal } from "./CampaignLinks.jsx";
+import { ABTestModal } from "./ABTestPanel.jsx";
 import { FeedbackConfigPanel, FeedbackReports } from './portals/FeedbackConfig.jsx';
 import PortalTemplatePicker from './PortalTemplatePicker.jsx';
 import { PORTAL_TEMPLATES, getTemplatesForType, applyTemplate } from './portalTemplates.js';
@@ -3028,7 +3030,7 @@ const MiniPreview = ({ portal, onClick }) => {
 };
 
 // ─── Portal Card ──────────────────────────────────────────────────────────────
-const PortalCard = ({ portal, onEdit, onDelete, onDuplicate, stats }) => {
+const PortalCard = ({ portal, onEdit, onDelete, onDuplicate, stats, onLinks, onABTest }) => {
   const t = portal.theme||defaultTheme();
   const pageCount = (portal.pages||[]).length||1;
   const widgetCount = (portal.pages||[]).reduce((a,pg)=>(pg.rows||[]).reduce((b,r)=>b+(r.cells||[]).filter(c=>c.widgetType).length,a),0);
@@ -3060,6 +3062,18 @@ const PortalCard = ({ portal, onEdit, onDelete, onDuplicate, stats }) => {
               <Ic n="link" s={11} c={C.green}/>Link
             </button>
           )}
+          {portal.status==="published" && (
+            <button onClick={onLinks} title="Campaign Links"
+              style={{background:"#EEF0FF",border:"1px solid #4361EE30",borderRadius:6,cursor:"pointer",padding:"4px 8px",color:"#4361EE",fontSize:10,fontWeight:700,fontFamily:F,display:"flex",alignItems:"center",gap:4}}>
+              Links
+            </button>
+          )}
+          {portal.status==="published" && (
+            <button onClick={onABTest} title="A/B Test Results"
+              style={{background:"#F3F0FF",border:"1px solid #7048e830",borderRadius:6,cursor:"pointer",padding:"4px 8px",color:"#7048e8",fontSize:10,fontWeight:700,fontFamily:F}}>
+              A/B
+            </button>
+          )}
           <button onClick={onDuplicate} title="Duplicate"
             style={{background:"none",border:`1px solid ${C.border}`,borderRadius:6,cursor:"pointer",padding:"4px 7px",color:C.text3}}>
             <Ic n="copy" s={12}/>
@@ -3085,6 +3099,8 @@ export default function PortalsPage({ environment, onFullScreen }) {
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
   const [analytics,setAnalytics]=useState({});
+  const [linksPortal,setLinksPortal]=useState(null);
+  const [abPortal,setAbPortal]=useState(null);
   const loadStats=useCallback(async(list)=>{if(!list?.length)return;const res=await Promise.all(list.map(p=>api.get('/portal-analytics/'+p.id+'/stats?days=30').catch(()=>null)));const m={};list.forEach((p,i)=>{if(res[i])m[p.id]=res[i];});setAnalytics(m);},[]);
   const [newName, setNewName] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState(null); // null = blank
@@ -3224,6 +3240,9 @@ export default function PortalsPage({ environment, onFullScreen }) {
         </div>
         <Btn icon="plus" onClick={()=>setCreating(true)}>New Portal</Btn>
       </div>
+
+      {linksPortal && <CampaignLinksModal environment={environment} portalId={linksPortal.id} onClose={()=>setLinksPortal(null)}/>}
+      {abPortal && <ABTestModal portalId={abPortal.id} links={[]} onClose={()=>setAbPortal(null)}/>}
 
       {creating&&(
         <div style={{position:"fixed",inset:0,background:"rgba(15,23,41,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}
@@ -3365,7 +3384,9 @@ export default function PortalsPage({ environment, onFullScreen }) {
             <PortalCard key={p.id} portal={p} stats={analytics[p.id]}
               onEdit={()=>setEditing(p)}
               onDelete={()=>handleDelete(p.id)}
-              onDuplicate={()=>handleDuplicate(p)}/>
+              onDuplicate={()=>handleDuplicate(p)}
+              onLinks={()=>setLinksPortal(p)}
+              onABTest={()=>setAbPortal(p)}/>
           ))}
         </div>
       )}

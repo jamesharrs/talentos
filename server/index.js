@@ -59,6 +59,7 @@ const AUTH_EXEMPT = [
   '/health', '/environments',
   '/portals/public', '/portals/by-slug', '/portals/slug',
   '/portal-analytics', '/portal-feedback', '/portal-copilot',
+  '/campaign-links',
   '/superadmin', '/bot', '/analytics',
   '/attachments/file',
   '/tenant-reset', '/cleanup-seeds', '/seed-dashboards',
@@ -142,6 +143,7 @@ app.use('/api/portals',           require('./routes/portals'));
 app.use('/api/portal-copilot',    require('./routes/portal_copilot'));
 app.use('/api/portal-feedback',   require('./routes/portal_feedback'));
 app.use('/api/portal-analytics',  require('./routes/portal_analytics'));
+app.use('/api/campaign-links',    require('./routes/campaign_links'));
 app.use('/api/bot',               require('./routes/bot'));
 
 // ── Platform config & reporting ───────────────────────────────────────────────

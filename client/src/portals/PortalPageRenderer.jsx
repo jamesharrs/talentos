@@ -1357,7 +1357,23 @@ export default function PortalPageRenderer({ portal, api }) {
   const [appStatus,     setAppStatus]     = useState(null)  // application status page state
   const [appLoading,    setAppLoading]    = useState(false)
 
-  const track=(event,data={})=>{if(!portal?.id)return;api.post(`/portal-analytics/${portal.id}/track`,{event,data}).catch(()=>{});};
+  // ── A/B variant: session-sticky assignment ──────────────────────────────
+  const _activeVariant = (() => {
+    try {
+      const key = 'vc_variant_' + (portal?.id||'p');
+      const url = new URLSearchParams(window.location.search);
+      const forced = url.get('_variant') || url.get('variant');
+      if (forced) sessionStorage.setItem(key, forced.toLowerCase().replace(/[^a-z0-9-]/g,''));
+      return sessionStorage.getItem(key) || null;
+    } catch { return null; }
+  })();
+  const [activeVariant] = useState(_activeVariant);
+  // track — injects variant on every event automatically
+  const track=(event,data={})=>{
+    if(!portal?.id)return;
+    const payload = activeVariant ? {...data, variant: activeVariant} : data;
+    api.post(`/portal-analytics/${portal.id}/track`,{event,data:payload}).catch(()=>{});
+  };
   useEffect(()=>{track('page_view',{page:currentPage?.slug||'/'});},[currentPage?.id]);
 
   // ── Check for application status route /portal/…/application/:id ─────────

@@ -20,7 +20,6 @@ import AiMatchingSettings from "./settings/AiMatchingSettings.jsx";
 import { FormsList } from "./Forms.jsx";
 import NotificationsSection from './NotificationsSection';
 
-import IntegrationsSettings from "./IntegrationsSettings.jsx";
 import DatasetsSection from "./settings/DatasetsSection.jsx";
 import EnterpriseSettings from "./EnterpriseSettings.jsx";
 import IntegrationHub from "./IntegrationHub.jsx";
@@ -2518,9 +2517,8 @@ const NAV_GROUPS = [
     id: "system",
     label: "System",
     items: [
-      { id:"superadmin",       icon:"zap",        label:"Integrations" },
+      { id:"integration_hub",  icon:"zap",        label:"Integrations" },
       { id:"feature-flags",    icon:"flag",       label:"Feature Flags" },
-      { id:"integration_hub",  icon:"webhook",    label:"Integration Hub" },
       { id:"sandbox",          icon:"gitBranch",  label:"Sandbox Manager" },
       { id:"config",           icon:"refresh",    label:"Import / Export" },
     ],
@@ -2706,8 +2704,7 @@ export default function SettingsPage({ currentUser, environment, initialSection,
         {activeSection==="portals"    && <PortalsPage environment={environment} onFullScreen={setFullScreenMode}/>}
         {activeSection==="questions"  && <QuestionBankSettings/>}
         {activeSection==="stage_categories" && <StageCategoriesSection environment={environment}/>}
-        {activeSection==="agents"     && <AgentsSettings environment={environment}/>}
-        {activeSection==="superadmin"  && <IntegrationsSettings environment={environment}/>}
+        {activeSection===="agents"     && <AgentsSettings environment={environment}/>}
         {activeSection==="feature-flags" && <FeatureFlagsSettings environment={environment}/>}
         {activeSection==="sandbox"     && <SandboxManager environment={environment}/>}
         {activeSection==="brand_kits"  && <BrandKitSettings environment={environment}/>}

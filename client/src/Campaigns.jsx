@@ -241,32 +241,142 @@ function ContentPanel({ campaign, environment, onGenerated, onPortalCreated }) {
       const goalColors = { applications:"#4361EE", pool_growth:"#7048e8", event:"#0c8599", brand_awareness:"#f59f00" };
       const primaryColor = goalColors[campaign.goal] || "#4361EE";
 
-      // Build portal with hero + job list page
+      // Pick a relevant Unsplash image based on campaign goal + first audience tag
+      const GOAL_IMAGES = {
+        applications:    "office,team,professional",
+        pool_growth:     "community,people,talent",
+        event:           "conference,event,networking",
+        brand_awareness: "brand,workplace,culture",
+      };
+      const imageKeywords = [
+        GOAL_IMAGES[campaign.goal] || "office",
+        campaign.audience_tags?.[0] || "",
+      ].filter(Boolean).join(",");
+      // Unsplash source — random relevant photo, landscape, no API key needed
+      const heroImage = `https://source.unsplash.com/1600x900/?${encodeURIComponent(imageKeywords)}`;
+
+      // Build benefits from key_messages (with auto-picked icons)
+      const BENEFIT_ICONS = ["🚀","💡","🌍","💼","🎯","✨","🤝","📈","🏆","⚡"];
+      const benefitItems = (gen.key_messages || []).map((msg, i) => {
+        // Try to split "Title: body" pattern, otherwise use first 5 words as title
+        const colonIdx = msg.indexOf(":");
+        const title = colonIdx > 0 && colonIdx < 40
+          ? msg.slice(0, colonIdx).trim()
+          : msg.split(" ").slice(0, 5).join(" ");
+        const body  = colonIdx > 0 && colonIdx < 40
+          ? msg.slice(colonIdx + 1).trim()
+          : msg;
+        return { icon: BENEFIT_ICONS[i % BENEFIT_ICONS.length], title, body };
+      });
+
+      // Pick the most conversational LinkedIn post as body copy
+      const bodyPost = gen.linkedin_posts?.find(p => p.tone?.includes("convers")) || gen.linkedin_posts?.[0];
+      const bodyText = bodyPost?.text || campaign.brief || "";
+
+      // CTA from WhatsApp message, trimmed
+      const ctaText = gen.whatsapp_message
+        ? gen.whatsapp_message.split(/[.!]/)[0].trim().slice(0, 80)
+        : `Join our ${campaign.name}`;
+
+      const rows = [];
+
+      // 1. Hero — with background image
+      rows.push({
+        id: uid(), preset: "1",
+        cells: [{
+          id: uid(), widgetType: "hero",
+          widgetConfig: {
+            heading:        gen.portal_hero.headline,
+            subheading:     gen.portal_hero.subheading,
+            ctaText:        "See open roles",
+            label:          campaign.name,
+            align:          "center",
+            bgImage:        heroImage,
+            overlayOpacity: 55,
+          }
+        }]
+      });
+
+      // 2. Trust bar — simple stats strip
+      rows.push({
+        id: uid(), preset: "1",
+        cells: [{
+          id: uid(), widgetType: "trust_bar",
+          widgetConfig: {
+            items: [
+              { value:"500+",   label:"Team members" },
+              { value:"25+",    label:"Countries" },
+              { value:"4.5★",   label:"Glassdoor rating" },
+              { value:"Remote", label:"Flexible working" },
+              { value:"Award",  label:"Top employer 2025" },
+            ],
+            bgColor: "#F8F9FF",
+          }
+        }]
+      });
+
+      // 3. About section — rich text from the best LinkedIn post
+      if (bodyText) {
+        rows.push({
+          id: uid(), preset: "1",
+          cells: [{
+            id: uid(), widgetType: "rich_text",
+            widgetConfig: {
+              content: `## About this opportunity\n\n${bodyText}`,
+              align: "left",
+            }
+          }]
+        });
+      }
+
+      // 4. Benefits grid — from key_messages
+      if (benefitItems.length > 0) {
+        rows.push({
+          id: uid(), preset: "1",
+          cells: [{
+            id: uid(), widgetType: "benefits_grid",
+            widgetConfig: {
+              heading:    "Why join us?",
+              subheading: "Here's what makes this opportunity different",
+              items:      benefitItems,
+              columns:    Math.min(benefitItems.length, 3),
+              layout:     "card",
+            }
+          }]
+        });
+      }
+
+      // 5. Email subjects as job alerts teaser + job list
+      rows.push({
+        id: uid(), preset: "1",
+        cells: [{
+          id: uid(), widgetType: "jobs",
+          widgetConfig: { heading: "Open Positions", showSearch: true, showFilters: true }
+        }]
+      });
+
+      // 6. CTA banner at the bottom
+      rows.push({
+        id: uid(), preset: "1",
+        cells: [{
+          id: uid(), widgetType: "cta_banner",
+          widgetConfig: {
+            heading:    ctaText,
+            subheading: gen.email_subjects?.[0] || "Don't miss out — apply today.",
+            ctaText:    "Apply now",
+            align:      "center",
+          }
+        }]
+      });
+
       const pages = [{
         id: uid(), name: "Home", slug: "/",
-        rows: [
-          {
-            id: uid(), preset: "1",
-            cells: [{
-              id: uid(), widgetType: "hero",
-              widgetConfig: {
-                heading:    gen.portal_hero.headline,
-                subheading: gen.portal_hero.subheading,
-                ctaText:    "Learn more",
-                label:      campaign.name,
-                align:      "center",
-              }
-            }]
-          },
-          {
-            id: uid(), preset: "1",
-            cells: [{
-              id: uid(), widgetType: "jobs",
-              widgetConfig: { heading: "Open Positions", showSearch: true }
-            }]
-          },
-        ],
-        seo: { title: campaign.name, description: gen.portal_hero.subheading || "", ogImage: "" },
+        rows,
+        seo: {
+          title:       campaign.name,
+          description: gen.portal_hero.subheading || campaign.brief || "",
+          ogImage:     heroImage,
+        },
       }];
 
       const slug = `/${campaign.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}-campaign`;

@@ -382,11 +382,11 @@ const VRuleRow = ({ rule, fields, index, onChange, onRemove }) => {
   };
   const cond = rule.conditions?.[0] || { type:'role', operator:'is', values:[] };
   return (
-    <div style={{ background:'white', border:\`1px solid \${C.border}\`, borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:10 }}>
+    <div style={{ background:'white', border:`1px solid ${C.border}`, borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:10 }}>
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
         <div style={{ fontSize:11, fontWeight:700, color:C.text2, flex:1 }}>Rule {index+1}</div>
         <select value={rule.action||'hide'} onChange={e=>onChange(index,{...rule,action:e.target.value})}
-          style={{ padding:'3px 8px', borderRadius:6, border:\`1px solid \${C.border}\`, fontSize:11, fontFamily:F, outline:'none', fontWeight:700,
+          style={{ padding:'3px 8px', borderRadius:6, border:`1px solid ${C.border}`, fontSize:11, fontFamily:F, outline:'none', fontWeight:700,
             background: rule.action==='hide'?'#fef2f2':'#f0fdf4', color: rule.action==='hide'?'#dc2626':'#059669' }}>
           <option value="hide">Hide fields</option>
           <option value="show">Show fields</option>
@@ -414,7 +414,7 @@ const VRuleRow = ({ rule, fields, index, onChange, onRemove }) => {
         <div style={{ fontSize:10, fontWeight:600, color:C.text3, marginBottom:5, textTransform:'uppercase', letterSpacing:'.5px' }}>When user role…</div>
         <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
           <select value={cond.operator||'is'} onChange={e=>setOperator(e.target.value)}
-            style={{ padding:'4px 8px', borderRadius:6, border:\`1px solid \${C.border}\`, fontSize:11, fontFamily:F, outline:'none' }}>
+            style={{ padding:'4px 8px', borderRadius:6, border:`1px solid ${C.border}`, fontSize:11, fontFamily:F, outline:'none' }}>
             <option value="is">is</option>
             <option value="is_not">is not</option>
           </select>
@@ -447,7 +447,7 @@ const VisibilityRuleBuilder = ({ rules=[], fields=[], onChange }) => {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
       {rules.length === 0 && (
-        <div style={{ padding:'20px', background:'#f9fafb', borderRadius:10, textAlign:'center', border:\`2px dashed \${C.border}\` }}>
+        <div style={{ padding:'20px', background:'#f9fafb', borderRadius:10, textAlign:'center', border:`2px dashed ${C.border}` }}>
           <div style={{ fontSize:12, color:C.text3, marginBottom:4 }}>No visibility rules</div>
           <div style={{ fontSize:11, color:C.text3 }}>All fields visible to everyone at this stage by default.</div>
         </div>
@@ -457,7 +457,7 @@ const VisibilityRuleBuilder = ({ rules=[], fields=[], onChange }) => {
       ))}
       <button onClick={addRule}
         style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:8,
-          border:\`1.5px dashed \${C.accent}60\`, background:C.accentLight, color:C.accent,
+          border:`1.5px dashed ${C.accent}60`, background:C.accentLight, color:C.accent,
           fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:F, alignSelf:'flex-start' }}>
         <Ic n="plus" s={12}/> Add visibility rule
       </button>
@@ -482,7 +482,7 @@ const NextStepsConfig = ({ currentStep, allSteps, onChange }) => {
           { label:'Restrict transitions', desc:'Only selected stages can follow this one', val:true },
         ].map(opt => (
           <button key={String(opt.val)} onClick={()=>onChange({...currentStep,next_step_ids:opt.val?[]:undefined})}
-            style={{ flex:1, padding:'10px 12px', borderRadius:10, border:\`2px solid \${restricted===opt.val?C.accent:C.border}\`,
+            style={{ flex:1, padding:'10px 12px', borderRadius:10, border:`2px solid ${restricted===opt.val?C.accent:C.border}`,
               background: restricted===opt.val?C.accentLight:'white', cursor:'pointer', fontFamily:F, textAlign:'left' }}>
             <div style={{ fontSize:12, fontWeight:700, color:restricted===opt.val?C.accent:C.text1, marginBottom:2 }}>{opt.label}</div>
             <div style={{ fontSize:11, color:C.text3, lineHeight:1.4 }}>{opt.desc}</div>
@@ -500,7 +500,7 @@ const NextStepsConfig = ({ currentStep, allSteps, onChange }) => {
                   const hasAuto = (s.actions||[]).some(a=>a.type);
                   return (
                     <label key={s.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px',
-                      borderRadius:8, border:\`1.5px solid \${sel?C.accent:C.border}\`,
+                      borderRadius:8, border:`1.5px solid ${sel?C.accent:C.border}`,
                       background: sel?C.accentLight:'white', cursor:'pointer' }}>
                       <input type="checkbox" checked={sel} onChange={()=>toggle(s.id)}
                         style={{ accentColor:C.accent, width:14, height:14, cursor:'pointer' }}/>
@@ -681,6 +681,27 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
         )}
       </div>
 
+      {/* ── Step tabs ── */}
+      <div style={{ display:'flex', borderBottom:`1px solid ${C.border}`, margin:'0 0', padding:'0 12px', gap:0 }}>
+        {[
+          { id:'details',    label:'Actions' },
+          { id:'next_steps', label:'Next Steps' },
+          { id:'visibility', label:'Visibility', badge:(step.visibility_rules||[]).length||null },
+        ].map(tab => (
+          <button key={tab.id} onClick={()=>setActiveTab(tab.id)}
+            style={{ padding:'7px 12px', background:'none', border:'none',
+              borderBottom:`2px solid ${activeTab===tab.id?C.accent:'transparent'}`,
+              color:activeTab===tab.id?C.accent:C.text3,
+              fontSize:11, fontWeight:activeTab===tab.id?700:500,
+              cursor:'pointer', fontFamily:F, display:'flex', alignItems:'center', gap:5, marginBottom:-1 }}>
+            {tab.label}
+            {tab.badge ? <span style={{ fontSize:9, background:C.accent, color:'white', borderRadius:99, padding:'0 4px', lineHeight:'14px' }}>{tab.badge}</span> : null}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Details tab (action list) ── */}
+      {activeTab==='details' && <>
       {/* ── Action list ── */}
       <div style={{ padding: "8px 12px 10px", borderTop: `1px solid ${firstAuto ? firstAuto.color+"20" : C.border}`, background: firstAuto ? `${firstAuto.color}04` : "transparent", display:"flex", flexDirection:"column", gap:8 }}>
 
@@ -870,6 +891,7 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
             <Ic n="plus" s={11}/> Add action
           </button>
         )}
+      </div>
       </>}
 
       {/* ── Next Steps tab ── */}
@@ -892,7 +914,6 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
             onChange={rules => onChange({ ...step, visibility_rules: rules })}/>
         </div>
       )}
-      </div>
     </div>
   );
 };

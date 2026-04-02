@@ -335,7 +335,7 @@ export default function PortalTemplatePicker({ portalType, onSelect, onSkip }) {
   const templates = getTemplatesForType(portalType);
   const [selected, setSelected] = useState(null);
   const [previewTemplate, setPreviewTemplate] = useState(null);
-  const typeLabel = ({career_site:'Career Site',hm_portal:'Hiring Manager Portal',onboarding:'Onboarding Portal',agency_portal:'Agency Portal'})[portalType]||portalType;
+  const typeLabel = ({career_site:'Career Site',hm_portal:'Hiring Manager Portal',onboarding:'Onboarding Portal',agency_portal:'Agency Portal',campaign:'Campaign Page'})[portalType]||portalType;
 
   const handleConfirm = () => {
     if (!selected) return;
@@ -344,7 +344,7 @@ export default function PortalTemplatePicker({ portalType, onSelect, onSkip }) {
   };
 
   return (
-    <div style={{ maxWidth:1100,margin:'0 auto',padding:'32px 24px' }}>
+    <div style={{ maxWidth:960,margin:'0 auto',padding:'24px 20px' }}>
       {/* Header */}
       <div style={{ textAlign:'center',marginBottom:32 }}>
         <div style={{ display:'inline-flex',alignItems:'center',gap:6,padding:'4px 12px',borderRadius:99,background:'#EEF2FF',marginBottom:12 }}>

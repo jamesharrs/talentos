@@ -79,6 +79,7 @@ router.patch('/:id', (req, res) => {
     if (!existing) return res.status(404).json({ error: 'Not found' });
     const updates = { ...req.body, updated_at: new Date().toISOString() };
     delete updates.id; delete updates.created_at;
+    // Allow campaign_portal_id to be stored
     update('campaigns', c => c.id === req.params.id, updates);
     res.json({ ...existing, ...updates });
   } catch(e) { res.status(500).json({ error: e.message }); }

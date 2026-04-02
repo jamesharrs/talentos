@@ -214,10 +214,14 @@ function NewCampaignModal({ environment, onSave, onClose }) {
 }
 
 // ── AI Content Panel ──────────────────────────────────────────────────────────
-function ContentPanel({ campaign, onGenerated }) {
-  const [gen, setGen]         = useState(campaign.generated_content || null);
-  const [loading, setLoading] = useState(false);
-  const [copied, setCopied]   = useState(null);
+function ContentPanel({ campaign, environment, onGenerated, onPortalCreated }) {
+  const [gen, setGen]             = useState(campaign.generated_content || null);
+  const [loading, setLoading]     = useState(false);
+  const [copied, setCopied]       = useState(null);
+  const [creatingPage, setCreating] = useState(false);
+  const [pageCreated, setPageCreated] = useState(
+    campaign.campaign_portal_id ? { portalId: campaign.campaign_portal_id } : null
+  );
 
   const generate = async () => {
     setLoading(true);
@@ -226,6 +230,90 @@ function ContentPanel({ campaign, onGenerated }) {
       setGen(result);
       onGenerated(result);
     } finally { setLoading(false); }
+  };
+
+  // Create a portal pre-seeded with the AI-generated hero content
+  const createCampaignPage = async () => {
+    if (!gen?.portal_hero) return;
+    setCreating(true);
+    try {
+      const uid = () => Math.random().toString(36).slice(2, 10);
+      const goalColors = { applications:"#4361EE", pool_growth:"#7048e8", event:"#0c8599", brand_awareness:"#f59f00" };
+      const primaryColor = goalColors[campaign.goal] || "#4361EE";
+
+      // Build portal with hero + job list page
+      const pages = [{
+        id: uid(), name: "Home", slug: "/",
+        rows: [
+          {
+            id: uid(), preset: "1",
+            cells: [{
+              id: uid(), widgetType: "hero",
+              widgetConfig: {
+                heading:    gen.portal_hero.headline,
+                subheading: gen.portal_hero.subheading,
+                ctaText:    "Learn more",
+                label:      campaign.name,
+                align:      "center",
+              }
+            }]
+          },
+          {
+            id: uid(), preset: "1",
+            cells: [{
+              id: uid(), widgetType: "jobs",
+              widgetConfig: { heading: "Open Positions", showSearch: true }
+            }]
+          },
+        ],
+        seo: { title: campaign.name, description: gen.portal_hero.subheading || "", ogImage: "" },
+      }];
+
+      const slug = `/${campaign.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}-campaign`;
+
+      const portal = await api.post("/portals", {
+        environment_id: environment?.id,
+        name:    `${campaign.name} — Campaign Page`,
+        slug,
+        status:  "draft",
+        description: campaign.brief || gen.portal_hero.subheading || "",
+        theme: {
+          primaryColor,
+          secondaryColor: "#0F1729",
+          bgColor:        "#FAFAFA",
+          textColor:      "#0F1729",
+          fontFamily:     "'Space Grotesk', sans-serif",
+          buttonStyle:    "filled",
+          buttonRadius:   "12px",
+          maxWidth:       "1100px",
+        },
+        pages,
+      });
+
+      if (portal?.id) {
+        // Create a campaign link pointing to this portal
+        await api.post("/campaign-links", {
+          name:          `${campaign.name} — Campaign Page`,
+          environment_id: environment?.id,
+          portal_id:     portal.id,
+          portal_slug:   portal.slug,
+          page_slug:     "/",
+          utm_source:    "campaign-page",
+          utm_medium:    "landing-page",
+          utm_campaign:  campaign.name,
+          campaign_id:   campaign.id,
+        }).catch(() => {}); // non-fatal if link creation fails
+
+        // Save portal_id back to the campaign
+        await api.patch(`/campaigns/${campaign.id}`, { campaign_portal_id: portal.id });
+        setPageCreated({ portalId: portal.id });
+        onPortalCreated(portal.id);
+      }
+    } catch(e) {
+      alert("Couldn't create the page: " + (e.message || e));
+    } finally {
+      setCreating(false);
+    }
   };
 
   const copy = (text, key) => {
@@ -265,7 +353,20 @@ function ContentPanel({ campaign, onGenerated }) {
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
         <div style={{ fontSize:13,color:C.text3 }}>Content generated successfully</div>
-        <Btn v="secondary" onClick={generate} icon="zap" s="sm">Regenerate</Btn>
+        <div style={{ display:"flex", gap:8 }}>
+          {pageCreated ? (
+            <Btn v="green" s="sm" icon="check"
+              onClick={() => window.open(`/portals?edit=${pageCreated.portalId}`, "_blank")}>
+              View campaign page ↗
+            </Btn>
+          ) : (
+            <Btn v="secondary" s="sm" icon="zap" disabled={creatingPage}
+              onClick={createCampaignPage}>
+              {creatingPage ? "Creating page…" : "Create campaign page"}
+            </Btn>
+          )}
+          <Btn v="secondary" onClick={generate} icon="zap" s="sm">Regenerate</Btn>
+        </div>
       </div>
 
       {gen.linkedin_posts && (
@@ -453,6 +554,13 @@ function CampaignDetail({ campaign: initCampaign, environment, onBack, onUpdated
           <div style={{ display:"flex",gap:6,marginTop:3 }}>
             <Badge label={goal.label}   color={goal.color}   bg={goal.bg}/>
             <Badge label={status.label} color={status.color} bg={status.bg}/>
+            {campaign.campaign_portal_id && (
+              <span onClick={()=>window.open(`/portals?edit=${campaign.campaign_portal_id}`,"_blank")}
+                style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"2px 9px",borderRadius:99,
+                  fontSize:11,fontWeight:700,background:"#F3F0FF",color:"#7048e8",cursor:"pointer" }}>
+                📄 Page created ↗
+              </span>
+            )}
           </div>
         </div>
         <div style={{ display:"flex", gap:8 }}>
@@ -544,11 +652,20 @@ function CampaignDetail({ campaign: initCampaign, environment, onBack, onUpdated
 
         {tab === "content" && (
           <div style={{ maxWidth:640 }}>
-            <ContentPanel campaign={campaign} onGenerated={c=>{
-              const updated = {...campaign, generated_content: c};
-              setCampaign(updated);
-              onUpdated(updated);
-            }}/>
+            <ContentPanel
+              campaign={campaign}
+              environment={environment}
+              onGenerated={c=>{
+                const updated = {...campaign, generated_content: c};
+                setCampaign(updated);
+                onUpdated(updated);
+              }}
+              onPortalCreated={portalId=>{
+                const updated = {...campaign, campaign_portal_id: portalId};
+                setCampaign(updated);
+                onUpdated(updated);
+              }}
+            />
           </div>
         )}
 

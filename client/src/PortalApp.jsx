@@ -4,8 +4,8 @@ import PortalPageRenderer from './portals/PortalPageRenderer.jsx'
 import CandidateCopilot from './CandidateCopilot.jsx'
 
 const api = {
-  get:  p    => tFetch(p),
-  post: (p, b) => tFetch(p, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b) }),
+  get:  p    => tFetch(p).then(r => r.json()),
+  post: (p, b) => tFetch(p, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b) }).then(r => r.json()),
 }
 
 const Spinner = ({ color = '#4361EE' }) => (

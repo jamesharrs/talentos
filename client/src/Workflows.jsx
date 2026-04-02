@@ -364,6 +364,19 @@ const ROLE_OPTIONS = [
   { value:'read_only',      label:'Read Only' },
 ];
 
+// Identity fields always available for blind screening (may not be in the fields API list)
+const IDENTITY_FIELDS = [
+  { api_key: 'photo',        name: '📷 Photo' },
+  { api_key: 'first_name',   name: 'First Name' },
+  { api_key: 'last_name',    name: 'Last Name' },
+  { api_key: 'email',        name: 'Email' },
+  { api_key: 'phone',        name: 'Phone' },
+  { api_key: 'nationality',  name: 'Nationality' },
+  { api_key: 'date_of_birth',name: 'Date of Birth' },
+  { api_key: 'gender',       name: 'Gender' },
+  { api_key: 'location',     name: 'Location' },
+];
+
 const VRuleRow = ({ rule, fields, index, onChange, onRemove }) => {
   const toggleField = (key) => {
     const cur = rule.field_keys || [];
@@ -381,54 +394,102 @@ const VRuleRow = ({ rule, fields, index, onChange, onRemove }) => {
     onChange(index, { ...rule, conditions: [cond] });
   };
   const cond = rule.conditions?.[0] || { type:'role', operator:'is', values:[] };
+  const selectedKeys = rule.field_keys || [];
+  const isHide = (rule.action||'hide') === 'hide';
+  const accentCol = isHide ? '#dc2626' : '#059669';
+  const accentBg  = isHide ? '#fef2f2' : '#f0fdf4';
+
+  // Merge identity fields with API fields, dedup by api_key
+  const apiKeys = new Set((fields||[]).map(f => f.api_key));
+  const extraIdentity = IDENTITY_FIELDS.filter(f => !apiKeys.has(f.api_key));
+  const allFields = [...IDENTITY_FIELDS.filter(f => apiKeys.has(f.api_key) || IDENTITY_FIELDS.some(i=>i.api_key===f.api_key)),
+    ...(fields||[]).filter(f => !IDENTITY_FIELDS.some(i=>i.api_key===f.api_key))];
+
+  const Chip = ({ fKey, label }) => {
+    const sel = selectedKeys.includes(fKey);
+    return (
+      <button onClick={()=>toggleField(fKey)}
+        style={{ padding:'4px 10px', borderRadius:6, fontSize:12, fontWeight:sel?700:500,
+          cursor:'pointer', fontFamily:F,
+          border:`1.5px solid ${sel ? accentCol : C.border}`,
+          background: sel ? accentBg : 'white',
+          color: sel ? accentCol : C.text2,
+          transition:'all .1s' }}>
+        {label}
+      </button>
+    );
+  };
+
   return (
-    <div style={{ background:'white', border:`1px solid ${C.border}`, borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:10 }}>
-      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <div style={{ fontSize:11, fontWeight:700, color:C.text2, flex:1 }}>Rule {index+1}</div>
+    <div style={{ background:'#fafafa', border:`1.5px solid ${C.border}`, borderRadius:12, overflow:'hidden' }}>
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px',
+        background:'white', borderBottom:`1px solid ${C.border}` }}>
+        <span style={{ fontSize:12, fontWeight:700, color:C.text2 }}>Rule {index+1}</span>
+        <div style={{ flex:1 }}/>
         <select value={rule.action||'hide'} onChange={e=>onChange(index,{...rule,action:e.target.value})}
-          style={{ padding:'3px 8px', borderRadius:6, border:`1px solid ${C.border}`, fontSize:11, fontFamily:F, outline:'none', fontWeight:700,
-            background: rule.action==='hide'?'#fef2f2':'#f0fdf4', color: rule.action==='hide'?'#dc2626':'#059669' }}>
+          style={{ padding:'4px 10px', borderRadius:7, border:`1.5px solid ${accentCol}40`,
+            fontSize:12, fontFamily:F, outline:'none', fontWeight:700,
+            background: accentBg, color: accentCol, cursor:'pointer' }}>
           <option value="hide">Hide fields</option>
           <option value="show">Show fields</option>
         </select>
-        <button onClick={()=>onRemove(index)} style={{ background:'none', border:'none', cursor:'pointer', padding:2, color:C.text3 }}>
-          <Ic n="x" s={13}/>
+        <button onClick={()=>onRemove(index)}
+          style={{ background:'none', border:'none', cursor:'pointer', padding:'4px',
+            color:C.text3, borderRadius:6, display:'flex' }}
+          onMouseEnter={e=>e.currentTarget.style.color='#ef4444'}
+          onMouseLeave={e=>e.currentTarget.style.color=C.text3}>
+          <Ic n="x" s={14}/>
         </button>
       </div>
-      <div>
-        <div style={{ fontSize:10, fontWeight:600, color:C.text3, marginBottom:5, textTransform:'uppercase', letterSpacing:'.5px' }}>Fields to {rule.action||'hide'}</div>
-        <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
-          {(fields||[]).map(f => {
-            const sel = (rule.field_keys||[]).includes(f.api_key);
-            return (
-              <button key={f.id||f.api_key} onClick={()=>toggleField(f.api_key)}
-                style={{ padding:'3px 9px', borderRadius:99, fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:F, border:'none',
-                  background: sel?C.accent:'#f3f4f6', color: sel?'white':C.text2 }}>
-                {f.name}
-              </button>
-            );
-          })}
+
+      <div style={{ padding:'14px', display:'flex', flexDirection:'column', gap:14 }}>
+
+        {/* Field picker */}
+        <div>
+          <div style={{ fontSize:10, fontWeight:700, color:C.text3, marginBottom:8,
+            textTransform:'uppercase', letterSpacing:'.6px' }}>
+            Fields to {rule.action||'hide'}
+            {selectedKeys.length > 0 &&
+              <span style={{ marginLeft:6, background:accentCol, color:'white',
+                borderRadius:99, padding:'1px 6px', fontSize:9, fontWeight:800 }}>
+                {selectedKeys.length}
+              </span>}
+          </div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+            {allFields.map(f => <Chip key={f.api_key} fKey={f.api_key} label={f.name}/>)}
+          </div>
         </div>
-      </div>
-      <div>
-        <div style={{ fontSize:10, fontWeight:600, color:C.text3, marginBottom:5, textTransform:'uppercase', letterSpacing:'.5px' }}>When user role…</div>
-        <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
-          <select value={cond.operator||'is'} onChange={e=>setOperator(e.target.value)}
-            style={{ padding:'4px 8px', borderRadius:6, border:`1px solid ${C.border}`, fontSize:11, fontFamily:F, outline:'none' }}>
-            <option value="is">is</option>
-            <option value="is_not">is not</option>
-          </select>
-          <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
-            {ROLE_OPTIONS.map(r => {
-              const sel = (cond.values||[]).includes(r.value);
-              return (
-                <button key={r.value} onClick={()=>toggleRole(r.value)}
-                  style={{ padding:'3px 9px', borderRadius:99, fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:F, border:'none',
-                    background: sel?'#7c3aed':'#f3f4f6', color: sel?'white':C.text2 }}>
-                  {r.label}
-                </button>
-              );
-            })}
+
+        {/* Divider */}
+        <div style={{ height:1, background:C.border }}/>
+
+        {/* Role condition */}
+        <div>
+          <div style={{ fontSize:10, fontWeight:700, color:C.text3, marginBottom:8,
+            textTransform:'uppercase', letterSpacing:'.6px' }}>When user role…</div>
+          <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+            <select value={cond.operator||'is'} onChange={e=>setOperator(e.target.value)}
+              style={{ padding:'5px 10px', borderRadius:7, border:`1px solid ${C.border}`,
+                fontSize:12, fontFamily:F, outline:'none', background:'white', color:C.text1 }}>
+              <option value="is">is</option>
+              <option value="is_not">is not</option>
+            </select>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+              {ROLE_OPTIONS.map(r => {
+                const sel = (cond.values||[]).includes(r.value);
+                return (
+                  <button key={r.value} onClick={()=>toggleRole(r.value)}
+                    style={{ padding:'4px 10px', borderRadius:6, fontSize:12,
+                      fontWeight:sel?700:500, cursor:'pointer', fontFamily:F,
+                      border:`1.5px solid ${sel?'#7c3aed':C.border}`,
+                      background: sel?'#7c3aed':'white',
+                      color: sel?'white':C.text2, transition:'all .1s' }}>
+                    {r.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

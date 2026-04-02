@@ -2704,7 +2704,7 @@ export default function SettingsPage({ currentUser, environment, initialSection,
         {activeSection==="portals"    && <PortalsPage environment={environment} onFullScreen={setFullScreenMode}/>}
         {activeSection==="questions"  && <QuestionBankSettings/>}
         {activeSection==="stage_categories" && <StageCategoriesSection environment={environment}/>}
-        {activeSection===="agents"     && <AgentsSettings environment={environment}/>}
+        {activeSection==="agents"     && <AgentsSettings environment={environment}/>}
         {activeSection==="feature-flags" && <FeatureFlagsSettings environment={environment}/>}
         {activeSection==="sandbox"     && <SandboxManager environment={environment}/>}
         {activeSection==="brand_kits"  && <BrandKitSettings environment={environment}/>}

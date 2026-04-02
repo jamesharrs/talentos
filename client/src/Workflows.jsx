@@ -354,6 +354,175 @@ function EmailBodyEditor({ subject, body, onSubjectChange, onBodyChange, extraVa
   );
 }
 
+
+// ─── VisibilityRuleBuilder ────────────────────────────────────────────────────
+const ROLE_OPTIONS = [
+  { value:'super_admin',    label:'Super Admin' },
+  { value:'admin',          label:'Admin' },
+  { value:'recruiter',      label:'Recruiter' },
+  { value:'hiring_manager', label:'Hiring Manager' },
+  { value:'read_only',      label:'Read Only' },
+];
+
+const VRuleRow = ({ rule, fields, index, onChange, onRemove }) => {
+  const toggleField = (key) => {
+    const cur = rule.field_keys || [];
+    const next = cur.includes(key) ? cur.filter(k=>k!==key) : [...cur, key];
+    onChange(index, { ...rule, field_keys: next });
+  };
+  const toggleRole = (val) => {
+    const cur = rule.conditions[0]?.values || [];
+    const next = cur.includes(val) ? cur.filter(v=>v!==val) : [...cur, val];
+    const cond = { type:'role', operator: rule.conditions[0]?.operator||'is', values: next };
+    onChange(index, { ...rule, conditions: [cond] });
+  };
+  const setOperator = (op) => {
+    const cond = { ...(rule.conditions[0]||{type:'role',values:[]}), operator: op };
+    onChange(index, { ...rule, conditions: [cond] });
+  };
+  const cond = rule.conditions?.[0] || { type:'role', operator:'is', values:[] };
+  return (
+    <div style={{ background:'white', border:\`1px solid \${C.border}\`, borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:10 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:C.text2, flex:1 }}>Rule {index+1}</div>
+        <select value={rule.action||'hide'} onChange={e=>onChange(index,{...rule,action:e.target.value})}
+          style={{ padding:'3px 8px', borderRadius:6, border:\`1px solid \${C.border}\`, fontSize:11, fontFamily:F, outline:'none', fontWeight:700,
+            background: rule.action==='hide'?'#fef2f2':'#f0fdf4', color: rule.action==='hide'?'#dc2626':'#059669' }}>
+          <option value="hide">Hide fields</option>
+          <option value="show">Show fields</option>
+        </select>
+        <button onClick={()=>onRemove(index)} style={{ background:'none', border:'none', cursor:'pointer', padding:2, color:C.text3 }}>
+          <Ic n="x" s={13}/>
+        </button>
+      </div>
+      <div>
+        <div style={{ fontSize:10, fontWeight:600, color:C.text3, marginBottom:5, textTransform:'uppercase', letterSpacing:'.5px' }}>Fields to {rule.action||'hide'}</div>
+        <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+          {(fields||[]).map(f => {
+            const sel = (rule.field_keys||[]).includes(f.api_key);
+            return (
+              <button key={f.id||f.api_key} onClick={()=>toggleField(f.api_key)}
+                style={{ padding:'3px 9px', borderRadius:99, fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:F, border:'none',
+                  background: sel?C.accent:'#f3f4f6', color: sel?'white':C.text2 }}>
+                {f.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div>
+        <div style={{ fontSize:10, fontWeight:600, color:C.text3, marginBottom:5, textTransform:'uppercase', letterSpacing:'.5px' }}>When user role…</div>
+        <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+          <select value={cond.operator||'is'} onChange={e=>setOperator(e.target.value)}
+            style={{ padding:'4px 8px', borderRadius:6, border:\`1px solid \${C.border}\`, fontSize:11, fontFamily:F, outline:'none' }}>
+            <option value="is">is</option>
+            <option value="is_not">is not</option>
+          </select>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+            {ROLE_OPTIONS.map(r => {
+              const sel = (cond.values||[]).includes(r.value);
+              return (
+                <button key={r.value} onClick={()=>toggleRole(r.value)}
+                  style={{ padding:'3px 9px', borderRadius:99, fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:F, border:'none',
+                    background: sel?'#7c3aed':'#f3f4f6', color: sel?'white':C.text2 }}>
+                  {r.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const VisibilityRuleBuilder = ({ rules=[], fields=[], onChange }) => {
+  const addRule = () => {
+    const newRule = { id: Date.now().toString(36), field_keys:[], action:'hide',
+      conditions:[{ type:'role', operator:'is', values:[] }] };
+    onChange([...rules, newRule]);
+  };
+  const updateRule = (i, updated) => onChange(rules.map((r,j)=>j===i?updated:r));
+  const removeRule = (i) => onChange(rules.filter((_,j)=>j!==i));
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+      {rules.length === 0 && (
+        <div style={{ padding:'20px', background:'#f9fafb', borderRadius:10, textAlign:'center', border:\`2px dashed \${C.border}\` }}>
+          <div style={{ fontSize:12, color:C.text3, marginBottom:4 }}>No visibility rules</div>
+          <div style={{ fontSize:11, color:C.text3 }}>All fields visible to everyone at this stage by default.</div>
+        </div>
+      )}
+      {rules.map((rule, i) => (
+        <VRuleRow key={rule.id||i} rule={rule} fields={fields} index={i} onChange={updateRule} onRemove={removeRule}/>
+      ))}
+      <button onClick={addRule}
+        style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:8,
+          border:\`1.5px dashed \${C.accent}60\`, background:C.accentLight, color:C.accent,
+          fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:F, alignSelf:'flex-start' }}>
+        <Ic n="plus" s={12}/> Add visibility rule
+      </button>
+    </div>
+  );
+};
+
+// ─── NextStepsConfig ──────────────────────────────────────────────────────────
+const NextStepsConfig = ({ currentStep, allSteps, onChange }) => {
+  const ids = currentStep.next_step_ids || [];
+  const others = allSteps.filter(s => s.id !== currentStep.id);
+  const restricted = Array.isArray(currentStep.next_step_ids);
+  const toggle = (id) => {
+    const next = ids.includes(id) ? ids.filter(i=>i!==id) : [...ids, id];
+    onChange({ ...currentStep, next_step_ids: next });
+  };
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+      <div style={{ display:'flex', gap:8 }}>
+        {[
+          { label:'Any stage allowed', desc:'Unrestricted — users can move to any stage', val:false },
+          { label:'Restrict transitions', desc:'Only selected stages can follow this one', val:true },
+        ].map(opt => (
+          <button key={String(opt.val)} onClick={()=>onChange({...currentStep,next_step_ids:opt.val?[]:undefined})}
+            style={{ flex:1, padding:'10px 12px', borderRadius:10, border:\`2px solid \${restricted===opt.val?C.accent:C.border}\`,
+              background: restricted===opt.val?C.accentLight:'white', cursor:'pointer', fontFamily:F, textAlign:'left' }}>
+            <div style={{ fontSize:12, fontWeight:700, color:restricted===opt.val?C.accent:C.text1, marginBottom:2 }}>{opt.label}</div>
+            <div style={{ fontSize:11, color:C.text3, lineHeight:1.4 }}>{opt.desc}</div>
+          </button>
+        ))}
+      </div>
+      {restricted && (
+        <div>
+          <div style={{ fontSize:11, fontWeight:600, color:C.text2, marginBottom:8 }}>Allowed next stages</div>
+          {others.length === 0
+            ? <div style={{ fontSize:12, color:C.text3, fontStyle:'italic' }}>No other stages defined yet.</div>
+            : <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                {others.map(s => {
+                  const sel = ids.includes(s.id);
+                  const hasAuto = (s.actions||[]).some(a=>a.type);
+                  return (
+                    <label key={s.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px',
+                      borderRadius:8, border:\`1.5px solid \${sel?C.accent:C.border}\`,
+                      background: sel?C.accentLight:'white', cursor:'pointer' }}>
+                      <input type="checkbox" checked={sel} onChange={()=>toggle(s.id)}
+                        style={{ accentColor:C.accent, width:14, height:14, cursor:'pointer' }}/>
+                      <span style={{ fontSize:13, fontWeight:sel?700:400, color:sel?C.accent:C.text1, flex:1 }}>{s.name||'Unnamed stage'}</span>
+                      {hasAuto && <span style={{ fontSize:9, background:'#fef3c7', color:'#92400e', padding:'1px 5px', borderRadius:99, fontWeight:700 }}>⚡</span>}
+                    </label>
+                  );
+                })}
+              </div>
+          }
+          {ids.length === 0 && <div style={{ marginTop:8, fontSize:11, color:'#dc2626', fontWeight:600 }}>⚠ No stages selected — dead end.</div>}
+        </div>
+      )}
+      {!restricted && (
+        <div style={{ padding:'10px 12px', background:'#f9fafb', borderRadius:8, fontSize:12, color:C.text3 }}>
+          Users can move candidates from this stage to <strong>any other stage</strong> freely.
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Step Card ────────────────────────────────────────────────────────────────
 // Normalise legacy single-action steps to the new actions[] model
 function migrateStep(step) {
@@ -364,12 +533,13 @@ function migrateStep(step) {
   return { ...step, actions: step.actions || [] };
 }
 
-const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, onMoveDown, fields, envId }) => {
+const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, onMoveDown, fields, envId, allSteps=[] }) => {
   const step = migrateStep(rawStep);
   const actions = step.actions || [];
 
   const [showActionPicker, setShowActionPicker] = useState(false);
   const [collapsed, setCollapsed]               = useState({}); // { actionId: bool }
+  const [activeTab, setActiveTab]               = useState('details');
   const [interviewTypes, setInterviewTypes]     = useState([]);
   const [agents, setAgents]                     = useState([]);
   const [categories, setCategories]             = useState([]);
@@ -700,6 +870,28 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
             <Ic n="plus" s={11}/> Add action
           </button>
         )}
+      </>}
+
+      {/* ── Next Steps tab ── */}
+      {activeTab==='next_steps' && (
+        <NextStepsConfig
+          currentStep={step}
+          allSteps={allSteps}
+          onChange={updated => onChange(updated)}/>
+      )}
+
+      {/* ── Visibility tab ── */}
+      {activeTab==='visibility' && (
+        <div>
+          <div style={{ fontSize:11, color:C.text3, marginBottom:12, lineHeight:1.6 }}>
+            Define which fields to show or hide at this stage based on the viewer's role.
+          </div>
+          <VisibilityRuleBuilder
+            rules={step.visibility_rules||[]}
+            fields={fields||[]}
+            onChange={rules => onChange({ ...step, visibility_rules: rules })}/>
+        </div>
+      )}
       </div>
     </div>
   );
@@ -891,6 +1083,26 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
                 ))}
               </div>
             </div>
+
+            {/* Flow Type / Transition Mode */}
+            <div>
+              <div style={{ fontSize:11, fontWeight:600, color:C.text2, marginBottom:8 }}>Transition Mode</div>
+              <div style={{ display:'flex', gap:8 }}>
+                {[
+                  { value:'unstructured', label:'Flexible', desc:'Move to any stage in any order' },
+                  { value:'structured',   label:'Structured', desc:'Define allowed paths per stage (Next Steps tab)' },
+                ].map(opt => (
+                  <button key={opt.value} onClick={()=>setFlowType(opt.value)}
+                    style={{ flex:1, padding:'9px 12px', borderRadius:10,
+                      border:`2px solid ${flowType===opt.value?C.accent:C.border}`,
+                      background:flowType===opt.value?C.accentLight:'white',
+                      cursor:'pointer', fontFamily:F, textAlign:'left' }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:flowType===opt.value?C.accent:C.text1, marginBottom:2 }}>{opt.label}</div>
+                    <div style={{ fontSize:11, color:C.text3, lineHeight:1.4 }}>{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
             {/* Sharing */}
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: C.text2, marginBottom: 8 }}>Sharing</div>
@@ -983,6 +1195,7 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
                   </div>
                   <div style={{ flex: 1 }}>
                     <StepCard step={step} index={i} total={steps.length} fields={fields} envId={environment?.id}
+                      allSteps={steps}
                       onChange={updated => updateStep(i, updated)}
                       onDelete={() => deleteStep(i)}
                       onMoveUp={() => moveStep(i, -1)}
@@ -2281,6 +2494,11 @@ function PipelinePersonRow({ link, steps, label, subtitle, initial, matchScore, 
   const currentStep = steps[currentIdx] || steps[0];
   const prevStep    = currentIdx > 0 ? steps[currentIdx - 1] : null;
   const nextStep    = currentIdx >= 0 && currentIdx < steps.length - 1 ? steps[currentIdx + 1] : null;
+  // Respect next_step_ids for structured workflows
+  const allowedNextIds = currentStep?.next_step_ids;
+  const menuSteps = (Array.isArray(allowedNextIds) && allowedNextIds.length > 0)
+    ? steps.filter(s => allowedNextIds.includes(s.id))
+    : steps;
   const [showStageMenu, setShowStageMenu] = useState(false);
   const stageRef = useRef(null);
 

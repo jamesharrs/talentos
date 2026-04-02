@@ -346,12 +346,29 @@ function ContentPanel({ campaign, environment, onGenerated, onPortalCreated }) {
         });
       }
 
-      // 5. Email subjects as job alerts teaser + job list
+      // 5. Sign-up form — talent pool / job alerts
+      // Goal-aware: pool_growth → join the community; applications → get notified; event → register interest
+      const formGoalCopy = {
+        pool_growth:     { heading: "Join our talent community", sub: "Be the first to hear about opportunities that match your skills and interests.", btn: "Join the community", success: "You're in!", successBody: "We'll be in touch when opportunities arise." },
+        applications:    { heading: "Get notified about this role", sub: "Leave your details and we'll reach out as soon as we're ready to connect.", btn: "Express interest", success: "Thanks for your interest!", successBody: "We'll be in touch soon." },
+        event:           { heading: "Register your interest", sub: "Sign up to receive event details, updates and your personalised invite.", btn: "Register now", success: "You're registered!", successBody: "Watch your inbox for event details." },
+        brand_awareness: { heading: "Stay connected", sub: "Join our talent community and be the first to hear about new opportunities.", btn: "Keep me posted", success: "Great, you're connected!", successBody: "We'll be in touch with relevant opportunities." },
+      };
+      const fc = formGoalCopy[campaign.goal] || formGoalCopy.applications;
       rows.push({
         id: uid(), preset: "1",
         cells: [{
-          id: uid(), widgetType: "jobs",
-          widgetConfig: { heading: "Open Positions", showSearch: true, showFilters: true }
+          id: uid(), widgetType: "job_alerts",
+          widgetConfig: {
+            heading:      fc.heading,
+            subheading:   fc.sub,
+            submitText:   fc.btn,
+            successTitle: fc.success,
+            successBody:  fc.successBody,
+            showKeywords: campaign.goal === "applications",
+            layout:       "card",
+            bgColor:      primaryColor + "08",
+          }
         }]
       });
 

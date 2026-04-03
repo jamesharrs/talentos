@@ -56,6 +56,9 @@ const WIDGET_TYPES = [
   { type:"app_status",    label:"App Status",     icon:"search",    desc:"Candidate self-service status lookup" },
   { type:"saved_jobs",    label:"Saved Jobs",     icon:"bookmark",  desc:"Candidate's bookmarked roles" },
   { type:"tabs",          label:"Tabs",           icon:"layout",    desc:"Tabbed content sections" },
+  { type:"content",      label:"Content Block",  icon:"align",     desc:"Heading, text, cards & CTA" },
+  { type:"accordion",   label:"Accordion",       icon:"list",      desc:"Collapsible FAQ-style items" },
+  { type:"cta",          label:"CTA Section",    icon:"zap",       desc:"Bold call-to-action with button" },
   { type:"divider",      label:"Divider",        icon:"minus",     desc:"Horizontal separator" },
   { type:"spacer",       label:"Spacer",         icon:"square",    desc:"Blank vertical space" },
   { type:"files",        label:"Files / Docs",   icon:"paperclip", desc:"Display record attachments by file type" },
@@ -666,7 +669,7 @@ const PortalSettingsDrawer = ({ portal, onChange, onClose, api: apiProp }) => {
 // ─── Widget Picker Modal ───────────────────────────────────────────────────────
 const WIDGET_CATEGORIES = [
   { id:"layout",     label:"Layout",      color:"#64748b", icon:"grid",      widgets:["divider","spacer","tabs"] },
-  { id:"content",    label:"Content",     color:"#7c3aed", icon:"align",     widgets:["hero","text","rich_text","image","image_gallery","video","stats","trust_bar","testimonials","benefits_grid","faq","cta_banner"] },
+  { id:"content",    label:"Content",     color:"#7c3aed", icon:"align",     widgets:["hero","text","rich_text","image","image_gallery","video","stats","trust_bar","testimonials","benefits_grid","faq","cta_banner","content","accordion","cta"] },
   { id:"recruitment",label:"Recruitment", color:"#0891b2", icon:"briefcase", widgets:["jobs","featured_jobs","dept_grid","job_alerts","app_status","saved_jobs"] },
   { id:"people",     label:"People",      color:"#059669", icon:"users2",    widgets:["people","team"] },
   { id:"forms",      label:"Forms",       color:"#d97706", icon:"form",      widgets:["form","multistep_form","files","map_embed"] },
@@ -1306,6 +1309,7 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
   const WIDGET_LABELS = {
     hero:"Hero Banner", text:"Rich Text", image:"Image", stats:"Stats",
     video:"Video", jobs:"Job List", job_list:"Job List", people:"People List", team:"Team", form:"Form", divider:"Divider", spacer:"Spacer", files:"Files / Docs",
+    content:"Content Block", accordion:"Accordion", cta:"CTA Section",
   };
   const renderFields = () => {
     switch (cell.widgetType) {
@@ -1717,6 +1721,67 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
             <input value={cfg.record_id_param||""} onChange={e=>set("record_id_param",e.target.value)} placeholder="person_id" style={inp}/>
           </div>
           <div>{lbl("Empty state message")}<input value={cfg.empty_text||""} onChange={e=>set("empty_text",e.target.value)} placeholder="No documents available." style={inp}/></div>
+        </div>
+      );
+      case "content": return (
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <div>{lbl("Heading")}<input value={cfg.heading||""} onChange={e=>set("heading",e.target.value)} placeholder="Section heading" style={inp}/></div>
+          <div>{lbl("Body text")}<textarea value={cfg.body||""} onChange={e=>set("body",e.target.value)} rows={4} placeholder="Supporting text…" style={{...inp,resize:"vertical",height:80}}/></div>
+          <div style={{borderTop:`1px solid ${C.border}`,paddingTop:10}}>
+            {lbl("Button label (optional)")}
+            <input value={cfg.buttonText||""} onChange={e=>set("buttonText",e.target.value)} placeholder="e.g. Learn more" style={inp}/>
+            <input value={cfg.buttonLink||""} onChange={e=>set("buttonLink",e.target.value)} placeholder="https://… or #anchor" style={{...inp,marginTop:6}}/>
+          </div>
+          <div style={{borderTop:`1px solid ${C.border}`,paddingTop:10}}>
+            {lbl("Cards (optional)")}
+            {(cfg.cards||[]).map((card,i)=>(
+              <div key={i} style={{background:C.surface2,borderRadius:8,padding:"8px 10px",marginBottom:6,display:"flex",flexDirection:"column",gap:6}}>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <input value={card.icon||""} onChange={e=>{const c=[...(cfg.cards||[])];c[i]={...c[i],icon:e.target.value};set("cards",c);}} placeholder="icon (e.g. check)" style={{...inp,flex:"0 0 80px",fontSize:11}}/>
+                  <input value={card.title||""} onChange={e=>{const c=[...(cfg.cards||[])];c[i]={...c[i],title:e.target.value};set("cards",c);}} placeholder="Card title" style={{...inp,flex:1}}/>
+                  <button onClick={()=>{const c=(cfg.cards||[]).filter((_,j)=>j!==i);set("cards",c);}} style={{background:"none",border:"none",cursor:"pointer",color:C.text3,padding:2}}>✕</button>
+                </div>
+                <textarea value={card.desc||""} onChange={e=>{const c=[...(cfg.cards||[])];c[i]={...c[i],desc:e.target.value};set("cards",c);}} rows={2} placeholder="Card description" style={{...inp,resize:"vertical",fontSize:11,height:44}}/>
+              </div>
+            ))}
+            <button onClick={()=>set("cards",[...(cfg.cards||[]),{icon:"",title:"",desc:""}])} style={{fontSize:11,color:C.accent,background:"none",border:`1px dashed ${C.accent}`,borderRadius:6,padding:"5px 10px",cursor:"pointer",width:"100%"}}>+ Add card</button>
+          </div>
+        </div>
+      );
+      case "accordion": return (
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          <div>{lbl("Section heading")}<input value={cfg.heading||""} onChange={e=>set("heading",e.target.value)} placeholder="e.g. Frequently Asked Questions" style={inp}/></div>
+          <div style={{borderTop:`1px solid ${C.border}`,paddingTop:10}}>
+            {lbl("Items")}
+            {(cfg.items||[]).map((item,i)=>(
+              <div key={i} style={{background:C.surface2,borderRadius:8,padding:"8px 10px",marginBottom:6,display:"flex",flexDirection:"column",gap:6}}>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <input value={item.title||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],title:e.target.value};set("items",it);}} placeholder="Question or title" style={{...inp,flex:1}}/>
+                  <button onClick={()=>set("items",(cfg.items||[]).filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",color:C.text3,padding:2}}>✕</button>
+                </div>
+                <textarea value={item.content||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],content:e.target.value};set("items",it);}} rows={2} placeholder="Answer or body text" style={{...inp,resize:"vertical",fontSize:11,height:52}}/>
+              </div>
+            ))}
+            <button onClick={()=>set("items",[...(cfg.items||[]),{title:"",content:""}])} style={{fontSize:11,color:C.accent,background:"none",border:`1px dashed ${C.accent}`,borderRadius:6,padding:"5px 10px",cursor:"pointer",width:"100%"}}>+ Add item</button>
+          </div>
+        </div>
+      );
+      case "cta": return (
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          <div>{lbl("Heading")}<input value={cfg.heading||""} onChange={e=>set("heading",e.target.value)} placeholder="e.g. Ready to join us?" style={inp}/></div>
+          <div>{lbl("Subheading (optional)")}<input value={cfg.subheading||""} onChange={e=>set("subheading",e.target.value)} placeholder="Supporting line of text" style={inp}/></div>
+          <div style={{borderTop:`1px solid ${C.border}`,paddingTop:10}}>
+            {lbl("Button label")}<input value={cfg.buttonText||""} onChange={e=>set("buttonText",e.target.value)} placeholder="e.g. See open roles" style={inp}/>
+            <input value={cfg.buttonLink||""} onChange={e=>set("buttonLink",e.target.value)} placeholder="https://… or #anchor" style={{...inp,marginTop:6}}/>
+          </div>
+          <div>
+            {lbl("Style")}
+            <div style={{display:"flex",gap:6}}>
+              {["dark","accent","light"].map(s=>(
+                <button key={s} onClick={()=>set("style",s)} style={{flex:1,padding:"5px 0",borderRadius:6,border:`1.5px solid ${cfg.style===s?C.accent:C.border}`,background:cfg.style===s?C.accentLight:"transparent",color:cfg.style===s?C.accent:C.text2,fontSize:11,fontWeight:600,cursor:"pointer",textTransform:"capitalize"}}>{s}</button>
+              ))}
+            </div>
+          </div>
         </div>
       );
       default: return <p style={{ fontSize:12, color:C.text3, margin:0 }}>No settings for this widget.</p>;

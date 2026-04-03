@@ -1424,6 +1424,78 @@ const FilesWidget = ({ cfg, theme, portal, api }) => {
   )
 }
 
+const ContentWidget = ({ cfg, theme }) => {
+  const F = theme.fontFamily||"'DM Sans',sans-serif"
+  const accent = theme.primaryColor||'#4361EE'
+  const cards = cfg.cards||[]
+  return (
+    <div style={{ fontFamily:F }}>
+      {cfg.heading && <h2 style={{ margin:'0 0 12px', fontSize:'1.5rem', fontWeight:800, color:'inherit', lineHeight:1.25 }}>{cfg.heading}</h2>}
+      {cfg.body && <div style={{ margin:'0 0 16px', fontSize:'0.95rem', lineHeight:1.7, opacity:0.85, whiteSpace:'pre-wrap' }}>{cfg.body}</div>}
+      {cards.length>0 && (
+        <div style={{ display:'grid', gridTemplateColumns:`repeat(${Math.min(cards.length,3)},1fr)`, gap:12, margin:'16px 0' }}>
+          {cards.map((card,i)=>(
+            <div key={i} style={{ padding:'14px 16px', background:'rgba(255,255,255,0.08)', borderRadius:10, border:'1px solid rgba(255,255,255,0.12)' }}>
+              {card.icon && <div style={{ fontSize:'1.25rem', marginBottom:6 }}>{card.icon==='check'?'✓':card.icon==='user'?'👤':card.icon==='star'?'★':card.icon==='plus'?'+':'•'}</div>}
+              {card.title && <div style={{ fontWeight:700, fontSize:'0.9rem', marginBottom:4 }}>{card.title}</div>}
+              {card.desc && <div style={{ fontSize:'0.82rem', opacity:0.75, lineHeight:1.5 }}>{card.desc}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+      {cfg.buttonText && (
+        <a href={cfg.buttonLink||'#'} style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'10px 20px', borderRadius:8, background:accent, color:'#fff', textDecoration:'none', fontSize:'0.9rem', fontWeight:700, marginTop:8 }}>
+          {cfg.buttonText} →
+        </a>
+      )}
+    </div>
+  )
+}
+
+const AccordionWidget = ({ cfg, theme }) => {
+  const [open, setOpen] = React.useState(null)
+  const F = theme.fontFamily||"'DM Sans',sans-serif"
+  const items = cfg.items||[]
+  return (
+    <div style={{ fontFamily:F }}>
+      {cfg.heading && <h2 style={{ margin:'0 0 20px', fontSize:'1.4rem', fontWeight:800, color:'inherit' }}>{cfg.heading}</h2>}
+      <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+        {items.map((item,i)=>(
+          <div key={i} style={{ borderRadius:8, overflow:'hidden', border:'1px solid rgba(0,0,0,0.08)' }}>
+            <button onClick={()=>setOpen(open===i?null:i)} style={{ width:'100%', textAlign:'left', padding:'13px 16px', background:open===i?theme.primaryColor||'#4361EE':'rgba(255,255,255,0.6)', color:open===i?'#fff':'inherit', border:'none', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', fontFamily:F, fontSize:'0.9rem', fontWeight:600 }}>
+              {item.title}
+              <span style={{ transform:open===i?'rotate(180deg)':'none', transition:'transform .2s', fontSize:'0.75rem' }}>▼</span>
+            </button>
+            {open===i && <div style={{ padding:'12px 16px', background:'rgba(255,255,255,0.95)', fontSize:'0.875rem', lineHeight:1.65, color:'#374151', borderTop:'1px solid rgba(0,0,0,0.06)', whiteSpace:'pre-wrap' }}>{item.content}</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const CtaWidget = ({ cfg, theme }) => {
+  const F = theme.fontFamily||"'DM Sans',sans-serif"
+  const accent = theme.primaryColor||'#4361EE'
+  const isDark = cfg.style==='dark'
+  const isAccent = cfg.style==='accent'
+  const bg = isDark?'#0F1729':isAccent?accent:'transparent'
+  const textCol = (isDark||isAccent)?'#fff':'inherit'
+  const btnBg = isDark?accent:isAccent?'#fff':accent
+  const btnTxt = isDark?'#fff':isAccent?accent:'#fff'
+  return (
+    <div style={{ textAlign:'center', padding:'24px 16px', background:bg, borderRadius:10, fontFamily:F }}>
+      {cfg.heading && <h2 style={{ margin:'0 0 10px', fontSize:'1.75rem', fontWeight:800, color:textCol, lineHeight:1.2 }}>{cfg.heading}</h2>}
+      {cfg.subheading && <p style={{ margin:'0 0 20px', fontSize:'1rem', opacity:0.8, color:textCol, lineHeight:1.55 }}>{cfg.subheading}</p>}
+      {cfg.buttonText && (
+        <a href={cfg.buttonLink||'#'} style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'12px 28px', borderRadius:9, background:btnBg, color:btnTxt, textDecoration:'none', fontSize:'0.95rem', fontWeight:700 }}>
+          {cfg.buttonText} →
+        </a>
+      )}
+    </div>
+  )
+}
+
 const Widget = ({ cell, theme, portal, api, track }) => {
   const cfg = cell.widgetConfig||{}
   switch (cell.widgetType) {
@@ -1457,6 +1529,9 @@ const Widget = ({ cell, theme, portal, api, track }) => {
     case 'saved_jobs':     return <SavedJobsWidget     cfg={cfg} theme={theme} portal={portal} api={api}/>
     case 'tabs':           return <TabsWidget          cfg={cfg} theme={theme}/>
     case 'files':         return <FilesWidget         cfg={cfg} theme={theme} portal={portal} api={api}/>
+    case 'content':       return <ContentWidget       cfg={cfg} theme={theme}/>
+    case 'accordion':     return <AccordionWidget     cfg={cfg} theme={theme}/>
+    case 'cta':           return <CtaWidget           cfg={cfg} theme={theme}/>
     default:        return null
   }
 }

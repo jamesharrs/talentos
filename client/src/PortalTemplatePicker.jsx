@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { getTemplatesForType } from './portalTemplates.js';
 
@@ -329,7 +328,7 @@ const TemplatePreview = ({ template, onClose, onSelect }) => {
         </div>
       </div>
     </div>
-  );
+  , document.body);
 };
 
 // ─── Main Template Picker ───────────────────────────────────────────────────────

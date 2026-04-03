@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import api from "../apiClient.js";
+import api from "./apiClient";
 
 const F = "var(--t-font,'Plus Jakarta Sans',sans-serif)";
 const C = {

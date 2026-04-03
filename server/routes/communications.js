@@ -161,10 +161,40 @@ router.delete('/:id', (req, res) => {
 
 // ─── Inbound webhooks (Twilio calls these when a message arrives) ─────────────
 
+// ─── Helper: match phone number to a person record ───────────────────────────
+function findRecordByPhone(phone) {
+  if (!phone) return null;
+  const clean = phone.replace(/[\s\-\(\)whatsapp:]/g, ''); // strip formatting
+  const records = query('records', () => true);
+  for (const r of records) {
+    const d = r.data || {};
+    // Check common phone field names
+    for (const key of ['phone', 'mobile', 'phone_number', 'mobile_number', 'cell', 'telephone', 'whatsapp']) {
+      const val = d[key];
+      if (val && val.replace(/[\s\-\(\)]/g, '') === clean) return r;
+    }
+  }
+  return null;
+}
+
+// ─── Helper: find the most recent outbound thread to this number ──────────────
+function findThreadByPhone(phone, type) {
+  if (!phone) return null;
+  const clean = phone.replace(/[\s\-\(\)whatsapp:]/g, '');
+  const comms = query('communications', c => c.type === type && c.direction === 'outbound');
+  // Find the most recent outbound message to this number
+  const match = comms
+    .filter(c => c.to && c.to.replace(/[\s\-\(\)whatsapp:]/g, '') === clean)
+    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0];
+  return match ? { thread_id: match.thread_id, record_id: match.record_id } : null;
+}
+
 // Twilio SMS inbound
 router.post('/webhook/sms', express.urlencoded({ extended: false }), (req, res) => {
   const { From, Body, MessageSid } = req.body;
-  // Try to match a record by phone number stored in record data
+  // Match sender to a person record + find existing conversation thread
+  const matchedRecord = findRecordByPhone(From);
+  const threadMatch = findThreadByPhone(From, 'sms');
   const item = {
     id: uuidv4(),
     type: 'sms',
@@ -174,14 +204,14 @@ router.post('/webhook/sms', express.urlencoded({ extended: false }), (req, res) 
     status: 'received',
     provider_sid: MessageSid,
     simulated: false,
+    record_id: threadMatch?.record_id || matchedRecord?.id || null,
+    thread_id: threadMatch?.thread_id || uuidv4(),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    // record_id left null — UI can match to a contact later
   };
   insert('communications', item);
-  console.log(`[comms] Inbound SMS from ${From}`);
+  console.log(`[comms] Inbound SMS from ${From} → record:${item.record_id || 'unmatched'}`);
   try { logEvent('default', { provider:'twilio', action:'receive_sms', ok:true, detail:`From: ${From}` }); } catch(e) {}
-  // Twilio expects TwiML response (empty = no auto-reply)
   res.set('Content-Type', 'text/xml');
   res.send('<Response></Response>');
 });
@@ -189,21 +219,26 @@ router.post('/webhook/sms', express.urlencoded({ extended: false }), (req, res) 
 // Twilio WhatsApp inbound
 router.post('/webhook/whatsapp', express.urlencoded({ extended: false }), (req, res) => {
   const { From, Body, MessageSid } = req.body;
+  const cleanFrom = From.replace('whatsapp:', '');
+  const matchedRecord = findRecordByPhone(cleanFrom);
+  const threadMatch = findThreadByPhone(cleanFrom, 'whatsapp');
   const item = {
     id: uuidv4(),
     type: 'whatsapp',
     direction: 'inbound',
-    from_label: From.replace('whatsapp:', ''),
+    from_label: cleanFrom,
     body: Body,
     status: 'received',
     provider_sid: MessageSid,
     simulated: false,
+    record_id: threadMatch?.record_id || matchedRecord?.id || null,
+    thread_id: threadMatch?.thread_id || uuidv4(),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
   insert('communications', item);
-  console.log(`[comms] Inbound WhatsApp from ${From}`);
-  try { logEvent('default', { provider:'twilio', action:'receive_whatsapp', ok:true, detail:`From: ${From}` }); } catch(e) {}
+  console.log(`[comms] Inbound WhatsApp from ${cleanFrom} → record:${item.record_id || 'unmatched'}`);
+  try { logEvent('default', { provider:'twilio', action:'receive_whatsapp', ok:true, detail:`From: ${cleanFrom}` }); } catch(e) {}
   res.set('Content-Type', 'text/xml');
   res.send('<Response></Response>');
 });

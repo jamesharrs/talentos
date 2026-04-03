@@ -63,6 +63,7 @@ const AUTH_EXEMPT = [
     '/integrations',  
   '/superadmin', '/bot', '/analytics',
   '/attachments/file',
+  '/comms/webhook',
   '/tenant-reset', '/cleanup-seeds', '/seed-dashboards',
   '/error-logs', '/ai', '/translate', '/linkedin-search',
   '/chrome-import',

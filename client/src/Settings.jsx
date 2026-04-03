@@ -2506,7 +2506,6 @@ const NAV_GROUPS = [
       { id:"talent_profile",  icon:"user",     label:"Talent Profile" },
       { id:"workflows", icon:"workflow", label:"Workflows" },
       { id:"portals",   icon:"globe",    label:"Portals" },
-      { id:"talent_profile", icon:"user", label:"Talent Profile" },
     ],
   },
   {

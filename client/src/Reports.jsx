@@ -356,6 +356,7 @@ export default function Reports({ environment, initialReport }) {
   const [savingReport,  setSavingReport]  = useState(false);
   const [showSaveDialog,setShowSaveDialog]= useState(false);
   const [activeFilter,  setActiveFilter]  = useState(null);
+  const [quickFilter,   setQuickFilter]   = useState("");
   const [scheduleView,  setScheduleView]  = useState(null);
   const [forms,         setForms]         = useState([]);
   const [dataMode,      setDataMode]      = useState("records");
@@ -368,6 +369,8 @@ export default function Reports({ environment, initialReport }) {
     if (!environment?.id) return;
     api.get(`/objects?environment_id=${environment.id}`).then(d=>setObjects(Array.isArray(d)?d:[]));
     api.get(`/forms?environment_id=${environment.id}`).then(d=>setForms(Array.isArray(d)?d:[]));
+    // Load saved reports from server so they persist across sessions
+    api.get(`/saved-views?environment_id=${environment.id}`).then(d=>{ if(Array.isArray(d)) setSavedReports(d); });
   }, [environment?.id]);
 
   useEffect(() => {
@@ -486,7 +489,7 @@ export default function Reports({ environment, initialReport }) {
         rows.forEach(row=>{const val=String(row[grp]??"Unknown");counts[val]=(counts[val]||0)+1;});
         rows=Object.entries(counts).map(([k,v])=>({_group:k,[grp]:k,_count:v})).sort((a,b)=>b._count-a._count);
       }
-      setResults(rows); setActiveFilter(null);
+      setResults(rows); setActiveFilter(null); setQuickFilter("");
       if (!chartX&&rows.length) setChartX(grp||Object.keys(rows[0]).find(k=>!k.startsWith("_"))||"_group");
       if (!chartY&&rows.length&&grp) setChartY("_count");
     } finally { setRunning(false); }
@@ -555,9 +558,14 @@ export default function Reports({ environment, initialReport }) {
 
   const displayedResults = useMemo(()=>{
     if (!results) return null;
-    if (!activeFilter) return results;
-    return results.filter(r=>String(r[chartX]||r._group||"")===activeFilter);
-  },[results,activeFilter,chartX]);
+    let r = results;
+    if (activeFilter) r = r.filter(row=>String(row[chartX]||row._group||"")===activeFilter);
+    if (quickFilter.trim()) {
+      const q = quickFilter.toLowerCase();
+      r = r.filter(row=>Object.values(row).some(v=>String(v??"").toLowerCase().includes(q)));
+    }
+    return r;
+  },[results,activeFilter,chartX,quickFilter]);
 
   const resultCols = useMemo(()=>{
     if (!results?.length) return [];
@@ -695,20 +703,28 @@ export default function Reports({ environment, initialReport }) {
     const name = window.prompt('Save this report as:', t.title+' (copy)');
     if (!name) return;
     const obj = _resolveObj(t.object);
-    await api.post('/reports',{
+    const d = await api.post('/saved-views',{
       name, environment_id:environment?.id, object_id:obj?.id||selObject,
-      config:JSON.stringify({groupBy:t.groupBy,sortBy:t.sortBy,sortDir:t.sortDir,
-        filters:t.filters,formulas:t.formulas,chartType:t.chartType,cols:t.cols}),
+      is_shared:false,
+      filters:t.filters||[], formulas:t.formulas||[], group_by:t.groupBy||'',
+      sort_by:t.sortBy||'', sort_dir:t.sortDir||'desc', chart_type:t.chartType||'bar',
+      columns:[], chart_x:'', chart_y:'',
     });
-    await loadSavedReports();
+    if (d?.id) setSavedReports(p=>[...p,d]);
     setPanel('saved');
   };
 
   const copySavedReport = async (r) => {
     const name = window.prompt('Name for the copy:', r.name+' (copy)');
     if (!name) return;
-    await api.post('/reports',{name,environment_id:environment?.id,object_id:r.object_id,config:r.config});
-    await loadSavedReports();
+    const d = await api.post('/saved-views',{
+      name, environment_id:environment?.id, object_id:r.object_id,
+      is_shared:r.is_shared||false,
+      filters:r.filters||[], formulas:r.formulas||[], group_by:r.group_by||'',
+      sort_by:r.sort_by||'', sort_dir:r.sort_dir||'desc', chart_type:r.chart_type||'bar',
+      columns:r.columns||[], chart_x:r.chart_x||'', chart_y:r.chart_y||'',
+    });
+    if (d?.id) { setSavedReports(p=>[...p,d]); setPanel('saved'); }
   };
 
   return (
@@ -997,12 +1013,27 @@ export default function Reports({ environment, initialReport }) {
               <div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:120,color:B.gray,fontSize:13 }}>No records match current filters</div>
             ) : (
               <>
-                <div style={{ padding:"12px 16px 8px",display:"flex",alignItems:"center",justifyContent:"space-between" }}>
-                  <div style={{ fontSize:12,fontWeight:700,color:"#111827" }}>
+                {/* ── Results toolbar ── */}
+                <div style={{ padding:"10px 16px 8px",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",borderBottom:"1px solid #F3F4F6" }}>
+                  <div style={{ fontSize:12,fontWeight:700,color:"#111827",marginRight:"auto" }}>
                     {displayedResults.length.toLocaleString()} row{displayedResults.length!==1?"s":""}
-                    {results.length!==displayedResults.length&&<span style={{ color:B.gray,fontWeight:400 }}> of {results.length}</span>}
+                    {results.length!==displayedResults.length&&<span style={{ color:B.gray,fontWeight:400,marginLeft:4 }}>of {results.length.toLocaleString()}</span>}
                   </div>
-                  {groupBy&&<div style={{ fontSize:11,color:B.gray }}>Click group to filter</div>}
+                  {/* Quick search filter */}
+                  <input
+                    value={quickFilter} onChange={e=>setQuickFilter(e.target.value)}
+                    placeholder="Search results…"
+                    style={{ fontSize:11,padding:"4px 8px",borderRadius:7,border:"1.5px solid #E5E7EB",background:"white",color:"#374151",fontFamily:"inherit",width:140,outline:"none" }}
+                  />
+                  {/* Active group filter chip */}
+                  {activeFilter&&(
+                    <button onClick={()=>setActiveFilter(null)}
+                      style={{ fontSize:11,padding:"4px 10px",borderRadius:14,border:`1.5px solid ${B.purple}`,background:"#F5F3FF",color:B.purple,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",gap:4 }}>
+                      {fields.find(f=>f.api_key===groupBy)?.name||groupBy}: {activeFilter}
+                      <span style={{ fontSize:13,lineHeight:1 }}>×</span>
+                    </button>
+                  )}
+                  {groupBy&&!activeFilter&&<div style={{ fontSize:11,color:B.gray }}>Click a row to filter by group</div>}
                 </div>
                 <div style={{ overflowX:"auto" }}>
                   <table style={{ width:"100%",borderCollapse:"collapse" }}>
@@ -1011,7 +1042,7 @@ export default function Reports({ environment, initialReport }) {
                         {resultCols.map(k=>(
                           <th key={k} onClick={()=>{ if(sortBy===k) setSortDir(d=>d==="asc"?"desc":"asc"); else { setSortBy(k);setSortDir("desc"); }}}
                             style={{ padding:"8px 10px",textAlign:"left",fontSize:11,fontWeight:700,color:B.gray,textTransform:"uppercase",letterSpacing:"0.05em",cursor:"pointer",whiteSpace:"nowrap" }}>
-                            {k==="$_count"?"Count":k==="$_group"?groupBy:k}{sortBy===k&&<span style={{ marginLeft:4 }}>{sortDir==="asc"?"↑":"↓"}</span>}
+                            {k==="_count"?"Count":k==="_group"?(groupBy?(fields.find(f=>f.api_key===groupBy)?.name||groupBy):"Group"):k.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase())}{sortBy===k&&<span style={{ marginLeft:4 }}>{sortDir==="asc"?"↑":"↓"}</span>}
                           </th>
                         ))}
                       </tr>

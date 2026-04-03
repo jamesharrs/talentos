@@ -405,7 +405,7 @@ export default function Reports({ environment, initialReport }) {
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(()=>runReport(),600);
     return ()=>clearTimeout(debounceRef.current);
-  }, [filters, selCols, groupBy, sortBy, sortDir, joinObject]);
+  }, [selObject, filters, selCols, groupBy, sortBy, sortDir, joinObject]);
 
   function applyFilter(row, f) {
     const v=String(row[f.field]??"").toLowerCase(), fv=String(f.value??"").toLowerCase();
@@ -669,7 +669,7 @@ export default function Reports({ environment, initialReport }) {
   // ── Render ────────────────────────────────────────────────────────────────
 
   // ── Report Library ──────────────────────────────────────────────────────
-  const _resolveObj = (slug) => allObjs.find(o =>
+  const _resolveObj = (slug) => objects.find(o =>
     o.slug === slug ||
     (o.plural_name||'').toLowerCase().replace(/\s+/g,'-') === slug ||
     (o.name||'').toLowerCase() === slug
@@ -678,7 +678,7 @@ export default function Reports({ environment, initialReport }) {
   const loadLibraryReport = (t) => {
     const obj = _resolveObj(t.object);
     if (!obj) { alert('Object "'+t.object+'" not found in this environment.'); return; }
-    if (skipReset) skipReset.current = true;
+    skipReset.current = true;
     setSelObject(obj.id);
     setGroupBy(t.groupBy||'');
     setSortBy(t.sortBy||'');
@@ -686,8 +686,9 @@ export default function Reports({ environment, initialReport }) {
     setFilters((t.filters||[]).map((f,i)=>({...f,id:String(i)})));
     setFormulas((t.formulas||[]).map((f,i)=>({...f,id:f.id||String(i)})));
     setChartType(t.chartType||'bar');
-    setPanel(t.formulas?.length?'formula':'builder');
-    setTimeout(()=>{ if(typeof runReport==='function') runReport(); },200);
+    setPanel('builder');
+    // Directly run after React has flushed the state updates
+    setTimeout(() => runReport(obj.id, t.groupBy||''), 400);
   };
 
   const copyLibraryReport = async (t) => {

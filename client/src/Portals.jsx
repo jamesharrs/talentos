@@ -2016,14 +2016,14 @@ const InlineNav = ({ nav, theme, onChange, isEditing }) => {
   return (
     <div style={{position:"relative"}}>
       {/* Live Nav render */}
-      <div style={{background:nav.overlay?"transparent":bg, borderBottom:nav.overlay?"none":`1px solid ${pr}18`, boxShadow:nav.overlay?"none":"0 1px 8px rgba(0,0,0,.06)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 32px", height:60, fontFamily:ff, ...(nav.overlay?{position:"absolute",top:0,left:0,right:0,zIndex:50}:{})}}
+      <div style={{background:nav.overlay?"transparent":bg, borderBottom:(nav.overlay||!nav.showBorder)?"none":`1px solid ${nav.borderColor||pr+'18'}`, boxShadow:nav.overlay||nav.shadow===false?"none":"0 1px 8px rgba(0,0,0,.06)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:`0 32px`, height:nav.headerHeight||60, fontFamily:ff, ...(nav.overlay?{position:"absolute",top:0,left:0,right:0,zIndex:50}:{})}}
         onClick={isEditing ? ()=>setEditOpen(e=>!e) : undefined}
         title={isEditing?"Click to edit nav":""}
         onMouseEnter={e=>{if(isEditing)e.currentTarget.style.outline=`2px dashed ${pr}`;}}
         onMouseLeave={e=>{e.currentTarget.style.outline="none";}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           {nav.logoUrl
-            ? <img src={nav.logoUrl} alt={nav.logoText||"Logo"} style={{height:32,maxWidth:140,objectFit:"contain"}} onError={e=>e.target.style.display="none"}/>
+            ? <img src={nav.logoUrl} alt={nav.logoText||"Logo"} style={{height:nav.logoHeight||32,maxWidth:nav.logoMaxWidth||140,objectFit:"contain"}} onError={e=>e.target.style.display="none"}/>
             : <span style={{fontSize:17,fontWeight:800,color:pr,fontFamily:ff}}>{nav.logoText||"Your Company"}</span>
           }
         </div>
@@ -2160,35 +2160,118 @@ const NavEditor = ({ nav, onChange, theme, onClose }) => {
   const addLink=()=>set("links",[...links,{id:Math.random().toString(36).slice(2),label:'New Link',href:'/'}]);
   const removeLink=i=>{const l=[...links];l.splice(i,1);set("links",l);};
   const updateLink=(i,p)=>{const l=[...links];l[i]={...l[i],...p};set("links",l);};
+  const logoH=nav.logoHeight||32;
+  const headerH=nav.headerHeight||60;
   return(
-    <div style={{position:"fixed",top:0,right:0,width:340,height:"100vh",background:C.surface,borderLeft:`1px solid ${C.border}`,zIndex:500,display:"flex",flexDirection:"column",boxShadow:"-8px 0 40px rgba(0,0,0,.1)"}}>
+    <div style={{position:"fixed",top:0,right:0,width:360,height:"100vh",background:C.surface,borderLeft:`1px solid ${C.border}`,zIndex:500,display:"flex",flexDirection:"column",boxShadow:"-8px 0 40px rgba(0,0,0,.1)"}}>
       <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}><Ic n="menu" s={15} c={C.accent}/><span style={{fontSize:15,fontWeight:800,color:C.text1}}>Navigation</span></div>
         <button onClick={onClose} style={{background:C.surface2,border:`1px solid ${C.border}`,borderRadius:6,cursor:"pointer",color:C.text2,padding:"5px 10px",display:"flex",alignItems:"center",gap:4,fontSize:12,fontWeight:600,fontFamily:F}}><Ic n="x" s={12}/> Close</button>
       </div>
       <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <div>{lbl("Logo text")}<input value={nav.logoText||""} onChange={e=>set("logoText",e.target.value)} placeholder="Company name" style={inp}/></div>
-          <div>{lbl("Logo image URL")}<input value={nav.logoUrl||""} onChange={e=>set("logoUrl",e.target.value)} placeholder="https://…/logo.png" style={inp}/></div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <div>{lbl("Nav background")}<input type="color" value={nav.bgColor||theme?.bgColor||"#ffffff"} onChange={e=>set("bgColor",e.target.value)} style={{width:"100%",height:32,borderRadius:6,border:`1px solid ${C.border}`,cursor:"pointer",padding:2}}/></div>
-            <div>{lbl("Nav text")}<input type="color" value={nav.textColor||theme?.textColor||"#0F1729"} onChange={e=>set("textColor",e.target.value)} style={{width:"100%",height:32,borderRadius:6,border:`1px solid ${C.border}`,cursor:"pointer",padding:2}}/></div>
+
+          {/* Logo */}
+          <div style={{background:C.surface2,borderRadius:10,padding:12,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text1,marginBottom:10}}>Logo</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <div>{lbl("Logo URL")}<input value={nav.logoUrl||""} onChange={e=>set("logoUrl",e.target.value)} placeholder="https://…/logo.png" style={inp}/></div>
+              <div>{lbl("Fallback text")}<input value={nav.logoText||""} onChange={e=>set("logoText",e.target.value)} placeholder="Company name" style={inp}/></div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <div>
+                  {lbl(`Logo height: ${logoH}px`)}
+                  <input type="range" min={20} max={80} value={logoH} onChange={e=>set("logoHeight",Number(e.target.value))} style={{width:"100%",marginTop:4}}/>
+                </div>
+                <div>
+                  {lbl("Logo max width")}
+                  <input type="number" value={nav.logoMaxWidth||140} onChange={e=>set("logoMaxWidth",Number(e.target.value))} placeholder="140" style={{...inp,padding:"5px 8px"}} min={40} max={320}/>
+                </div>
+              </div>
+            </div>
           </div>
-          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}><input type="checkbox" checked={!!nav.sticky} onChange={e=>set("sticky",e.target.checked)} style={{width:14,height:14}}/>Sticky nav</label>
+
+          {/* Layout */}
+          <div style={{background:C.surface2,borderRadius:10,padding:12,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text1,marginBottom:10}}>Layout & Height</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <div>
+                {lbl(`Header height: ${headerH}px`)}
+                <input type="range" min={40} max={120} value={headerH} onChange={e=>set("headerHeight",Number(e.target.value))} style={{width:"100%",marginTop:4}}/>
+              </div>
+              <div>{lbl("Nav alignment")}
+                <select value={nav.alignment||"spread"} onChange={e=>set("alignment",e.target.value)} style={inp}>
+                  <option value="spread">Logo left · Links right</option>
+                  <option value="center">Logo centre · Links below</option>
+                  <option value="left">All left-aligned</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Colours */}
+          <div style={{background:C.surface2,borderRadius:10,padding:12,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text1,marginBottom:10}}>Colours</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div>{lbl("Background")}<input type="color" value={nav.bgColor||theme?.bgColor||"#ffffff"} onChange={e=>set("bgColor",e.target.value)} style={{width:"100%",height:32,borderRadius:6,border:`1px solid ${C.border}`,cursor:"pointer",padding:2}}/></div>
+              <div>{lbl("Text / links")}<input type="color" value={nav.textColor||theme?.textColor||"#0F1729"} onChange={e=>set("textColor",e.target.value)} style={{width:"100%",height:32,borderRadius:6,border:`1px solid ${C.border}`,cursor:"pointer",padding:2}}/></div>
+              <div>{lbl("Active / hover")}<input type="color" value={nav.activeColor||theme?.primaryColor||"#4361EE"} onChange={e=>set("activeColor",e.target.value)} style={{width:"100%",height:32,borderRadius:6,border:`1px solid ${C.border}`,cursor:"pointer",padding:2}}/></div>
+              <div>{lbl("Border / divider")}<input type="color" value={nav.borderColor||"#E8ECF8"} onChange={e=>set("borderColor",e.target.value)} style={{width:"100%",height:32,borderRadius:6,border:`1px solid ${C.border}`,cursor:"pointer",padding:2}}/></div>
+            </div>
+          </div>
+
+          {/* Behaviour */}
+          <div style={{background:C.surface2,borderRadius:10,padding:12,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text1,marginBottom:10}}>Behaviour</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}>
+                <input type="checkbox" checked={!!nav.sticky} onChange={e=>set("sticky",e.target.checked)} style={{width:14,height:14}}/>Sticky — stays at top on scroll
+              </label>
+              <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}>
+                <input type="checkbox" checked={!!nav.overlay} onChange={e=>set("overlay",e.target.checked)} style={{width:14,height:14}}/>Overlay hero (transparent, floats over content)
+              </label>
+              <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}>
+                <input type="checkbox" checked={nav.shadow!==false} onChange={e=>set("shadow",e.target.checked)} style={{width:14,height:14}}/>Drop shadow
+              </label>
+              <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}>
+                <input type="checkbox" checked={!!nav.showBorder} onChange={e=>set("showBorder",e.target.checked)} style={{width:14,height:14}}/>Bottom border
+              </label>
+            </div>
+          </div>
+
+          {/* Nav links */}
           <div style={{borderTop:`1px solid ${C.border}`,paddingTop:14}}>
             {lbl("Nav links")}
             {links.map((lnk,i)=>(<div key={lnk.id} style={{background:C.surface2,borderRadius:8,padding:10,marginBottom:8,border:`1px solid ${C.border}`}}>
-              <div style={{display:"flex",gap:6,marginBottom:6}}><input value={lnk.label} onChange={e=>updateLink(i,{label:e.target.value})} placeholder="Label" style={{...inp,flex:1,fontSize:12,padding:"5px 8px"}}/><button onClick={()=>removeLink(i)} style={{background:"none",border:"none",cursor:"pointer",color:C.red,fontSize:14,padding:"0 4px"}}>✕</button></div>
-              <input value={lnk.href} onChange={e=>updateLink(i,{href:e.target.value})} placeholder="URL, /page, or #section-id" style={{...inp,fontSize:12,padding:"5px 8px"}}/>
+              <div style={{display:"flex",gap:6,marginBottom:6}}>
+                <input value={lnk.label} onChange={e=>updateLink(i,{label:e.target.value})} placeholder="Label" style={{...inp,flex:1,fontSize:12,padding:"5px 8px"}}/>
+                <button onClick={()=>removeLink(i)} style={{background:"none",border:"none",cursor:"pointer",color:C.red,fontSize:14,padding:"0 4px"}}>✕</button>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <input value={lnk.href} onChange={e=>updateLink(i,{href:e.target.value})} placeholder="URL, /page, or #section-id" style={{...inp,flex:1,fontSize:12,padding:"5px 8px"}}/>
+                <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:C.text3,cursor:"pointer",flexShrink:0}}>
+                  <input type="checkbox" checked={!!lnk.isButton} onChange={e=>updateLink(i,{isButton:e.target.checked})}/> Btn
+                </label>
+              </div>
             </div>))}
             <button onClick={addLink} style={{width:"100%",padding:"6px",borderRadius:8,border:`1.5px dashed ${C.border}`,background:"transparent",cursor:"pointer",fontSize:12,color:C.text3,fontFamily:F}}>+ Add link</button>
           </div>
         </div>
       </div>
+
+      {/* Live mini-preview */}
       <div style={{padding:"12px 20px",borderTop:`1px solid ${C.border}`,flexShrink:0}}>
-        <div style={{padding:"10px 14px",borderRadius:8,background:nav.bgColor||"#fff",border:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontSize:13,fontWeight:800,color:theme?.primaryColor||"#4361EE"}}>{nav.logoText||"Company"}</span>
-          <div style={{display:"flex",gap:10}}>{links.slice(0,3).map(l=><span key={l.id} style={{fontSize:11,color:nav.textColor||"#374151"}}>{l.label}</span>)}</div>
+        <div style={{fontSize:10,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Preview</div>
+        <div style={{borderRadius:8,background:nav.bgColor||"#fff",border:`1px solid ${nav.borderColor||C.border}`,
+          boxShadow:nav.shadow!==false?"0 1px 4px rgba(0,0,0,.08)":"none",
+          display:"flex",justifyContent:"space-between",alignItems:"center",
+          padding:`0 16px`,height:Math.min(Math.max(headerH,36),56),overflow:"hidden"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            {nav.logoUrl
+              ? <img src={nav.logoUrl} alt="" style={{height:Math.min(logoH,32),maxWidth:Math.min(nav.logoMaxWidth||140,80),objectFit:"contain"}} onError={e=>{e.target.style.display="none";}}/>
+              : <span style={{fontSize:12,fontWeight:800,color:theme?.primaryColor||"#4361EE"}}>{nav.logoText||"Company"}</span>
+            }
+          </div>
+          <div style={{display:"flex",gap:12}}>{links.slice(0,3).map(l=><span key={l.id} style={{fontSize:10,color:nav.textColor||"#374151",fontWeight:l.isButton?700:400,background:l.isButton?`${theme?.primaryColor||"#4361EE"}18`:"transparent",padding:l.isButton?"2px 6px":"0",borderRadius:4}}>{l.label}</span>)}</div>
         </div>
       </div>
     </div>
@@ -2805,7 +2888,6 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
                   {icon:"sparkles",label:"Brand Kit",onClick:()=>{setShowBrandKit(true);setShowMoreMenu(false);}},
                   {icon:"externalLink",label:"Domain",onClick:()=>{setShowDomainWizard(true);setShowMoreMenu(false);}},
                   {icon:"settings",label:"Settings",onClick:()=>{setShowPortalSettings(s=>!s);setShowTheme(false);setShowMoreMenu(false);}},
-                  {icon:"star",label:"Feedback",onClick:()=>{setShowPortalSettings(true);setShowTheme(false);setShowMoreMenu(false);}},
                 ].map(item=>(
                   <button key={item.label} onClick={item.onClick}
                     style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:7,border:"none",background:"transparent",cursor:"pointer",fontFamily:F,fontSize:12,fontWeight:500,color:C.text1,textAlign:"left"}}
@@ -2953,7 +3035,7 @@ const MiniPreview = ({ portal, onClick }) => {
         }}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             {nav.logoUrl
-              ? <img src={nav.logoUrl} alt="" style={{height:32,maxWidth:140,objectFit:"contain"}} onError={e=>{e.target.style.display="none";}}/>
+              ? <img src={nav.logoUrl} alt="" style={{height:nav.logoHeight||32,maxWidth:nav.logoMaxWidth||140,objectFit:"contain"}} onError={e=>{e.target.style.display="none";}}/>
               : <span style={{fontSize:20,fontWeight:800,color:pr,fontFamily:ff}}>{nav.logoText||portal.name||"Your Company"}</span>
             }
           </div>

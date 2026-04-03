@@ -42,23 +42,24 @@ const WIDGET_TYPES = [
   { type:"form",         label:"Form",           icon:"form",      desc:"Linked to any object" },
   { type:"stats",        label:"Stats",          icon:"bar2",      desc:"Numbers & social proof" },
   { type:"testimonials", label:"Testimonials",   icon:"quote",     desc:"Employee quotes & stories" },
-  { type:"team",         label:"Team",           icon:"users2",    desc:"People from records" },
+  { type:"team",         label:"Team",           icon:"userCheck", desc:"People from records" },
   { type:"video",        label:"Video",          icon:"play",      desc:"YouTube or Vimeo embed" },
   { type:"map_embed",    label:"Map",            icon:"map",       desc:"Google Maps office location" },
   { type:"cta_banner",   label:"CTA Banner",     icon:"megaphone", desc:"Full-width call to action" },
   { type:"dept_grid",     label:"Dept Grid",      icon:"grid",      desc:"Clickable department tiles" },
   { type:"benefits_grid", label:"Benefits Grid",  icon:"gift",      desc:"Icon + title + text benefit cards" },
-  { type:"faq",           label:"FAQ",            icon:"info",      desc:"Expandable Q&A accordion" },
+  { type:"faq",           label:"FAQ",            icon:"help",      desc:"Expandable Q&A accordion" },
   { type:"featured_jobs", label:"Featured Jobs",  icon:"star",      desc:"Latest or pinned job cards/list" },
-  { type:"trust_bar",     label:"Stats Bar",      icon:"bar2",      desc:"Company stats strip (500+ employees…)" },
+  { type:"trust_bar",     label:"Stats Bar",      icon:"award",     desc:"Company stats strip (500+ employees…)" },
   { type:"job_alerts",    label:"Job Alerts",     icon:"bell",      desc:"Email sign-up for new role notifications" },
-  { type:"image_gallery", label:"Image Gallery",  icon:"image",     desc:"Photo grid with lightbox" },
+  { type:"image_gallery", label:"Image Gallery",  icon:"photos",    desc:"Photo grid with lightbox" },
   { type:"app_status",    label:"App Status",     icon:"search",    desc:"Candidate self-service status lookup" },
   { type:"saved_jobs",    label:"Saved Jobs",     icon:"bookmark",  desc:"Candidate's bookmarked roles" },
   { type:"tabs",          label:"Tabs",           icon:"layout",    desc:"Tabbed content sections" },
   { type:"divider",      label:"Divider",        icon:"minus",     desc:"Horizontal separator" },
   { type:"spacer",       label:"Spacer",         icon:"square",    desc:"Blank vertical space" },
   { type:"files",        label:"Files / Docs",   icon:"paperclip", desc:"Display record attachments by file type" },
+  { type:"multistep_form",label:"Multi-step Form",icon:"layers",    desc:"Step-by-step form with validation" },
 ];
 
 const FONT_OPTS = [
@@ -183,6 +184,11 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     quote:"M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1zM15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z",
     map:"M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16",
     megaphone:"M3 11l19-9-9 19-2-8-8-2zM11 13l1.5 5.5",
+    userCheck:"M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 7a4 4 0 100 8 4 4 0 000-8zM22 11l2 2 4-4",
+    award:"M12 15a7 7 0 100-14 7 7 0 000 14zM8.21 13.89L7 23l5-3 5 3-1.21-9.12",
+    photos:"M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zM9 3v18M15 3v18M3 9h18M3 15h18",
+    layers:"M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
+    help:"M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01",
   };
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -658,34 +664,72 @@ const PortalSettingsDrawer = ({ portal, onChange, onClose, api: apiProp }) => {
 };
 
 // ─── Widget Picker Modal ───────────────────────────────────────────────────────
-const WidgetPicker = ({ onSelect, onClose }) => (
-  <div style={{position:"fixed",inset:0,background:"rgba(15,23,41,.35)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center"}}
-    onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{background:C.surface,borderRadius:16,width:420,boxShadow:"0 20px 64px rgba(0,0,0,.18)",overflow:"hidden"}}>
-      <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <span style={{fontSize:15,fontWeight:800,color:C.text1}}>Add Widget</span>
-        <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:C.text3}}><Ic n="x" s={16}/></button>
-      </div>
-      <div style={{padding:12,display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,maxHeight:380,overflowY:"auto"}}>
-        {WIDGET_TYPES.map(w=>(
-          <div key={w.type} onClick={()=>onSelect(w.type)}
-            style={{padding:"10px 12px",borderRadius:10,border:`1.5px solid ${C.border}`,cursor:"pointer",
-              display:"flex",alignItems:"center",gap:10,transition:"all .1s"}}
-            onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.background=C.accentLight;}}
-            onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background="transparent";}}>
-            <div style={{width:32,height:32,borderRadius:8,background:C.accentLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-              <Ic n={w.icon} s={15} c={C.accent}/>
-            </div>
-            <div>
-              <div style={{fontSize:12,fontWeight:700,color:C.text1}}>{w.label}</div>
-              <div style={{fontSize:10,color:C.text3}}>{w.desc}</div>
-            </div>
+const WIDGET_CATEGORIES = [
+  { id:"layout",     label:"Layout",      color:"#64748b", icon:"grid",      widgets:["divider","spacer","tabs"] },
+  { id:"content",    label:"Content",     color:"#7c3aed", icon:"align",     widgets:["hero","text","rich_text","image","image_gallery","video","stats","trust_bar","testimonials","benefits_grid","faq","cta_banner"] },
+  { id:"recruitment",label:"Recruitment", color:"#0891b2", icon:"briefcase", widgets:["jobs","featured_jobs","dept_grid","job_alerts","app_status","saved_jobs"] },
+  { id:"people",     label:"People",      color:"#059669", icon:"users2",    widgets:["people","team"] },
+  { id:"forms",      label:"Forms",       color:"#d97706", icon:"form",      widgets:["form","multistep_form","files","map_embed"] },
+];
+const WIDGET_TYPE_MAP = Object.fromEntries(WIDGET_TYPES.map(w=>[w.type,w]));
+
+const WidgetPicker = ({ onSelect, onClose }) => {
+  const [activeCat, setActiveCat] = useState("content");
+  const cat = WIDGET_CATEGORIES.find(c=>c.id===activeCat)||WIDGET_CATEGORIES[0];
+  const catWidgets = cat.widgets.map(t=>WIDGET_TYPE_MAP[t]).filter(Boolean);
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(15,23,41,.42)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:C.surface,borderRadius:18,width:700,maxWidth:"100%",maxHeight:"86vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 72px rgba(0,0,0,.22)",overflow:"hidden"}}>
+        {/* Header */}
+        <div style={{padding:"18px 22px 0",display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexShrink:0}}>
+          <div>
+            <div style={{fontSize:16,fontWeight:800,color:C.text1}}>Add Widget</div>
+            <div style={{fontSize:12,color:C.text3,marginTop:2}}>Pick a widget to add to this section</div>
           </div>
-        ))}
+          <button onClick={onClose} style={{background:C.surface2,border:`1px solid ${C.border}`,borderRadius:8,cursor:"pointer",padding:"6px 12px",display:"flex",alignItems:"center",gap:5,color:C.text2,fontSize:12,fontWeight:600,fontFamily:F}}>
+            <Ic n="x" s={12}/>Close
+          </button>
+        </div>
+        {/* Category tabs */}
+        <div style={{display:"flex",gap:1,padding:"10px 16px 0",borderBottom:`1px solid ${C.border}`,flexShrink:0,overflowX:"auto"}}>
+          {WIDGET_CATEGORIES.map(c=>(
+            <button key={c.id} onClick={()=>setActiveCat(c.id)}
+              style={{padding:"8px 16px",borderRadius:"8px 8px 0 0",border:"none",cursor:"pointer",fontFamily:F,fontSize:12,fontWeight:700,
+                background:activeCat===c.id?C.surface:"transparent",
+                color:activeCat===c.id?c.color:C.text3,
+                borderBottom:activeCat===c.id?`2.5px solid ${c.color}`:"2.5px solid transparent",
+                whiteSpace:"nowrap",transition:"all .12s",display:"flex",alignItems:"center",gap:6}}>
+              <Ic n={c.icon} s={13} c={activeCat===c.id?c.color:C.text3}/>
+              {c.label}
+              <span style={{fontSize:10,background:activeCat===c.id?c.color+"18":"transparent",color:activeCat===c.id?c.color:C.text3,padding:"0 5px",borderRadius:99,fontWeight:activeCat===c.id?700:400}}>
+                {c.widgets.filter(t=>WIDGET_TYPE_MAP[t]).length}
+              </span>
+            </button>
+          ))}
+        </div>
+        {/* Widget grid */}
+        <div style={{padding:16,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,overflowY:"auto",flex:1}}>
+          {catWidgets.map(w=>(
+            <div key={w.type} onClick={()=>onSelect(w.type)}
+              style={{padding:"14px 14px",borderRadius:12,border:`1.5px solid ${C.border}`,cursor:"pointer",
+                display:"flex",alignItems:"flex-start",gap:12,transition:"all .15s",background:C.surface,userSelect:"none"}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor=cat.color;e.currentTarget.style.background=cat.color+"0d";e.currentTarget.style.transform="translateY(-1px)";e.currentTarget.style.boxShadow=`0 4px 12px ${cat.color}18`;}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background=C.surface;e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="none";}}>
+              <div style={{width:40,height:40,borderRadius:11,background:cat.color+"14",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}>
+                <Ic n={w.icon} s={17} c={cat.color}/>
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:700,color:C.text1,marginBottom:3}}>{w.label}</div>
+                <div style={{fontSize:10,color:C.text3,lineHeight:1.45}}>{w.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── Widget Preview ────────────────────────────────────────────────────────────
 const WidgetPreview = ({ cell, theme }) => {
@@ -1418,18 +1462,50 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           {lbl("Heading")}<input value={cfg.heading||""} onChange={e=>set("heading",e.target.value)} placeholder="Why join us?" style={inp}/>
           {lbl("Subheading")}<input value={cfg.subheading||""} onChange={e=>set("subheading",e.target.value)} placeholder="Optional supporting text" style={inp}/>
-          {lbl("Layout")}
-          <select value={cfg.layout||"card"} onChange={e=>set("layout",e.target.value)} style={inp}><option value="card">Cards</option><option value="icon-left">Icon left</option><option value="minimal">Minimal</option></select>
-          {lbl("Columns")}
-          <select value={cfg.columns||3} onChange={e=>set("columns",Number(e.target.value))} style={inp}><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div>{lbl("Layout")}
+              <select value={cfg.layout||"card"} onChange={e=>set("layout",e.target.value)} style={inp}><option value="card">Cards</option><option value="icon-left">Icon left</option><option value="minimal">Minimal</option></select>
+            </div>
+            <div>{lbl("Columns")}
+              <select value={cfg.columns||3} onChange={e=>set("columns",Number(e.target.value))} style={inp}><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+            </div>
+          </div>
+          <div style={{borderTop:`1px solid ${C.border}`,paddingTop:10}}>
+            {lbl("Benefits")}
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
+              {(cfg.items||[]).map((item,i)=>(
+                <div key={i} style={{padding:10,borderRadius:10,border:`1px solid ${C.border}`,background:C.surface2,display:"flex",flexDirection:"column",gap:6}}>
+                  <div style={{display:"flex",gap:6}}>
+                    <input value={item.icon||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],icon:e.target.value};set("items",it);}} placeholder="🎯" style={{...inp,flex:"0 0 48px",textAlign:"center",fontSize:18,padding:"4px 6px"}}/>
+                    <input value={item.title||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],title:e.target.value};set("items",it);}} placeholder="Benefit title" style={{...inp,flex:1,fontSize:12,fontWeight:600,padding:"5px 8px"}}/>
+                    <button onClick={()=>set("items",(cfg.items||[]).filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",color:C.red,padding:2}}><Ic n="x" s={14} c={C.red}/></button>
+                  </div>
+                  <textarea value={item.text||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],text:e.target.value};set("items",it);}} placeholder="Short description…" rows={2} style={{...inp,fontSize:11,padding:"5px 8px",resize:"vertical"}}/>
+                </div>
+              ))}
+              <button onClick={()=>set("items",[...(cfg.items||[]),{icon:"✨",title:"",text:""}])} style={{padding:"6px",borderRadius:8,border:`1.5px dashed ${C.border}`,background:"transparent",cursor:"pointer",fontSize:12,color:C.text3,fontFamily:F}}>+ Add benefit</button>
+            </div>
+          </div>
         </div>
       );
       case "faq": return (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {lbl("Heading")}<input value={cfg.heading||""} onChange={e=>set("heading",e.target.value)} placeholder="Frequently asked questions" style={inp}/>
-          {lbl("Text align")}
+          {lbl("Section heading")}<input value={cfg.heading||""} onChange={e=>set("heading",e.target.value)} placeholder="Frequently asked questions" style={inp}/>
+          {lbl("Text alignment")}
           <select value={cfg.align||"left"} onChange={e=>set("align",e.target.value)} style={inp}><option value="left">Left</option><option value="center">Center</option></select>
-          <p style={{fontSize:11,color:C.text3,margin:"4px 0 0"}}>Default Q&As shown until you customise the items array via JSON config.</p>
+          <div style={{borderTop:`1px solid ${C.border}`,paddingTop:10}}>
+            {lbl("Questions & Answers")}
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
+              {(cfg.items||[{q:"",a:""}]).map((item,i)=>(
+                <div key={i} style={{padding:10,borderRadius:10,border:`1px solid ${C.border}`,background:C.surface2,display:"flex",flexDirection:"column",gap:6}}>
+                  <input value={item.q||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],q:e.target.value};set("items",it);}} placeholder="Question" style={{...inp,fontSize:12,fontWeight:600,padding:"5px 8px"}}/>
+                  <textarea value={item.a||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],a:e.target.value};set("items",it);}} placeholder="Answer…" rows={2} style={{...inp,fontSize:11,padding:"5px 8px",resize:"vertical"}}/>
+                  {(cfg.items||[]).length>1&&<button onClick={()=>set("items",(cfg.items||[]).filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:C.red,cursor:"pointer",fontSize:11,textAlign:"left"}}>Remove</button>}
+                </div>
+              ))}
+              <button onClick={()=>set("items",[...(cfg.items||[]),{q:"",a:""}])} style={{padding:"6px",borderRadius:8,border:`1.5px dashed ${C.border}`,background:"transparent",cursor:"pointer",fontSize:12,color:C.text3,fontFamily:F}}>+ Add question</button>
+            </div>
+          </div>
         </div>
       );
       case "featured_jobs": return (
@@ -1446,10 +1522,28 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
       );
       case "trust_bar": return (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {lbl("Layout")}
-          <select value={cfg.layout||"centered"} onChange={e=>set("layout",e.target.value)} style={inp}><option value="centered">Centred</option><option value="spread">Spread</option><option value="cards">Cards</option></select>
-          {lbl("Background colour")}<input value={cfg.bgColor||""} onChange={e=>set("bgColor",e.target.value)} placeholder="#FAFAFA" style={inp}/>
-          <p style={{fontSize:11,color:C.text3,margin:"4px 0 0"}}>Defaults: 500+ Employees, 15 Offices, 8 Countries, 4.3★ Glassdoor.</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div>
+              {lbl("Layout")}
+              <select value={cfg.layout||"centered"} onChange={e=>set("layout",e.target.value)} style={inp}><option value="centered">Centred</option><option value="spread">Spread</option><option value="cards">Cards</option></select>
+            </div>
+            <div>
+              {lbl("Background colour")}<input value={cfg.bgColor||""} onChange={e=>set("bgColor",e.target.value)} placeholder="#FAFAFA" style={inp}/>
+            </div>
+          </div>
+          <div style={{borderTop:`1px solid ${C.border}`,paddingTop:10}}>
+            {lbl("Stats")}
+            <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:4}}>
+              {(cfg.items||[{value:"500+",label:"Employees"},{value:"15",label:"Offices"},{value:"8",label:"Countries"},{value:"4.3★",label:"Glassdoor"}]).map((item,i)=>(
+                <div key={i} style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <input value={item.value||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],value:e.target.value};set("items",it);}} placeholder="500+" style={{...inp,flex:"0 0 80px"}}/>
+                  <input value={item.label||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],label:e.target.value};set("items",it);}} placeholder="Employees" style={inp}/>
+                  {(cfg.items||[]).length>1&&<button onClick={()=>set("items",(cfg.items||[]).filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",color:C.red,padding:4,flexShrink:0}}><Ic n="x" s={14} c={C.red}/></button>}
+                </div>
+              ))}
+              <button onClick={()=>set("items",[...(cfg.items||[{value:"500+",label:"Employees"},{value:"15",label:"Offices"},{value:"8",label:"Countries"},{value:"4.3★",label:"Glassdoor"}]),{value:"",label:""}])} style={{padding:"6px 12px",borderRadius:8,border:`1.5px dashed ${C.border}`,background:"transparent",cursor:"pointer",fontSize:12,color:C.text3,fontFamily:F}}>+ Add stat</button>
+            </div>
+          </div>
         </div>
       );
       case "job_alerts": return (
@@ -1465,10 +1559,36 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
       );
       case "image_gallery": return (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {lbl("Heading")}<input value={cfg.heading||""} onChange={e=>set("heading",e.target.value)} placeholder="Life at our offices" style={inp}/>
-          {lbl("Columns")}
-          <select value={cfg.columns||3} onChange={e=>set("columns",Number(e.target.value))} style={inp}><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
-          <p style={{fontSize:11,color:C.text3,margin:"4px 0 0"}}>Default stock images shown until you customise the items array.</p>
+          {lbl("Section heading")}<input value={cfg.heading||""} onChange={e=>set("heading",e.target.value)} placeholder="Life at our offices" style={inp}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div>{lbl("Columns")}
+              <select value={cfg.columns||3} onChange={e=>set("columns",Number(e.target.value))} style={inp}><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+            </div>
+            <div>{lbl("Aspect ratio")}
+              <select value={cfg.aspect||"square"} onChange={e=>set("aspect",e.target.value)} style={inp}>
+                <option value="square">Square (1:1)</option><option value="landscape">Landscape (4:3)</option><option value="wide">Wide (16:9)</option>
+              </select>
+            </div>
+          </div>
+          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:C.text2,cursor:"pointer"}}>
+            <input type="checkbox" checked={cfg.lightbox!==false} onChange={e=>set("lightbox",e.target.checked)}/> Lightbox on click
+          </label>
+          <div style={{borderTop:`1px solid ${C.border}`,paddingTop:10}}>
+            {lbl("Images")}
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
+              {(cfg.items||[]).map((img,i)=>(
+                <div key={i} style={{background:C.surface2,borderRadius:10,padding:10,border:`1px solid ${C.border}`,display:"flex",gap:8,alignItems:"flex-start"}}>
+                  {img.url&&<img src={img.url} alt="" style={{width:40,height:40,objectFit:"cover",borderRadius:6,flexShrink:0}} onError={e=>e.target.style.display="none"}/>}
+                  <div style={{flex:1,display:"flex",flexDirection:"column",gap:4}}>
+                    <input value={img.url||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],url:e.target.value};set("items",it);}} placeholder="Image URL" style={{...inp,fontSize:11,padding:"5px 8px"}}/>
+                    <input value={img.alt||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],alt:e.target.value};set("items",it);}} placeholder="Alt text (accessibility)" style={{...inp,fontSize:11,padding:"4px 8px"}}/>
+                  </div>
+                  <button onClick={()=>set("items",(cfg.items||[]).filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",color:C.red,padding:2,flexShrink:0}}><Ic n="x" s={14} c={C.red}/></button>
+                </div>
+              ))}
+              <button onClick={()=>set("items",[...(cfg.items||[]),{url:"",alt:""}])} style={{padding:"6px",borderRadius:8,border:`1.5px dashed ${C.border}`,background:"transparent",cursor:"pointer",fontSize:12,color:C.text3,fontFamily:F}}>+ Add image</button>
+            </div>
+          </div>
         </div>
       );
       case "app_status": return (
@@ -1487,7 +1607,21 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           {lbl("Tab style")}
           <select value={cfg.tabStyle||"underline"} onChange={e=>set("tabStyle",e.target.value)} style={inp}><option value="underline">Underline</option><option value="pill">Pill</option><option value="boxed">Boxed</option></select>
-          <p style={{fontSize:11,color:C.text3,margin:"4px 0 0"}}>Default culture/learning/D&I tabs shown until you customise the tabs array.</p>
+          <div style={{borderTop:`1px solid ${C.border}`,paddingTop:10}}>
+            {lbl("Tabs")}
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
+              {(cfg.tabs||[{title:"Culture",content:""},{title:"Learning",content:""},{title:"Diversity",content:""}]).map((tab,i)=>(
+                <div key={i} style={{padding:10,borderRadius:10,border:`1px solid ${C.border}`,background:C.surface2,display:"flex",flexDirection:"column",gap:6}}>
+                  <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                    <input value={tab.title||""} onChange={e=>{const ts=[...(cfg.tabs||[])];ts[i]={...ts[i],title:e.target.value};set("tabs",ts);}} placeholder="Tab name" style={{...inp,flex:1,fontSize:12,fontWeight:600,padding:"5px 8px"}}/>
+                    {(cfg.tabs||[]).length>1&&<button onClick={()=>set("tabs",(cfg.tabs||[]).filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",color:C.red,padding:2}}><Ic n="x" s={14} c={C.red}/></button>}
+                  </div>
+                  <textarea value={tab.content||""} onChange={e=>{const ts=[...(cfg.tabs||[])];ts[i]={...ts[i],content:e.target.value};set("tabs",ts);}} placeholder="Tab content (text or Markdown)…" rows={3} style={{...inp,fontSize:11,padding:"5px 8px",resize:"vertical"}}/>
+                </div>
+              ))}
+              <button onClick={()=>set("tabs",[...(cfg.tabs||[{title:"Culture",content:""},{title:"Learning",content:""},{title:"Diversity",content:""}]),{title:"New Tab",content:""}])} style={{padding:"6px",borderRadius:8,border:`1.5px dashed ${C.border}`,background:"transparent",cursor:"pointer",fontSize:12,color:C.text3,fontFamily:F}}>+ Add tab</button>
+            </div>
+          </div>
         </div>
       );
       case "files": return (

@@ -111,8 +111,17 @@ router.post('/request-link', async (req, res) => {
   </div>`;
 
   try {
-    await sendEmail({ to: email, subject: `Your ${companyName} application hub`, html: emailHtml,
+    const result = await sendEmail({ to: email, subject: `Your ${companyName} application hub`, html: emailHtml,
       text: `Hi ${firstName},\n\nClick here to access your hub:\n${hubUrl}\n\nExpires in 15 minutes.` });
+
+    // In simulation mode — print the magic link to terminal so you can test without real email
+    if (result?.simulated) {
+      console.log('\n─────────────────────────────────────────────────');
+      console.log('[HUB] ⚡ SIMULATION MODE — email not sent');
+      console.log(`[HUB] To: ${email}`);
+      console.log(`[HUB] Magic link: ${hubUrl}`);
+      console.log('─────────────────────────────────────────────────\n');
+    }
   } catch (e) { console.error('[hub] Email send failed:', e.message); }
 
   res.json({ ok: true, message: 'If an account exists, a link has been sent.' });

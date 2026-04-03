@@ -451,7 +451,17 @@ export default function TalentProfileView({ link, allLinks, onNavigateProfile, m
           </div>
           {/* Open full record */}
           {onNavigate && (
-            <button onClick={()=>{onNavigate(link.person_record_id);}} style={{ marginTop:'auto', padding:'8px 12px', borderRadius:9, border:'1.5px solid rgba(255,255,255,.3)', background:'rgba(255,255,255,.12)', color:'white', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:F, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+            <button onClick={()=>{
+              const objectId = profileData?.record?.object_id;
+              if (objectId) {
+                window.dispatchEvent(new CustomEvent('talentos:openRecord', {
+                  detail: { recordId: link.person_record_id, objectId }
+                }));
+              } else {
+                onNavigate(link.person_record_id);
+              }
+              onClose();
+            }} style={{ marginTop:'auto', padding:'8px 12px', borderRadius:9, border:'1.5px solid rgba(255,255,255,.3)', background:'rgba(255,255,255,.12)', color:'white', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:F, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
               <Ic n="externalLink" s={13} c="white"/> Open full record
             </button>
           )}

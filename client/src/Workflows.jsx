@@ -76,6 +76,22 @@ const TRIGGER_TYPES = [
 ];
 
 const automationDef = (type) => AUTOMATION_TYPES.find(s => s.type === type);
+
+// Available columns for the pipeline list view
+const PIPELINE_COLS = [
+  { id:"name",        label:"Name",           always:true },
+  { id:"match",       label:"Match %",        default:true },
+  { id:"stage",       label:"Stage",          always:true },
+  { id:"title",       label:"Current Title",  default:true },
+  { id:"location",    label:"Location",       default:false },
+  { id:"email",       label:"Email",          default:false },
+  { id:"phone",       label:"Phone",          default:false },
+  { id:"department",  label:"Department",     default:false },
+  { id:"linked_job",  label:"Linked Job",     default:true },
+  { id:"added",       label:"Added",          default:false },
+];
+const DEFAULT_PIPELINE_COLS = PIPELINE_COLS.filter(c=>c.always||c.default).map(c=>c.id);
+
 const stepDef = (type) => automationDef(type) || { type:"placeholder", label:"Stage", icon:"chevRight", color:"#9ca3af", desc:"Process stage" };
 
 // Build a human-readable summary of what a step's actions do
@@ -1950,6 +1966,12 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
   const [selectedStage, setSelectedStage] = useState(null);
   const [selectedLinks, setSelectedLinks] = useState([]);
   const [pipelineView, setPipelineView]   = useState("card"); // "card" | "list"
+  const [showColPicker, setShowColPicker] = useState(false);
+  const [visibleColIds, setVisibleColIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('talentos_pipeline_cols') || 'null') || DEFAULT_PIPELINE_COLS; }
+    catch { return DEFAULT_PIPELINE_COLS; }
+  });
+  const saveColIds = ids => { setVisibleColIds(ids); try { localStorage.setItem('talentos_pipeline_cols', JSON.stringify(ids)); } catch {} };
   const [addingPerson, setAddingPerson]   = useState(false);
   const [personSearch, setPersonSearch]   = useState("");
   const [saving, setSaving]               = useState(false);
@@ -2539,6 +2561,42 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                     List
                   </button>
                 )}
+                {/* Column picker — only in list view */}
+                {pipelineView === "list" && (
+                  <div style={{ position:"relative" }}>
+                    <button onClick={()=>setShowColPicker(v=>!v)}
+                      style={{ background:"none", border:`1px solid #e5e7eb`, borderRadius:6, padding:"3px 8px", cursor:"pointer", display:"flex", alignItems:"center", gap:4, color:"#6b7280", fontSize:11 }}>
+                      <Ic n="settings" s={11}/> Columns
+                      {visibleColIds.length !== DEFAULT_PIPELINE_COLS.length && (
+                        <span style={{ background:"#7c3aed", color:"#fff", borderRadius:99, fontSize:9, fontWeight:700, padding:"1px 5px" }}>{visibleColIds.length}</span>
+                      )}
+                    </button>
+                    {showColPicker && (() => {
+                      const ref = el => { if (el) { const h = e => { if (!el.contains(e.target)) setShowColPicker(false); }; setTimeout(()=>document.addEventListener('mousedown',h),0); el._cleanup=()=>document.removeEventListener('mousedown',h); } };
+                      return (
+                        <div ref={ref} style={{ position:"absolute", top:"100%", right:0, zIndex:500, marginTop:4, background:"white", border:`1px solid #e5e7eb`, borderRadius:10, boxShadow:"0 8px 24px rgba(0,0,0,.12)", minWidth:180, padding:"6px 0" }}>
+                          <div style={{ padding:"4px 12px 6px", fontSize:10, fontWeight:700, color:"#9ca3af", textTransform:"uppercase", letterSpacing:"0.07em", borderBottom:"1px solid #f3f4f6", marginBottom:4 }}>Columns</div>
+                          {PIPELINE_COLS.map(col => {
+                            const on = visibleColIds.includes(col.id);
+                            const isAlways = col.always;
+                            return (
+                              <div key={col.id} onClick={()=>{ if(isAlways)return; saveColIds(on?visibleColIds.filter(x=>x!==col.id):[...visibleColIds,col.id]); }}
+                                style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 12px", cursor:isAlways?"default":"pointer", background:on?"#f5f3ff":"transparent" }}
+                                onMouseEnter={e=>{ if(!isAlways&&!on) e.currentTarget.style.background="#f8f9fc"; }}
+                                onMouseLeave={e=>{ if(!isAlways&&!on) e.currentTarget.style.background="transparent"; }}>
+                                <div style={{ width:14,height:14,borderRadius:3,border:`2px solid ${on?"#7c3aed":"#d1d5db"}`,background:on?"#7c3aed":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+                                  {on && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>}
+                                </div>
+                                <span style={{ fontSize:12, fontWeight:on?600:400, color:on?"#6d28d9":"#374151" }}>{col.label}</span>
+                                {isAlways && <span style={{ marginLeft:"auto", fontSize:9, color:"#9ca3af", background:"#f1f5f9", padding:"1px 5px", borderRadius:99 }}>always</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
                 <button onClick={openAddPerson}
                   style={{ fontSize:11, color:"#7c3aed", background:"none", border:"none", cursor:"pointer", fontWeight:700, padding:"2px 6px" }}>
                   + Add
@@ -2560,9 +2618,10 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                           onChange={e=>setSelectedLinks(e.target.checked?visiblePeople.map(l=>l.id):[])}
                           style={{ accentColor:"#7c3aed", cursor:"pointer" }}/>
                       </th>
-                      {["Name","Linked Job","Stage","Match"].map(h=>(
-                        <th key={h} style={{ padding:"5px 8px", textAlign:"left", fontWeight:700, color:"#7c3aed", fontSize:11 }}>{h}</th>
+                      {PIPELINE_COLS.filter(c=>visibleColIds.includes(c.id)&&c.id!=="name"&&c.id!=="stage").map(c=>(
+                        <th key={c.id} style={{ padding:"5px 8px", textAlign:"left", fontWeight:700, color:"#7c3aed", fontSize:11 }}>{c.label}</th>
                       ))}
+                      <th style={{ padding:"5px 8px", textAlign:"left", fontWeight:700, color:"#7c3aed", fontSize:11 }}>Stage</th>
                       <th style={{ width:24 }}/>
                     </tr>
                   </thead>
@@ -2582,19 +2641,35 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                               onChange={e=>setSelectedLinks(prev=>e.target.checked?[...prev,link.id]:prev.filter(x=>x!==link.id))}
                               style={{ accentColor:"#7c3aed", cursor:"pointer" }}/>
                           </td>
+                          {/* Name — always first */}
                           <td style={{ padding:"7px 8px" }}>
-                            <span onClick={()=>onNavigate&&onNavigate(link.person_record_id)}
-                              style={{ fontWeight:600, color:"#7c3aed", cursor:"pointer", textDecoration:"underline" }}>{name}</span>
+                            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                              <div style={{ width:24,height:24,borderRadius:"50%",background:"#7c3aed",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"white",flexShrink:0 }}>
+                                {(name||"?").charAt(0).toUpperCase()}
+                              </div>
+                              <span onClick={()=>onNavigate&&onNavigate(link.person_record_id)}
+                                style={{ fontWeight:600, color:"#7c3aed", cursor:"pointer", textDecoration:"underline" }}>{name}</span>
+                            </div>
                           </td>
-                          <td style={{ padding:"7px 8px", color:"#6b7280" }}>{jobName}</td>
+                          {/* Dynamic extra columns */}
+                          {visibleColIds.filter(id=>id!=="name"&&id!=="stage").map(colId => {
+                            const td = p => <td key={colId} style={{ padding:"7px 8px", color:"#6b7280", fontSize:12 }}>{p}</td>;
+                            if (colId==="match")       return <td key={colId} style={{ padding:"7px 8px", color:scoreColor, fontWeight:700, fontSize:12 }}>{score!==null?`${score}%`:"—"}</td>;
+                            if (colId==="title")       return td(d.current_title||"—");
+                            if (colId==="location")    return td(d.location||d.city||"—");
+                            if (colId==="email")       return <td key={colId} style={{ padding:"7px 8px", fontSize:12 }}><a href={`mailto:${d.email}`} style={{ color:"#7c3aed" }}>{d.email||"—"}</a></td>;
+                            if (colId==="phone")       return td(d.phone||d.mobile||"—");
+                            if (colId==="department")  return td(d.department||"—");
+                            if (colId==="linked_job")  return td(jobName);
+                            if (colId==="added")       return td(link.created_at?new Date(link.created_at).toLocaleDateString():"—");
+                            return td("—");
+                          })}
+                          {/* Stage — always last before actions */}
                           <td style={{ padding:"7px 8px" }}>
                             <select value={link.stage_id||""} onChange={e=>{const s=plSteps.find(st=>st.id===e.target.value);if(s)moveStage(link.id,s);}}
                               style={{ padding:"3px 7px", borderRadius:20, fontSize:11, fontWeight:700, border:`1.5px solid #c4b5fd`, background:"#ede9fe", color:"#6d28d9", cursor:"pointer", fontFamily:F, outline:"none" }}>
                               {plSteps.map(s=>{ const ha=(s.actions||[]).some(a=>a.type); return <option key={s.id} value={s.id}>{ha?"⚡ "+s.name:s.name}</option>; })}
                             </select>
-                          </td>
-                          <td style={{ padding:"7px 8px", color:scoreColor, fontWeight:700, fontSize:12 }}>
-                            {score!==null?`${score}%`:"—"}
                           </td>
                           <td style={{ padding:"7px 4px" }}>
                             <button onClick={()=>removeLink(link.id)} title="Remove"

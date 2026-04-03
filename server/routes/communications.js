@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { query, insert, update, remove, findOne } = require('../db/init');
 const { sendSMS, sendWhatsApp, sendEmail, getProviderStatus } = require('../services/messaging');
+const { logEvent } = require('../services/connectors');
 
 const router = express.Router();
 
@@ -84,6 +85,21 @@ router.post('/', async (req, res) => {
     dispatchResult = { error: err.message };
   }
 
+  // Log to integration event log
+  const envId = rest.environment_id || req.headers['x-environment-id'] || 'default';
+  if (direction === 'outbound' && type !== 'call') {
+    const provider = (type === 'email') ? 'sendgrid' : 'twilio';
+    try {
+      logEvent(envId, {
+        provider,
+        action: `send_${type}`,
+        ok: status === 'sent',
+        detail: status === 'failed' ? (dispatchResult.error || 'Unknown error') : `To: ${to}`,
+        durationMs: null,
+      });
+    } catch(e) { /* don't fail the request if logging fails */ }
+  }
+
   // Derive context from related_record_id if not explicitly set
   const related_record_id = rest.related_record_id || null;
   const context = rest.context || (related_record_id ? 'application' : 'general');
@@ -164,6 +180,7 @@ router.post('/webhook/sms', express.urlencoded({ extended: false }), (req, res) 
   };
   insert('communications', item);
   console.log(`[comms] Inbound SMS from ${From}`);
+  try { logEvent('default', { provider:'twilio', action:'receive_sms', ok:true, detail:`From: ${From}` }); } catch(e) {}
   // Twilio expects TwiML response (empty = no auto-reply)
   res.set('Content-Type', 'text/xml');
   res.send('<Response></Response>');
@@ -186,6 +203,7 @@ router.post('/webhook/whatsapp', express.urlencoded({ extended: false }), (req, 
   };
   insert('communications', item);
   console.log(`[comms] Inbound WhatsApp from ${From}`);
+  try { logEvent('default', { provider:'twilio', action:'receive_whatsapp', ok:true, detail:`From: ${From}` }); } catch(e) {}
   res.set('Content-Type', 'text/xml');
   res.send('<Response></Response>');
 });

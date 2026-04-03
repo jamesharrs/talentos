@@ -1514,25 +1514,54 @@ const PortalNav = ({ portal, theme, currentPage, onNav, pages }) => {
   const bg  = nav.bgColor   || theme.bgColor   || '#fff'
   const fg  = nav.overlay ? (nav.textColor || '#FFFFFF') : (nav.textColor || theme.textColor || '#0F1729')
   const navLinks = nav.links || []
+
+  // Read all editor-stored values with sensible defaults
+  const logoH     = nav.logoHeight   || 36
+  const logoMaxW  = nav.logoMaxWidth || 160
+  const barH      = nav.headerHeight || 64
+  const alignment = nav.alignment    || 'spread'   // spread | center | left
+  const borderCol = nav.borderColor  || (theme.primaryColor + '18')
+  const showBorder = nav.showBorder !== false && !nav.overlay
+  const showShadow = nav.shadow      !== false && !nav.overlay
+  const activeCol  = nav.activeColor || theme.primaryColor || '#4361EE'
+
+  // Justify content based on alignment setting
+  const justifyContent = alignment === 'left' ? 'flex-start' : 'space-between'
+  const logoOrder = alignment === 'center' ? { position:'absolute', left:'50%', transform:'translateX(-50%)' } : {}
+
   return (
     <nav style={{ position: nav.overlay ? 'absolute' : nav.sticky !== false ? 'sticky' : 'relative', top:0, left:0, right:0, zIndex:100,
       background: nav.overlay ? 'transparent' : bg,
-      borderBottom: nav.overlay ? 'none' : `1px solid ${theme.primaryColor}18`,
-      boxShadow: nav.overlay ? 'none' : '0 1px 8px rgba(0,0,0,.06)' }}>
-      <div style={{ maxWidth:theme.maxWidth||'1200px', margin:'0 auto', padding:'0 24px',
-        display:'flex', alignItems:'center', justifyContent:'space-between', height:64 }}>
-        {nav.logoUrl
-          ? <img src={nav.logoUrl} alt={nav.logoText||portal.name} style={{ height:36, objectFit:'contain' }}/>
-          : <div style={{ fontSize:18, fontWeight:800, color:theme.primaryColor, fontFamily:theme.headingFont||theme.fontFamily }}>
-              {nav.logoText || portal.branding?.company_name || portal.name}
-            </div>
-        }
-        <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+      borderBottom: showBorder ? `1px solid ${borderCol}` : 'none',
+      boxShadow: showShadow ? '0 1px 8px rgba(0,0,0,.07)' : 'none' }}>
+      <div style={{ maxWidth:theme.maxWidth||'1200px', margin:'0 auto', padding:`0 24px`,
+        display:'flex', alignItems:'center', justifyContent, height: barH, position:'relative' }}>
+
+        {/* Logo */}
+        <div style={{ display:'flex', alignItems:'center', flexShrink:0, ...logoOrder }}>
+          {nav.logoUrl
+            ? <img src={nav.logoUrl} alt={nav.logoText||portal.name}
+                style={{ height: logoH, maxWidth: logoMaxW, objectFit:'contain' }}
+                onError={e => { e.target.style.display='none'; }}/>
+            : <div style={{ fontSize:18, fontWeight:800, color:theme.primaryColor, fontFamily:theme.headingFont||theme.fontFamily, whiteSpace:'nowrap' }}>
+                {nav.logoText || portal.branding?.company_name || portal.name}
+              </div>
+          }
+        </div>
+
+        {/* Links */}
+        <div style={{ display:'flex', gap:4, alignItems:'center', marginLeft: alignment==='left' ? 24 : 0 }}>
           {navLinks.length > 0
             ? navLinks.map(lnk => (
                 <a key={lnk.id} href={lnk.href||'#'}
-                  style={{ padding:'6px 12px', borderRadius:8, fontSize:14, fontWeight:500,
-                    color:fg, textDecoration:'none', fontFamily:theme.fontFamily }}>
+                  style={ (lnk.isCta || lnk.isButton) ? {
+                    padding:'7px 18px', borderRadius: theme.buttonRadius||'8px', fontSize:14, fontWeight:700,
+                    color:'white', textDecoration:'none', fontFamily:theme.fontFamily,
+                    background: activeCol, boxShadow:`0 2px 8px ${activeCol}40`
+                  } : {
+                    padding:'6px 12px', borderRadius:8, fontSize:14, fontWeight:500,
+                    color:fg, textDecoration:'none', fontFamily:theme.fontFamily
+                  }}>
                   {lnk.label}
                 </a>
               ))
@@ -1540,7 +1569,7 @@ const PortalNav = ({ portal, theme, currentPage, onNav, pages }) => {
                 <button key={pg.id} onClick={()=>onNav(pg)}
                   style={{ background:'none', border:'none', cursor:'pointer', padding:'6px 14px', borderRadius:8,
                     fontSize:14, fontWeight:currentPage?.id===pg.id?700:500,
-                    color:currentPage?.id===pg.id?theme.primaryColor:fg,
+                    color:currentPage?.id===pg.id?activeCol:fg,
                     fontFamily:theme.fontFamily }}>
                   {pg.name}
                 </button>

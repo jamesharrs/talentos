@@ -737,6 +737,7 @@ export default function Reports({ environment, initialReport }) {
             <Pill label="Build"    active={panel==="build"}    onClick={()=>setPanel("build")}/>
             <Pill label="∑ Formulas" active={panel==="formulas"} onClick={()=>setPanel("formulas")} badge={formulas.filter(f=>f.expression).length||null}/>
             <Pill label="Saved"    active={panel==="saved"}    onClick={()=>setPanel("saved")} badge={savedReports.length||null}/>
+            <Pill label="Library"  active={panel==="library"}  onClick={()=>setPanel("library")} badge={25}/>
           </div>
 
           {/* Build panel */}
@@ -863,6 +864,7 @@ export default function Reports({ environment, initialReport }) {
                   </div>
                   <div style={{ display:"flex",gap:5,flexWrap:"wrap" }}>
                     <button onClick={()=>loadReport(sv)} style={{ fontSize:10,padding:"4px 9px",borderRadius:7,border:"none",background:B.purple,color:"white",cursor:"pointer",fontFamily:F,fontWeight:700 }}>Load</button>
+                    <button onClick={()=>copySavedReport(sv)} style={{ fontSize:10,padding:"4px 9px",borderRadius:7,border:"1.5px solid #E5E7EB",background:"white",color:B.gray,cursor:"pointer",fontFamily:F,fontWeight:600 }}>Copy</button>
                     <button onClick={()=>pinReport(sv)} title={sv.pinned?"Unpin from dashboard":"Pin to dashboard"}
                       style={{ fontSize:10,padding:"4px 9px",borderRadius:7,border:`1.5px solid ${sv.pinned?B.amber:"#E5E7EB"}`,background:sv.pinned?"#FFFBEB":"white",color:sv.pinned?B.amber:B.gray,cursor:"pointer",fontFamily:F,fontWeight:700 }}>
                       {sv.pinned?"📌 Pinned":"Pin"}
@@ -905,6 +907,76 @@ export default function Reports({ environment, initialReport }) {
               )}
             </div>
           )}
+
+          {/* ─── Library Panel ───────────────────────────────────────────── */}
+          {panel==="library"&&(
+            <div style={{display:"flex",flexDirection:"column",height:"100%",gap:10,overflow:"hidden"}}>
+              {/* Search */}
+              <input value={libSearch} onChange={e=>setLibSearch(e.target.value)}
+                placeholder="Search 25 reports…"
+                style={{padding:"7px 10px",borderRadius:8,border:"1.5px solid var(--t-border,#e5e7eb)",
+                  background:"var(--t-bg,#fff)",color:"var(--t-text1,#111)",fontSize:12,
+                  fontFamily:"inherit",width:"100%",boxSizing:"border-box"}}/>
+              {/* Category pills */}
+              <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                {LIBRARY_CATEGORIES.map(cat=>(
+                  <button key={cat.id} onClick={()=>setLibCat(cat.id)} style={{
+                    padding:"3px 9px",borderRadius:99,fontSize:11,
+                    fontWeight:libCat===cat.id?700:500,cursor:"pointer",fontFamily:"inherit",
+                    border:"1.5px solid "+(libCat===cat.id?"var(--t-accent,#4361EE)":"var(--t-border,#e5e7eb)"),
+                    background:libCat===cat.id?"var(--t-accent,#4361EE)":"transparent",
+                    color:libCat===cat.id?"white":"var(--t-text2,#6b7280)",
+                  }}>{cat.label}</button>
+                ))}
+              </div>
+              {/* Cards */}
+              <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:8,paddingRight:2}}>
+                {REPORT_LIBRARY
+                  .filter(r=>libCat==="all"||r.category===libCat)
+                  .filter(r=>!libSearch||r.title.toLowerCase().includes(libSearch.toLowerCase())||r.description.toLowerCase().includes(libSearch.toLowerCase()))
+                  .map(r=>(
+                    <div key={r.id} style={{background:"var(--t-surface,#fff)",border:"1.5px solid var(--t-border,#e5e7eb)",borderRadius:10,padding:"10px 12px",display:"flex",flexDirection:"column",gap:8}}>
+                      <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+                        <div style={{width:28,height:28,borderRadius:7,background:"var(--t-accent,#4361EE)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" width={13} height={13}>
+                            <path d={CHART_ICON_PATHS[r.chartType]||"M18 20V10M12 20V4M6 20v-6"}/>
+                          </svg>
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:12,fontWeight:700,color:"var(--t-text1,#111)",lineHeight:1.3,marginBottom:2}}>{r.title}</div>
+                          <div style={{fontSize:11,color:"var(--t-text3,#9ca3af)",lineHeight:1.4}}>{r.description}</div>
+                        </div>
+                        <span style={{padding:"2px 6px",borderRadius:99,fontSize:10,fontWeight:700,flexShrink:0,
+                          background:"var(--t-accentLight,#eef2ff)",color:"var(--t-accent,#4361EE)"}}>{r.chartType}</span>
+                      </div>
+                      <div style={{display:"flex",gap:6}}>
+                        <button onClick={()=>loadLibraryReport(r)}
+                          style={{flex:2,padding:"6px 0",borderRadius:7,border:"none",
+                            background:"var(--t-accent,#4361EE)",color:"white",
+                            fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                          Use Report
+                        </button>
+                        <button onClick={()=>copyLibraryReport(r)}
+                          style={{flex:1,padding:"6px 0",borderRadius:7,
+                            border:"1.5px solid var(--t-border,#e5e7eb)",background:"transparent",
+                            color:"var(--t-text2,#6b7280)",fontSize:11,fontWeight:600,
+                            cursor:"pointer",fontFamily:"inherit"}}>
+                          Save copy
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                {REPORT_LIBRARY
+                  .filter(r=>(libCat==="all"||r.category===libCat)&&(!libSearch||r.title.toLowerCase().includes(libSearch.toLowerCase())))
+                  .length===0&&(
+                  <div style={{textAlign:"center",padding:30,color:"var(--t-text3,#9ca3af)",fontSize:12}}>
+                    No reports match your search.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {results&&results.length>0&&chartType!=="table"&&(
             <div style={{ background:B.card,borderRadius:14,padding:"16px 16px 8px",boxShadow:"0 1px 4px rgba(0,0,0,0.04)" }}>{renderChart()}</div>
           )}

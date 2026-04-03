@@ -63,10 +63,11 @@ async function sendSMS({ to, body }) {
   if (!client) {
     return { simulated: true, sid: `sim_${Date.now()}`, status: 'simulated' };
   }
+  const cleanTo = to.replace(/\s+/g, ''); // strip all spaces
   const msg = await client.messages.create({
     body,
     from: process.env.TWILIO_SMS_NUMBER,
-    to,
+    to: cleanTo,
     statusCallback: process.env.WEBHOOK_BASE_URL
       ? `${process.env.WEBHOOK_BASE_URL}/api/comms/webhook/sms-status`
       : undefined,
@@ -80,8 +81,9 @@ async function sendWhatsApp({ to, body }) {
   if (!client) {
     return { simulated: true, sid: `sim_${Date.now()}`, status: 'simulated' };
   }
+  const cleanTo = to.replace(/\s+/g, ''); // strip all spaces
   const from = process.env.TWILIO_WA_NUMBER || `whatsapp:${process.env.TWILIO_SMS_NUMBER}`;
-  const toWA = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+  const toWA = cleanTo.startsWith('whatsapp:') ? cleanTo : `whatsapp:${cleanTo}`;
   const msg = await client.messages.create({
     body,
     from,

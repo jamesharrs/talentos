@@ -182,7 +182,40 @@ function ComposeModal({ type, record, environment, onSave, onClose, defaultRelat
     }
   }, [type, environment?.id]);
 
-  const applyTemplate = (t) => { setSubject(t.subject||""); setBody(t.body||""); };
+  const applyTemplate = (t) => {
+    const d = record?.data || {};
+    const selectedJob = linkedJobs.find(j => j.id === relatedRecordId) || linkedJobs[0];
+    const jd = selectedJob?.data || {};
+
+    // Build substitution map from all common variable names
+    const vars = {
+      // Candidate / person
+      candidate_name:    [d.first_name, d.last_name].filter(Boolean).join(" ") || d.name || "Candidate",
+      first_name:        d.first_name || d.name?.split(" ")[0] || "Candidate",
+      last_name:         d.last_name || "",
+      full_name:         [d.first_name, d.last_name].filter(Boolean).join(" ") || d.name || "Candidate",
+      email:             d.email || d.email_address || "",
+      phone:             d.phone || d.mobile || "",
+      current_title:     d.current_title || d.job_title || "",
+      location:          d.location || d.city || "",
+      // Job
+      job_title:         jd.job_title || jd.title || jd.name || "",
+      job_location:      jd.location || jd.city || "",
+      department:        jd.department || "",
+      // Company (from job or branding)
+      company_name:      jd.company || jd.entity || d.company || "",
+      // Recruiter (logged-in user — not easily available here, leave as hint)
+      recruiter_name:    "",
+    };
+
+    const substitute = (text) =>
+      (text || "").replace(/\{\{(\w+)\}\}/g, (match, key) =>
+        vars[key] !== undefined ? vars[key] : match
+      );
+
+    setSubject(substitute(t.subject || ""));
+    setBody(substitute(t.body || ""));
+  };
 
   const save = async () => {
     setSaving(true);
@@ -221,7 +254,7 @@ function ComposeModal({ type, record, environment, onSave, onClose, defaultRelat
         display:"flex", flexDirection:"column",
         pointerEvents:"auto", overflow:"hidden",
       }}>
-        {showAI && <AIComposeModal type={type} record={record} objectName="Person" onUse={({subject:s,body:b})=>{if(s)setSubject(s);setBody(b);setShowAI(false)}} onClose={()=>setShowAI(false)}/>}
+        {showAI && <AIComposeModal type={type} record={record} objectName="Person" onUse={({subject:s,body:b})=>{if(s)setSubject(s);setBody(b);setShowAI(false); applyTemplate({subject:s,body:b});}} onClose={()=>setShowAI(false)}/>}
 
         {/* Popout title bar */}
         <div style={{ display:"flex", alignItems:"center", gap:10, padding:"14px 18px", borderBottom:`1px solid ${C.border}`, background:"#f8f9fc", flexShrink:0 }}>

@@ -61,7 +61,33 @@ router.get('/:id', (req, res) => {
 
 // POST /api/comms — create + dispatch
 router.post('/', async (req, res) => {
-  const { type, direction, to, subject, body, ...rest } = req.body;
+  const { type, direction, to, subject, body, record_id, ...rest } = req.body;
+
+  // ── Variable substitution ────────────────────────────────────────────────
+  // Replace {{variable}} tokens with real record data when record_id is present
+  const substituteVars = (text) => {
+    if (!text || !text.includes('{{')) return text;
+    const store = require('../db/init').getStore();
+    const record = record_id ? (store.records || []).find(r => r.id === record_id) : null;
+    const d = record?.data || {};
+    const vars = {
+      candidate_name: [d.first_name, d.last_name].filter(Boolean).join(' ') || d.name || '',
+      first_name:     d.first_name || d.name?.split(' ')[0] || '',
+      last_name:      d.last_name || '',
+      full_name:      [d.first_name, d.last_name].filter(Boolean).join(' ') || d.name || '',
+      email:          d.email || d.email_address || '',
+      phone:          d.phone || d.mobile || '',
+      current_title:  d.current_title || d.job_title || '',
+      location:       d.location || d.city || '',
+      company_name:   d.company || d.entity || '',
+    };
+    return text.replace(/\{\{(\w+)\}\}/g, (match, key) =>
+      vars[key] !== undefined ? vars[key] : match
+    );
+  };
+
+  const resolvedSubject = substituteVars(subject);
+  const resolvedBody    = substituteVars(body);
 
   let dispatchResult = {};
   let status = 'logged';
@@ -69,13 +95,13 @@ router.post('/', async (req, res) => {
   try {
     if (direction === 'outbound') {
       if (type === 'sms') {
-        dispatchResult = await sendSMS({ to, body });
+        dispatchResult = await sendSMS({ to, body: resolvedBody });
         status = dispatchResult.simulated ? 'simulated' : 'sent';
       } else if (type === 'whatsapp') {
-        dispatchResult = await sendWhatsApp({ to, body });
+        dispatchResult = await sendWhatsApp({ to, body: resolvedBody });
         status = dispatchResult.simulated ? 'simulated' : 'sent';
       } else if (type === 'email') {
-        dispatchResult = await sendEmail({ to, subject, body });
+        dispatchResult = await sendEmail({ to, subject: resolvedSubject, body: resolvedBody });
         status = dispatchResult.simulated ? 'simulated' : 'sent';
       }
     }
@@ -112,8 +138,8 @@ router.post('/', async (req, res) => {
     type,
     direction: direction || 'logged',
     to: to || undefined,
-    subject: subject || undefined,
-    body,
+    subject: resolvedSubject || undefined,
+    body: resolvedBody,
     status,
     provider_sid:  dispatchResult.sid || dispatchResult.messageId || undefined,
     provider_status: dispatchResult.status || undefined,

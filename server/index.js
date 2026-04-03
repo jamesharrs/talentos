@@ -199,6 +199,11 @@ app.get('/api/health', (req, res) =>
 // ── Boot ──────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 
+// Start listening immediately so Railway health check passes during DB init
+app.listen(PORT, () => {
+  console.log(`Vercentic API → http://localhost:${PORT}`);
+});
+
 initDB().then(() => {
   const store = getStore();
   const fs   = require('fs');
@@ -322,10 +327,11 @@ initDB().then(() => {
     initEventBusIntegrations(app);
   } catch (e) { console.warn('[EventBus] Init:', e.message); }
 
-  app.listen(PORT, () => {
-    console.log(`Vercentic API → http://localhost:${PORT}`);
+  // Start schedulers after DB is ready
+  try {
     const { startScheduler } = require('./agent-engine');
     startScheduler();
     initScheduler();
-  });
-}).catch(err => { console.error(err); process.exit(1); });
+  } catch (e) { console.warn('[Scheduler] Init:', e.message); }
+
+}).catch(err => { console.error('[Boot] DB init failed:', err.message); });

@@ -601,6 +601,144 @@ const NextStepsConfig = ({ currentStep, allSteps, onChange }) => {
   );
 };
 
+// ─── Step Entry Condition Builder ────────────────────────────────────────────
+// Shown in the StepCard header — defines criteria a candidate must meet
+// to be eligible to move INTO this stage.
+const COND_OPS = [
+  { v:'equals',       l:'equals',       types:['text','select','boolean','email','url'] },
+  { v:'not_equals',   l:'not equals',   types:['text','select','boolean','email','url'] },
+  { v:'contains',     l:'contains',     types:['text','email','url','multi_select'] },
+  { v:'not_contains', l:'not contains', types:['text','email','url','multi_select'] },
+  { v:'includes',     l:'includes',     types:['multi_select'] },
+  { v:'is_set',       l:'is set',       types:['*'] },
+  { v:'is_not_set',   l:'is not set',   types:['*'] },
+  { v:'gt',           l:'>',            types:['number','currency','rating'] },
+  { v:'lt',           l:'<',            types:['number','currency','rating'] },
+  { v:'gte',          l:'>=',           types:['number','currency','rating'] },
+  { v:'lte',          l:'<=',           types:['number','currency','rating'] },
+  { v:'after',        l:'after',        types:['date'] },
+  { v:'before',       l:'before',       types:['date'] },
+  { v:'true',         l:'is yes',       types:['boolean'] },
+  { v:'false',        l:'is no',        types:['boolean'] },
+];
+function opsFor(type) {
+  return COND_OPS.filter(o => o.types.includes('*') || o.types.includes(type));
+}
+
+const StepConditionBuilder = ({ step, personFields=[], recordFields=[], onChange }) => {
+  const conds   = step.entry_conditions || [];
+  const logic   = step.entry_conditions_logic || 'and';
+  const [open, setOpen] = useState(conds.length > 0);
+
+  const set = (updated) => onChange({ ...step, entry_conditions: updated });
+  const setLogic = (l) => onChange({ ...step, entry_conditions_logic: l });
+
+  const addCond = () => set([...conds, { id: Date.now()+'', source:'person', field:'', operator:'is_set', value:'' }]);
+  const removeCond = (id) => set(conds.filter(c => c.id !== id));
+  const updateCond = (id, patch) => set(conds.map(c => c.id === id ? { ...c, ...patch } : c));
+
+  const fieldsFor = (source) => source === 'record' ? recordFields : personFields;
+
+  const noValueOps = ['is_set','is_not_set','true','false'];
+
+  return (
+    <div style={{ padding:'0 20px 0' }}>
+      {/* Header toggle */}
+      <button onClick={() => setOpen(o => !o)}
+        style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 0 4px', background:'none', border:'none', cursor:'pointer', fontFamily:F, width:'100%', textAlign:'left' }}>
+        <Ic n="plus" s={10} c={conds.length>0?'#b45309':C.text3}/>
+        <span style={{ fontSize:11, fontWeight:conds.length>0?700:500, color:conds.length>0?'#b45309':C.text3 }}>
+          {conds.length > 0 ? `Entry conditions (${conds.length}) — ${logic.toUpperCase()}` : 'Add entry conditions'}
+        </span>
+        {conds.length > 0 && <Ic n={open?'chevD':'chevRight'} s={10} c='#b45309'/>}
+      </button>
+
+      {open && (
+        <div style={{ marginBottom:10, padding:'12px 14px', background:'#fffbeb', borderRadius:10, border:'1px solid #fde68a' }}>
+          <div style={{ fontSize:11, color:'#92400e', marginBottom:10, lineHeight:1.5 }}>
+            Candidate must meet <strong>all</strong> conditions below to be eligible for this stage.
+          </div>
+
+          {conds.length === 0 && (
+            <div style={{ fontSize:12, color:C.text3, fontStyle:'italic', marginBottom:8 }}>No conditions yet — this stage is always reachable.</div>
+          )}
+
+          {conds.map((c, idx) => {
+            const srcFields = fieldsFor(c.source);
+            const selField  = srcFields.find(f => f.api_key === c.field);
+            const ops       = opsFor(selField?.field_type || 'text');
+            const needsVal  = !noValueOps.includes(c.operator);
+
+            return (
+              <div key={c.id}>
+                {idx > 0 && (
+                  <div style={{ display:'flex', alignItems:'center', gap:6, margin:'6px 0' }}>
+                    {['and','or'].map(l => (
+                      <button key={l} onClick={() => setLogic(l)}
+                        style={{ padding:'2px 10px', borderRadius:20, border:'1.5px solid',
+                          borderColor: logic===l ? '#92400e' : '#fde68a',
+                          background:  logic===l ? '#92400e' : 'transparent',
+                          color:        logic===l ? 'white' : '#92400e',
+                          fontSize:10, fontWeight:700, cursor:'pointer', fontFamily:F }}>
+                        {l.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                  {/* Source */}
+                  <select value={c.source||'person'} onChange={e => updateCond(c.id,{source:e.target.value,field:'',operator:'is_set',value:''})}
+                    style={{ fontSize:11, padding:'4px 7px', border:'1px solid #fde68a', borderRadius:6, fontFamily:F, outline:'none', background:'white', color:C.text1, flexShrink:0 }}>
+                    <option value="person">Person</option>
+                    {recordFields.length > 0 && <option value="record">Record / Job</option>}
+                  </select>
+                  {/* Field */}
+                  <select value={c.field||''} onChange={e => updateCond(c.id,{field:e.target.value,operator:'is_set',value:''})}
+                    style={{ fontSize:11, padding:'4px 7px', border:'1px solid #fde68a', borderRadius:6, fontFamily:F, outline:'none', background:'white', color:C.text1, flex:2, minWidth:100 }}>
+                    <option value="">Choose field…</option>
+                    {fieldsFor(c.source).map(f => <option key={f.api_key} value={f.api_key}>{f.name}</option>)}
+                  </select>
+                  {/* Operator */}
+                  <select value={c.operator||'is_set'} onChange={e => updateCond(c.id,{operator:e.target.value,value:''})}
+                    style={{ fontSize:11, padding:'4px 7px', border:'1px solid #fde68a', borderRadius:6, fontFamily:F, outline:'none', background:'white', color:C.text1, flexShrink:0 }}>
+                    {ops.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                  </select>
+                  {/* Value */}
+                  {needsVal && (
+                    selField?.field_type === 'select' && selField.options?.length > 0 ? (
+                      <select value={c.value||''} onChange={e => updateCond(c.id,{value:e.target.value})}
+                        style={{ fontSize:11, padding:'4px 7px', border:'1px solid #fde68a', borderRadius:6, fontFamily:F, outline:'none', background:'white', color:C.text1, flex:2, minWidth:80 }}>
+                        <option value="">Any…</option>
+                        {selField.options.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    ) : selField?.field_type === 'date' ? (
+                      <input type="date" value={c.value||''} onChange={e => updateCond(c.id,{value:e.target.value})}
+                        style={{ fontSize:11, padding:'4px 7px', border:'1px solid #fde68a', borderRadius:6, fontFamily:F, outline:'none', background:'white', color:C.text1, flex:2 }}/>
+                    ) : (
+                      <input value={c.value||''} onChange={e => updateCond(c.id,{value:e.target.value})} placeholder="value…"
+                        style={{ fontSize:11, padding:'4px 7px', border:'1px solid #fde68a', borderRadius:6, fontFamily:F, outline:'none', background:'white', color:C.text1, flex:2, minWidth:80 }}/>
+                    )
+                  )}
+                  <button onClick={() => removeCond(c.id)} style={{ background:'none', border:'none', cursor:'pointer', padding:2, display:'flex', flexShrink:0, color:'#b45309' }}>
+                    <Ic n="x" s={11}/>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          <button onClick={addCond}
+            style={{ marginTop:10, display:'flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:6,
+              border:'1.5px dashed #fde68a', background:'transparent', color:'#92400e',
+              fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:F }}>
+            <Ic n="plus" s={10}/> Add condition
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Step Card ────────────────────────────────────────────────────────────────
 // Normalise legacy single-action steps to the new actions[] model
 function migrateStep(step) {
@@ -759,6 +897,24 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
   const [interviewTypes, setInterviewTypes]     = useState([]);
   const [agents, setAgents]                     = useState([]);
   const [categories, setCategories]             = useState([]);
+  const [personFields, setPersonFields]         = useState([]);
+
+  // Load person fields for entry conditions (always needed)
+  useEffect(() => {
+    if (!envId) return;
+    // Find the People object to load its fields for entry conditions
+    api.get(`/objects?environment_id=${envId}`)
+      .then(objs => {
+        const peopleObj = (Array.isArray(objs) ? objs : []).find(o =>
+          o.slug === 'people' || o.name?.toLowerCase() === 'person' || o.slug === 'person'
+        );
+        if (peopleObj) {
+          api.get(`/fields?object_id=${peopleObj.id}`)
+            .then(fs => setPersonFields(Array.isArray(fs) ? fs : []))
+            .catch(() => {});
+        }
+      }).catch(() => {});
+  }, [envId]);
 
   // Load supporting data whenever any action type changes
   const actionTypes = actions.map(a => a.type).join(",");
@@ -867,38 +1023,16 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
         </div>
       </div>
 
-      {/* ── Step Condition ── */}
-      <div style={{ padding: "6px 12px 0", background: step.condition?.field ? "#fffbeb" : "transparent", borderTop: step.condition?.field ? `1px solid #fde68a` : "none" }}>
-        {step.condition?.field ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0" }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: "#b45309", background: "#fef3c7", borderRadius: 5, padding: "2px 6px" }}>CONDITION</span>
-            <select value={step.condition?.field || ""} onChange={e => onChange({ ...step, condition: { ...step.condition, field: e.target.value } })}
-              style={{ fontSize: 11, padding: "3px 7px", border: `1px solid ${C.border}`, borderRadius: 6, fontFamily: F, outline: "none", background: "white", color: C.text1 }}>
-              <option value="">Choose field…</option>
-              {fields.map(f => <option key={f.api_key} value={f.api_key}>{f.name}</option>)}
-            </select>
-            <select value={step.condition?.operator || "equals"} onChange={e => onChange({ ...step, condition: { ...step.condition, operator: e.target.value } })}
-              style={{ fontSize: 11, padding: "3px 7px", border: `1px solid ${C.border}`, borderRadius: 6, fontFamily: F, outline: "none", background: "white", color: C.text1 }}>
-              {[["equals","equals"],["not_equals","not equals"],["contains","contains"],["not_contains","not contains"],["is_empty","is empty"],["is_not_empty","is not empty"],["greater_than",">"],["less_than","<"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
-            </select>
-            {!["is_empty","is_not_empty"].includes(step.condition?.operator||"equals") && (
-              <input value={step.condition?.value || ""} onChange={e => onChange({ ...step, condition: { ...step.condition, value: e.target.value } })} placeholder="value…"
-                style={{ flex: 1, fontSize: 11, padding: "3px 8px", border: `1px solid ${C.border}`, borderRadius: 6, fontFamily: F, outline: "none", color: C.text1 }}/>
-            )}
-            <button onClick={() => onChange({ ...step, condition: {} })} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex", color: C.text3 }} title="Remove condition">
-              <Ic n="x" s={11}/>
-            </button>
-          </div>
-        ) : (
-          <button onClick={() => onChange({ ...step, condition: { field: "", operator: "equals", value: "" } })}
-            style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 0", background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 10, fontWeight: 600, fontFamily: F, marginBottom: 2 }}>
-            <Ic n="plus" s={9}/> Add condition
-          </button>
-        )}
-      </div>
+      {/* ── Entry Conditions ── */}
+      <StepConditionBuilder
+        step={step}
+        personFields={personFields}
+        recordFields={fields}
+        onChange={onChange}
+      />
 
       {/* ── Step tabs ── */}
-      <div style={{ display:'flex', borderBottom:`1px solid ${C.border}`, margin:'0 0', padding:'0 12px', gap:0 }}>
+      <div style={{ display:'flex', borderBottom:`1px solid ${C.border}`, margin:'0 0', padding:'0 20px', gap:0 }}>
         {[
           { id:'details',    label:'Actions' },
           { id:'next_steps', label:'Next Steps' },
@@ -906,10 +1040,10 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
           { id:'hub',        label:'Hub', badge: Object.values(step.hub_config?.sections||{}).filter(Boolean).length||null },
         ].map(tab => (
           <button key={tab.id} onClick={()=>setActiveTab(tab.id)}
-            style={{ padding:'7px 12px', background:'none', border:'none',
+            style={{ padding:'9px 14px', background:'none', border:'none',
               borderBottom:`2px solid ${activeTab===tab.id?C.accent:'transparent'}`,
               color:activeTab===tab.id?C.accent:C.text3,
-              fontSize:11, fontWeight:activeTab===tab.id?700:500,
+              fontSize:12, fontWeight:activeTab===tab.id?700:500,
               cursor:'pointer', fontFamily:F, display:'flex', alignItems:'center', gap:5, marginBottom:-1 }}>
             {tab.label}
             {tab.badge ? <span style={{ fontSize:9, background:C.accent, color:'white', borderRadius:99, padding:'0 4px', lineHeight:'14px' }}>{tab.badge}</span> : null}
@@ -1113,16 +1247,18 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
 
       {/* ── Next Steps tab ── */}
       {activeTab==='next_steps' && (
+        <div style={{ padding:'16px 20px' }}>
         <NextStepsConfig
           currentStep={step}
           allSteps={allSteps}
           onChange={updated => onChange(updated)}/>
+        </div>
       )}
 
       {/* ── Visibility tab ── */}
       {activeTab==='visibility' && (
-        <div>
-          <div style={{ fontSize:11, color:C.text3, marginBottom:12, lineHeight:1.6 }}>
+        <div style={{ padding:'16px 20px' }}>
+          <div style={{ fontSize:11, color:C.text3, marginBottom:14, lineHeight:1.6 }}>
             Define which fields to show or hide at this stage based on the viewer's role.
           </div>
           <VisibilityRuleBuilder
@@ -1132,7 +1268,7 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
         </div>
       )}
       {activeTab==='hub' && (
-        <div style={{ padding:'4px 0' }}>
+        <div style={{ padding:'16px 20px' }}>
           <StepHubConfig step={step} onChange={onChange}/>
         </div>
       )}
@@ -1344,25 +1480,6 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
               </div>
             </div>
 
-            {/* Flow Type / Transition Mode */}
-            <div>
-              <div style={{ fontSize:11, fontWeight:600, color:C.text2, marginBottom:8 }}>Transition Mode</div>
-              <div style={{ display:'flex', gap:8 }}>
-                {[
-                  { value:'unstructured', label:'Flexible', desc:'Move to any stage in any order' },
-                  { value:'structured',   label:'Structured', desc:'Define allowed paths per stage (Next Steps tab)' },
-                ].map(opt => (
-                  <button key={opt.value} onClick={()=>setFlowType(opt.value)}
-                    style={{ flex:1, padding:'9px 12px', borderRadius:10,
-                      border:`2px solid ${flowType===opt.value?C.accent:C.border}`,
-                      background:flowType===opt.value?C.accentLight:'white',
-                      cursor:'pointer', fontFamily:F, textAlign:'left' }}>
-                    <div style={{ fontSize:12, fontWeight:700, color:flowType===opt.value?C.accent:C.text1, marginBottom:2 }}>{opt.label}</div>
-                    <div style={{ fontSize:11, color:C.text3, lineHeight:1.4 }}>{opt.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
             {/* Sharing */}
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: C.text2, marginBottom: 8 }}>Sharing</div>
@@ -1491,20 +1608,21 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
 
             {/* ── Step editor modal ── */}
             {editingStepIdx !== null && steps[editingStepIdx] && (
-              <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:2000, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}
+              <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", zIndex:2000, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}
                 onClick={()=>setEditingStepIdx(null)}>
                 <div onClick={e=>e.stopPropagation()}
-                  style={{ background:"white", borderRadius:18, width:"100%", maxWidth:720, maxHeight:"85vh", overflow:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.25)" }}>
-                  {/* Modal header */}
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 20px", borderBottom:`1px solid ${C.border}`, position:"sticky", top:0, background:"white", zIndex:1, borderRadius:"18px 18px 0 0" }}>
-                    <div style={{ fontSize:15, fontWeight:700, color:C.text1 }}>Edit Stage — {steps[editingStepIdx].name || "Untitled"}</div>
-                    <button onClick={()=>setEditingStepIdx(null)} style={{ background:"none", border:"none", cursor:"pointer", padding:6, display:"flex", borderRadius:8, color:C.text3 }}
+                  style={{ background:"white", borderRadius:18, width:"100%", maxWidth:860, height:"90vh",
+                    display:"flex", flexDirection:"column", boxShadow:"0 24px 64px rgba(0,0,0,0.25)", overflow:"hidden" }}>
+                  {/* Modal header — sticky */}
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"18px 24px", borderBottom:`1px solid ${C.border}`, flexShrink:0, background:"white", borderRadius:"18px 18px 0 0" }}>
+                    <div style={{ fontSize:16, fontWeight:700, color:C.text1 }}>Edit Stage — {steps[editingStepIdx].name || "Untitled"}</div>
+                    <button onClick={()=>setEditingStepIdx(null)} style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8, color:C.text3 }}
                       onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
                       <Ic n="x" s={18}/>
                     </button>
                   </div>
-                  {/* StepCard content */}
-                  <div style={{ padding:"4px 0" }}>
+                  {/* StepCard content — scrollable */}
+                  <div style={{ flex:1, overflowY:"auto", padding:"0 8px" }}>
                     <StepCard step={steps[editingStepIdx]} index={editingStepIdx} total={steps.length} fields={fields} visibilityFields={visibilityFields} envId={environment?.id}
                       allSteps={steps}
                       onChange={updated => updateStep(editingStepIdx, updated)}

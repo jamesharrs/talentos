@@ -3294,13 +3294,15 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                               const jobs = linkedJobs?.[record.id] || [];
                               if (!jobs.length) return <span style={{ fontSize:12, color:'#9ca3af' }}>—</span>;
                               return (
-                                <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                                   {jobs.map((j, idx) => (
-                                    <span key={idx} style={{ fontSize:11, fontWeight:600, color:'#4361EE',
-                                      whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:180 }}
-                                      title={j.title}>
-                                      {j.title || '—'}
-                                    </span>
+                                    <div key={idx} style={{ display:'flex', alignItems:'center', minHeight:28 }}>
+                                      <span style={{ fontSize:11, fontWeight:600, color:'#4361EE',
+                                        whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:180 }}
+                                        title={j.title}>
+                                        {j.title || '—'}
+                                      </span>
+                                    </div>
                                   ))}
                                 </div>
                               );
@@ -3310,12 +3312,14 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                               const jobs = linkedJobs?.[record.id] || [];
                               if (!jobs.length) return <span style={{ fontSize:12, color:'#9ca3af' }}>—</span>;
                               return (
-                                <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                                   {jobs.map((j, idx) => (
-                                    <StagePill key={idx}
-                                      linkInfo={j}
-                                      onStageChange={updated => onStageChange?.(record.id, updated)}
-                                    />
+                                    <div key={idx} style={{ display:'flex', alignItems:'center', minHeight:28 }}>
+                                      <StagePill
+                                        linkInfo={j}
+                                        onStageChange={updated => onStageChange?.(record.id, updated)}
+                                      />
+                                    </div>
                                   ))}
                                 </div>
                               );

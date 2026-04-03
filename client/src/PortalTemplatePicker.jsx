@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useState } from 'react';
+import ReactDOM from 'react-dom';
 import { getTemplatesForType } from './portalTemplates.js';
 
 const F = "'DM Sans', -apple-system, sans-serif";
@@ -257,12 +259,12 @@ const PreviewWidget = ({ type, config, theme }) => {
 const TemplatePreview = ({ template, onClose, onSelect }) => {
   const t = template; const th = t.theme||{}; const pages = t.pages||[];
   const [currentPage, setCurrentPage] = useState(0);
-  return (
+  return ReactDOM.createPortal(
     <div style={{ position:'fixed',inset:0,zIndex:9999,background:'rgba(15,23,41,0.85)',display:'flex',flexDirection:'column' }}>
       {/* Header bar */}
       <div style={{ padding:'12px 24px',background:'#0F1729',display:'flex',alignItems:'center',gap:16,borderBottom:'1px solid rgba(255,255,255,0.1)' }}>
-        <button onClick={onClose} style={{ background:'none',border:'none',color:'white',cursor:'pointer',display:'flex',alignItems:'center',gap:4,fontSize:13,fontWeight:600,fontFamily:F }}>
-          <Ic n="x" s={16} c="white"/> Close
+        <button onClick={onClose} style={{ background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.2)',color:'white',cursor:'pointer',display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:700,fontFamily:F,padding:'6px 12px',borderRadius:8 }}>
+          <Ic n="x" s={14} c="white"/> Close preview
         </button>
         <div style={{ flex:1 }}/>
         <div style={{ fontSize:14,fontWeight:800,color:'white',fontFamily:F }}>

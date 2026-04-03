@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import api from './apiClient.js';
 
 const F = "'DM Sans', -apple-system, sans-serif";
 const C = {
@@ -55,10 +56,7 @@ export default function NotificationsSection() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/notification-preferences', {
-        headers: { 'X-Tenant-Slug': localStorage.getItem('vrc_tenant') || '', 'X-User-Id': localStorage.getItem('vrc_user_id') || '' },
-      });
-      const data = await res.json();
+      const data = await api.get('/notification-preferences');
       setCategories(data.categories || []);
       setTypes(data.types || []);
       setDigestConfig(data.digest_config || { daily_time: '08:00', weekly_day: 'friday', timezone: 'Asia/Dubai' });
@@ -82,11 +80,7 @@ export default function NotificationsSection() {
     const preferences = {};
     types.forEach(t => { preferences[t.key] = { in_app: t.in_app, email: t.email }; });
     try {
-      await fetch('/api/notification-preferences', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-Tenant-Slug': localStorage.getItem('vrc_tenant') || '', 'X-User-Id': localStorage.getItem('vrc_user_id') || '' },
-        body: JSON.stringify({ preferences, digest_config: digestConfig, match_threshold: matchThreshold, quiet_hours: quietHours }),
-      });
+      await api.put('/notification-preferences', { preferences, digest_config: digestConfig, match_threshold: matchThreshold, quiet_hours: quietHours });
       setSaved(true); setTimeout(() => setSaved(false), 2000);
     } catch (e) { console.error('Failed to save:', e); }
     setSaving(false);

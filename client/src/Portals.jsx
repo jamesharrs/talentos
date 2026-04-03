@@ -423,6 +423,42 @@ const ThemeDrawer = ({ theme, onChange, onClose }) => {
 };
 
 
+// ─── Equal Opportunities Tab ───────────────────────────────────────────────────
+const EqualOppsTab = ({ portal, onChange }) => {
+  const inp = { padding:"7px 10px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:13, fontFamily:F, outline:"none", color:C.text1, background:C.surface, width:"100%", boxSizing:"border-box" };
+  const lbl = t => <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:5 }}>{t}</div>;
+  const set = (k, v) => onChange({ ...portal, [k]: v });
+  const TEMPLATE_FIELDS = { uk:['Gender identity','Age range','Ethnic origin','Disability','Religion or belief','Sexual orientation'], us:['Gender','Race / Ethnicity','Veteran status','Disability status'], uae:['Gender','Age range'], generic:['Gender identity','Age range'] };
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <div style={{ background:"#F0FDF4", border:"1px solid #86EFAC", borderRadius:10, padding:"10px 14px" }}>
+        <p style={{ fontSize:12, color:"#15803D", margin:0, lineHeight:1.6 }}>Equal Opportunities monitoring is <strong>anonymous and optional</strong> for applicants. Data is stored separately from the application and not visible to hiring managers during shortlisting.</p>
+      </div>
+      <label style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", fontSize:13, color:C.text2 }}>
+        <input type="checkbox" checked={portal.eo_enabled!==false} onChange={e=>set("eo_enabled",e.target.checked)} style={{ width:14, height:14 }}/>
+        <span style={{ fontWeight:600 }}>Enable Equal Opportunities section on application forms</span>
+      </label>
+      {portal.eo_enabled!==false && (<>
+        <div>
+          {lbl("Country / region template")}
+          <select value={portal.eo_country||"generic"} onChange={e=>set("eo_country",e.target.value)} style={inp}>
+            <option value="uk">United Kingdom — gender, age, ethnicity, disability, religion, orientation</option>
+            <option value="us">United States — EEO compliant (gender, race, veteran, disability)</option>
+            <option value="uae">UAE / Middle East — gender and age</option>
+            <option value="generic">Generic / International — gender and age</option>
+          </select>
+        </div>
+        <div style={{ background:C.surface2, borderRadius:10, padding:12, border:`1px solid ${C.border}` }}>
+          <div style={{ fontSize:11, fontWeight:700, color:C.text3, marginBottom:8 }}>QUESTIONS IN THIS TEMPLATE</div>
+          {(TEMPLATE_FIELDS[portal.eo_country||"generic"]||[]).map(q=>(
+            <div key={q} style={{ fontSize:12, color:C.text2, padding:"3px 0", borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", gap:6 }}><span style={{ color:"#0CA678" }}>✓</span> {q} <span style={{ color:C.text3, marginLeft:"auto", fontSize:11 }}>+ Prefer not to say</span></div>
+          ))}
+        </div>
+      </>)}
+    </div>
+  );
+};
+
 // ─── Feedback Tab (config + reports) ──────────────────────────────────────────
 const FeedbackTab = ({ portal, onChange, accent, api: apiProp }) => {
   const [sub, setSub] = useState("configure");
@@ -466,7 +502,7 @@ const PortalSettingsDrawer = ({ portal, onChange, onClose, api: apiProp }) => {
           </button>
         </div>
         <div style={{display:"flex",borderBottom:`1px solid ${C.border}`}}>
-          {[["branding","Branding"],["access","Access"],["domain","Domain & Embed"],["gdpr","GDPR"],["feedback","Feedback"],["copilot","Copilot"]].map(([id,l])=>(
+          {[["branding","Branding"],["access","Access"],["domain","Domain & Embed"],["gdpr","GDPR"],["eo","Equal Opps"],["feedback","Feedback"],["copilot","Copilot"]].map(([id,l])=>(
             <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"10px 0",border:"none",background:"transparent",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,color:tab===id?C.accent:C.text3,borderBottom:tab===id?`2px solid ${C.accent}`:"2px solid transparent"}}>{l}</button>
           ))}
         </div>
@@ -545,6 +581,7 @@ const PortalSettingsDrawer = ({ portal, onChange, onClose, api: apiProp }) => {
           {lbl("Banner background colour")}
           <div style={{display:"flex",gap:8,alignItems:"center"}}><input type="color" value={gdpr.bannerBg||"#0F1729"} onChange={e=>setG("bannerBg",e.target.value)} style={{width:34,height:28,padding:0,border:"none",cursor:"pointer",borderRadius:4}}/><input value={gdpr.bannerBg||""} onChange={e=>setG("bannerBg",e.target.value)} placeholder="#0F1729" style={{...inp,flex:1}}/></div>
         </>}
+        {tab==="eo"&&<EqualOppsTab portal={portal} onChange={onChange}/>}
         {tab==="feedback"&&<FeedbackTab portal={portal} onChange={onChange} accent={C.accent} api={apiProp}/>}
         {tab==="copilot"&&(()=>{
           const cop = portal.copilot || {};

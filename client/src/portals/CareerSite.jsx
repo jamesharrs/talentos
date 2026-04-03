@@ -357,7 +357,7 @@ const ApplyForm = ({ job, portal, onBack, onSuccess, api }) => {
           {step===STEP_SCREENING && (
             <div>
               <h3 style={{ fontSize:20, fontWeight:800, color:'#0F1729', marginBottom:4 }}>Pre-screen questions</h3>
-              <p style={{ color:'#6B7280', fontSize:13, marginBottom:20 }}>{screeningQuestions.length===0?'No additional questions for this role.`':`Please answer ${screeningQuestions.length} question${screeningQuestions.length!==1?'s':''} to continue.`}</p>
+              <p style={{ color:'#6B7280', fontSize:13, marginBottom:20 }}>{screeningQuestions.length===0?'No additional questions for this role.':`Please answer ${screeningQuestions.length} question${screeningQuestions.length!==1?'s':''} to continue.`}</p>
               {screeningQuestions.length===0 && <div style={{ textAlign:'center', padding:'32px 0', color:'#9CA3AF', fontSize:14 }}>No screening questions set for this role. Click Continue.</div>}
               <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
                 {screeningQuestions.map((q,i)=>{

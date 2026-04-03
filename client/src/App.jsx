@@ -2407,7 +2407,46 @@ function App() {
 // ─── User footer menu (Settings / Help / Sign out) ───────────────────────────
 function UserFooterMenu({ session, activeNav, setActiveNav, clearSession, setSession, t, environments = [], selectedEnv, onSwitchEnv }) {
   const [open, setOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const multiEnv = environments.length > 1;
+
+  const TEST_USERS = [
+    { email: "admin@talentos.io",       password: "Admin1234!", label: "Super Admin",    roleSlug: "super_admin",    color: "#e03131" },
+    { email: "admin.test@talentos.io",  password: "Admin1234!", label: "Admin",          roleSlug: "admin",          color: "#f59f00" },
+    { email: "recruiter@talentos.io",   password: "Admin1234!", label: "Recruiter",      roleSlug: "recruiter",      color: "#4361EE" },
+    { email: "manager@talentos.io",     password: "Admin1234!", label: "Hiring Manager", roleSlug: "hiring_manager", color: "#0ca678" },
+    { email: "readonly@talentos.io",    password: "Admin1234!", label: "Read Only",      roleSlug: "read_only",      color: "#868e96" },
+  ];
+
+  const switchUser = async (u) => {
+    if (switching) return;
+    setSwitching(u.email);
+    try {
+      const res = await fetch("/api/users/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: u.email, password: u.password }),
+      });
+      const data = await res.json();
+      if (res.ok && data.id) {
+        const sessionData = {
+          user:        { id: data.id, email: data.email, first_name: data.first_name, last_name: data.last_name },
+          role:        data.role || {},
+          permissions: data.permissions || [],
+          tenant_slug: data.tenant_slug || null,
+        };
+        try { localStorage.setItem("talentos_session", JSON.stringify(sessionData)); } catch {}
+        setSession(sessionData);
+        setOpen(false);
+        window.location.reload();
+      } else {
+        alert(data.error || "Switch failed");
+      }
+    } catch { alert("Could not reach server"); }
+    setSwitching(false);
+  };
+
+  const currentSlug = session?.role?.slug;
   return (
     <div style={{ position: "relative" }}>
       {open && (
@@ -2417,6 +2456,47 @@ function UserFooterMenu({ session, activeNav, setActiveNav, clearSession, setSes
             background: "var(--t-surface)", border: "1px solid var(--t-border)",
             borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
             zIndex: 201, overflow: "hidden", padding: "4px 0" }}>
+
+            {/* ── Dev: User switcher ── */}
+            <div style={{ padding: "6px 14px 4px", fontSize: 10, fontWeight: 700,
+              color: "#f59f00", letterSpacing: "0.06em", textTransform: "uppercase",
+              display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59f00" }}/>
+              Test User Switcher
+            </div>
+            {TEST_USERS.map(u => {
+              const isCurrent = currentSlug === u.roleSlug;
+              const isLoading = switching === u.email;
+              return (
+                <button key={u.email} onClick={() => !isCurrent && switchUser(u)}
+                  disabled={isCurrent || !!switching}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 9,
+                    padding: "7px 14px", border: "none",
+                    background: isCurrent ? `${u.color}12` : "transparent",
+                    cursor: isCurrent ? "default" : "pointer",
+                    fontFamily: "inherit", fontSize: 12,
+                    color: isCurrent ? u.color : "var(--t-text2)",
+                    textAlign: "left", opacity: (switching && !isLoading) ? 0.4 : 1,
+                    transition: "opacity 0.15s" }}
+                  onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background = "var(--t-surface2)"; }}
+                  onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = isCurrent ? `${u.color}12` : "transparent"; }}>
+                  <span style={{ width: 24, height: 24, borderRadius: "50%", background: u.color,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0, fontSize: 9, fontWeight: 800, color: "white" }}>
+                    {isLoading ? "…" : u.label.split(" ").map(w=>w[0]).join("").slice(0,2)}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: isCurrent ? 700 : 500, lineHeight: 1.2 }}>{u.label}</div>
+                    <div style={{ fontSize: 10, color: "var(--t-text3)", lineHeight: 1.2 }}>{u.email}</div>
+                  </div>
+                  {isCurrent && (
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 99,
+                      background: u.color, color: "white", flexShrink: 0 }}>ACTIVE</span>
+                  )}
+                </button>
+              );
+            })}
+            <div style={{ height: 1, background: "var(--t-border)", margin: "4px 0" }} />
 
             {/* Environment switcher — only shown when multiple envs exist */}
             {multiEnv && (

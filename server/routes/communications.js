@@ -162,19 +162,27 @@ router.delete('/:id', (req, res) => {
 // ─── Inbound webhooks (Twilio calls these when a message arrives) ─────────────
 
 // ─── Helper: match phone number to a person record ───────────────────────────
+// ─── Helper: match phone number to a person record (single-environment only) ─
+// Returns null if multiple records match across different environments (ambiguous)
 function findRecordByPhone(phone) {
   if (!phone) return null;
-  const clean = phone.replace(/[\s\-\(\)whatsapp:]/g, ''); // strip formatting
+  const clean = phone.replace(/[\s\-\(\)whatsapp:]/g, '');
   const records = query('records', () => true);
+  const matches = [];
   for (const r of records) {
     const d = r.data || {};
-    // Check common phone field names
     for (const key of ['phone', 'mobile', 'phone_number', 'mobile_number', 'cell', 'telephone', 'whatsapp']) {
       const val = d[key];
-      if (val && val.replace(/[\s\-\(\)]/g, '') === clean) return r;
+      if (val && val.replace(/[\s\-\(\)]/g, '') === clean) { matches.push(r); break; }
     }
   }
-  return null;
+  // If same number exists in multiple environments, don't auto-link (ambiguous)
+  const envs = new Set(matches.map(r => r.environment_id));
+  if (envs.size > 1) {
+    console.log(`[comms] Phone ${phone} matched ${matches.length} records across ${envs.size} environments — skipping auto-link`);
+    return null;
+  }
+  return matches[0] || null;
 }
 
 // ─── Helper: find the most recent outbound thread to this number ──────────────
@@ -192,9 +200,10 @@ function findThreadByPhone(phone, type) {
 // Twilio SMS inbound
 router.post('/webhook/sms', express.urlencoded({ extended: false }), (req, res) => {
   const { From, Body, MessageSid } = req.body;
-  // Match sender to a person record + find existing conversation thread
-  const matchedRecord = findRecordByPhone(From);
+  // Match via existing conversation thread FIRST (safe — uses the exact record_id from outbound)
+  // Only fallback to phone lookup if thread not found AND single-environment match
   const threadMatch = findThreadByPhone(From, 'sms');
+  const fallbackRecord = !threadMatch ? findRecordByPhone(From) : null;
   const item = {
     id: uuidv4(),
     type: 'sms',
@@ -204,7 +213,7 @@ router.post('/webhook/sms', express.urlencoded({ extended: false }), (req, res) 
     status: 'received',
     provider_sid: MessageSid,
     simulated: false,
-    record_id: threadMatch?.record_id || matchedRecord?.id || null,
+    record_id: threadMatch?.record_id || fallbackRecord?.id || null,
     thread_id: threadMatch?.thread_id || uuidv4(),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -220,8 +229,8 @@ router.post('/webhook/sms', express.urlencoded({ extended: false }), (req, res) 
 router.post('/webhook/whatsapp', express.urlencoded({ extended: false }), (req, res) => {
   const { From, Body, MessageSid } = req.body;
   const cleanFrom = From.replace('whatsapp:', '');
-  const matchedRecord = findRecordByPhone(cleanFrom);
   const threadMatch = findThreadByPhone(cleanFrom, 'whatsapp');
+  const fallbackRecord = !threadMatch ? findRecordByPhone(cleanFrom) : null;
   const item = {
     id: uuidv4(),
     type: 'whatsapp',
@@ -231,7 +240,7 @@ router.post('/webhook/whatsapp', express.urlencoded({ extended: false }), (req, 
     status: 'received',
     provider_sid: MessageSid,
     simulated: false,
-    record_id: threadMatch?.record_id || matchedRecord?.id || null,
+    record_id: threadMatch?.record_id || fallbackRecord?.id || null,
     thread_id: threadMatch?.thread_id || uuidv4(),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

@@ -274,6 +274,24 @@ router.post('/:id/test', async (req, res) => {
         result = r.ok ? { ok:true, message:'Connected to Checkr successfully' } : { ok:false, message:`Checkr returned ${r.status}` };
         break;
       }
+      case 'twilio': {
+        const auth = Buffer.from(`${cfg.TWILIO_ACCOUNT_SID}:${cfg.TWILIO_AUTH_TOKEN}`).toString('base64');
+        const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${cfg.TWILIO_ACCOUNT_SID}.json`,
+          { headers: { Authorization: `Basic ${auth}` } });
+        if (r.ok) {
+          const acct = await r.json();
+          result = { ok:true, message:`Connected to Twilio — account "${acct.friendly_name}" (${acct.status})` };
+        } else {
+          result = { ok:false, message:`Twilio returned ${r.status} — check Account SID and Auth Token` };
+        }
+        break;
+      }
+      case 'sendgrid': {
+        const r = await fetch('https://api.sendgrid.com/v3/user/profile',
+          { headers: { Authorization: `Bearer ${cfg.SENDGRID_API_KEY}` } });
+        result = r.ok ? { ok:true, message:'Connected to SendGrid successfully' } : { ok:false, message:`SendGrid returned ${r.status} — check API key` };
+        break;
+      }
       default: {
         const requiredFields = (cat?.fields || []).filter(f => f.required);
         const allSet = requiredFields.every(f => cfg[f.key]);

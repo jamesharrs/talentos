@@ -311,6 +311,7 @@ function SetupModal({provider,existing,environmentId,onClose,onSaved}){
     setTesting(true);setTestResult(null);
     const r=await tFetch(`/api/integrations/${existing.id}/test`,{method:'POST'}).then(x=>x.json()).catch(e=>({ok:false,message:e.message}));
     setTestResult(r);setTesting(false);
+    if(r.ok) onSaved(r); // refresh parent list so status badge updates
   };
 
   return(

@@ -134,6 +134,7 @@ app.use('/api/interview-plans',   require('./routes/interview_plans'));
 app.use('/api/interview-coordinator', require('./routes/interview_coordinator'));
 app.use('/api/offers',            require('./routes/offers'));
 app.use('/api/calendar',          require('./routes/calendar'));
+app.use('/api/scorecards',require('./routes/scorecards'));
 app.use('/api/screening',         require('./routes/screening'));
 app.use('/api/duplicates',        require('./routes/duplicates'));
 app.use('/api/data-import',       require('./routes/data_import'));

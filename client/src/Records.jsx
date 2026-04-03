@@ -1032,6 +1032,11 @@ const AvatarWithDupBadge = ({ name, color, size = 32, photoUrl, dupInfo }) => {
                 <span style={{ color:"#6b7280", flexShrink:0 }}>›</span>{r}
               </div>
             ))}
+            {dupInfo.messaging_conflict && (
+              <div style={{ marginTop:6, padding:"5px 8px", background:"#7f1d1d", borderRadius:6, fontSize:10, color:"#fca5a5", lineHeight:1.4 }}>
+                ⚠ Inbound SMS/WhatsApp replies will be routed to both records. Consider merging.
+              </div>
+            )}
             <div style={{
               position:"absolute", bottom:-5, left:"50%",
               transform:"translateX(-50%)",
@@ -7424,11 +7429,11 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
         if (!Array.isArray(result?.pairs)) return;
         const map = {};
         result.pairs.forEach(pair => {
-          const add = (id, score, reasons) => {
-            if (!map[id] || map[id].score < score) map[id] = { score, reasons };
+          const add = (id, score, reasons, mc) => {
+            if (!map[id] || map[id].score < score) map[id] = { score, reasons, messaging_conflict: mc };
           };
-          add(pair.record_a.id, pair.score, pair.reasons);
-          add(pair.record_b.id, pair.score, pair.reasons);
+          add(pair.record_a.id, pair.score, pair.reasons, pair.messaging_conflict);
+          add(pair.record_b.id, pair.score, pair.reasons, pair.messaging_conflict);
         });
         setDupMap(map);
       }).catch(() => {});

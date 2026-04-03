@@ -162,10 +162,10 @@ router.delete('/:id', (req, res) => {
 // ─── Inbound webhooks (Twilio calls these when a message arrives) ─────────────
 
 // ─── Helper: match phone number to a person record ───────────────────────────
-// ─── Helper: match phone number to a person record (single-environment only) ─
-// Returns null if multiple records match across different environments (ambiguous)
-function findRecordByPhone(phone) {
-  if (!phone) return null;
+// ─── Helper: find ALL person records matching a phone number ─────────────────
+// Returns array of records. Cross-environment matches are excluded.
+function findRecordsByPhone(phone) {
+  if (!phone) return [];
   const clean = phone.replace(/[\s\-\(\)whatsapp:]/g, '');
   const records = query('records', () => true);
   const matches = [];
@@ -176,13 +176,16 @@ function findRecordByPhone(phone) {
       if (val && val.replace(/[\s\-\(\)]/g, '') === clean) { matches.push(r); break; }
     }
   }
-  // If same number exists in multiple environments, don't auto-link (ambiguous)
+  // If matches span multiple environments, only return records from the env with the most matches
   const envs = new Set(matches.map(r => r.environment_id));
   if (envs.size > 1) {
-    console.log(`[comms] Phone ${phone} matched ${matches.length} records across ${envs.size} environments — skipping auto-link`);
-    return null;
+    console.log(`[comms] Phone ${phone} matched ${matches.length} records across ${envs.size} environments — routing to most active env`);
+    const envCounts = {};
+    matches.forEach(r => { envCounts[r.environment_id] = (envCounts[r.environment_id] || 0) + 1; });
+    const topEnv = Object.entries(envCounts).sort((a,b) => b[1] - a[1])[0][0];
+    return matches.filter(r => r.environment_id === topEnv);
   }
-  return matches[0] || null;
+  return matches;
 }
 
 // ─── Helper: find the most recent outbound thread to this number ──────────────
@@ -200,27 +203,27 @@ function findThreadByPhone(phone, type) {
 // Twilio SMS inbound
 router.post('/webhook/sms', express.urlencoded({ extended: false }), (req, res) => {
   const { From, Body, MessageSid } = req.body;
-  // Match via existing conversation thread FIRST (safe — uses the exact record_id from outbound)
-  // Only fallback to phone lookup if thread not found AND single-environment match
   const threadMatch = findThreadByPhone(From, 'sms');
-  const fallbackRecord = !threadMatch ? findRecordByPhone(From) : null;
-  const item = {
-    id: uuidv4(),
-    type: 'sms',
-    direction: 'inbound',
-    from_label: From,
-    body: Body,
-    status: 'received',
-    provider_sid: MessageSid,
-    simulated: false,
-    record_id: threadMatch?.record_id || fallbackRecord?.id || null,
-    thread_id: threadMatch?.thread_id || uuidv4(),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-  insert('communications', item);
-  console.log(`[comms] Inbound SMS from ${From} → record:${item.record_id || 'unmatched'}`);
-  try { logEvent('default', { provider:'twilio', action:'receive_sms', ok:true, detail:`From: ${From}` }); } catch(e) {}
+  const fallbackRecords = !threadMatch ? findRecordsByPhone(From) : [];
+  const now = new Date().toISOString();
+  const baseThread = threadMatch?.thread_id || uuidv4();
+
+  // Build list of record_ids to link to (thread match + all phone matches, deduplicated)
+  const recordIds = new Set();
+  if (threadMatch?.record_id) recordIds.add(threadMatch.record_id);
+  fallbackRecords.forEach(r => recordIds.add(r.id));
+
+  // Create a comm entry for EACH matched record (so duplicates both get the reply)
+  if (recordIds.size === 0) recordIds.add(null); // still save unmatched
+  for (const rid of recordIds) {
+    insert('communications', {
+      id: uuidv4(), type: 'sms', direction: 'inbound', from_label: From,
+      body: Body, status: 'received', provider_sid: MessageSid, simulated: false,
+      record_id: rid, thread_id: baseThread, created_at: now, updated_at: now,
+    });
+  }
+  console.log(`[comms] Inbound SMS from ${From} → ${recordIds.size} record(s): ${[...recordIds].join(', ') || 'unmatched'}`);
+  try { logEvent('default', { provider:'twilio', action:'receive_sms', ok:true, detail:`From: ${From} → ${recordIds.size} record(s)` }); } catch(e) {}
   res.set('Content-Type', 'text/xml');
   res.send('<Response></Response>');
 });
@@ -230,24 +233,24 @@ router.post('/webhook/whatsapp', express.urlencoded({ extended: false }), (req, 
   const { From, Body, MessageSid } = req.body;
   const cleanFrom = From.replace('whatsapp:', '');
   const threadMatch = findThreadByPhone(cleanFrom, 'whatsapp');
-  const fallbackRecord = !threadMatch ? findRecordByPhone(cleanFrom) : null;
-  const item = {
-    id: uuidv4(),
-    type: 'whatsapp',
-    direction: 'inbound',
-    from_label: cleanFrom,
-    body: Body,
-    status: 'received',
-    provider_sid: MessageSid,
-    simulated: false,
-    record_id: threadMatch?.record_id || fallbackRecord?.id || null,
-    thread_id: threadMatch?.thread_id || uuidv4(),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-  insert('communications', item);
-  console.log(`[comms] Inbound WhatsApp from ${cleanFrom} → record:${item.record_id || 'unmatched'}`);
-  try { logEvent('default', { provider:'twilio', action:'receive_whatsapp', ok:true, detail:`From: ${cleanFrom}` }); } catch(e) {}
+  const fallbackRecords = !threadMatch ? findRecordsByPhone(cleanFrom) : [];
+  const now = new Date().toISOString();
+  const baseThread = threadMatch?.thread_id || uuidv4();
+
+  const recordIds = new Set();
+  if (threadMatch?.record_id) recordIds.add(threadMatch.record_id);
+  fallbackRecords.forEach(r => recordIds.add(r.id));
+  if (recordIds.size === 0) recordIds.add(null);
+
+  for (const rid of recordIds) {
+    insert('communications', {
+      id: uuidv4(), type: 'whatsapp', direction: 'inbound', from_label: cleanFrom,
+      body: Body, status: 'received', provider_sid: MessageSid, simulated: false,
+      record_id: rid, thread_id: baseThread, created_at: now, updated_at: now,
+    });
+  }
+  console.log(`[comms] Inbound WhatsApp from ${cleanFrom} → ${recordIds.size} record(s)`);
+  try { logEvent('default', { provider:'twilio', action:'receive_whatsapp', ok:true, detail:`From: ${cleanFrom} → ${recordIds.size} record(s)` }); } catch(e) {}
   res.set('Content-Type', 'text/xml');
   res.send('<Response></Response>');
 });

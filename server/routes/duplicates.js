@@ -50,7 +50,10 @@ router.post('/scan', (req, res) => {
       const k=[records[i].id,records[j].id].sort().join('|');
       if (seen.has(k)) continue; seen.add(k);
       const { score, reasons } = duplicateScore(records[i], records[j]);
-      if (score >= Number(threshold)) pairs.push({ score, reasons, record_a:records[i], record_b:records[j] });
+      if (score >= Number(threshold)) {
+        const messaging_conflict = reasons.includes('Same phone');
+        pairs.push({ score, reasons, messaging_conflict, record_a:records[i], record_b:records[j] });
+      }
     }
     pairs.sort((a,b)=>b.score-a.score);
     res.json({ total:pairs.length, pairs:pairs.slice(0,100) });

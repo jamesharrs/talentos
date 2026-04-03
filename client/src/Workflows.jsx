@@ -2034,6 +2034,28 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
     if (peopleLinks.length <= 1) setSelectedStage(null);
   };
 
+  const bulkRemove = async () => {
+    if (!selectedLinks.length) return;
+    if (!(await window.__confirm({ title:`Remove ${selectedLinks.length} ${selectedLinks.length===1?'person':'people'} from this workflow?`, danger:true }))) return;
+    await Promise.all(selectedLinks.map(id => api.delete(`/workflows/people-links/${id}`)));
+    setPeopleLinks(ls => ls.filter(l => !selectedLinks.includes(l.id)));
+    setSelectedLinks([]);
+  };
+
+  const bulkRunStepActions = async (stepId) => {
+    const step = plSteps.find(s => s.id === stepId);
+    if (!step || !(step.actions||[]).some(a=>a.type)) return;
+    const count = selectedLinks.length;
+    if (!(await window.__confirm({ title:`Run "${step.name}" automations on ${count} ${count===1?'person':'people'}?`, message:'This will trigger all configured actions for this stage on each selected person.' }))) return;
+    const results = await Promise.allSettled(
+      selectedLinks.map(linkId => api.post(`/workflows/run-step`, { link_id: linkId, step_id: stepId }))
+    );
+    const failed = results.filter(r => r.status === 'rejected').length;
+    if (failed) window.__toast?.alert(`Completed with ${failed} error(s). Check activity logs.`);
+    setSelectedLinks([]);
+    await load();
+  };
+
   const pLabel = (p) => { const d = p.person_data || {}; return [d.first_name, d.last_name].filter(Boolean).join(" ") || d.email || p.person_record_id?.slice(0,8); };
   const pSub   = (p) => { const d = p.person_data || {}; return d.current_title || d.email || ""; };
   const pInit  = (p) => pLabel(p).charAt(0).toUpperCase();

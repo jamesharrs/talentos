@@ -878,5 +878,30 @@ router.delete('/people-links/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// POST /api/workflows/run-step — run a step's actions on one person-link (for bulk pipeline actions)
+router.post('/run-step', async (req, res) => {
+  const { link_id, step_id } = req.body;
+  if (!link_id || !step_id) return res.status(400).json({ error: 'link_id and step_id required' });
+  ensureTables();
+  const store = getStore();
+  const link = (store.people_links || []).find(l => l.id === link_id);
+  if (!link) return res.status(404).json({ error: 'Link not found' });
+  const step = (store.workflow_steps || []).find(s => s.id === step_id);
+  if (!step) return res.status(404).json({ error: 'Step not found' });
+  const record = (store.records || []).find(r => r.id === link.person_record_id);
+  if (!record) return res.status(404).json({ error: 'Person record not found' });
+  const actions = stepActions(step);
+  const log = [];
+  for (const action of actions) {
+    try {
+      const result = await executeAction(action, record, step, store, req);
+      log.push({ action_type: action.type, status: 'ok', output: result?.message || 'Done' });
+    } catch (e) {
+      log.push({ action_type: action.type, status: 'error', output: e.message });
+    }
+  }
+  res.json({ ok: true, step_run_log: log });
+});
+
 module.exports = router;
 module.exports.triggerWorkflows = triggerWorkflows;

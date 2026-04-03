@@ -102,7 +102,48 @@ router.delete('/:id', (req, res) => {
 });
 
 // ── Bulk save rules for a job (replace all) ───────────────────────────────────
+
+// -- Get all rules for a job (question-based format) --------------------------
+router.get('/job/:record_id', (req, res) => {
+  try {
+    const store = getStore();
+    const jobRules = (store.screening_job_rules || []).filter(r => r.record_id === req.params.record_id);
+    const config = (store.screening_configs || []).find(c => c.record_id === req.params.record_id) || {};
+    res.json({
+      rules: jobRules,
+      auto_actions: {
+        auto_reject_knockout: config.auto_reject_knockouts !== false,
+        flag_for_review: config.flag_for_review !== false,
+        auto_advance_threshold: config.auto_advance_threshold || 70,
+      }
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 router.put('/job/:record_id', (req, res) => {
+  try {
+    const { rules, auto_actions, environment_id } = req.body;
+    if (!Array.isArray(rules)) return res.status(400).json({ error: 'rules array required' });
+    const store = getStore();
+    if (!store.screening_job_rules) store.screening_job_rules = [];
+    store.screening_job_rules = store.screening_job_rules.filter(r => r.record_id !== req.params.record_id);
+    const now = new Date().toISOString();
+    for (const rule of rules) {
+      store.screening_job_rules.push({ id: uuidv4(), record_id: req.params.record_id, ...rule, created_at: now, updated_at: now });
+    }
+    if (auto_actions) {
+      if (!store.screening_configs) store.screening_configs = [];
+      const ci = store.screening_configs.findIndex(c => c.record_id === req.params.record_id);
+      const cfg = { record_id: req.params.record_id, auto_reject_knockouts: !!auto_actions.auto_reject_knockout, flag_for_review: !!auto_actions.flag_for_review, auto_advance_threshold: Number(auto_actions.auto_advance_threshold)||70, updated_at: now };
+      if (ci>=0) store.screening_configs[ci] = cfg; else store.screening_configs.push({ id: uuidv4(), ...cfg, created_at: now });
+    }
+    saveStore(store);
+    return res.json({ saved: rules.length });
+  } catch (err) { return res.status(500).json({ error: err.message }); }
+});
+
+// -- Legacy bulk save (old field-based format) --------------------------------
+router.put('/job-legacy/:record_id', (req, res) => {
   try {
     const { rules, environment_id } = req.body;
     if (!environment_id || !Array.isArray(rules)) return res.status(400).json({ error: 'environment_id and rules array required' });

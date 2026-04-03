@@ -2395,6 +2395,16 @@ const InlineNav = ({ nav, theme, onChange, isEditing }) => {
             <div>{lbl("Logo text (fallback)")}<input value={nav.logoText||""} onChange={e=>set("logoText",e.target.value)} placeholder="Company" style={inp}/></div>
             <div>{lbl("Background")}<input type="color" value={nav.bgColor||"#ffffff"} onChange={e=>set("bgColor",e.target.value)} style={{...inp,padding:2,height:30,cursor:"pointer"}}/></div>
             <div>{lbl("Text colour")}<input type="color" value={nav.textColor||"#0F1729"} onChange={e=>set("textColor",e.target.value)} style={{...inp,padding:2,height:30,cursor:"pointer"}}/></div>
+            <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div>
+                {lbl(`Logo height: ${nav.logoHeight||32}px`)}
+                <input type="range" min={16} max={80} value={nav.logoHeight||32} onChange={e=>set("logoHeight",Number(e.target.value))} style={{width:"100%",marginTop:4}}/>
+              </div>
+              <div>
+                {lbl(`Header height: ${nav.headerHeight||60}px`)}
+                <input type="range" min={40} max={120} value={nav.headerHeight||60} onChange={e=>set("headerHeight",Number(e.target.value))} style={{width:"100%",marginTop:4}}/>
+              </div>
+            </div>
           </div>
           <div>
             {lbl("Nav links")}

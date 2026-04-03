@@ -625,13 +625,20 @@ function opsFor(type) {
   return COND_OPS.filter(o => o.types.includes('*') || o.types.includes(type));
 }
 
-const StepConditionBuilder = ({ step, personFields=[], recordFields=[], onChange }) => {
-  const conds   = step.entry_conditions || [];
-  const logic   = step.entry_conditions_logic || 'and';
+const StepConditionBuilder = ({ step, personFields=[], recordFields=[], onChange,
+  /* generic mode — pass these instead of step to drive hub conditions */
+  conditions: condsProp, logic: logicProp, onConditionsChange, onLogicChange,
+  label='Add entry conditions', activeLabel='Entry conditions',
+}) => {
+  // Supports both "step mode" (reads/writes step.entry_conditions) and
+  // "generic mode" (reads/writes condsProp directly)
+  const generic = !!onConditionsChange;
+  const conds   = generic ? (condsProp || []) : (step?.entry_conditions || []);
+  const logic   = generic ? (logicProp  || 'and') : (step?.entry_conditions_logic || 'and');
   const [open, setOpen] = useState(conds.length > 0);
 
-  const set = (updated) => onChange({ ...step, entry_conditions: updated });
-  const setLogic = (l) => onChange({ ...step, entry_conditions_logic: l });
+  const set = (updated) => generic ? onConditionsChange(updated) : onChange({ ...step, entry_conditions: updated });
+  const setLogic = (l) => generic ? onLogicChange(l) : onChange({ ...step, entry_conditions_logic: l });
 
   const addCond = () => set([...conds, { id: Date.now()+'', source:'person', field:'', operator:'is_set', value:'' }]);
   const removeCond = (id) => set(conds.filter(c => c.id !== id));
@@ -648,7 +655,7 @@ const StepConditionBuilder = ({ step, personFields=[], recordFields=[], onChange
         style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 0 4px', background:'none', border:'none', cursor:'pointer', fontFamily:F, width:'100%', textAlign:'left' }}>
         <Ic n="plus" s={10} c={conds.length>0?'#b45309':C.text3}/>
         <span style={{ fontSize:11, fontWeight:conds.length>0?700:500, color:conds.length>0?'#b45309':C.text3 }}>
-          {conds.length > 0 ? `Entry conditions (${conds.length}) — ${logic.toUpperCase()}` : 'Add entry conditions'}
+          {conds.length > 0 ? `${activeLabel} (${conds.length}) — ${logic.toUpperCase()}` : label}
         </span>
         {conds.length > 0 && <Ic n={open?'chevD':'chevRight'} s={10} c='#b45309'/>}
       </button>
@@ -758,20 +765,14 @@ const HUB_SECTIONS = [
   { key:'documents',   label:'Documents',     desc:'Document uploads and viewing' },
   { key:'messages',    label:'Messages',      desc:'Recruiter messages and comms' },
 ];
-const HUB_OPS = [
-  { v:'eq', l:'is' },{ v:'neq', l:'is not' },{ v:'contains', l:'contains' },
-  { v:'gt', l:'>' },{ v:'lt', l:'<' },{ v:'is_set', l:'is set' },{ v:'is_not_set', l:'is not set' },
-];
-
-const StepHubConfig = ({ step, onChange }) => {
+const StepHubConfig = ({ step, onChange, personFields=[], recordFields=[] }) => {
   const [open, setOpen] = useState(false);
   const hub  = step.hub_config || {};
   const secs = hub.sections || {};
-  const conds = hub.conditions || [];
+  const hubConds = hub.conditions || [];
   const hasConfig = Object.values(secs).some(Boolean) || hub.message;
   const setHub = (k, v) => onChange({ ...step, hub_config: { ...hub, [k]: v } });
   const setSec = (k, v) => setHub('sections', { ...secs, [k]: v });
-  const setCond = (i, f, v) => { const a=[...conds]; a[i]={...a[i],[f]:v}; setHub('conditions',a); };
   return (
     <div style={{ borderTop:`1px solid ${C.border}`, marginTop:8 }}>
       <button onClick={()=>setOpen(o=>!o)} style={{ width:'100%', display:'flex', alignItems:'center', gap:8,
@@ -783,7 +784,7 @@ const StepHubConfig = ({ step, onChange }) => {
         <span style={{ fontSize:11, fontWeight:700, color:hasConfig?'#7c3aed':C.text3, flex:1 }}>
           Candidate Hub
           {hasConfig && <span style={{ marginLeft:6, fontSize:10, fontWeight:500 }}>
-            {Object.values(secs).filter(Boolean).length} visible{hub.notify_candidate?' · notifies':''}{conds.length?` · ${conds.length} cond`:''}
+            {Object.values(secs).filter(Boolean).length} visible{hub.notify_candidate?' · notifies':''}{hubConds.length?` · ${hubConds.length} cond`:''}
           </span>}
         </span>
         <Ic n={open?'chevD':'chevRight'} s={11} c={C.text3} style={{ transform: open ? 'none' : 'rotate(-90deg)' }}/>
@@ -826,61 +827,17 @@ const StepHubConfig = ({ step, onChange }) => {
               style={{ width:'100%', boxSizing:'border-box', padding:'8px 10px', border:`1px solid ${C.border}`,
                 borderRadius:8, fontSize:12, fontFamily:F, resize:'vertical', color:C.text1, outline:'none' }}/>
           </div>
-          {/* Conditions */}
-          <div style={{ fontSize:11, fontWeight:700, color:C.text2, marginBottom:6, textTransform:'uppercase', letterSpacing:'.4px' }}>
-            Conditions (all must be true)
-          </div>
-          {conds.map((c,i)=>(
-            <div key={i} style={{ display:'flex', gap:5, alignItems:'flex-end', marginBottom:6,
-              padding:7, background:'#F9FAFB', borderRadius:8 }}>
-              <div style={{ width:64, flexShrink:0 }}>
-                <div style={{ fontSize:9, color:C.text3, marginBottom:2 }}>SOURCE</div>
-                <select value={c.source||'person'} onChange={e=>setCond(i,'source',e.target.value)}
-                  style={{ width:'100%', padding:'4px 5px', borderRadius:5, border:`1px solid ${C.border}`, fontSize:11, fontFamily:F, color:C.text1 }}>
-                  <option value="person">Person</option><option value="job">Job</option>
-                </select>
-              </div>
-              <div style={{ flex:2 }}>
-                <div style={{ fontSize:9, color:C.text3, marginBottom:2 }}>FIELD</div>
-                <input value={c.field||''} onChange={e=>setCond(i,'field',e.target.value)} placeholder="api_key"
-                  style={{ width:'100%', boxSizing:'border-box', padding:'4px 5px', borderRadius:5, border:`1px solid ${C.border}`, fontSize:11, fontFamily:F, color:C.text1 }}/>
-              </div>
-              <div style={{ width:76, flexShrink:0 }}>
-                <div style={{ fontSize:9, color:C.text3, marginBottom:2 }}>OPERATOR</div>
-                <select value={c.operator||'eq'} onChange={e=>setCond(i,'operator',e.target.value)}
-                  style={{ width:'100%', padding:'4px 5px', borderRadius:5, border:`1px solid ${C.border}`, fontSize:11, fontFamily:F, color:C.text1 }}>
-                  {HUB_OPS.map(op=><option key={op.v} value={op.v}>{op.l}</option>)}
-                </select>
-              </div>
-              {!['is_set','is_not_set'].includes(c.operator) && (
-                <div style={{ flex:2 }}>
-                  <div style={{ fontSize:9, color:C.text3, marginBottom:2 }}>VALUE</div>
-                  <input value={c.value||''} onChange={e=>setCond(i,'value',e.target.value)} placeholder="value"
-                    style={{ width:'100%', boxSizing:'border-box', padding:'4px 5px', borderRadius:5, border:`1px solid ${C.border}`, fontSize:11, fontFamily:F, color:C.text1 }}/>
-                </div>
-              )}
-              <button onClick={()=>setHub('conditions',conds.filter((_,j)=>j!==i))}
-                style={{ background:'none', border:'none', cursor:'pointer', color:C.danger, padding:0, flexShrink:0 }}>
-                <Ic n="x" s={12}/>
-              </button>
-            </div>
-          ))}
-          <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:4 }}>
-            <button onClick={()=>setHub('conditions',[...conds,{source:'person',field:'',operator:'eq',value:''}])}
-              style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:6,
-                border:`1.5px dashed ${C.border}`, background:'transparent', color:C.text3,
-                fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:F }}>
-              <Ic n="plus" s={11}/> Add condition
-            </button>
-            {conds.length>1 && ['and','or'].map(l=>(
-              <button key={l} onClick={()=>setHub('conditions_logic',l)}
-                style={{ padding:'3px 8px', borderRadius:5, border:'1px solid',
-                  borderColor:(hub.conditions_logic||'and')===l?'#7c3aed':C.border,
-                  background:(hub.conditions_logic||'and')===l?'#7c3aed10':'transparent',
-                  color:(hub.conditions_logic||'and')===l?'#7c3aed':C.text3,
-                  fontSize:10, fontWeight:700, cursor:'pointer', fontFamily:F }}>{l.toUpperCase()}</button>
-            ))}
-          </div>
+          {/* Conditions — reuse the shared criteria builder */}
+          <StepConditionBuilder
+            personFields={personFields}
+            recordFields={recordFields}
+            conditions={hubConds}
+            logic={hub.conditions_logic || 'and'}
+            onConditionsChange={updated => setHub('conditions', updated)}
+            onLogicChange={l => setHub('conditions_logic', l)}
+            label="Add visibility conditions"
+            activeLabel="Visibility conditions"
+          />
         </div>
       )}
     </div>
@@ -1269,7 +1226,7 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
       )}
       {activeTab==='hub' && (
         <div style={{ padding:'16px 20px' }}>
-          <StepHubConfig step={step} onChange={onChange}/>
+          <StepHubConfig step={step} onChange={onChange} personFields={personFields} recordFields={fields}/>
         </div>
       )}
     </div>

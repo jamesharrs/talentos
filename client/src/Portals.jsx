@@ -504,7 +504,7 @@ const PortalSettingsDrawer = ({ portal, onChange, onClose, api: apiProp }) => {
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(15,23,41,.4)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center"}}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{background:C.surface,borderRadius:18,width:560,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 64px rgba(0,0,0,.2)"}}>
+      <div style={{background:C.surface,borderRadius:18,width:760,maxWidth:"calc(100vw - 48px)",maxHeight:"90vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 64px rgba(0,0,0,.2)"}}>
         <div style={{padding:"18px 24px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <Ic n="settings" s={16} c={C.accent}/>
@@ -514,9 +514,9 @@ const PortalSettingsDrawer = ({ portal, onChange, onClose, api: apiProp }) => {
             <Ic n="x" s={12}/> Close
           </button>
         </div>
-        <div style={{display:"flex",borderBottom:`1px solid ${C.border}`}}>
+        <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,overflowX:"auto",flexShrink:0}}>
           {[["branding","Branding"],["access","Access"],["domain","Domain & Embed"],["gdpr","GDPR"],["eo","Equal Opps"],["feedback","Feedback"],["copilot","Copilot"],["hub","Hub"]].map(([id,l])=>(
-            <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"10px 0",border:"none",background:"transparent",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,color:tab===id?C.accent:C.text3,borderBottom:tab===id?`2px solid ${C.accent}`:"2px solid transparent"}}>{l}</button>
+            <button key={id} onClick={()=>setTab(id)} style={{flexShrink:0,padding:"10px 16px",border:"none",background:"transparent",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,color:tab===id?C.accent:C.text3,borderBottom:tab===id?`2px solid ${C.accent}`:"2px solid transparent",whiteSpace:"nowrap"}}>{l}</button>
           ))}
         </div>
         <div style={{flex:1,overflowY:"auto",padding:"20px 24px",display:"flex",flexDirection:"column",gap:14}}>

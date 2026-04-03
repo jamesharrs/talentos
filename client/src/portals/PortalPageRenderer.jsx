@@ -1220,6 +1220,209 @@ const TabsWidget = ({ cfg, theme }) => {
   )
 }
 
+
+// ── Files / Docs Widget ───────────────────────────────────────────────────────
+// Displays attachments for a record identified via URL params or explicit config.
+// Supports inline PDF preview + image lightbox. No admin auth required —
+// the /api/attachments endpoint is public (files are served by filename hash).
+const FilesWidget = ({ cfg, theme, portal, api }) => {
+  const [files, setFiles]       = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [preview, setPreview]   = useState(null)  // { url, name, ext }
+  const c = { primary: theme?.primaryColor||'#4361EE', text:'#0F1729', muted:'#6B7280', border:'#E8ECF8', bg:'#F8F9FF' }
+
+  // Resolve the record ID from URL params
+  const getRecordId = () => {
+    const params = new URLSearchParams(window.location.search)
+    const paramName = cfg.record_id_param || 'person_id'
+    return params.get(paramName) || params.get('rid') || params.get('record_id') || params.get('candidate_id') || null
+  }
+
+  useEffect(() => {
+    const rid = getRecordId()
+    if (!rid) { setLoading(false); return }
+    api.get(`/attachments?record_id=${rid}`)
+      .then(data => {
+        let items = Array.isArray(data) ? data : []
+        // Filter by configured file types if specified
+        const types = (cfg.file_types || []).map(t => t.toLowerCase())
+        if (types.length > 0) {
+          items = items.filter(f => types.some(t => (f.file_type_name||'').toLowerCase().includes(t)))
+        }
+        // Only show files with actual URLs (real uploads)
+        items = items.filter(f => f.url && f.url !== '#')
+        setFiles(items)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const extOf = (att) => (att.ext || att.name?.split('.').pop() || '').toLowerCase()
+  const isImage = (att) => ['jpg','jpeg','png','gif','webp','bmp','svg'].includes(extOf(att))
+  const isPdf   = (att) => extOf(att) === 'pdf'
+  const iconFor = (att) => {
+    if (isImage(att)) return '🖼️'
+    if (isPdf(att))   return '📄'
+    const e = extOf(att)
+    if (['doc','docx'].includes(e)) return '📝'
+    if (['xls','xlsx'].includes(e)) return '📊'
+    if (['zip','rar'].includes(e))  return '🗜️'
+    return '📁'
+  }
+  const fmtSize = (b) => b > 1048576 ? `${(b/1048576).toFixed(1)} MB` : b > 1024 ? `${Math.round(b/1024)} KB` : b ? `${b} B` : ''
+
+  if (loading) return null
+
+  if (!getRecordId()) return (
+    <div style={{ padding:'32px 20px', textAlign:'center', color:c.muted, fontSize:14 }}>
+      {cfg.hide_when_empty ? null : (cfg.empty_text || 'No documents available.')}
+    </div>
+  )
+
+  if (files.length === 0 && cfg.hide_when_empty) return null
+
+  return (
+    <div style={{ fontFamily: theme?.fontFamily || "'DM Sans', sans-serif" }}>
+      {cfg.heading && (
+        <h3 style={{ margin:'0 0 20px', fontSize:20, fontWeight:700, color:c.text }}>{cfg.heading}</h3>
+      )}
+
+      {files.length === 0 ? (
+        <div style={{ padding:'32px 20px', textAlign:'center', color:c.muted, fontSize:14,
+          background:c.bg, borderRadius:12, border:`1px dashed ${c.border}` }}>
+          {cfg.empty_text || 'No documents available.'}
+        </div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {files.map(att => (
+            <div key={att.id} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 16px',
+              background:'#fff', borderRadius:12, border:`1.5px solid ${c.border}`,
+              boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
+              {/* Icon */}
+              <div style={{ width:40, height:40, borderRadius:10, background:`${c.primary}12`,
+                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+                fontSize:20, cursor: cfg.allow_preview!==false ? 'pointer' : 'default' }}
+                onClick={() => cfg.allow_preview!==false && setPreview(att)}
+                title={cfg.allow_preview!==false ? 'Click to preview' : undefined}>
+                {iconFor(att)}
+              </div>
+
+              {/* Name + meta */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div onClick={() => cfg.allow_preview!==false && setPreview(att)}
+                  style={{ fontSize:14, fontWeight:600, color: cfg.allow_preview!==false ? c.primary : c.text,
+                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                    cursor: cfg.allow_preview!==false ? 'pointer' : 'default',
+                    textDecoration: cfg.allow_preview!==false ? 'underline' : 'none',
+                    textDecorationColor:`${c.primary}40` }}>
+                  {att.name}
+                </div>
+                <div style={{ fontSize:11, color:c.muted, marginTop:2, display:'flex', gap:8, alignItems:'center' }}>
+                  {att.file_type_name && (
+                    <span style={{ padding:'1px 6px', borderRadius:4, background:`${c.primary}14`,
+                      color:c.primary, fontWeight:600, fontSize:10 }}>{att.file_type_name}</span>
+                  )}
+                  {fmtSize(att.size) && <span>{fmtSize(att.size)}</span>}
+                  <span>{new Date(att.created_at).toLocaleDateString()}</span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                {cfg.allow_preview!==false && (
+                  <button onClick={() => setPreview(att)}
+                    title="Preview"
+                    style={{ background:'none', border:`1px solid ${c.border}`, borderRadius:8,
+                      cursor:'pointer', padding:'6px 10px', color:c.primary, fontSize:12, fontWeight:600,
+                      fontFamily:'inherit', display:'flex', alignItems:'center', gap:4 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Preview
+                  </button>
+                )}
+                {cfg.allow_download!==false && (
+                  <a href={att.url} download={att.name} target="_blank" rel="noreferrer"
+                    style={{ background:c.primary, border:'none', borderRadius:8,
+                      cursor:'pointer', padding:'6px 10px', color:'#fff', fontSize:12, fontWeight:600,
+                      fontFamily:'inherit', textDecoration:'none', display:'flex', alignItems:'center', gap:4 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Inline Preview Modal */}
+      {preview && (
+        <div onClick={()=>setPreview(null)}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:9999,
+            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{ background:'#fff', borderRadius:16, overflow:'hidden',
+              display:'flex', flexDirection:'column',
+              width: isImage(preview) ? 'auto' : '92vw',
+              maxWidth: isImage(preview) ? '92vw' : 860,
+              maxHeight:'90vh', boxShadow:'0 32px 80px rgba(0,0,0,0.4)' }}>
+            {/* Preview header */}
+            <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px',
+              borderBottom:'1px solid #E8ECF8', flexShrink:0 }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:'#0F1729',
+                  overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{preview.name}</div>
+                <div style={{ fontSize:11, color:'#9CA3AF', marginTop:1 }}>
+                  {[preview.file_type_name, fmtSize(preview.size)].filter(Boolean).join(' · ')}
+                </div>
+              </div>
+              {cfg.allow_download!==false && (
+                <a href={preview.url} download={preview.name}
+                  style={{ padding:'6px 12px', borderRadius:8, border:'1px solid #E8ECF8',
+                    color:'#374151', fontSize:12, fontWeight:600, textDecoration:'none',
+                    display:'flex', alignItems:'center', gap:4 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Download
+                </a>
+              )}
+              <button onClick={()=>setPreview(null)}
+                style={{ background:'none', border:'none', cursor:'pointer', fontSize:20,
+                  color:'#9CA3AF', padding:'4px 8px', lineHeight:1 }}>✕</button>
+            </div>
+            {/* Preview body */}
+            <div style={{ flex:1, overflow:'auto', minHeight:0,
+              background: isImage(preview) ? '#1a1a2e' : '#F8F9FF',
+              display:'flex', alignItems: isImage(preview) ? 'center' : 'stretch',
+              justifyContent: isImage(preview) ? 'center' : 'stretch' }}>
+              {isImage(preview) ? (
+                <img src={preview.url} alt={preview.name}
+                  style={{ maxWidth:'100%', maxHeight:'80vh', objectFit:'contain', display:'block' }}/>
+              ) : isPdf(preview) ? (
+                <iframe src={preview.url} title={preview.name}
+                  style={{ width:'100%', height:'75vh', border:'none', display:'block' }}/>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
+                  justifyContent:'center', padding:48, gap:16, textAlign:'center' }}>
+                  <div style={{ fontSize:48 }}>{iconFor(preview)}</div>
+                  <div style={{ fontSize:14, color:'#4B5675' }}>
+                    {extOf(preview).toUpperCase()} files cannot be previewed in the browser.
+                  </div>
+                  {cfg.allow_download!==false && (
+                    <a href={preview.url} download={preview.name}
+                      style={{ padding:'10px 20px', borderRadius:10, background:c.primary, color:'#fff',
+                        fontSize:13, fontWeight:700, textDecoration:'none' }}>
+                      Download file
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const Widget = ({ cell, theme, portal, api, track }) => {
   const cfg = cell.widgetConfig||{}
   switch (cell.widgetType) {
@@ -1252,6 +1455,7 @@ const Widget = ({ cell, theme, portal, api, track }) => {
     case 'app_status':     return <AppStatusWidget     cfg={cfg} theme={theme} portal={portal} api={api}/>
     case 'saved_jobs':     return <SavedJobsWidget     cfg={cfg} theme={theme} portal={portal} api={api}/>
     case 'tabs':           return <TabsWidget          cfg={cfg} theme={theme}/>
+    case 'files':         return <FilesWidget         cfg={cfg} theme={theme} portal={portal} api={api}/>
     default:        return null
   }
 }

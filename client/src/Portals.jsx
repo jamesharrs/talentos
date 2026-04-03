@@ -58,6 +58,7 @@ const WIDGET_TYPES = [
   { type:"tabs",          label:"Tabs",           icon:"layout",    desc:"Tabbed content sections" },
   { type:"divider",      label:"Divider",        icon:"minus",     desc:"Horizontal separator" },
   { type:"spacer",       label:"Spacer",         icon:"square",    desc:"Blank vertical space" },
+  { type:"files",        label:"Files / Docs",   icon:"paperclip", desc:"Display record attachments by file type" },
 ];
 
 const FONT_OPTS = [
@@ -797,7 +798,7 @@ const WidgetPreview = ({ cell, theme }) => {
   );
 
   const wt = WIDGET_TYPES.find(w=>w.type===cell.widgetType);
-  const NEW_PREVIEW_TYPES = { dept_grid:'Dept Grid', benefits_grid:'Benefits Grid', faq:'FAQ Accordion', featured_jobs:'Featured Jobs', trust_bar:'Stats Bar', job_alerts:'Job Alerts', image_gallery:'Image Gallery', app_status:'App Status', saved_jobs:'Saved Jobs', tabs:'Tabs' };
+  const NEW_PREVIEW_TYPES = { dept_grid:'Dept Grid', benefits_grid:'Benefits Grid', faq:'FAQ Accordion', featured_jobs:'Featured Jobs', trust_bar:'Stats Bar', job_alerts:'Job Alerts', image_gallery:'Image Gallery', app_status:'App Status', saved_jobs:'Saved Jobs', tabs:'Tabs', files:'Files / Docs Widget' };
   if (NEW_PREVIEW_TYPES[cell.widgetType]) return (
     <div style={{padding:"16px 20px",display:"flex",gap:10,alignItems:"center"}}>
       <div style={{width:32,height:32,borderRadius:8,background:C.accentLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
@@ -1154,7 +1155,7 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
   );
   const WIDGET_LABELS = {
     hero:"Hero Banner", text:"Rich Text", image:"Image", stats:"Stats",
-    video:"Video", jobs:"Job List", job_list:"Job List", people:"People List", team:"Team", form:"Form", divider:"Divider", spacer:"Spacer",
+    video:"Video", jobs:"Job List", job_list:"Job List", people:"People List", team:"Team", form:"Form", divider:"Divider", spacer:"Spacer", files:"Files / Docs",
   };
   const renderFields = () => {
     switch (cell.widgetType) {
@@ -1446,6 +1447,36 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
           {lbl("Tab style")}
           <select value={cfg.tabStyle||"underline"} onChange={e=>set("tabStyle",e.target.value)} style={inp}><option value="underline">Underline</option><option value="pill">Pill</option><option value="boxed">Boxed</option></select>
           <p style={{fontSize:11,color:C.text3,margin:"4px 0 0"}}>Default culture/learning/D&I tabs shown until you customise the tabs array.</p>
+        </div>
+      );
+      case "files": return (
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div>{lbl("Section heading")}<input value={cfg.heading||""} onChange={e=>set("heading",e.target.value)} placeholder="Documents" style={inp}/></div>
+          <div>
+            {lbl("File types to display")}
+            <p style={{fontSize:10,color:C.text3,margin:"2px 0 6px"}}>Comma-separated type names to show (e.g. "CV / Resume, Offer Letter"). Leave blank to show all types.</p>
+            <input value={(cfg.file_types||[]).join(", ")} onChange={e=>set("file_types",e.target.value.split(",").map(s=>s.trim()).filter(Boolean))} placeholder="CV / Resume, Offer Letter, Contract…" style={inp}/>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            <label style={{display:"flex",alignItems:"center",gap:8,fontSize:12,cursor:"pointer",color:C.text2}}>
+              <input type="checkbox" checked={cfg.allow_preview!==false} onChange={e=>set("allow_preview",e.target.checked)}/>
+              <span style={{fontWeight:600}}>Allow inline preview (PDF + images)</span>
+            </label>
+            <label style={{display:"flex",alignItems:"center",gap:8,fontSize:12,cursor:"pointer",color:C.text2}}>
+              <input type="checkbox" checked={cfg.allow_download!==false} onChange={e=>set("allow_download",e.target.checked)}/>
+              <span style={{fontWeight:600}}>Allow download</span>
+            </label>
+            <label style={{display:"flex",alignItems:"center",gap:8,fontSize:12,cursor:"pointer",color:C.text2}}>
+              <input type="checkbox" checked={!!cfg.hide_when_empty} onChange={e=>set("hide_when_empty",e.target.checked)}/>
+              <span style={{fontWeight:600}}>Hide widget when no files</span>
+            </label>
+          </div>
+          <div>
+            {lbl("Record ID source")}
+            <p style={{fontSize:10,color:C.text3,margin:"2px 0 6px"}}>URL param name that carries the person/record ID — e.g. <code>person_id</code> in <em>?person_id=abc</em>. Leave blank to auto-detect.</p>
+            <input value={cfg.record_id_param||""} onChange={e=>set("record_id_param",e.target.value)} placeholder="person_id" style={inp}/>
+          </div>
+          <div>{lbl("Empty state message")}<input value={cfg.empty_text||""} onChange={e=>set("empty_text",e.target.value)} placeholder="No documents available." style={inp}/></div>
         </div>
       );
       default: return <p style={{ fontSize:12, color:C.text3, margin:0 }}>No settings for this widget.</p>;

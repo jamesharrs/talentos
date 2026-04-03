@@ -9,13 +9,88 @@ const ScoreBtn = ({ n, active, color, onClick }) => (
   }}>{n}</button>
 )
 
-const CandidateCard = ({ record, color, onScore }) => {
+// File extension helpers (self-contained — no import from Records.jsx)
+const extOf = f => (f.ext || f.name?.split('.').pop() || '').toLowerCase()
+const isImageFile = f => ['jpg','jpeg','png','gif','webp','bmp'].includes(extOf(f))
+const isPdfFile   = f => extOf(f) === 'pdf'
+const iconFor = f => { const e = extOf(f); if (isImageFile(f)) return '🖼️'; if (isPdfFile(f)) return '📄'; if (['doc','docx'].includes(e)) return '📝'; if (['xls','xlsx'].includes(e)) return '📊'; return '📁'; }
+const fmtSz = b => b > 1048576 ? `${(b/1048576).toFixed(1)} MB` : b > 1024 ? `${Math.round(b/1024)} KB` : ''
+
+const FilePreview = ({ att, onClose }) => {
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [onClose])
+  const url = att.url && att.url !== '#' ? att.url : null
+  return (
+    <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.8)', zIndex:9999,
+      display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div onClick={e=>e.stopPropagation()} style={{ background:'#fff', borderRadius:14, overflow:'hidden',
+        display:'flex', flexDirection:'column',
+        width: isImageFile(att) ? 'auto' : '90vw',
+        maxWidth: isImageFile(att) ? '92vw' : 860, maxHeight:'90vh',
+        boxShadow:'0 32px 80px rgba(0,0,0,0.5)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px',
+          borderBottom:'1px solid #E8ECF8', flexShrink:0 }}>
+          <div style={{ flex:1, fontSize:13, fontWeight:700, color:'#0F1729',
+            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{att.name}</div>
+          {url && <a href={url} download={att.name}
+            style={{ padding:'5px 10px', borderRadius:7, border:'1px solid #E8ECF8', color:'#374151',
+              fontSize:11, fontWeight:600, textDecoration:'none' }}>↓ Download</a>}
+          <button onClick={onClose} style={{ background:'none', border:'none', fontSize:18,
+            color:'#9CA3AF', cursor:'pointer', padding:'0 4px' }}>✕</button>
+        </div>
+        <div style={{ flex:1, overflow:'auto', minHeight:0,
+          background: isImageFile(att) ? '#1a1a2e' : '#F8F9FF',
+          display:'flex', alignItems: isImageFile(att)?'center':'stretch',
+          justifyContent: isImageFile(att)?'center':'stretch' }}>
+          {!url ? (
+            <div style={{ padding:40, color:'#9CA3AF', fontSize:13, textAlign:'center' }}>File not available.</div>
+          ) : isImageFile(att) ? (
+            <img src={url} alt={att.name} style={{ maxWidth:'100%', maxHeight:'80vh', objectFit:'contain' }}/>
+          ) : isPdfFile(att) ? (
+            <iframe src={url} title={att.name} style={{ width:'100%', height:'74vh', border:'none' }}/>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+              padding:48, gap:14, textAlign:'center' }}>
+              <div style={{ fontSize:48 }}>{iconFor(att)}</div>
+              <div style={{ fontSize:13, color:'#6B7280' }}>{extOf(att).toUpperCase()} files cannot be previewed in the browser.</div>
+              <a href={url} download={att.name} style={{ padding:'9px 18px', borderRadius:9, background:'#4361EE',
+                color:'#fff', fontSize:13, fontWeight:700, textDecoration:'none' }}>Download</a>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const CandidateCard = ({ record, color, api, portal, allowedFileTypes }) => {
   const d = record.data || {}
   const name = recordTitle(record)
-  const [score, setScore] = useState(d.rating || null)
-  const [note, setNote] = useState('')
+  const [score,    setScore]    = useState(d.rating || null)
+  const [note,     setNote]     = useState('')
   const [expanded, setExpanded] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [saved,    setSaved]    = useState(false)
+  const [files,    setFiles]    = useState(null)   // null = not yet loaded
+  const [preview,  setPreview]  = useState(null)
+
+  // Load attachments lazily when card first expands
+  useEffect(() => {
+    if (!expanded || files !== null) return
+    api.get(`/attachments?record_id=${record.id}`)
+      .then(data => {
+        let items = Array.isArray(data) ? data.filter(f => f.url && f.url !== '#') : []
+        if (allowedFileTypes?.length) {
+          items = items.filter(f => allowedFileTypes.some(t =>
+            (f.file_type_name||'').toLowerCase().includes(t.toLowerCase())
+          ))
+        }
+        setFiles(items)
+      })
+      .catch(() => setFiles([]))
+  }, [expanded, record.id])
 
   const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
 
@@ -31,25 +106,79 @@ const CandidateCard = ({ record, color, onScore }) => {
           </div>
         </div>
         <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+          {files?.length > 0 && (
+            <span style={{ fontSize:10, fontWeight:700, padding:'2px 6px', borderRadius:6,
+              background:'#EEF2FF', color:'#4361EE' }}>
+              {files.length} file{files.length!==1?'s':''}
+            </span>
+          )}
           {d.status && <Badge color={STATUS_COLORS[d.status] || '#9DA8C7'}>{d.status}</Badge>}
           {score && <Badge color={color}>★ {score}/5</Badge>}
           <span style={{ color:'#9DA8C7', fontSize:18 }}>{expanded ? '▲' : '▼'}</span>
         </div>
       </div>
+
       {expanded && (
         <div style={{ borderTop:'1px solid #E8ECF8', padding:'20px' }}>
           {d.summary && <p style={{ fontSize:14, color:'#4B5675', lineHeight:1.6, marginBottom:16 }}>{d.summary}</p>}
+
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:16 }}>
             {d.skills && (Array.isArray(d.skills) ? d.skills : d.skills.split(',')).map(s => (
               <Badge key={s} color="#6366F1">{s.trim()}</Badge>
             ))}
           </div>
+
+          {/* Documents section */}
+          {files === null ? (
+            <div style={{ fontSize:12, color:'#9DA8C7', marginBottom:16 }}>Loading files…</div>
+          ) : files.length > 0 ? (
+            <div style={{ marginBottom:20 }}>
+              <div style={{ fontSize:13, fontWeight:600, color:'#4B5675', marginBottom:10 }}>Documents</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {files.map(att => (
+                  <div key={att.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
+                    background:'#F8F9FF', borderRadius:10, border:'1px solid #E8ECF8' }}>
+                    <span style={{ fontSize:18 }}>{iconFor(att)}</span>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div
+                        onClick={() => setPreview(att)}
+                        style={{ fontSize:13, fontWeight:600, color:'#4361EE', cursor:'pointer',
+                          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                          textDecoration:'underline', textDecorationColor:'#4361EE40' }}>
+                        {att.name}
+                      </div>
+                      <div style={{ fontSize:10, color:'#9DA8C7', marginTop:1 }}>
+                        {[att.file_type_name, fmtSz(att.size)].filter(Boolean).join(' · ')}
+                      </div>
+                    </div>
+                    <div style={{ display:'flex', gap:4, flexShrink:0 }}>
+                      <button onClick={() => setPreview(att)}
+                        style={{ background:'none', border:'1px solid #E8ECF8', borderRadius:7, cursor:'pointer',
+                          padding:'5px 9px', color:'#4361EE', fontSize:11, fontWeight:600, fontFamily:'inherit' }}>
+                        Preview
+                      </button>
+                      <a href={att.url} download={att.name} target="_blank" rel="noreferrer"
+                        style={{ border:'1px solid #E8ECF8', borderRadius:7, cursor:'pointer',
+                          padding:'5px 9px', color:'#374151', fontSize:11, fontWeight:600, textDecoration:'none',
+                          display:'flex', alignItems:'center' }}>
+                        ↓
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Score */}
           <div style={{ marginBottom:12 }}>
             <div style={{ fontSize:13, fontWeight:600, color:'#4B5675', marginBottom:8 }}>Your Score</div>
             <div style={{ display:'flex', gap:6 }}>
               {[1,2,3,4,5].map(n => <ScoreBtn key={n} n={n} active={score===n} color={color} onClick={()=>setScore(n)}/>)}
             </div>
           </div>
+
+          {/* Feedback */}
           <div style={{ marginBottom:12 }}>
             <div style={{ fontSize:13, fontWeight:600, color:'#4B5675', marginBottom:6 }}>Feedback Note</div>
             <textarea value={note} onChange={e=>setNote(e.target.value)} rows={3}
@@ -61,6 +190,8 @@ const CandidateCard = ({ record, color, onScore }) => {
           <Btn color={color} onClick={handleSave}>{saved ? '✓ Saved' : 'Save Feedback'}</Btn>
         </div>
       )}
+
+      {preview && <FilePreview att={preview} onClose={() => setPreview(null)}/>}
     </div>
   )
 }
@@ -178,7 +309,7 @@ export default function HMPortal({ portal, api }) {
             </div>
             {candidates.length === 0
               ? <div style={{ textAlign:'center', padding:'48px 0', color:'#9DA8C7' }}><div style={{ fontSize:40, marginBottom:12 }}>👤</div><p>No candidates yet</p></div>
-              : candidates.map(r => <CandidateCard key={r.id} record={r} color={c.primary} onScore={() => {}}/>)
+              : candidates.map(r => <CandidateCard key={r.id} record={r} color={c.primary} api={api} portal={portal}/>)
             }
           </div>
         )}

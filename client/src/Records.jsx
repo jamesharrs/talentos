@@ -6640,11 +6640,11 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
             const iconName = ['jpg','jpeg','png','gif','webp'].includes(ext)?'image':['pdf'].includes(ext)?'file-text':'file';
             return (
               <div key={att.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:'#f8f9fc', borderRadius:10, marginBottom:6, border:`1px solid ${C.border}` }}>
-                <div style={{ width:32, height:32, borderRadius:8, background:C.accentLight, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <div onClick={()=>(att.url&&att.url!=='#')?setPreviewAtt(att):null} title={att.url&&att.url!=='#'?'Preview':undefined} style={{ width:32, height:32, borderRadius:8, background:C.accentLight, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, cursor:(att.url&&att.url!=='#')?'pointer':'default' }}>
                   <Ic n={iconName} s={14} c={C.accent}/>
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:12, fontWeight:600, color:C.text1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{att.name}</div>
+                  <div onClick={()=>(att.url&&att.url!=='#')?setPreviewAtt(att):null} style={{ fontSize:12, fontWeight:600, color:(att.url&&att.url!=='#')?C.accent:C.text1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', cursor:(att.url&&att.url!=='#')?'pointer':'default', textDecorationLine:(att.url&&att.url!=='#')?'underline':'none', textDecorationColor:`${C.accent}40` }}>{att.name}</div>
                   <div style={{ display:'flex', gap:6, alignItems:'center', marginTop:2 }}>
                     {att.file_type_name && <span style={{ fontSize:10, fontWeight:700, padding:'1px 5px', borderRadius:4, background:`${C.accent}14`, color:C.accent }}>{att.file_type_name}</span>}
                     <span style={{ fontSize:10, color:C.text3 }}>{att.size ? `${Math.round(att.size/1024)}KB · ` : ''}{new Date(att.created_at).toLocaleDateString()}</span>

@@ -1540,11 +1540,15 @@ const HMPortalWidget = ({ cfg, theme, portal, api }) => {
           setListCols(allFields.filter(f => f.show_in_list).slice(0, 5));
         }
 
-        // 4. Fetch records — always do this even if fields/list failed
+        // 4. Fetch records
         let url = `/records?object_id=${cfg.object_id}&environment_id=${portal.environment_id}&limit=200`;
         if (savedList?.sort_by) url += `&sort_by=${encodeURIComponent(savedList.sort_by)}&sort_dir=${savedList.sort_dir||'asc'}`;
+        // Apply filter_chip — skip $me tokens (no user session in portal context)
         if (savedList?.filter_chip) {
-          url += `&filter_key=${encodeURIComponent(savedList.filter_chip.fieldKey)}&filter_value=${encodeURIComponent(savedList.filter_chip.fieldValue)}`;
+          const fv = savedList.filter_chip.fieldValue;
+          if (fv && fv !== '$me') {
+            url += `&filter_key=${encodeURIComponent(savedList.filter_chip.fieldKey)}&filter_value=${encodeURIComponent(fv)}`;
+          }
         }
 
         const data = await api.get(url);
@@ -1556,6 +1560,8 @@ const HMPortalWidget = ({ cfg, theme, portal, api }) => {
             const fm = {};
             allFields.forEach(f => { fm[f.id] = f.api_key; fm[f.api_key] = f.api_key; });
             all = all.filter(r => savedList.filters.every(filt => {
+              // Skip $me filters — can't resolve without a user session in portal context
+              if (String(filt.value ?? '') === '$me') return true;
               // Support both filt.field and filt.fieldId (different saved list formats)
               const ak = fm[filt.fieldId] || fm[filt.field] || filt.fieldId || filt.field || '';
               const rv = r.data?.[ak];

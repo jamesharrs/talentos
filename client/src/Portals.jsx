@@ -131,15 +131,15 @@ const defaultPage = () => ({ id:uid(), name:"Home", slug:"/", rows:[defaultRow("
 // ─── Portal Templates — now imported from portalTemplates.js ──────────────────
 // Legacy TEMPLATES array for backwards compat with existing code
 const TEMPLATES = [
-  { id:"career_site", name:"Career Site", desc:"Branded job listings and application experience", icon:"", accent:"#4361EE", tags:["Public","Jobs","Apply"],
+  { id:"career_site", name:"Career Site", desc:"Branded job listings and application experience", icon:"globe", accent:"#4361EE", tags:["Public","Jobs","Apply"],
     theme:{ primaryColor:"#4361EE",secondaryColor:"#7C3AED",bgColor:"#FFFFFF",textColor:"#0F1729",fontFamily:"'Plus Jakarta Sans', sans-serif",buttonStyle:"filled",buttonRadius:"10px",maxWidth:"1200px" }, pages:[] },
-  { id:"hm_portal", name:"Hiring Manager Portal", desc:"Review candidates and manage requisitions", icon:"", accent:"#334155", tags:["Internal","Review"],
+  { id:"hm_portal", name:"Hiring Manager Portal", desc:"Review candidates and manage requisitions", icon:"users2", accent:"#334155", tags:["Internal","Review"],
     theme:{ primaryColor:"#334155",secondaryColor:"#475569",bgColor:"#F8FAFC",textColor:"#0F172A",fontFamily:"'Inter', sans-serif",buttonStyle:"filled",buttonRadius:"6px",maxWidth:"1100px" }, pages:[] },
-  { id:"onboarding", name:"Onboarding Portal", desc:"Welcome new hires with guided post-offer journey", icon:"", accent:"#0D9488", tags:["New Hire","Welcome"],
+  { id:"onboarding", name:"Onboarding Portal", desc:"Welcome new hires with guided post-offer journey", icon:"userCheck", accent:"#0D9488", tags:["New Hire","Welcome"],
     theme:{ primaryColor:"#0D9488",secondaryColor:"#0891B2",bgColor:"#F0FDFA",textColor:"#134E4A",fontFamily:"'Outfit', sans-serif",buttonStyle:"filled",buttonRadius:"999px",maxWidth:"960px" }, pages:[] },
-  { id:"agency_portal", name:"Agency Portal", desc:"Let agencies submit candidates against open roles", icon:"", accent:"#D97706", tags:["Agency","Submit"],
+  { id:"agency_portal", name:"Agency Portal", desc:"Let agencies submit candidates against open roles", icon:"briefcase", accent:"#D97706", tags:["Agency","Submit"],
     theme:{ primaryColor:"#D97706",secondaryColor:"#B45309",bgColor:"#FFFBEB",textColor:"#1C1917",fontFamily:"'Raleway', sans-serif",buttonStyle:"outline",buttonRadius:"8px",maxWidth:"1100px" }, pages:[] },
-  { id:"campaign", name:"Campaign Page", desc:"Targeted landing pages for specific roles, graduate programmes and talent communities", icon:"", accent:"#7C3AED", tags:["Campaign","Targeted","Community"],
+  { id:"campaign", name:"Campaign Page", desc:"Targeted landing pages for specific roles, graduate programmes and talent communities", icon:"megaphone", accent:"#7C3AED", tags:["Campaign","Targeted","Community"],
     theme:{ primaryColor:"#7C3AED",secondaryColor:"#5B21B6",bgColor:"#FAFAFA",textColor:"#0F1729",fontFamily:"'Space Grotesk', sans-serif",buttonStyle:"filled",buttonRadius:"12px",maxWidth:"1100px" }, pages:[] },
 
 
@@ -188,6 +188,20 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     map:"M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16",
     megaphone:"M3 11l19-9-9 19-2-8-8-2zM11 13l1.5 5.5",
     userCheck:"M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 7a4 4 0 100 8 4 4 0 000-8zM22 11l2 2 4-4",
+    paperclip:"M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48",
+    gift:"M20 12v10H4V12M22 7H2v5h20V7zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z",
+    help:"M12 22a10 10 0 100-20 10 10 0 000 20zM9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01",
+    star:"M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z",
+    award:"M12 15a6 6 0 100-12 6 6 0 000 12zM8.21 13.89L7 23l5-3 5 3-1.21-9.12",
+    bell:"M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0",
+    photos:"M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zM4 11h16M9 5v11",
+    search:"M11 17a6 6 0 100-12 6 6 0 000 12zM21 21l-4.35-4.35",
+    layout:"M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z",
+    list:"M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
+    grid:"M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z",
+    layers:"M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
+    chevU:"M18 15l-6-6-6 6",
+    library:"M4 19V5h16v14M4 9h16M9 5v14",
     award:"M12 15a7 7 0 100-14 7 7 0 000 14zM8.21 13.89L7 23l5-3 5 3-1.21-9.12",
     photos:"M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zM9 3v18M15 3v18M3 9h18M3 15h18",
     layers:"M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
@@ -729,7 +743,7 @@ const WidgetPicker = ({ onSelect, onClose }) => {
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(15,23,41,.42)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{background:C.surface,borderRadius:18,width:700,maxWidth:"100%",maxHeight:"86vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 72px rgba(0,0,0,.22)",overflow:"hidden"}}>
+      <div style={{background:C.surface,borderRadius:18,width:580,maxWidth:"96vw",maxHeight:"86vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 72px rgba(0,0,0,.22)",overflow:"hidden"}}>
         {/* Header */}
         <div style={{padding:"18px 22px 0",display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexShrink:0}}>
           <div>
@@ -758,15 +772,15 @@ const WidgetPicker = ({ onSelect, onClose }) => {
           ))}
         </div>
         {/* Widget grid */}
-        <div style={{padding:16,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,overflowY:"auto",flex:1}}>
+        <div style={{padding:14,display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,overflowY:"auto",flex:1}}>
           {catWidgets.map(w=>(
             <div key={w.type} onClick={()=>onSelect(w.type)}
-              style={{padding:"14px 14px",borderRadius:12,border:`1.5px solid ${C.border}`,cursor:"pointer",
-                display:"flex",alignItems:"flex-start",gap:12,transition:"all .15s",background:C.surface,userSelect:"none"}}
+              style={{padding:"12px 14px",borderRadius:12,border:`1.5px solid ${C.border}`,cursor:"pointer",
+                display:"flex",alignItems:"flex-start",gap:10,transition:"all .15s",background:C.surface,userSelect:"none"}}
               onMouseEnter={e=>{e.currentTarget.style.borderColor=cat.color;e.currentTarget.style.background=cat.color+"0d";e.currentTarget.style.transform="translateY(-1px)";e.currentTarget.style.boxShadow=`0 4px 12px ${cat.color}18`;}}
               onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background=C.surface;e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="none";}}>
-              <div style={{width:40,height:40,borderRadius:11,background:cat.color+"14",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}>
-                <Ic n={w.icon} s={17} c={cat.color}/>
+              <div style={{width:36,height:36,borderRadius:10,background:cat.color+"14",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <Ic n={w.icon} s={16} c={cat.color}/>
               </div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:700,color:C.text1,marginBottom:3}}>{w.label}</div>
@@ -3320,6 +3334,7 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
   const [showDomainWizard, setShowDomainWizard] = useState(false);
   const [showBrandKit,     setShowBrandKit]     = useState(false);
   const [showPortalSettings, setShowPortalSettings] = useState(false);
+  const [showTypeSwitch, setShowTypeSwitch] = useState(false);
   const [pageActionsFor,  setPageActionsFor]  = useState(null);
   const [isEditing, setIsEditing] = useState(true);
   const [viewportMode, setViewportMode] = useState("desktop"); // "desktop" | "mobile"
@@ -3388,6 +3403,15 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
         <input value={portal.name} onChange={e=>setPortal(p=>({...p,name:e.target.value}))}
           style={{border:"none",outline:"none",fontSize:14,fontWeight:700,color:C.text1,background:"transparent",fontFamily:F,minWidth:140}}/>
         {isDirty&&<span style={{width:7,height:7,borderRadius:"50%",background:"#F59E0B",flexShrink:0,marginLeft:-4}} title="Unsaved changes"/>}
+        {/* Portal type badge */}
+        <span onClick={()=>setShowTypeSwitch(true)} title="Change portal type" style={{
+          padding:"2px 8px",borderRadius:6,fontSize:10,fontWeight:700,cursor:"pointer",
+          background: portal.type==="hm_portal"?"#EDE9FE":portal.type==="onboarding"?"#D1FAE5":portal.type==="agency_portal"?"#FEF3C7":"#EFF6FF",
+          color: portal.type==="hm_portal"?"#7C3AED":portal.type==="onboarding"?"#059669":portal.type==="agency_portal"?"#D97706":"#2563EB",
+          marginLeft:4, userSelect:"none"
+        }}>
+          {portal.type==="hm_portal"?"HM Portal":portal.type==="onboarding"?"Onboarding":portal.type==="agency_portal"?"Agency":"Career Site"}
+        </span>
         <div style={{flex:1}}/>
         {/* Page tabs — draggable to reorder */}
         <div style={{display:"flex",gap:2,background:C.surface2,borderRadius:8,padding:3,border:`1px solid ${C.border}`,maxWidth:280,overflowX:"auto",flexShrink:0}}>
@@ -3447,6 +3471,7 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
                   {icon:"sparkles",label:"Brand Kit",onClick:()=>{setShowBrandKit(true);setShowMoreMenu(false);}},
                   {icon:"externalLink",label:"Domain",onClick:()=>{setShowDomainWizard(true);setShowMoreMenu(false);}},
                   {icon:"settings",label:"Settings",onClick:()=>{setShowPortalSettings(s=>!s);setShowTheme(false);setShowMoreMenu(false);}},
+                  {icon:"briefcase",label:"Portal Type…",onClick:()=>{setShowTypeSwitch(true);setShowMoreMenu(false);}},
                 ].map(item=>(
                   <button key={item.label} onClick={item.onClick}
                     style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:7,border:"none",background:"transparent",cursor:"pointer",fontFamily:F,fontSize:12,fontWeight:500,color:C.text1,textAlign:"left"}}
@@ -3525,6 +3550,35 @@ const PortalBuilder = ({ portal:init, onSave, onClose }) => {
       </div>
 
       {showLibrary&&<SectionLibrary onInsert={row=>{const rows=[...page.rows];rows.push(row);updatePage({...page,rows});}} onClose={()=>setShowLibrary(false)}/>}
+
+      {/* Portal Type Switcher modal */}
+      {showTypeSwitch&&(
+        <div onClick={()=>setShowTypeSwitch(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:C.surface,borderRadius:18,padding:28,width:420,boxShadow:"0 32px 80px rgba(0,0,0,0.2)"}}>
+            <div style={{fontSize:16,fontWeight:800,color:C.text1,marginBottom:4}}>Portal Type</div>
+            <div style={{fontSize:12,color:C.text3,marginBottom:20}}>Choose the type of experience this portal delivers.</div>
+            {[
+              {id:"career_site",   label:"Career Site",           desc:"Public job listings and apply forms for candidates."},
+              {id:"hm_portal",     label:"Hiring Manager Portal",  desc:"Configurable widgets showing candidate lists with CTA actions for HMs."},
+              {id:"agency_portal", label:"Agency Portal",          desc:"Agency partner portal for submitting and tracking candidates."},
+              {id:"onboarding",    label:"Onboarding Portal",      desc:"Post-offer onboarding experience for new hires."},
+            ].map(t=>(
+              <div key={t.id} onClick={()=>{setPortal(p=>({...p,type:t.id}));setShowTypeSwitch(false);}}
+                style={{padding:"12px 16px",borderRadius:12,border:`1.5px solid ${portal.type===t.id?C.accent:C.border}`,
+                  background:portal.type===t.id?C.accentLight:C.surface,cursor:"pointer",marginBottom:8,transition:"all .15s"}}
+                onMouseEnter={e=>{if(portal.type!==t.id){e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.background=C.accentLight;}}}
+                onMouseLeave={e=>{if(portal.type!==t.id){e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background=C.surface;}}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{fontSize:13,fontWeight:700,color:portal.type===t.id?C.accent:C.text1,flex:1}}>{t.label}</div>
+                  {portal.type===t.id&&<span style={{fontSize:11,color:C.accent,fontWeight:700}}>✓ Active</span>}
+                </div>
+                <div style={{fontSize:12,color:C.text3,marginTop:3}}>{t.desc}</div>
+              </div>
+            ))}
+            <button onClick={()=>setShowTypeSwitch(false)} style={{marginTop:8,width:"100%",padding:"9px",borderRadius:10,border:`1px solid ${C.border}`,background:"transparent",color:C.text2,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:F}}>Cancel</button>
+          </div>
+        </div>
+      )}
       {pageActionsFor&&<PageActionsMenu
         page={pageActionsFor} allPages={portal.pages}
         onUpdate={updated=>{setPortal(p=>({...p,pages:p.pages.map(x=>x.id===updated.id?updated:x)}));setPageActionsFor(updated);if(page?.id===updated.id)updatePage(updated);}}
@@ -3965,8 +4019,8 @@ export default function PortalsPage({ environment, onFullScreen }) {
                     style={{padding:"14px 16px",borderRadius:10,border:`2px solid ${selectedTemplate===t.id?t.accent:C.border}`,
                       cursor:"pointer",background:selectedTemplate===t.id?`${t.accent}10`:"transparent",transition:"all .12s",
                       display:"flex",alignItems:"center",gap:12}}>
-                    <div style={{width:36,height:36,borderRadius:8,background:`${t.accent}18`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20}}>
-                      {t.icon}
+                    <div style={{width:36,height:36,borderRadius:8,background:`${t.accent}18`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      <Ic n={t.icon} s={18} c={t.accent}/>
                     </div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:700,color:selectedTemplate===t.id?t.accent:C.text1}}>{t.name}</div>

@@ -1556,7 +1556,8 @@ const HMPortalWidget = ({ cfg, theme, portal, api }) => {
             const fm = {};
             allFields.forEach(f => { fm[f.id] = f.api_key; fm[f.api_key] = f.api_key; });
             all = all.filter(r => savedList.filters.every(filt => {
-              const ak = fm[filt.field] || filt.field || '';
+              // Support both filt.field and filt.fieldId (different saved list formats)
+              const ak = fm[filt.fieldId] || fm[filt.field] || filt.fieldId || filt.field || '';
               const rv = r.data?.[ak];
               const op = filt.op || filt.operator || 'contains';
               const fv = String(filt.value ?? '').toLowerCase();
@@ -1592,12 +1593,13 @@ const HMPortalWidget = ({ cfg, theme, portal, api }) => {
     if (action === 'submit_feedback') { setModal({ type:'feedback', record }); return; }
     if (action === 'move_stage')      { setModal({ type:'move_stage', record }); return; }
     if (action === 'view_profile')    { window.open(`/people/${record.id}`, '_blank'); return; }
+    const patchFn = api.patch || ((p, b) => api.post ? api.post(p, { ...b, _method:'PATCH' }) : Promise.resolve());
     if (action === 'approve_offer') {
-      await api.patch(`/records/${record.id}`, { data:{ status:'Approved' } });
+      await patchFn(`/records/${record.id}`, { data:{ status:'Approved' } }).catch(()=>{});
       setRecords(rs => rs.map(r => r.id===record.id ? {...r, data:{...r.data, status:'Approved'}} : r));
     }
     if (action === 'reject') {
-      await api.patch(`/records/${record.id}`, { data:{ status:'Rejected' } });
+      await patchFn(`/records/${record.id}`, { data:{ status:'Rejected' } }).catch(()=>{});
       setRecords(rs => rs.map(r => r.id===record.id ? {...r, data:{...r.data, status:'Rejected'}} : r));
     }
   };

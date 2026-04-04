@@ -1,322 +1,257 @@
-import { useState, useEffect } from 'react'
-import { css, Badge, Btn, Avatar, Section, STATUS_COLORS, recordTitle } from './shared.jsx'
+import { useState, useEffect, useCallback } from 'react'
+import { css, Section, Badge, Avatar, STATUS_COLORS, recordTitle } from './shared.jsx'
+import HMWidget from './HMWidget.jsx'
 
-const ScoreBtn = ({ n, active, color, onClick }) => (
-  <button onClick={onClick} style={{
-    width:36, height:36, borderRadius:8, border:`2px solid ${active ? color : '#E8ECF8'}`,
-    background: active ? color : 'transparent', color: active ? 'white' : '#9DA8C7',
-    fontSize:13, fontWeight:700, cursor:'pointer', transition:'all .15s'
-  }}>{n}</button>
-)
-
-// File extension helpers (self-contained — no import from Records.jsx)
-const extOf = f => (f.ext || f.name?.split('.').pop() || '').toLowerCase()
-const isImageFile = f => ['jpg','jpeg','png','gif','webp','bmp'].includes(extOf(f))
-const isPdfFile   = f => extOf(f) === 'pdf'
-const iconFor = f => { const e = extOf(f); if (isImageFile(f)) return '🖼️'; if (isPdfFile(f)) return '📄'; if (['doc','docx'].includes(e)) return '📝'; if (['xls','xlsx'].includes(e)) return '📊'; return '📁'; }
-const fmtSz = b => b > 1048576 ? `${(b/1048576).toFixed(1)} MB` : b > 1024 ? `${Math.round(b/1024)} KB` : ''
-
-const FilePreview = ({ att, onClose }) => {
-  useEffect(() => {
-    const h = e => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
-  }, [onClose])
-  const url = att.url && att.url !== '#' ? att.url : null
+// ── Icon helper ───────────────────────────────────────────────────────────────
+const Ic = ({ n, s=16, c='currentColor' }) => {
+  const P = {
+    loader:  'M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83',
+    user:    'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z',
+    eye:     'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+    eye_off: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22',
+    log_out: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+    grid:    'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+    alert:   'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+  }
   return (
-    <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.8)', zIndex:9999,
-      display:'flex', alignItems:'center', justifyContent:'center' }}>
-      <div onClick={e=>e.stopPropagation()} style={{ background:'#fff', borderRadius:14, overflow:'hidden',
-        display:'flex', flexDirection:'column',
-        width: isImageFile(att) ? 'auto' : '90vw',
-        maxWidth: isImageFile(att) ? '92vw' : 860, maxHeight:'90vh',
-        boxShadow:'0 32px 80px rgba(0,0,0,0.5)' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px',
-          borderBottom:'1px solid #E8ECF8', flexShrink:0 }}>
-          <div style={{ flex:1, fontSize:13, fontWeight:700, color:'#0F1729',
-            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{att.name}</div>
-          {url && <a href={url} download={att.name}
-            style={{ padding:'5px 10px', borderRadius:7, border:'1px solid #E8ECF8', color:'#374151',
-              fontSize:11, fontWeight:600, textDecoration:'none' }}>↓ Download</a>}
-          <button onClick={onClose} style={{ background:'none', border:'none', fontSize:18,
-            color:'#9CA3AF', cursor:'pointer', padding:'0 4px' }}>✕</button>
-        </div>
-        <div style={{ flex:1, overflow:'auto', minHeight:0,
-          background: isImageFile(att) ? '#1a1a2e' : '#F8F9FF',
-          display:'flex', alignItems: isImageFile(att)?'center':'stretch',
-          justifyContent: isImageFile(att)?'center':'stretch' }}>
-          {!url ? (
-            <div style={{ padding:40, color:'#9CA3AF', fontSize:13, textAlign:'center' }}>File not available.</div>
-          ) : isImageFile(att) ? (
-            <img src={url} alt={att.name} style={{ maxWidth:'100%', maxHeight:'80vh', objectFit:'contain' }}/>
-          ) : isPdfFile(att) ? (
-            <iframe src={url} title={att.name} style={{ width:'100%', height:'74vh', border:'none' }}/>
-          ) : (
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-              padding:48, gap:14, textAlign:'center' }}>
-              <div style={{ fontSize:48 }}>{iconFor(att)}</div>
-              <div style={{ fontSize:13, color:'#6B7280' }}>{extOf(att).toUpperCase()} files cannot be previewed in the browser.</div>
-              <a href={url} download={att.name} style={{ padding:'9px 18px', borderRadius:9, background:'#4361EE',
-                color:'#fff', fontSize:13, fontWeight:700, textDecoration:'none' }}>Download</a>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none"
+      stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d={P[n] || P.alert}/>
+    </svg>
   )
 }
 
-const CandidateCard = ({ record, color, api, portal, allowedFileTypes }) => {
-  const d = record.data || {}
-  const name = recordTitle(record)
-  const [score,    setScore]    = useState(d.rating || null)
-  const [note,     setNote]     = useState('')
-  const [expanded, setExpanded] = useState(false)
-  const [saved,    setSaved]    = useState(false)
-  const [files,    setFiles]    = useState(null)   // null = not yet loaded
-  const [preview,  setPreview]  = useState(null)
+// ── Login screen ──────────────────────────────────────────────────────────────
+function LoginScreen({ portal, api, onLogin }) {
+  const c    = css(portal.branding)
+  const br   = portal.branding || {}
+  const [email,    setEmail]    = useState('')
+  const [password, setPassword] = useState('')
+  const [showPw,   setShowPw]   = useState(false)
+  const [loading,  setLoading]  = useState(false)
+  const [err,      setErr]      = useState('')
 
-  // Load attachments lazily when card first expands
-  useEffect(() => {
-    if (!expanded || files !== null) return
-    api.get(`/attachments?record_id=${record.id}`)
-      .then(data => {
-        let items = Array.isArray(data) ? data.filter(f => f.url && f.url !== '#') : []
-        if (allowedFileTypes?.length) {
-          items = items.filter(f => allowedFileTypes.some(t =>
-            (f.file_type_name||'').toLowerCase().includes(t.toLowerCase())
-          ))
-        }
-        setFiles(items)
-      })
-      .catch(() => setFiles([]))
-  }, [expanded, record.id])
-
-  const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
-
-  return (
-    <div style={{ background:'#fff', borderRadius:16, border:'1.5px solid #E8ECF8', overflow:'hidden', marginBottom:12 }}>
-      <div style={{ padding:'16px 20px', display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}
-        onClick={() => setExpanded(e => !e)}>
-        <Avatar name={name} color={color} size={44}/>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:15, fontWeight:700, color:'#0F1729' }}>{name}</div>
-          <div style={{ fontSize:12, color:'#9DA8C7', marginTop:2 }}>
-            {[d.current_title, d.current_company, d.location].filter(Boolean).join(' · ')}
-          </div>
-        </div>
-        <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-          {files?.length > 0 && (
-            <span style={{ fontSize:10, fontWeight:700, padding:'2px 6px', borderRadius:6,
-              background:'#EEF2FF', color:'#4361EE' }}>
-              {files.length} file{files.length!==1?'s':''}
-            </span>
-          )}
-          {d.status && <Badge color={STATUS_COLORS[d.status] || '#9DA8C7'}>{d.status}</Badge>}
-          {score && <Badge color={color}>★ {score}/5</Badge>}
-          <span style={{ color:'#9DA8C7', fontSize:18 }}>{expanded ? '▲' : '▼'}</span>
-        </div>
-      </div>
-
-      {expanded && (
-        <div style={{ borderTop:'1px solid #E8ECF8', padding:'20px' }}>
-          {d.summary && <p style={{ fontSize:14, color:'#4B5675', lineHeight:1.6, marginBottom:16 }}>{d.summary}</p>}
-
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:16 }}>
-            {d.skills && (Array.isArray(d.skills) ? d.skills : d.skills.split(',')).map(s => (
-              <Badge key={s} color="#6366F1">{s.trim()}</Badge>
-            ))}
-          </div>
-
-          {/* Documents section */}
-          {files === null ? (
-            <div style={{ fontSize:12, color:'#9DA8C7', marginBottom:16 }}>Loading files…</div>
-          ) : files.length > 0 ? (
-            <div style={{ marginBottom:20 }}>
-              <div style={{ fontSize:13, fontWeight:600, color:'#4B5675', marginBottom:10 }}>Documents</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                {files.map(att => (
-                  <div key={att.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
-                    background:'#F8F9FF', borderRadius:10, border:'1px solid #E8ECF8' }}>
-                    <span style={{ fontSize:18 }}>{iconFor(att)}</span>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div
-                        onClick={() => setPreview(att)}
-                        style={{ fontSize:13, fontWeight:600, color:'#4361EE', cursor:'pointer',
-                          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-                          textDecoration:'underline', textDecorationColor:'#4361EE40' }}>
-                        {att.name}
-                      </div>
-                      <div style={{ fontSize:10, color:'#9DA8C7', marginTop:1 }}>
-                        {[att.file_type_name, fmtSz(att.size)].filter(Boolean).join(' · ')}
-                      </div>
-                    </div>
-                    <div style={{ display:'flex', gap:4, flexShrink:0 }}>
-                      <button onClick={() => setPreview(att)}
-                        style={{ background:'none', border:'1px solid #E8ECF8', borderRadius:7, cursor:'pointer',
-                          padding:'5px 9px', color:'#4361EE', fontSize:11, fontWeight:600, fontFamily:'inherit' }}>
-                        Preview
-                      </button>
-                      <a href={att.url} download={att.name} target="_blank" rel="noreferrer"
-                        style={{ border:'1px solid #E8ECF8', borderRadius:7, cursor:'pointer',
-                          padding:'5px 9px', color:'#374151', fontSize:11, fontWeight:600, textDecoration:'none',
-                          display:'flex', alignItems:'center' }}>
-                        ↓
-                      </a>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {/* Score */}
-          <div style={{ marginBottom:12 }}>
-            <div style={{ fontSize:13, fontWeight:600, color:'#4B5675', marginBottom:8 }}>Your Score</div>
-            <div style={{ display:'flex', gap:6 }}>
-              {[1,2,3,4,5].map(n => <ScoreBtn key={n} n={n} active={score===n} color={color} onClick={()=>setScore(n)}/>)}
-            </div>
-          </div>
-
-          {/* Feedback */}
-          <div style={{ marginBottom:12 }}>
-            <div style={{ fontSize:13, fontWeight:600, color:'#4B5675', marginBottom:6 }}>Feedback Note</div>
-            <textarea value={note} onChange={e=>setNote(e.target.value)} rows={3}
-              placeholder="Add your interview notes or feedback…"
-              style={{ width:'100%', padding:'10px 14px', borderRadius:10, border:'1.5px solid #E8ECF8', fontSize:13,
-                fontFamily:'inherit', resize:'vertical', outline:'none', boxSizing:'border-box' }}
-              onFocus={e=>e.target.style.borderColor=color} onBlur={e=>e.target.style.borderColor='#E8ECF8'}/>
-          </div>
-          <Btn color={color} onClick={handleSave}>{saved ? '✓ Saved' : 'Save Feedback'}</Btn>
-        </div>
-      )}
-
-      {preview && <FilePreview att={preview} onClose={() => setPreview(null)}/>}
-    </div>
-  )
-}
-
-export default function HMPortal({ portal, api }) {
-  const c = css(portal.branding)
-  const br = portal.branding || {}
-  const [reqs, setReqs] = useState([])
-  const [candidates, setCandidates] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [activeReq, setActiveReq] = useState(null)
-  const [tab, setTab] = useState('reqs')
-
-  useEffect(() => {
-    Promise.all([
-      api.get(`/records?environment_id=${portal.environment_id}&limit=20`),
-    ]).then(([all]) => {
-      const records = all.records || []
-      setReqs(records.filter(r => r.data?.job_title))
-      setCandidates(records.filter(r => r.data?.first_name))
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setErr('')
+    try {
+      const res = await api.post(`/portals/${portal.id}/session`, { email, password })
+      if (res.token) onLogin(res)
+      else setErr('Login failed. Please check your credentials.')
+    } catch {
+      setErr('Invalid email or password.')
+    } finally {
       setLoading(false)
-    }).catch(() => setLoading(false))
-  }, [])
-
-  const openReqs = reqs.filter(r => r.data?.status === 'Open' || r.data?.status === 'Draft')
+    }
+  }
 
   return (
-    <div style={{ minHeight:'100vh', background:c.bg, fontFamily:c.font }}>
+    <div style={{ minHeight:'100vh', background: c.bg, fontFamily: c.font,
+      display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ width:360, background:'#fff', borderRadius:20, padding:36,
+        boxShadow:'0 24px 60px rgba(0,0,0,0.12)' }}>
+        <div style={{ textAlign:'center', marginBottom:28 }}>
+          {br.logo_url
+            ? <img src={br.logo_url} style={{ height:44, objectFit:'contain', marginBottom:16 }} alt="logo"/>
+            : <div style={{ width:52, height:52, borderRadius:14, background:c.primary,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                color:'white', fontWeight:900, fontSize:22, margin:'0 auto 16px' }}>
+                {(br.company_name||'H')[0]}
+              </div>
+          }
+          <div style={{ fontSize:20, fontWeight:800, color:'#0F1729' }}>
+            {br.company_name || 'Hiring Manager'} Portal
+          </div>
+          <div style={{ fontSize:13, color:'#9DA8C7', marginTop:6 }}>Sign in with your Vercentic account</div>
+        </div>
+
+        <form onSubmit={handleLogin}>
+          <div style={{ marginBottom:16 }}>
+            <label style={{ fontSize:12, fontWeight:700, color:'#4B5675', display:'block', marginBottom:6 }}>
+              Email address
+            </label>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required
+              placeholder="you@company.com"
+              style={{ width:'100%', padding:'11px 14px', borderRadius:10,
+                border:'1.5px solid #E8ECF8', fontSize:13, fontFamily:'inherit',
+                outline:'none', boxSizing:'border-box' }}
+              onFocus={e=>e.target.style.borderColor=c.primary}
+              onBlur={e=>e.target.style.borderColor='#E8ECF8'}/>
+          </div>
+          <div style={{ marginBottom:20 }}>
+            <label style={{ fontSize:12, fontWeight:700, color:'#4B5675', display:'block', marginBottom:6 }}>
+              Password
+            </label>
+            <div style={{ position:'relative' }}>
+              <input type={showPw ? 'text' : 'password'} value={password}
+                onChange={e=>setPassword(e.target.value)} required
+                placeholder="••••••••"
+                style={{ width:'100%', padding:'11px 40px 11px 14px', borderRadius:10,
+                  border:'1.5px solid #E8ECF8', fontSize:13, fontFamily:'inherit',
+                  outline:'none', boxSizing:'border-box' }}
+                onFocus={e=>e.target.style.borderColor=c.primary}
+                onBlur={e=>e.target.style.borderColor='#E8ECF8'}/>
+              <button type="button" onClick={()=>setShowPw(v=>!v)} style={{
+                position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
+                background:'none', border:'none', cursor:'pointer', padding:0, color:'#9DA8C7'
+              }}>
+                <Ic n={showPw ? 'eye_off' : 'eye'} s={15}/>
+              </button>
+            </div>
+          </div>
+
+          {err && (
+            <div style={{ padding:'10px 14px', borderRadius:10, background:'#FEF2F2',
+              border:'1px solid #FECACA', color:'#DC2626', fontSize:12, fontWeight:600, marginBottom:16 }}>
+              {err}
+            </div>
+          )}
+
+          <button type="submit" disabled={loading} style={{
+            width:'100%', padding:'12px', borderRadius:12, border:'none',
+            background: c.primary, color:'white', fontSize:14, fontWeight:700,
+            cursor: loading ? 'not-allowed' : 'pointer', fontFamily:'inherit',
+            opacity: loading ? 0.7 : 1
+          }}>
+            {loading ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+
+        <div style={{ marginTop:20, textAlign:'center', fontSize:11, color:'#9DA8C7' }}>
+          Powered by Vercentic
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Authenticated portal shell ────────────────────────────────────────────────
+function PortalShell({ portal, session, api, onLogout }) {
+  const c  = css(portal.branding)
+  const br = portal.branding || {}
+  const user = session.user
+
+  // Widgets come from portal.pages[0].widgets or portal.hm_widgets
+  // An admin configures these in the Portal Builder
+  const widgets = portal.hm_widgets || portal.pages?.[0]?.widgets || []
+
+  // Create an authenticated API wrapper that adds the portal session token
+  const authedApi = {
+    get:   (path) => api.get(path),   // token added by portal renderer's headers
+    post:  (path, body) => api.post(path, body),
+    patch: (path, body) => api.patch(path, body),
+  }
+
+  const accentColor = br.primary_color || '#4361EE'
+
+  return (
+    <div style={{ minHeight:'100vh', background: c.bg, fontFamily: c.font }}>
       {/* Header */}
-      <div style={{ background:'#1E2235', borderBottom:'1px solid #2D3148', padding:'0' }}>
-        <Section>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 0' }}>
+      <div style={{ background:'#1E2235', borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', top:0, zIndex:50 }}>
+        <div style={{ maxWidth:1100, margin:'0 auto', padding:'0 24px' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', height:60 }}>
             <div style={{ display:'flex', alignItems:'center', gap:12 }}>
               {br.logo_url
-                ? <img src={br.logo_url} style={{ height:32, objectFit:'contain' }} alt="logo"/>
-                : <div style={{ width:36, height:36, borderRadius:10, background:c.primary, display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:900, fontSize:16 }}>H</div>}
-              <div>
-                <div style={{ color:'white', fontSize:15, fontWeight:700 }}>{br.company_name || 'Hiring Manager'} Portal</div>
-                <div style={{ color:'rgba(255,255,255,0.45)', fontSize:11 }}>Internal Review Access</div>
+                ? <img src={br.logo_url} style={{ height:28, objectFit:'contain' }} alt="logo"/>
+                : <div style={{ width:32, height:32, borderRadius:9, background:accentColor,
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    color:'white', fontWeight:900, fontSize:14 }}>
+                    {(br.company_name||'H')[0]}
+                  </div>}
+              <div style={{ color:'white', fontSize:14, fontWeight:700 }}>
+                {br.company_name || 'Hiring Manager'} Portal
               </div>
             </div>
-            <div style={{ display:'flex', gap:6 }}>
-              {['reqs','candidates'].map(t => (
-                <button key={t} onClick={() => setTab(t)} style={{
-                  padding:'7px 16px', borderRadius:8, border:'none', cursor:'pointer', fontFamily:c.font,
-                  fontSize:12, fontWeight:700, textTransform:'capitalize',
-                  background: tab===t ? c.primary : 'rgba(255,255,255,0.08)',
-                  color: tab===t ? 'white' : 'rgba(255,255,255,0.55)',
-                }}>{t === 'reqs' ? 'My Requisitions' : 'Candidates'}</button>
-              ))}
-            </div>
-          </div>
-        </Section>
-      </div>
 
-      {/* Stat strip */}
-      <div style={{ background:'white', borderBottom:'1px solid #E8ECF8' }}>
-        <Section>
-          <div style={{ display:'flex', gap:0, padding:'0' }}>
-            {[
-              { label:'Open Reqs', value:openReqs.length, color:c.primary },
-              { label:'Candidates', value:candidates.length, color:'#0CAF77' },
-              { label:'Pending Review', value:candidates.filter(c=>!c.data?.rating).length, color:'#F79009' },
-            ].map((s,i) => (
-              <div key={i} style={{ padding:'16px 28px', borderRight:'1px solid #E8ECF8' }}>
-                <div style={{ fontSize:24, fontWeight:800, color:s.color }}>{s.value}</div>
-                <div style={{ fontSize:11, color:'#9DA8C7', fontWeight:600 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </Section>
-      </div>
-
-      <Section style={{ padding:'32px 24px' }}>
-        {loading ? (
-          <div style={{ textAlign:'center', padding:60, color:'#9DA8C7' }}>Loading…</div>
-        ) : tab === 'reqs' ? (
-          <div>
-            <h2 style={{ margin:'0 0 20px', fontSize:18, fontWeight:800, color:'#0F1729' }}>My Requisitions</h2>
-            {openReqs.length === 0 ? (
-              <div style={{ textAlign:'center', padding:'48px 0', color:'#9DA8C7' }}>
-                <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
-                <p>No open requisitions assigned to you</p>
-              </div>
-            ) : openReqs.map(req => (
-              <div key={req.id} onClick={() => { setActiveReq(req); setTab('candidates') }}
-                style={{ background:'#fff', borderRadius:14, border:'1.5px solid #E8ECF8', padding:'18px 20px',
-                  marginBottom:10, cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center',
-                  transition:'all .15s' }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = c.primary}
-                onMouseLeave={e => e.currentTarget.style.borderColor = '#E8ECF8'}>
-                <div>
-                  <div style={{ fontSize:15, fontWeight:700, color:'#0F1729', marginBottom:4 }}>{req.data?.job_title || 'Untitled'}</div>
-                  <div style={{ display:'flex', gap:6 }}>
-                    {req.data?.department && <Badge color="#6366F1">{req.data.department}</Badge>}
-                    {req.data?.status && <Badge color={STATUS_COLORS[req.data.status]||'#9DA8C7'}>{req.data.status}</Badge>}
-                  </div>
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <div style={{ width:30, height:30, borderRadius:8, background:accentColor,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  color:'white', fontWeight:800, fontSize:12 }}>
+                  {(user.first_name||'?')[0]}{(user.last_name||'')[0]}
                 </div>
-                <span style={{ color:c.primary, fontSize:20 }}>→</span>
+                <div>
+                  <div style={{ color:'white', fontSize:12, fontWeight:700 }}>
+                    {[user.first_name, user.last_name].filter(Boolean).join(' ')}
+                  </div>
+                  <div style={{ color:'rgba(255,255,255,0.45)', fontSize:10 }}>{user.email}</div>
+                </div>
               </div>
-            ))}
+              <button onClick={onLogout} title="Sign out" style={{
+                background:'rgba(255,255,255,0.08)', border:'none', borderRadius:8,
+                padding:'7px 10px', cursor:'pointer', color:'rgba(255,255,255,0.6)',
+                display:'flex', alignItems:'center', gap:6, fontSize:11, fontWeight:600, fontFamily:'inherit'
+              }}>
+                <Ic n="log_out" s={13} c="rgba(255,255,255,0.6)"/>
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ maxWidth:1100, margin:'0 auto', padding:'32px 24px' }}>
+        {widgets.length === 0 ? (
+          <div style={{ textAlign:'center', padding:'80px 0', color:'#9DA8C7' }}>
+            <Ic n="grid" s={36} c="#E8ECF8"/>
+            <div style={{ marginTop:16, fontSize:16, fontWeight:700, color:'#4B5675' }}>
+              No widgets configured
+            </div>
+            <div style={{ marginTop:8, fontSize:13 }}>
+              An admin can add widgets to this portal in the Portal Builder.
+            </div>
           </div>
         ) : (
-          <div>
-            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
-              <h2 style={{ margin:0, fontSize:18, fontWeight:800, color:'#0F1729' }}>
-                {activeReq ? `Candidates — ${activeReq.data?.job_title}` : 'All Candidates'}
-              </h2>
-              {activeReq && (
-                <button onClick={() => { setActiveReq(null); setTab('reqs') }}
-                  style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#9DA8C7', fontFamily:c.font }}>
-                  ← Back
-                </button>
-              )}
-            </div>
-            {candidates.length === 0
-              ? <div style={{ textAlign:'center', padding:'48px 0', color:'#9DA8C7' }}><div style={{ fontSize:40, marginBottom:12 }}>👤</div><p>No candidates yet</p></div>
-              : candidates.map(r => <CandidateCard key={r.id} record={r} color={c.primary} api={api} portal={portal}/>)
-            }
-          </div>
+          widgets.map((widgetConfig, i) => (
+            <HMWidget key={widgetConfig.id || i}
+              widgetConfig={widgetConfig}
+              portal={portal}
+              api={authedApi}
+              color={widgetConfig.color || accentColor}
+              user={user}/>
+          ))
         )}
-      </Section>
-      <div style={{ borderTop:'1px solid #E8ECF8', padding:'20px', textAlign:'center' }}>
-        <p style={{ margin:0, fontSize:11, color:'#9DA8C7' }}>Hiring Manager Portal · Powered by Vercentic</p>
+      </div>
+
+      <div style={{ borderTop:'1px solid #E8ECF8', padding:'20px 24px', textAlign:'center' }}>
+        <p style={{ margin:0, fontSize:11, color:'#9DA8C7' }}>
+          Hiring Manager Portal · Powered by Vercentic
+        </p>
       </div>
     </div>
   )
+}
+
+// ── Main export ───────────────────────────────────────────────────────────────
+export default function HMPortal({ portal, api }) {
+  const [session, setSession] = useState(null)
+
+  // Restore session from sessionStorage
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(`hm_session_${portal.id}`)
+      if (stored) {
+        const s = JSON.parse(stored)
+        if (new Date(s.expires_at) > new Date()) setSession(s)
+      }
+    } catch {}
+  }, [portal.id])
+
+  const handleLogin = (sessionData) => {
+    sessionStorage.setItem(`hm_session_${portal.id}`, JSON.stringify(sessionData))
+    setSession(sessionData)
+  }
+
+  const handleLogout = () => {
+    sessionStorage.removeItem(`hm_session_${portal.id}`)
+    setSession(null)
+  }
+
+  if (!session) {
+    return <LoginScreen portal={portal} api={api} onLogin={handleLogin}/>
+  }
+
+  return <PortalShell portal={portal} session={session} api={api} onLogout={handleLogout}/>
 }

@@ -1593,6 +1593,18 @@ const SavedViewsDropdown = ({ objectId, environmentId, userId, currentFilters, c
                   </svg>
                 </button>
               )}
+              {/* Portal visible toggle */}
+              {view.created_by === (userId || "unknown") && (
+                <button onClick={async e => { e.stopPropagation(); await api.patch(`/saved-views/${view.id}`, { portal_visible: !view.portal_visible }); load(); }}
+                  title={view.portal_visible ? "Remove from HM Portal" : "Make available in HM Portal"}
+                  style={{ background:"none", border:"none", cursor:"pointer", padding:4, borderRadius:5,
+                    color: view.portal_visible ? "#7C3AED" : C.text3, display:"flex" }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                    <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                  </svg>
+                </button>
+              )}
               {view.created_by === (userId || "unknown") && (
                 <button onClick={e => { e.stopPropagation(); handleDelete(view.id); }}
                   style={{ background:"none", border:"none", cursor:"pointer", padding:4, borderRadius:5, color: deleting===view.id ? "#ef4444" : C.text3, display:"flex" }}

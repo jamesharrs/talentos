@@ -39,6 +39,17 @@ router.get('/pinned', (req, res) => {
   res.json(pinned);
 });
 
+// GET /api/saved-views/portal-lists?environment_id= — lists marked portal_visible
+router.get('/portal-lists', (req, res) => {
+  ensureTable();
+  const { environment_id } = req.query;
+  if (!environment_id) return res.status(400).json({ error: 'environment_id required' });
+  const lists = query('saved_views', v =>
+    v.environment_id === environment_id && v.portal_visible === true
+  );
+  res.json(lists);
+});
+
 // GET /api/saved-views/:id
 router.get('/:id', (req, res) => {
   ensureTable();
@@ -84,7 +95,8 @@ router.patch('/:id', (req, res) => {
   ensureTable();
   const allowed = ['name','is_shared','filters','visible_field_ids','view_mode','sharing',
                    'pinned','dashboard_position','columns','group_by','sort_by','sort_dir',
-                   'formulas','chart_type','chart_x','chart_y','filter_chip'];
+                   'formulas','chart_type','chart_x','chart_y','filter_chip',
+                   'portal_visible','portal_label','portal_icon'];
   const up = { updated_at: new Date().toISOString() };
   allowed.forEach(k => { if (req.body[k] !== undefined) up[k] = req.body[k]; });
   if (up.is_shared !== undefined) up.is_shared = !!up.is_shared;

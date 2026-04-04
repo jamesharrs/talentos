@@ -285,6 +285,51 @@ router.get('/:id/draft/:token', (req, res) => {
 
 module.exports = router;
 
+// ── Portal session auth (for HM portal login) ────────────────────────────────
+// POST /api/portals/:id/session — login as a platform user for a specific portal.
+// Returns a session token bound to the user, used by HM portal for $me resolution.
+router.post('/:id/session', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'email and password required' });
+  const bcrypt = require('bcryptjs');
+  const user = findOne('users', u => u.email.toLowerCase() === email.toLowerCase());
+  if (!user || !user.password_hash) return res.status(401).json({ error: 'Invalid credentials' });
+  const valid = bcrypt.compareSync(password, user.password_hash);
+  if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+  const portal = findOne('portals', p => p.id === req.params.id);
+  if (!portal) return res.status(404).json({ error: 'Portal not found' });
+  // Issue a signed session token (simple JWT-style, no extra library needed)
+  const token = require('crypto').randomBytes(32).toString('hex');
+  // Store in-memory session (survives server restart for dev, use Redis in prod)
+  if (!global._portalSessions) global._portalSessions = {};
+  global._portalSessions[token] = {
+    user_id: user.id,
+    email: user.email,
+    first_name: user.first_name,
+    last_name: user.last_name,
+    portal_id: portal.id,
+    environment_id: portal.environment_id,
+    expires_at: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(), // 8 hours
+  };
+  res.json({
+    token,
+    user: { id: user.id, first_name: user.first_name, last_name: user.last_name, email: user.email },
+    portal_id: portal.id,
+    expires_at: global._portalSessions[token].expires_at,
+  });
+});
+
+// GET /api/portals/:id/session — verify a portal session token
+router.get('/:id/session', (req, res) => {
+  const token = req.headers['x-portal-token'] || req.query.token;
+  if (!token) return res.status(401).json({ error: 'No token provided' });
+  const sess = global._portalSessions?.[token];
+  if (!sess || new Date(sess.expires_at) < new Date()) {
+    return res.status(401).json({ error: 'Session expired or invalid' });
+  }
+  res.json({ valid: true, user: { id: sess.user_id, first_name: sess.first_name, last_name: sess.last_name, email: sess.email }, environment_id: sess.environment_id });
+});
+
 
 // ── Career site: submit application ──────────────────────────────────────────
 // POST /api/portals/:id/apply

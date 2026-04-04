@@ -181,11 +181,22 @@ router.get('/', (req, res) => {
 
   if (search) records = records.filter(r=>JSON.stringify(r.data).toLowerCase().includes(search.toLowerCase()));
   if (filter_key && filter_value !== undefined) {
-    records = records.filter(r => {
-      const v = r.data?.[filter_key];
-      if (Array.isArray(v)) return v.some(i => String(i).toLowerCase() === filter_value.toLowerCase());
-      return String(v || '').toLowerCase() === filter_value.toLowerCase();
-    });
+    // Resolve $me → current user's full name (or email)
+    const resolveMeToken = (val) => {
+      if (val !== '$me') return val;
+      const u = req.currentUser || req.portalUser;
+      if (!u) return val;
+      return [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || val;
+    };
+    // Support arrays of filters (filter_key[]=a&filter_value[]=b)
+    const keys   = Array.isArray(filter_key)   ? filter_key   : [filter_key];
+    const values = Array.isArray(filter_value)  ? filter_value : [filter_value];
+    records = records.filter(r => keys.every((k, i) => {
+      const fv = resolveMeToken(values[i] ?? '');
+      const v  = r.data?.[k];
+      if (Array.isArray(v)) return v.some(item => String(item).toLowerCase() === fv.toLowerCase());
+      return String(v || '').toLowerCase() === fv.toLowerCase();
+    }));
   }
   records.sort((a,b)=>sort_dir==='asc'?new Date(a.created_at)-new Date(b.created_at):new Date(b.created_at)-new Date(a.created_at));
   const total = records.length;

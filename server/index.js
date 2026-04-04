@@ -52,6 +52,18 @@ app.use(tenantMiddleware);        // tenant isolation — must come before route
 app.use(attachUser);              // attach current user to req
 app.use(auditResponseMiddleware); // log 403 responses to security audit log
 
+// ── Portal session middleware — resolves x-portal-token to req.portalUser ────
+app.use((req, res, next) => {
+  const token = req.headers['x-portal-token'];
+  if (token && global._portalSessions) {
+    const sess = global._portalSessions[token];
+    if (sess && new Date(sess.expires_at) > new Date()) {
+      req.portalUser = { id: sess.user_id, first_name: sess.first_name, last_name: sess.last_name, email: sess.email, environment_id: sess.environment_id };
+    }
+  }
+  next();
+});
+
 // ── Auth guard ────────────────────────────────────────────────────────────────
 const AUTH_EXEMPT = [
   '/auth/login', '/auth/me',
@@ -73,6 +85,8 @@ const AUTH_EXEMPT = [
 app.use('/api', (req, res, next) => {
   if (AUTH_EXEMPT.some(p => req.path === p || req.path.startsWith(p + '/'))) return next();
   if (req.path.match(/^\/portals\/[^/]+\/apply$/)) return next();
+  if (req.path.match(/^\/portals\/[^/]+\/session$/)) return next();
+  if (req.path.match(/^\/portals\/[^/]+\/jobs($|\/)/)) return next();
   if (req.method === 'GET' && (
     req.path.startsWith('/objects') || req.path.startsWith('/records') ||
     req.path.startsWith('/fields')  || req.path.startsWith('/saved-views') ||

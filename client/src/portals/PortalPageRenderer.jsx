@@ -1497,10 +1497,12 @@ const CtaWidget = ({ cfg, theme }) => {
 }
 
 const HMPortalWidget = ({ cfg, theme, portal, api }) => {
-  const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [modal, setModal]     = useState(null); // { type, record }
-  const [search, setSearch]   = useState('');
+  const [records,    setRecords]    = useState([]);
+  const [fields,     setFields]     = useState([]);   // all object fields
+  const [listCols,   setListCols]   = useState([]);   // ordered visible fields from saved list
+  const [loading,    setLoading]    = useState(true);
+  const [modal,      setModal]      = useState(null);
+  const [search,     setSearch]     = useState('');
   const ff = theme.fontFamily || "'DM Sans', sans-serif";
   const pr = cfg.accent_color || theme.primaryColor || '#4361EE';
   const tc = theme.textColor || '#1a1a2e';
@@ -1514,18 +1516,62 @@ const HMPortalWidget = ({ cfg, theme, portal, api }) => {
     if (!portal?.environment_id || !cfg.object_id) { setLoading(false); return; }
     const load = async () => {
       try {
-        let url = `/records?object_id=${cfg.object_id}&environment_id=${portal.environment_id}&limit=100`;
-        // Apply saved list filters if a list is selected
+        // 1. Load fields for the object
+        const flds = await api.get(`/fields?object_id=${cfg.object_id}`);
+        const allFields = Array.isArray(flds) ? flds : [];
+        setFields(allFields);
+
+        // 2. Load saved list config to get columns, filters, sort
+        let savedList = null;
         if (cfg.list_id) {
-          try {
-            const sv = await api.get(`/saved-views/${cfg.list_id}`);
-            if (sv?.filter_chip) {
-              url += `&filter_key=${encodeURIComponent(sv.filter_chip.fieldKey)}&filter_value=${encodeURIComponent(sv.filter_chip.fieldValue)}`;
-            }
-          } catch(e) {}
+          try { savedList = await api.get(`/saved-views/${cfg.list_id}`); } catch(e) {}
         }
+
+        // 3. Resolve visible columns from saved list
+        if (savedList?.visible_field_ids?.length) {
+          // Use the saved list's column order
+          const ordered = savedList.visible_field_ids
+            .map(id => allFields.find(f => f.id === id || f.api_key === id))
+            .filter(Boolean);
+          setListCols(ordered.length ? ordered : allFields.filter(f => f.show_in_list).slice(0, 5));
+        } else {
+          // Fall back to show_in_list fields
+          setListCols(allFields.filter(f => f.show_in_list).slice(0, 5));
+        }
+
+        // 4. Build records URL — apply filter_chip from saved list
+        let url = `/records?object_id=${cfg.object_id}&environment_id=${portal.environment_id}&limit=200`;
+        if (savedList?.sort_by) url += `&sort_by=${encodeURIComponent(savedList.sort_by)}&sort_dir=${savedList.sort_dir||'asc'}`;
+        if (savedList?.filter_chip) {
+          url += `&filter_key=${encodeURIComponent(savedList.filter_chip.fieldKey)}&filter_value=${encodeURIComponent(savedList.filter_chip.fieldValue)}`;
+        }
+
         const data = await api.get(url);
-        setRecords(Array.isArray(data) ? data : (data?.records || []));
+        let all = Array.isArray(data) ? data : (data?.records || []);
+
+        // 5. Apply advanced filters from saved list
+        if (savedList?.filters?.length) {
+          const fm = {};
+          allFields.forEach(f => { fm[f.id] = f.api_key; fm[f.api_key] = f.api_key; });
+          all = all.filter(r => savedList.filters.every(filt => {
+            const ak = fm[filt.field] || filt.field || '';
+            const rv = r.data?.[ak];
+            const op = filt.op || filt.operator || 'contains';
+            const fv = String(filt.value ?? '').toLowerCase();
+            const sv = String(rv ?? '').toLowerCase();
+            if (op === 'is empty')     return !rv;
+            if (op === 'is not empty') return !!rv;
+            if (op === 'contains')     return sv.includes(fv);
+            if (op === 'is')           return sv === fv;
+            if (op === 'is not')       return sv !== fv;
+            if (op === '>') return parseFloat(rv) > parseFloat(filt.value);
+            if (op === '<') return parseFloat(rv) < parseFloat(filt.value);
+            if (op === 'includes') { const arr=Array.isArray(rv)?rv:(rv?[rv]:[]).map(String); return arr.some(v=>v.toLowerCase()===fv); }
+            return true;
+          }));
+        }
+
+        setRecords(all);
       } catch(e) { console.error(e); }
       finally { setLoading(false); }
     };
@@ -1553,19 +1599,33 @@ const HMPortalWidget = ({ cfg, theme, portal, api }) => {
   const RecordCard = ({ record }) => {
     const d = record.data || {};
     const name = recordTitle(record);
-    const sub  = d.current_title || d.job_title || d.department || d.category || '';
-    const status = d.status;
     const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    // Use listCols for extra fields, excluding the title field to avoid duplication
+    const extraCols = listCols.filter(f => !['first_name','last_name','job_title','name','title','pool_name'].includes(f.api_key));
     return (
       <div style={{ background:'#fff', borderRadius:14, border:'1.5px solid #E8ECF8', padding:'16px 18px', marginBottom:10 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:ctaButtons.length?12:0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom: (ctaButtons.length || extraCols.length) ? 12 : 0 }}>
           <div style={{ width:42, height:42, borderRadius:12, background:`${pr}18`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:14, fontWeight:700, color:pr, fontFamily:ff }}>{initials}</div>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontSize:14, fontWeight:700, color:tc, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontFamily:ff }}>{name}</div>
-            {sub && <div style={{ fontSize:12, color:'#9DA8C7', marginTop:2, fontFamily:ff }}>{sub}</div>}
+            {extraCols.slice(0,2).map(f => {
+              const val = d[f.api_key];
+              if (!val && val !== 0) return null;
+              return <div key={f.id} style={{ fontSize:12, color:'#9DA8C7', marginTop:2, fontFamily:ff }}>{Array.isArray(val) ? val.join(', ') : String(val)}</div>;
+            })}
           </div>
-          {status && <span style={{ fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:99, background:`${pr}14`, color:pr }}>{status}</span>}
+          {d.status && <span style={{ fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:99, background:`${pr}14`, color:pr }}>{d.status}</span>}
         </div>
+        {/* Additional columns as chips */}
+        {extraCols.slice(2).some(f => d[f.api_key]) && (
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:ctaButtons.length?10:0 }}>
+            {extraCols.slice(2).map(f => {
+              const val = d[f.api_key];
+              if (!val && val !== 0) return null;
+              return <span key={f.id} style={{ fontSize:11, padding:'2px 8px', borderRadius:99, background:'#F3F4F6', color:'#374151', fontFamily:ff }}>{f.name}: {Array.isArray(val)?val.join(', '):String(val)}</span>;
+            })}
+          </div>
+        )}
         {ctaButtons.length > 0 && (
           <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
             {ctaButtons.map((btn,i) => (
@@ -1607,25 +1667,32 @@ const HMPortalWidget = ({ cfg, theme, portal, api }) => {
           <table style={{ width:'100%', borderCollapse:'collapse', fontFamily:ff }}>
             <thead>
               <tr style={{ background:'#F8F9FF', borderBottom:'1.5px solid #E8ECF8' }}>
-                <th style={{ padding:'10px 16px', textAlign:'left', fontSize:11, fontWeight:700, color:'#9DA8C7' }}>NAME</th>
-                <th style={{ padding:'10px 16px', textAlign:'left', fontSize:11, fontWeight:700, color:'#9DA8C7' }}>STATUS</th>
+                {listCols.map(f => (
+                  <th key={f.id} style={{ padding:'10px 16px', textAlign:'left', fontSize:11, fontWeight:700, color:'#9DA8C7', whiteSpace:'nowrap' }}>
+                    {f.name.toUpperCase()}
+                  </th>
+                ))}
                 {ctaButtons.length > 0 && <th style={{ padding:'10px 16px' }}/>}
               </tr>
             </thead>
             <tbody>
               {filtered.map(r => {
-                const d = r.data||{};
-                const name = recordTitle(r);
-                const sub  = d.current_title||d.job_title||d.department||'';
+                const d = r.data || {};
                 return (
                   <tr key={r.id} style={{ borderBottom:'1px solid #F3F4F6' }}>
-                    <td style={{ padding:'12px 16px' }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:tc }}>{name}</div>
-                      {sub && <div style={{ fontSize:11, color:'#9DA8C7' }}>{sub}</div>}
-                    </td>
-                    <td style={{ padding:'12px 16px' }}>
-                      {d.status && <span style={{ fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:99, background:`${pr}14`, color:pr }}>{d.status}</span>}
-                    </td>
+                    {listCols.map(f => {
+                      const val = d[f.api_key];
+                      const display = !val && val !== 0
+                        ? <span style={{ color:'#D1D5DB' }}>—</span>
+                        : f.api_key === 'status'
+                          ? <span style={{ fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:99, background:`${pr}14`, color:pr }}>{val}</span>
+                          : Array.isArray(val) ? val.join(', ') : String(val);
+                      return (
+                        <td key={f.id} style={{ padding:'12px 16px', fontSize:13, color:tc, verticalAlign:'middle' }}>
+                          {display}
+                        </td>
+                      );
+                    })}
                     {ctaButtons.length > 0 && (
                       <td style={{ padding:'12px 16px' }}>
                         <div style={{ display:'flex', gap:6 }}>

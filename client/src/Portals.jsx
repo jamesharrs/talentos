@@ -40,7 +40,7 @@ const WIDGET_TYPES = [
   { type:"jobs",         label:"Job List",       icon:"briefcase", desc:"Open positions with filters" },
   { type:"people",       label:"People List",    icon:"users2",    desc:"Candidates or team members" },
   { type:"hm_widget",    label:"HM Widget",      icon:"users2",    desc:"Candidate list with CTA actions for hiring managers" },
-  { type:"report_widget",label:"Report",         icon:"barChart",  desc:"Embed a saved report as a chart & table" },
+  { type:"report_widget",label:"Report",         icon:"bar2",      desc:"Embed a saved report as a chart & table" },
   { type:"ai_summary",   label:"AI Briefing",    icon:"sparkles",  desc:"Personalised AI summary — highlights priority tasks for the portal user" },
   { type:"form",         label:"Form",           icon:"form",      desc:"Linked to any object" },
   { type:"stats",        label:"Stats",          icon:"bar2",      desc:"Numbers & social proof" },

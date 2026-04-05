@@ -39,7 +39,9 @@ const WIDGET_TYPES = [
   { type:"image",        label:"Image",          icon:"image",     desc:"Photo or illustration" },
   { type:"jobs",         label:"Job List",       icon:"briefcase", desc:"Open positions with filters" },
   { type:"people",       label:"People List",    icon:"users2",    desc:"Candidates or team members" },
-  { type:"hm_widget",   label:"HM Widget",      icon:"users2",    desc:"Candidate list with CTA actions for hiring managers" },
+  { type:"hm_widget",    label:"HM Widget",      icon:"users2",    desc:"Candidate list with CTA actions for hiring managers" },
+  { type:"report_widget",label:"Report",         icon:"barChart",  desc:"Embed a saved report as a chart & table" },
+  { type:"ai_summary",   label:"AI Briefing",    icon:"sparkles",  desc:"Personalised AI summary — highlights priority tasks for the portal user" },
   { type:"form",         label:"Form",           icon:"form",      desc:"Linked to any object" },
   { type:"stats",        label:"Stats",          icon:"bar2",      desc:"Numbers & social proof" },
   { type:"testimonials", label:"Testimonials",   icon:"quote",     desc:"Employee quotes & stories" },
@@ -734,6 +736,7 @@ const WIDGET_CATEGORIES = [
   { id:"recruitment",label:"Recruitment", color:"#0891b2", icon:"briefcase", widgets:["jobs","featured_jobs","dept_grid","job_alerts","app_status","saved_jobs","hm_widget"] },
   { id:"people",     label:"People",      color:"#059669", icon:"users2",    widgets:["people","team"] },
   { id:"forms",      label:"Forms",       color:"#d97706", icon:"form",      widgets:["form","multistep_form","files","map_embed"] },
+  { id:"insights",   label:"Insights",    color:"#7c3aed", icon:"sparkles",  widgets:["ai_summary","report_widget","hm_widget"] },
 ];
 const WIDGET_TYPE_MAP = Object.fromEntries(WIDGET_TYPES.map(w=>[w.type,w]));
 
@@ -1380,6 +1383,139 @@ const HM_CTA_OPTIONS = [
   { action:'view_profile',       label:'View Profile' },
 ];
 
+// ── ReportWidgetConfig ────────────────────────────────────────────────────────
+const ReportWidgetConfig = ({ cfg, set, environmentId }) => {
+  const [reports, setReports] = useState([]);
+  useEffect(() => {
+    if (!environmentId) return;
+    api.get(`/saved-views/all-reports?environment_id=${environmentId}`)
+      .then(d => setReports(Array.isArray(d) ? d : []))
+      .catch(() => setReports([]));
+  }, [environmentId]);
+  const pr = cfg.accent_color || C.accent;
+  const inp = { width:'100%', padding:'8px 12px', borderRadius:8, border:`1.5px solid ${C.border}`, fontSize:13, fontFamily:F, outline:'none', boxSizing:'border-box', background:C.surface };
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      <div>
+        <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:5 }}>Widget Title</div>
+        <input value={cfg.widget_title||''} onChange={e=>set('widget_title',e.target.value)} placeholder="Pipeline Overview" style={inp}/>
+      </div>
+      <div>
+        <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:5 }}>Saved Report</div>
+        <select value={cfg.report_id||''} onChange={e=>set('report_id',e.target.value)} style={inp}>
+          <option value=''>— Select a report —</option>
+          {reports.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
+        </select>
+        {reports.length===0&&<div style={{ fontSize:11, color:'#D97706', marginTop:4 }}>No saved reports yet. Go to Reports → build one → save it.</div>}
+      </div>
+      <div>
+        <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>Chart Type</div>
+        <div style={{ display:'flex', gap:6 }}>
+          {[['bar','Bar'],['line','Line'],['pie','Pie'],['none','None']].map(([v,l])=>(
+            <button key={v} onClick={()=>set('chart_type',v)} style={{
+              flex:1, padding:'7px 0', borderRadius:8, cursor:'pointer', fontFamily:F,
+              border:`1.5px solid ${(cfg.chart_type||'bar')===v?pr:C.border}`,
+              background:(cfg.chart_type||'bar')===v?`${pr}14`:C.surface,
+              color:(cfg.chart_type||'bar')===v?pr:C.text2, fontSize:11, fontWeight:700 }}>{l}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{ display:'flex', gap:16 }}>
+        <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:C.text2, cursor:'pointer' }}>
+          <input type="checkbox" checked={cfg.show_chart!==false} onChange={e=>set('show_chart',e.target.checked)} style={{ accentColor:pr }}/>
+          Show chart
+        </label>
+        <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:C.text2, cursor:'pointer' }}>
+          <input type="checkbox" checked={cfg.show_table!==false} onChange={e=>set('show_table',e.target.checked)} style={{ accentColor:pr }}/>
+          Show table
+        </label>
+      </div>
+      <div>
+        <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:5 }}>Max table rows</div>
+        <input type="number" value={cfg.max_rows||10} min={1} max={100} onChange={e=>set('max_rows',parseInt(e.target.value)||10)} style={inp}/>
+      </div>
+    </div>
+  );
+};
+
+// ── AISummaryWidgetConfig ─────────────────────────────────────────────────────
+const AISummaryWidgetConfig = ({ cfg, set, environmentId }) => {
+  const [objects, setObjects] = useState([]);
+  const [lists,   setLists]   = useState({});
+  const pr  = cfg.accent_color || C.accent;
+  const inp = { width:'100%', padding:'8px 12px', borderRadius:8, border:`1.5px solid ${C.border}`, fontSize:13, fontFamily:F, outline:'none', boxSizing:'border-box', background:C.surface };
+
+  useEffect(() => {
+    if (!environmentId) return;
+    api.get(`/objects?environment_id=${environmentId}`)
+      .then(d => setObjects(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, [environmentId]);
+
+  const loadLists = (objectId) => {
+    if (!objectId || lists[objectId]) return;
+    api.get(`/saved-views/portal-lists?environment_id=${environmentId}&object_id=${objectId}`)
+      .then(d => setLists(prev => ({ ...prev, [objectId]: Array.isArray(d) ? d : [] })))
+      .catch(() => {});
+  };
+
+  const addSource = () => set('data_sources', [...(cfg.data_sources||[]), { object_id:'', object_name:'', list_id:'', label:'' }]);
+  const updSrc = (i, k, v) => { const s=[...(cfg.data_sources||[])]; s[i]={...s[i],[k]:v}; set('data_sources',s); };
+  const delSrc = i => { const s=[...(cfg.data_sources||[])]; s.splice(i,1); set('data_sources',s); };
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      <div>
+        <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:5 }}>Widget Title</div>
+        <input value={cfg.widget_title||''} onChange={e=>set('widget_title',e.target.value)} placeholder="Your Daily Briefing" style={inp}/>
+      </div>
+      <div>
+        <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:5 }}>Portal User Role</div>
+        <input value={cfg.role||''} onChange={e=>set('role',e.target.value)} placeholder="Hiring Manager" style={inp}/>
+        <div style={{ fontSize:11, color:C.text3, marginTop:4 }}>Used to personalise the AI tone and suggestions.</div>
+      </div>
+      <div>
+        <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>Data Sources</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {(cfg.data_sources||[]).map((src,i) => (
+            <div key={i} style={{ padding:12, borderRadius:10, border:`1.5px solid ${C.border}`, background:'#FAFBFF' }}>
+              <div style={{ display:'flex', gap:8, marginBottom:8 }}>
+                <input value={src.label||''} onChange={e=>updSrc(i,'label',e.target.value)}
+                  placeholder="e.g. Candidates to Review"
+                  style={{ flex:1, padding:'7px 10px', borderRadius:7, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, outline:'none' }}/>
+                <button onClick={()=>delSrc(i)} style={{ padding:'0 10px', borderRadius:7,
+                  border:'1px solid #FCA5A5', background:'#FEF2F2', color:'#DC2626', cursor:'pointer', fontSize:14 }}>✕</button>
+              </div>
+              <select value={src.object_id||''} onChange={e=>{
+                const obj=objects.find(o=>o.id===e.target.value);
+                updSrc(i,'object_id',e.target.value);
+                updSrc(i,'object_name',obj?.name||'');
+                loadLists(e.target.value);
+              }} style={{ width:'100%', padding:'7px 10px', borderRadius:7, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, outline:'none', background:'white', marginBottom:6 }}>
+                <option value=''>— Choose object —</option>
+                {objects.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+              <select value={src.list_id||''} onChange={e=>updSrc(i,'list_id',e.target.value)}
+                style={{ width:'100%', padding:'7px 10px', borderRadius:7, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, outline:'none', background:'white' }}>
+                <option value=''>All records (no filter)</option>
+                {(lists[src.object_id]||[]).map(l=><option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            </div>
+          ))}
+          <button onClick={addSource} style={{ padding:'9px 0', borderRadius:9,
+            border:`1.5px dashed ${pr}50`, background:`${pr}06`, color:pr,
+            cursor:'pointer', fontSize:13, fontFamily:F, fontWeight:600 }}>
+            + Add Data Source
+          </button>
+        </div>
+      </div>
+      <div style={{ padding:10, borderRadius:9, background:'#EEF1FF', border:'1px solid #C7D2FE', fontSize:12, color:'#4338CA' }}>
+        💡 Claude reads live data and generates a personalised briefing — oldest/most urgent items highlighted first.
+      </div>
+    </div>
+  );
+};
+
 const HMWidgetConfig = ({ cfg, set, setMany, environmentId }) => {
   const [objects,    setObjects]    = useState([]);
   const [savedLists, setSavedLists] = useState([]);
@@ -1645,6 +1781,7 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
     hero:"Hero Banner", text:"Rich Text", image:"Image", stats:"Stats",
     video:"Video", jobs:"Job List", job_list:"Job List", people:"People List", team:"Team", form:"Form", divider:"Divider", spacer:"Spacer", files:"Files / Docs",
     content:"Content Block", accordion:"Accordion", cta:"CTA Section", hm_widget:"HM Widget",
+    report_widget:"Report", ai_summary:"AI Briefing",
   };
   const renderFields = () => {
     switch (cell.widgetType) {
@@ -1771,6 +1908,12 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
       );
       case "hm_widget": return (
         <HMWidgetConfig cfg={cfg} set={set} setMany={setMany} environmentId={environmentId}/>
+      );
+      case "report_widget": return (
+        <ReportWidgetConfig cfg={cfg} set={set} environmentId={environmentId}/>
+      );
+      case "ai_summary": return (
+        <AISummaryWidgetConfig cfg={cfg} set={set} environmentId={environmentId}/>
       );
       case "job_list": return (
         <ListWidgetConfig cfg={cfg} set={set} setMany={setMany} inp={inp} lbl={lbl} environmentId={environmentId} cellId={cell.id} defaultSlug="jobs"/>

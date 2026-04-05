@@ -51,6 +51,18 @@ router.get('/portal-lists', (req, res) => {
   res.json(lists);
 });
 
+// GET /api/saved-views/all-reports?environment_id= — saved views usable as report widgets
+router.get('/all-reports', (req, res) => {
+  ensureTable();
+  const { environment_id } = req.query;
+  if (!environment_id) return res.status(400).json({ error: 'environment_id required' });
+  const reports = query('saved_views', v =>
+    v.environment_id === environment_id &&
+    !!(v.chart_type || v.group_by || (Array.isArray(v.formulas) && v.formulas.length))
+  ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  res.json(reports);
+});
+
 // GET /api/saved-views/:id
 router.get('/:id', (req, res) => {
   ensureTable();

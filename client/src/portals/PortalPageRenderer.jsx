@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import FeedbackWidget from './FeedbackWidget.jsx'
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+         XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const PADDING_MAP = { none:'0px', sm:'24px', md:'56px', lg:'96px', xl:'140px' }
 
@@ -1496,6 +1498,8 @@ const CtaWidget = ({ cfg, theme }) => {
   )
 }
 
+const CHART_COLORS = ['#4361EE','#7C3AED','#0891B2','#059669','#D97706','#DC2626','#EC4899','#64748B']
+
 const HMPortalWidget = ({ cfg, theme, portal, api }) => {
   const [records,    setRecords]    = useState([]);
   const [fields,     setFields]     = useState([]);   // all object fields
@@ -1593,7 +1597,24 @@ const HMPortalWidget = ({ cfg, theme, portal, api }) => {
 
   const ctaButtons = cfg.cta_buttons || [];
   const displayMode = cfg.display_mode || 'card';
-  const filtered = search ? records.filter(r => JSON.stringify(r.data||{}).toLowerCase().includes(search.toLowerCase())) : records;
+  const [sortCol, setSortCol] = useState(null);  // api_key
+  const [sortDir, setSortDir] = useState('asc');
+
+  const handleSort = (apiKey) => {
+    if (sortCol === apiKey) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortCol(apiKey); setSortDir('asc'); }
+  };
+
+  const sorted = [...records].sort((a, b) => {
+    if (!sortCol) return 0;
+    const av = String(a.data?.[sortCol] ?? '').toLowerCase();
+    const bv = String(b.data?.[sortCol] ?? '').toLowerCase();
+    const n = !isNaN(av) && !isNaN(bv);
+    const cmp = n ? Number(av) - Number(bv) : av.localeCompare(bv);
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
+  const filtered = search ? sorted.filter(r => JSON.stringify(r.data||{}).toLowerCase().includes(search.toLowerCase())) : sorted;
 
   const handleAction = async (action, record) => {
     if (action === 'submit_feedback') { setModal({ type:'feedback', record }); return; }
@@ -1681,11 +1702,17 @@ const HMPortalWidget = ({ cfg, theme, portal, api }) => {
           <table style={{ width:'100%', borderCollapse:'collapse', fontFamily:ff }}>
             <thead>
               <tr style={{ background:'#F8F9FF', borderBottom:'1.5px solid #E8ECF8' }}>
-                {listCols.map(f => (
-                  <th key={f.id} style={{ padding:'10px 16px', textAlign:'left', fontSize:11, fontWeight:700, color:'#9DA8C7', whiteSpace:'nowrap' }}>
-                    {f.name.toUpperCase()}
-                  </th>
-                ))}
+                {listCols.map(f => {
+                  const active = sortCol === f.api_key;
+                  return (
+                    <th key={f.id} onClick={() => handleSort(f.api_key)}
+                      style={{ padding:'10px 16px', textAlign:'left', fontSize:11, fontWeight:700,
+                        color: active ? pr : '#9DA8C7', whiteSpace:'nowrap', cursor:'pointer',
+                        userSelect:'none', transition:'color .1s' }}>
+                      {f.name.toUpperCase()}{' '}{active ? (sortDir === 'asc' ? '↑' : '↓') : <span style={{opacity:.35}}>↕</span>}
+                    </th>
+                  );
+                })}
                 {ctaButtons.length > 0 && <th style={{ padding:'10px 16px' }}/>}
               </tr>
             </thead>
@@ -1748,6 +1775,310 @@ const HMPortalWidget = ({ cfg, theme, portal, api }) => {
   );
 };
 
+// ── ReportWidget ──────────────────────────────────────────────────────────────
+const ReportWidget = ({ cfg, theme, portal, api }) => {
+  const [rows,    setRows]    = useState([])
+  const [report,  setReport]  = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(null)
+  const ff = theme.fontFamily || "'DM Sans', sans-serif"
+  const pr = cfg.accent_color || theme.primaryColor || '#4361EE'
+  const tc = theme.textColor  || '#1a1a2e'
+
+  useEffect(() => {
+    if (!portal?.environment_id || !cfg.report_id) { setLoading(false); return }
+    const load = async () => {
+      try {
+        const rpt = await api.get(`/saved-views/${cfg.report_id}`)
+        if (!rpt || !rpt.object_id) throw new Error('Report not found')
+        setReport(rpt)
+        let url = `/records?object_id=${rpt.object_id}&environment_id=${portal.environment_id}&limit=500`
+        if (rpt.filter_chip?.fieldValue && rpt.filter_chip.fieldValue !== '$me') {
+          url += `&filter_key=${encodeURIComponent(rpt.filter_chip.fieldKey)}&filter_value=${encodeURIComponent(rpt.filter_chip.fieldValue)}`
+        }
+        const data  = await api.get(url)
+        const all   = Array.isArray(data) ? data : (data?.records || [])
+        let fields  = []
+        try { const f = await api.get(`/fields?object_id=${rpt.object_id}`); fields = Array.isArray(f) ? f : [] } catch {}
+        let result = []
+        if (rpt.group_by) {
+          const field = fields.find(f => f.api_key === rpt.group_by || f.id === rpt.group_by)
+          const gKey  = field?.api_key || rpt.group_by
+          const groups = {}
+          all.forEach(r => {
+            const gVal = String(r.data?.[gKey] ?? '(empty)')
+            if (!groups[gVal]) groups[gVal] = { [gKey]: gVal, count: 0 }
+            groups[gVal].count++
+          })
+          result = Object.values(groups).sort((a, b) => b.count - a.count)
+        } else {
+          result = all.slice(0, 100).map(r => ({ ...r.data }))
+        }
+        setRows(result)
+      } catch(e) { setError(e.message) }
+      finally    { setLoading(false) }
+    }
+    load()
+  }, [portal?.environment_id, cfg.report_id])
+
+  const chartType = cfg.chart_type || report?.chart_type || 'bar'
+  const xKey      = report?.group_by || (rows[0] ? Object.keys(rows[0])[0] : 'label')
+  const yKey      = 'count'
+  const showChart = cfg.show_chart !== false && rows.length > 0
+  const showTable = cfg.show_table !== false
+  const tableRows = rows.slice(0, cfg.max_rows || 10)
+
+  const renderChart = () => {
+    if (!showChart || rows.length === 0) return null
+    const data = rows.slice(0, 20)
+    if (chartType === 'pie') return (
+      <ResponsiveContainer width="100%" height={240}>
+        <PieChart>
+          <Pie data={data} dataKey={yKey} nameKey={xKey} cx="50%" cy="50%" outerRadius={90}
+            label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+            {data.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]}/>)}
+          </Pie>
+          <Tooltip/>
+        </PieChart>
+      </ResponsiveContainer>
+    )
+    if (chartType === 'line') return (
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={data} margin={{ top:8, right:16, left:0, bottom:0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
+          <XAxis dataKey={xKey} tick={{ fontSize:11, fontFamily:ff }} tickLine={false}/>
+          <YAxis tick={{ fontSize:11, fontFamily:ff }} tickLine={false} axisLine={false}/>
+          <Tooltip contentStyle={{ fontFamily:ff, fontSize:12, borderRadius:8 }}/>
+          <Line type="monotone" dataKey={yKey} stroke={pr} strokeWidth={2.5} dot={{ fill:pr, r:3 }}/>
+        </LineChart>
+      </ResponsiveContainer>
+    )
+    return (
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={data} margin={{ top:8, right:16, left:0, bottom: data.length > 8 ? 40 : 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
+          <XAxis dataKey={xKey} tick={{ fontSize:11, fontFamily:ff }} tickLine={false}
+            interval={0} angle={data.length > 8 ? -35 : 0} textAnchor={data.length > 8 ? 'end' : 'middle'}
+            height={data.length > 8 ? 52 : 24}/>
+          <YAxis tick={{ fontSize:11, fontFamily:ff }} tickLine={false} axisLine={false}/>
+          <Tooltip contentStyle={{ fontFamily:ff, fontSize:12, borderRadius:8 }}/>
+          <Bar dataKey={yKey} radius={[4,4,0,0]}>
+            {data.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]}/>)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    )
+  }
+
+  if (!cfg.report_id) return (
+    <div style={{ padding:32, textAlign:'center', color:'#9DA8C7', fontFamily:ff }}>No report selected for this widget.</div>
+  )
+  return (
+    <div style={{ fontFamily:ff }}>
+      {cfg.widget_title && <div style={{ fontSize:17, fontWeight:800, color:tc, marginBottom:16 }}>{cfg.widget_title}</div>}
+      {loading ? <div style={{ padding:40, textAlign:'center', color:'#9DA8C7' }}>Loading report…</div>
+       : error   ? <div style={{ padding:24, textAlign:'center', color:'#DC2626', fontSize:13 }}>{error}</div>
+       : rows.length === 0 ? <div style={{ padding:40, textAlign:'center', color:'#9DA8C7' }}>No data to display.</div>
+       : <>
+          {report?.group_by && (
+            <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginBottom:20 }}>
+              {[{label:'Groups',value:rows.length},{label:'Total records',value:rows.reduce((s,r)=>s+(r.count||0),0)},{label:'Top',value:rows[0]?.[xKey]||'—'}].map((s,i)=>(
+                <div key={i} style={{ padding:'10px 16px', borderRadius:12, background:`${pr}0d`, border:`1.5px solid ${pr}22`, flex:'1 1 90px', minWidth:80 }}>
+                  <div style={{ fontSize:20, fontWeight:800, color:pr }}>{s.value}</div>
+                  <div style={{ fontSize:11, color:'#9DA8C7', marginTop:2 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {showChart && <div style={{ marginBottom: showTable ? 20 : 0 }}>{renderChart()}</div>}
+          {showTable && tableRows.length > 0 && (
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+                <thead>
+                  <tr style={{ background:'#F8F9FF', borderBottom:'1.5px solid #E8ECF8' }}>
+                    {Object.keys(tableRows[0]).map(k=>(
+                      <th key={k} style={{ padding:'9px 14px', textAlign:'left', fontSize:11, fontWeight:700, color:'#9DA8C7', whiteSpace:'nowrap' }}>
+                        {k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableRows.map((row,i)=>(
+                    <tr key={i} style={{ borderBottom:'1px solid #F3F4F6' }}>
+                      {Object.entries(row).map(([k,v])=>(
+                        <td key={k} style={{ padding:'10px 14px', fontFamily:ff, color:k==='count'?pr:tc, fontWeight:k==='count'?700:400 }}>
+                          {typeof v==='number'?v.toLocaleString():String(v??'—')}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {rows.length>(cfg.max_rows||10) && <div style={{ padding:'8px 14px', fontSize:11, color:'#9DA8C7', textAlign:'right' }}>Showing {cfg.max_rows||10} of {rows.length}</div>}
+            </div>
+          )}
+        </>
+      }
+    </div>
+  )
+}
+
+// ── AISummaryWidget ───────────────────────────────────────────────────────────
+const URGENCY_DOT = { high:'#DC2626', medium:'#D97706', low:'#059669' }
+const ACTION_ICON = { review:'👤', feedback:'💬', interview:'📅', decision:'✅' }
+
+const AISummaryWidget = ({ cfg, theme, portal, api }) => {
+  const [brief,     setBrief]     = useState(null)
+  const [loading,   setLoading]   = useState(false)
+  const [error,     setError]     = useState(null)
+  const [lastFetch, setLastFetch] = useState(null)
+  const ff = theme.fontFamily || "'DM Sans', sans-serif"
+  const pr = cfg.accent_color  || theme.primaryColor || '#4361EE'
+  const tc = theme.textColor   || '#1a1a2e'
+
+  const fetchBriefing = async () => {
+    if (!portal?.environment_id) return
+    setLoading(true); setError(null)
+    try {
+      const dataSources = []
+      for (const src of (cfg.data_sources || [])) {
+        if (!src.object_id) continue
+        let url = `/records?object_id=${src.object_id}&environment_id=${portal.environment_id}&limit=50`
+        if (src.list_id) {
+          try {
+            const list = await api.get(`/saved-views/${src.list_id}`)
+            if (list?.filter_chip?.fieldValue && list.filter_chip.fieldValue !== '$me') {
+              url += `&filter_key=${encodeURIComponent(list.filter_chip.fieldKey)}&filter_value=${encodeURIComponent(list.filter_chip.fieldValue)}`
+            }
+          } catch {}
+        }
+        try {
+          const data    = await api.get(url)
+          const records = Array.isArray(data) ? data : (data?.records || [])
+          dataSources.push({ label: src.label || src.object_name || 'Data', records })
+        } catch {}
+      }
+      if (dataSources.length === 0) {
+        setBrief({ greeting:'Nothing to show yet.', summary:'No data sources are configured. Add some in the widget settings.', priority_items:[], action_items:[] })
+        setLoading(false); return
+      }
+      const userName = portal?.portalUser?.name || portal?.portalUser?.email || cfg.role || 'there'
+      const result = await api.post('/portal-ai/summary', {
+        context: { role: cfg.role || 'Hiring Manager', userName, dataSources }
+      })
+      setBrief(result)
+      setLastFetch(new Date())
+    } catch(e) {
+      setError(e.message || 'Failed to generate briefing')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchBriefing() }, [portal?.environment_id, JSON.stringify(cfg.data_sources)])
+
+  if (loading) return (
+    <div style={{ fontFamily:ff }}>
+      {[80,60,90,50].map((w,i)=>(
+        <div key={i} style={{ height:14, width:`${w}%`, borderRadius:7, background:'#E8ECF8',
+          marginBottom:10, opacity: 0.6 + (i * 0.1) }}/>
+      ))}
+      <div style={{ fontSize:13, color:'#9DA8C7', marginTop:8 }}>Generating your briefing…</div>
+    </div>
+  )
+
+  if (error) return (
+    <div style={{ padding:16, borderRadius:12, background:'#FEF2F2', border:'1px solid #FCA5A5',
+      color:'#DC2626', fontSize:13, fontFamily:ff, display:'flex', alignItems:'center', gap:10 }}>
+      <span>Couldn't generate briefing: {error}</span>
+      <button onClick={fetchBriefing} style={{ padding:'4px 12px', borderRadius:6,
+        border:'1px solid #DC2626', background:'transparent', color:'#DC2626', cursor:'pointer',
+        fontSize:12, fontFamily:ff, flexShrink:0 }}>Retry</button>
+    </div>
+  )
+
+  if (!brief) return null
+
+  return (
+    <div style={{ fontFamily:ff }}>
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14, gap:12 }}>
+        <div>
+          {cfg.widget_title && (
+            <div style={{ fontSize:11, fontWeight:700, color:pr, textTransform:'uppercase',
+              letterSpacing:'0.06em', marginBottom:4 }}>{cfg.widget_title}</div>
+          )}
+          <div style={{ fontSize:17, fontWeight:800, color:tc, lineHeight:1.3 }}>
+            {brief.greeting || 'Your daily briefing'}
+          </div>
+        </div>
+        <button onClick={fetchBriefing}
+          style={{ flexShrink:0, padding:'6px 12px', borderRadius:8, border:`1.5px solid ${pr}30`,
+            background:`${pr}08`, color:pr, cursor:'pointer', fontSize:11, fontWeight:700,
+            fontFamily:ff, display:'flex', alignItems:'center', gap:5 }}>
+          ↻ Refresh
+        </button>
+      </div>
+
+      <p style={{ margin:'0 0 20px', fontSize:14, color:'#4B5563', lineHeight:1.65 }}>
+        {brief.summary}
+      </p>
+
+      {(brief.priority_items || []).length > 0 && (
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'#9DA8C7', textTransform:'uppercase',
+            letterSpacing:'0.06em', marginBottom:10 }}>Priority Items</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {brief.priority_items.map((item, i) => {
+              const dot = URGENCY_DOT[item.urgency || 'medium'] || '#6B7280'
+              return (
+                <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:12,
+                  padding:'11px 14px', borderRadius:10, background:'white',
+                  border:`1.5px solid ${dot}30`, boxShadow:'0 1px 3px rgba(0,0,0,.04)' }}>
+                  <div style={{ width:8, height:8, borderRadius:'50%', background:dot,
+                    flexShrink:0, marginTop:4 }}/>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:tc }}>{item.label}</div>
+                    {item.detail && <div style={{ fontSize:12, color:'#6B7280', marginTop:2 }}>{item.detail}</div>}
+                  </div>
+                  {item.days != null && (
+                    <div style={{ flexShrink:0, padding:'2px 8px', borderRadius:20,
+                      background:`${dot}15`, color:dot, fontSize:11, fontWeight:700 }}>
+                      {item.days}d
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {(brief.action_items || []).length > 0 && (
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, color:'#9DA8C7', textTransform:'uppercase',
+            letterSpacing:'0.06em', marginBottom:10 }}>Suggested Actions</div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+            {brief.action_items.map((a, i) => (
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px',
+                borderRadius:20, background:`${pr}0d`, border:`1.5px solid ${pr}22`,
+                fontSize:12, color:pr, fontWeight:600 }}>
+                <span>{ACTION_ICON[a.category] || '→'}</span> {a.text}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {lastFetch && (
+        <div style={{ marginTop:16, fontSize:11, color:'#9DA8C7', textAlign:'right' }}>
+          Updated {lastFetch.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const Widget = ({ cell, theme, portal, api, track }) => {
   const cfg = cell.widgetConfig||{}
   switch (cell.widgetType) {
@@ -1784,7 +2115,9 @@ const Widget = ({ cell, theme, portal, api, track }) => {
     case 'content':       return <ContentWidget       cfg={cfg} theme={theme}/>
     case 'accordion':     return <AccordionWidget     cfg={cfg} theme={theme}/>
     case 'cta':           return <CtaWidget           cfg={cfg} theme={theme}/>
-    case 'hm_widget':    return <HMPortalWidget       cfg={cfg} theme={theme} portal={portal} api={api}/>
+    case 'hm_widget':     return <HMPortalWidget       cfg={cfg} theme={theme} portal={portal} api={api}/>
+    case 'report_widget': return <ReportWidget          cfg={cfg} theme={theme} portal={portal} api={api}/>
+    case 'ai_summary':    return <AISummaryWidget       cfg={cfg} theme={theme} portal={portal} api={api}/>
     default:        return null
   }
 }

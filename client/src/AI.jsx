@@ -104,83 +104,111 @@ const ScoreRing = ({ score, size=52 }) => {
 };
 
 /* ─── Matching Engine ────────────────────────────────────────────────────── */
+// ── Read the saved matching config from localStorage ─────────────────────────
+const MATCHING_CONFIG_KEY = "talentos_matching_config";
+const DEFAULT_MATCH_WEIGHTS = { title:15, skills:35, location:15, experience:15, availability:10, rating:10 };
+
+const getMatchingConfig = () => {
+  try { return JSON.parse(localStorage.getItem(MATCHING_CONFIG_KEY)) || null; }
+  catch { return null; }
+};
+
+// Build a lookup: { id -> { weight, enabled } } from saved config (or defaults)
+const resolveCriteria = () => {
+  const saved = getMatchingConfig();
+  if (saved?.criteria?.length) {
+    return Object.fromEntries(saved.criteria.map(c => [c.id, { weight: Number(c.weight)||0, enabled: !!c.enabled }]));
+  }
+  return Object.fromEntries(Object.entries(DEFAULT_MATCH_WEIGHTS).map(([id, w]) => [id, { weight: w, enabled: true }]));
+};
+
 export const matchCandidateToJob = (candidate, job) => {
+  const criteria = resolveCriteria();
+
+  // Total enabled weight (may not equal 100 if user left some unallocated)
+  const totalW = Object.values(criteria).filter(c=>c.enabled).reduce((s,c)=>s+c.weight, 0) || 100;
+
   let score = 0;
   const reasons = [];
   const gaps = [];
   const cData = candidate.data || {};
   const jData = job.data || {};
 
-  // ── Job Title Match (15 pts) ─────────────────────────────────────────────
-  const NOISE_WORDS = new Set(["senior","junior","lead","principal","staff","associate","head","chief","vp","director","manager","officer","specialist","consultant","coordinator","analyst","engineer","developer","architect","designer","executive"]);
-  const titleTokens = (str) =>
-    String(str||"").toLowerCase()
-      .replace(/[^\w\s]/g,"")
-      .split(/\s+/)
-      .filter(t => t.length > 1 && !NOISE_WORDS.has(t));
-
-  const candidateTitle = cData.current_title || cData.job_title || "";
-  const jobTitle = jData.job_title || jData.name || "";
-
-  if (candidateTitle && jobTitle) {
-    const cT = String(candidateTitle).toLowerCase();
-    const jT = String(jobTitle).toLowerCase();
-    const cTokens = titleTokens(candidateTitle);
-    const jTokens = titleTokens(jobTitle);
-
-    if (cT === jT) {
-      score += 15; reasons.push("Exact job title match");
-    } else if (cT.includes(jT) || jT.includes(cT)) {
-      score += 12; reasons.push("Strong title match");
-    } else if (jTokens.length > 0 && cTokens.length > 0) {
-      const overlap = cTokens.filter(ct => jTokens.some(jt => jt.includes(ct) || ct.includes(jt)));
-      const overlapRatio = overlap.length / Math.max(jTokens.length, 1);
-      if (overlapRatio >= 0.5) {
-        score += 8; reasons.push("Partial title match");
-      } else if (overlapRatio > 0) {
-        score += 4;
-      } else {
-        gaps.push(`Title mismatch: ${candidateTitle} vs ${jobTitle}`);
+  // ── Job Title Match ──────────────────────────────────────────────────────
+  if (criteria.title?.enabled) {
+    const w = criteria.title.weight;
+    const NOISE = new Set(["senior","junior","lead","principal","staff","associate","head","chief","vp","director","manager","officer","specialist","consultant","coordinator","analyst","engineer","developer","architect","designer","executive"]);
+    const tok = s => String(s||"").toLowerCase().replace(/[^\w\s]/g,"").split(/\s+/).filter(t=>t.length>1&&!NOISE.has(t));
+    const cT = String(cData.current_title||cData.job_title||"").toLowerCase();
+    const jT = String(jData.job_title||jData.name||"").toLowerCase();
+    if (cT && jT) {
+      const cTok = tok(cT), jTok = tok(jT);
+      if (cT === jT)                              { score += w;              reasons.push("Exact job title match"); }
+      else if (cT.includes(jT)||jT.includes(cT)) { score += Math.round(w*0.8); reasons.push("Strong title match"); }
+      else if (jTok.length>0 && cTok.length>0) {
+        const overlap = cTok.filter(ct=>jTok.some(jt=>jt.includes(ct)||ct.includes(jt)));
+        const ratio = overlap.length / Math.max(jTok.length,1);
+        if      (ratio>=0.5) { score += Math.round(w*0.53); reasons.push("Partial title match"); }
+        else if (ratio>0)    { score += Math.round(w*0.27); }
+        else                 { gaps.push(`Title mismatch: ${cData.current_title||cData.job_title} vs ${jData.job_title||jData.name}`); }
       }
     }
   }
 
-  // ── Skills Match (35 pts) ────────────────────────────────────────────────
-  const cSkills = (Array.isArray(cData.skills)?cData.skills:String(cData.skills||"").split(",")).map(s=>s.trim().toLowerCase()).filter(Boolean);
-  const jSkills = (Array.isArray(jData.required_skills)?jData.required_skills:String(jData.required_skills||"").split(",")).map(s=>s.trim().toLowerCase()).filter(Boolean);
-  if (jSkills.length > 0) {
-    const matched = cSkills.filter(s=>jSkills.some(j=>j.includes(s)||s.includes(j)));
-    score += Math.round((matched.length/jSkills.length)*35);
-    if (matched.length>0) reasons.push(`Matches ${matched.length}/${jSkills.length} required skills`);
-    const missing = jSkills.filter(j=>!cSkills.some(c=>c.includes(j)||j.includes(c)));
-    if (missing.length>0) gaps.push(`Missing: ${missing.slice(0,3).join(", ")}`);
-  } else score += 25;
+  // ── Skills Match ─────────────────────────────────────────────────────────
+  if (criteria.skills?.enabled) {
+    const w = criteria.skills.weight;
+    const cSkills = (Array.isArray(cData.skills)?cData.skills:String(cData.skills||"").split(",")).map(s=>s.trim().toLowerCase()).filter(Boolean);
+    const jSkills = (Array.isArray(jData.required_skills)?jData.required_skills:String(jData.required_skills||"").split(",")).map(s=>s.trim().toLowerCase()).filter(Boolean);
+    if (jSkills.length > 0) {
+      const matched = cSkills.filter(s=>jSkills.some(j=>j.includes(s)||s.includes(j)));
+      score += Math.round((matched.length/jSkills.length)*w);
+      if (matched.length>0) reasons.push(`Matches ${matched.length}/${jSkills.length} required skills`);
+      const missing = jSkills.filter(j=>!cSkills.some(c=>c.includes(j)||j.includes(c)));
+      if (missing.length>0) gaps.push(`Missing: ${missing.slice(0,3).join(", ")}`);
+    } else { score += Math.round(w*0.7); } // no required skills defined — give partial credit
+  }
 
-  // ── Location Match (15 pts) ──────────────────────────────────────────────
-  if (cData.location && jData.location) {
-    const cl=String(cData.location).toLowerCase(), jl=String(jData.location).toLowerCase();
-    if (cl===jl||cl.includes(jl)||jl.includes(cl)) { score+=15; reasons.push("Location match"); }
-    else if (jData.work_type==="Remote") { score+=12; reasons.push("Remote role"); }
-    else gaps.push(`Location: ${cData.location} vs ${jData.location}`);
-  } else score+=8;
+  // ── Location Match ───────────────────────────────────────────────────────
+  if (criteria.location?.enabled) {
+    const w = criteria.location.weight;
+    if (cData.location && jData.location) {
+      const cl=String(cData.location).toLowerCase(), jl=String(jData.location).toLowerCase();
+      if      (cl===jl||cl.includes(jl)||jl.includes(cl)) { score+=w;              reasons.push("Location match"); }
+      else if (jData.work_type==="Remote")                 { score+=Math.round(w*0.8); reasons.push("Remote role"); }
+      else gaps.push(`Location: ${cData.location} vs ${jData.location}`);
+    } else { score += Math.round(w*0.5); } // unknown — neutral
+  }
 
-  // ── Experience (15 pts) ──────────────────────────────────────────────────
-  const exp=Number(cData.years_experience||0);
-  if (exp>=5){score+=15;reasons.push(`${exp}y exp`);}
-  else if(exp>=2){score+=9;reasons.push(`${exp}y exp`);}
-  else if(exp>0){score+=4;gaps.push("Limited experience");}
+  // ── Years of Experience ───────────────────────────────────────────────────
+  if (criteria.experience?.enabled) {
+    const w = criteria.experience.weight;
+    const exp = Number(cData.years_experience||0);
+    if      (exp>=5) { score+=w;              reasons.push(`${exp}y exp`); }
+    else if (exp>=2) { score+=Math.round(w*0.6); reasons.push(`${exp}y exp`); }
+    else if (exp>0)  { score+=Math.round(w*0.27); gaps.push("Limited experience"); }
+  }
 
-  // ── Availability (10 pts) ────────────────────────────────────────────────
-  if (cData.status==="Active"){score+=10;reasons.push("Actively looking");}
-  else if(cData.status==="Passive") score+=5;
-  else if(cData.status==="Not Looking") gaps.push("Not actively looking");
+  // ── Availability Status ───────────────────────────────────────────────────
+  if (criteria.availability?.enabled) {
+    const w = criteria.availability.weight;
+    if      (cData.status==="Active")      { score+=w;              reasons.push("Actively looking"); }
+    else if (cData.status==="Passive")     { score+=Math.round(w*0.5); }
+    else if (cData.status==="Not Looking") { gaps.push("Not actively looking"); }
+    else                                   { score+=Math.round(w*0.3); } // unknown — small credit
+  }
 
-  // ── Rating (10 pts) ──────────────────────────────────────────────────────
-  const rating=Number(cData.rating||0);
-  if(rating>=4){score+=10;reasons.push(`Rated ${rating}/5`);}
-  else if(rating>=3) score+=5;
+  // ── Candidate Rating ──────────────────────────────────────────────────────
+  if (criteria.rating?.enabled) {
+    const w = criteria.rating.weight;
+    const rating = Number(cData.rating||0);
+    if      (rating>=4) { score+=w;              reasons.push(`Rated ${rating}/5`); }
+    else if (rating>=3) { score+=Math.round(w*0.5); }
+  }
 
-  return { score:Math.min(100,Math.max(0,score)), reasons, gaps };
+  // Normalise: if enabled weights don't sum to 100, scale proportionally
+  const normalised = totalW===100 ? score : Math.round((score/totalW)*100);
+  return { score: Math.min(100, Math.max(0, normalised)), reasons, gaps };
 };
 
 // ── Matching helpers (module-level so MatchResultsList can use them) ──────────
@@ -278,7 +306,10 @@ export const MatchingEngine = memo(({ environment, initialObject, initialRecord,
   const [pools,setPools]       = useState([]);
   const [matches,setMatches]   = useState([]);
   const [loading,setLoading]   = useState(false);
-  const [minScore,setMinScore] = useState(0);
+  const [minScore,setMinScore] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(MATCHING_CONFIG_KEY))?.min_score_threshold || 0; }
+    catch { return 0; }
+  });
   const [matchTarget,setMatchTarget] = useState("jobs"); // for person mode: "jobs" | "pools"
 
   // In job mode the "selected job" is always the initialRecord (locked)

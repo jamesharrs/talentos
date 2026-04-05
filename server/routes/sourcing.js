@@ -237,11 +237,40 @@ async function searchGitHub(q, limit = 8) {
 
 function scoreCandidate(c, { keywords = [], titles = [], skills = [] }) {
   let score = 40;
+  const reasons = [];
+  const gaps = [];
   const txt = `${c.name} ${c.title} ${c.company} ${c.summary} ${(c.skills || []).join(" ")}`.toLowerCase();
-  keywords.forEach(k => { if (txt.includes(k.toLowerCase())) score += 5; });
-  titles.forEach(t => { if ((c.title || "").toLowerCase().includes(t.toLowerCase())) score += 15; });
-  skills.forEach(s => { if (txt.includes(s.toLowerCase())) score += 8; });
-  return Math.min(score, 99);
+
+  const matchedSkills = skills.filter(s => txt.includes(s.toLowerCase()));
+  const missingSkills = skills.filter(s => !txt.includes(s.toLowerCase()));
+  if (matchedSkills.length > 0) {
+    score += matchedSkills.length * 8;
+    reasons.push(`Matches ${matchedSkills.length} of ${skills.length} skills: ${matchedSkills.slice(0,3).join(", ")}`);
+  }
+  if (missingSkills.length > 0 && skills.length > 0) {
+    gaps.push(`Missing skills: ${missingSkills.slice(0,3).join(", ")}`);
+  }
+
+  const matchedTitles = titles.filter(t => (c.title || "").toLowerCase().includes(t.toLowerCase()));
+  if (matchedTitles.length > 0) {
+    score += 15;
+    reasons.push(`Title matches: ${matchedTitles.join(", ")}`);
+  } else if (titles.length > 0) {
+    gaps.push(`Title mismatch — looking for ${titles.slice(0,2).join(" or ")}`);
+  }
+
+  const matchedKw = keywords.filter(k => txt.includes(k.toLowerCase()));
+  if (matchedKw.length > 0) {
+    score += matchedKw.length * 4;
+    reasons.push(`${matchedKw.length} keyword matches`);
+  }
+
+  if (c.location) reasons.push(`Located in ${c.location}`);
+  if (c.github_url) { score += 5; reasons.push("GitHub profile available"); }
+  if (c.email) { score += 5; reasons.push("Contact email available"); }
+  if (reasons.length === 0) gaps.push("Limited profile data for scoring");
+
+  return { score: Math.min(score, 99), reasons, gaps };
 }
 
 function simulateResults(q, limit = 8) {
@@ -283,7 +312,11 @@ router.post("/search", async (req, res) => {
 
     const scoring  = { keywords: queries.keywords || [], titles: queries.titles || [], skills: queries.skills || [] };
     results.forEach(r => {
-      r.candidates = (r.candidates || []).map(c => ({ ...c, match_score: c.match_score ?? scoreCandidate(c, scoring) }));
+      r.candidates = (r.candidates || []).map(c => {
+        if (c.match_score != null && !c.score_reasons) return { ...c, score_reasons: [], score_gaps: [] };
+        const scored = scoreCandidate(c, scoring);
+        return { ...c, match_score: scored.score, score_reasons: scored.reasons, score_gaps: scored.gaps };
+      });
       r.candidates.sort((a, b) => (b.match_score || 0) - (a.match_score || 0));
     });
     const total = results.reduce((s, r) => s + (r.candidates?.length || 0), 0);
@@ -314,7 +347,7 @@ router.post("/agent-search", async (req, res) => {
     const anyLive   = results.some(r => r.configured !== false);
     const scoring   = { keywords: queries.keywords || [], titles: queries.titles || [], skills: queries.skills || [] };
     const all       = (anyLive ? results : [simulateResults(q, limit)]).flatMap(r => r.candidates || [])
-      .map(c => ({ ...c, match_score: scoreCandidate(c, scoring) }))
+      .map(c => { const s = scoreCandidate(c, scoring); return { ...c, match_score: s.score, score_reasons: s.reasons, score_gaps: s.gaps }; })
       .sort((a, b) => b.match_score - a.match_score).slice(0, limit);
     res.json({ query: q, job_id, candidates: all, total: all.length, sources_searched: sources, simulation_mode: !anyLive });
   } catch (e) { res.status(500).json({ error: e.message }); }

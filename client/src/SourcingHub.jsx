@@ -4,6 +4,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 import api from "./apiClient";
+import ScoreExplainer from "./ScoreExplainer";
 
 const F = "var(--t-font,'Plus Jakarta Sans',sans-serif)";
 const C = {
@@ -77,12 +78,13 @@ function CandidateCard({ candidate:c, onImport, done }) {
           )}
         </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8,flexShrink:0}}>
-          {c.match_score!=null && (
-            <div style={{width:44,height:44,borderRadius:"50%",border:`3px solid ${scoreColor(c.match_score)}`,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column"}}>
-              <span style={{fontSize:12,fontWeight:800,color:scoreColor(c.match_score),lineHeight:1}}>{c.match_score}</span>
-              <span style={{fontSize:8,color:C.text3}}>%</span>
-            </div>
-          )}
+          <ScoreExplainer
+            score={c.match_score}
+            reasons={c.score_reasons||[]}
+            gaps={c.score_gaps||[]}
+            candidateName={c.name}
+            size={44} fontSize={12}
+          />
           <div style={{display:"flex",gap:6}}>
             {c.profile_url && c.profile_url!=="#" && (
               <a href={c.profile_url} target="_blank" rel="noreferrer" style={{padding:"5px 8px",borderRadius:7,border:`1px solid ${C.border}`,background:C.surface,display:"flex",alignItems:"center"}}>

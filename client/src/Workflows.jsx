@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { usePermissions as _usePermCtx } from "./PermissionContext.jsx";
 import { createPortal } from "react-dom";
+import ScoreExplainer, { ScoreBadge } from "./ScoreExplainer";
 import { matchCandidateToJob } from "./AI.jsx";
 import SharePicker from "./SharePicker.jsx";
 import api from './apiClient.js';
@@ -2891,7 +2892,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                               onClick={e=>e.stopPropagation()}
                               style={{ accentColor:"#7c3aed", cursor:"pointer", width:13, height:13 }}/>
                             {score!==null && (
-                              <span style={{ fontSize:10, fontWeight:800, color:scoreColor, background:scoreColor+"15", padding:"2px 6px", borderRadius:99 }}>{score}%</span>
+                              <ScoreBadge score={score} reasons={matchScores[link.id]?.reasons||[]} gaps={matchScores[link.id]?.gaps||[]} size="sm"/>
                             )}
                           </div>
                           {/* Avatar */}
@@ -2993,7 +2994,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                           {/* Dynamic extra columns */}
                           {visibleColIds.filter(id=>id!=="name"&&id!=="stage").map(colId => {
                             const td = p => <td key={colId} style={{ padding:"7px 8px", color:"#6b7280", fontSize:12 }}>{p}</td>;
-                            if (colId==="match")       return <td key={colId} style={{ padding:"7px 8px", color:scoreColor, fontWeight:700, fontSize:12 }}>{score!==null?`${score}%`:"—"}</td>;
+                            if (colId==="match")       return <td key={colId} style={{ padding:"7px 8px" }}>{score!==null?<ScoreBadge score={score} reasons={matchScores[link.id]?.reasons||[]} gaps={matchScores[link.id]?.gaps||[]} size="sm"/>:"—"}</td>;
                             if (colId==="title")       return td(d.current_title||"—");
                             if (colId==="location")    return td(d.location||d.city||"—");
                             if (colId==="email")       return <td key={colId} style={{ padding:"7px 8px", fontSize:12 }}><a href={`mailto:${d.email}`} style={{ color:"#7c3aed" }}>{d.email||"—"}</a></td>;
@@ -3170,15 +3171,16 @@ function PipelinePersonRow({ link, steps, label, subtitle, initial, matchScore, 
         }
       </div>
 
-      {/* Match score badge — only when match col is visible */}
+      {/* Match score — interactive explainer */}
       {score !== null && effectiveCols.includes('match') && (
-        <div title={matchScore?.reasons?.join(" · ")||"Recommendation score"}
-          style={{ display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0,
-            background:scoreBg, border:`1px solid ${scoreColor}22`, borderRadius:8,
-            padding:"3px 7px", minWidth:38, cursor:"default" }}>
-          <span style={{ fontSize:13, fontWeight:800, color:scoreColor, lineHeight:1 }}>{score}%</span>
-          <span style={{ fontSize:9, color:scoreColor, fontWeight:600, opacity:0.8, lineHeight:1, marginTop:1 }}>fit</span>
-        </div>
+        <ScoreExplainer
+          score={score}
+          reasons={matchScore?.reasons || []}
+          gaps={matchScore?.gaps || []}
+          candidateName={label}
+          size={40}
+          fontSize={11}
+        />
       )}
 
       {/* Name + configurable extra fields */}

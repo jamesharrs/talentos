@@ -3,6 +3,7 @@ import { usePermissions as _usePermCtxAI } from "./PermissionContext.jsx";
 const _COPILOT_PERM_SLUG_MAP = { person:'people', job:'jobs', pool:'talent_pools', talent_pool:'talent_pools' };
 import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { buildHelpContext } from "./helpContent";
+import ScoreExplainer, { ScoreBadge } from "./ScoreExplainer";
 
 const F = "'Plus Jakarta Sans', -apple-system, sans-serif";
 const C = {
@@ -208,11 +209,9 @@ const MatchResultsList = ({ matches, onNavigate }) => {
                 {allTags.length>2 && <span style={{fontSize:10,color:C.text3}}>+{allTags.length-2}</span>}
               </div>
 
-              {/* Score pill */}
-              <div style={{padding:"0 12px",flexShrink:0,borderLeft:`1px solid ${C.border}`,height:"100%",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <div style={{minWidth:36,padding:"3px 7px",borderRadius:6,border:`1.5px solid ${scoreCol}`,background:`${scoreCol}10`,textAlign:"center"}}>
-                  <span style={{fontSize:13,fontWeight:800,color:scoreCol,lineHeight:1}}>{m.score}</span>
-                </div>
+              {/* Score — explainable ring */}
+              <div style={{padding:"0 10px",flexShrink:0,borderLeft:`1px solid ${C.border}`,height:"100%",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.stopPropagation()}>
+                <ScoreExplainer score={m.score} reasons={m.reasons||[]} gaps={m.gaps||[]} candidateName={getTitle(m.item,m.type==="person"?"people":m.type==="job"?"jobs":"talent-pools")} size={38} fontSize={11}/>
               </div>
             </div>
           );

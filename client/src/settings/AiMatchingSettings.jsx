@@ -28,7 +28,17 @@ const Ic = ({n,s=16,c="currentColor"}) => {
 
 export default function AiMatchingSettings() {
   const [config, setConfig] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || DEFAULT_CONFIG; } catch { return DEFAULT_CONFIG; }
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (!saved) return DEFAULT_CONFIG;
+      // Merge: add any new criteria from DEFAULT_CONFIG that are missing from the saved config
+      const savedIds = new Set((saved.criteria||[]).map(c=>c.id));
+      const merged = [
+        ...DEFAULT_CONFIG.criteria.filter(c => !savedIds.has(c.id)), // new ones first
+        ...(saved.criteria||[]),
+      ];
+      return { ...DEFAULT_CONFIG, ...saved, criteria: merged };
+    } catch { return DEFAULT_CONFIG; }
   });
   const [saved, setSaved] = useState(false);
   const [totalWeight, setTotalWeight] = useState(0);
@@ -84,13 +94,12 @@ export default function AiMatchingSettings() {
         </div>
         <div style={{display:"flex", height:8, borderRadius:99, overflow:"hidden", background:"#f1f5f9", gap:2}}>
           {config.criteria.filter(c=>c.enabled).map(c => {
-            const colors = {skills:"#4361EE", location:"#0CAF77", experience:"#F79009", availability:"#7C3AED", rating:"#ef4444"};
-            return <div key={c.id} style={{width:`${(c.weight/totalWeight)*100}%`, background:colors[c.id]||C.accent, transition:"width .3s", borderRadius:2}}/>;
+            const colors = {title:"#e64980", skills:"#4361EE", location:"#0CAF77", experience:"#F79009", availability:"#7C3AED", rating:"#ef4444"};
           })}
         </div>
         <div style={{display:"flex", gap:12, marginTop:8, flexWrap:"wrap"}}>
           {config.criteria.filter(c=>c.enabled).map(c => {
-            const colors = {skills:"#4361EE", location:"#0CAF77", experience:"#F79009", availability:"#7C3AED", rating:"#ef4444"};
+            const colors = {title:"#e64980", skills:"#4361EE", location:"#0CAF77", experience:"#F79009", availability:"#7C3AED", rating:"#ef4444"};
             return <div key={c.id} style={{display:"flex", alignItems:"center", gap:4, fontSize:11, color:C.text3}}>
               <div style={{width:8, height:8, borderRadius:2, background:colors[c.id]||C.accent, flexShrink:0}}/>
               {c.label}: {c.weight}%

@@ -289,7 +289,7 @@ const MatchResultsList = ({ matches, onNavigate }) => {
 
           return (
             <div key={m.item.id}
-              onClick={() => onNavigate ? onNavigate(m.item) : window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:m.item.id,objectId:m.item.object_id}}))}
+              onClick={() => window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:m.item.id,objectId:m.item.object_id}}))}
               style={{background:C.surface,borderRadius:8,border:`1px solid ${C.border}`,display:"flex",alignItems:"center",overflow:"hidden",height:48,transition:"box-shadow .12s",cursor:"pointer"}}
               onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 1px 8px rgba(0,0,0,.07)";e.currentTarget.style.borderColor=C.accent+"44";}}
               onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";e.currentTarget.style.borderColor=C.border;}}>

@@ -398,6 +398,8 @@ function seedSystemEmailTemplates() {
     { slug:'sys_offer_sent',          name:'Offer Letter — Sent to Candidate',       category:'offer',     is_system:true, description:'Sent to a candidate when a formal offer is made. Links to the offer letter for review and acceptance.', subject:'Your offer from {{company_name}}', variables:['first_name','company_name','job_title','expiry_date','offer_url'] },
     { slug:'sys_offer_accepted',      name:'Offer Accepted — Recruiter Notification',category:'offer',     is_system:true, description:'Sent to the recruiting team when a candidate accepts their offer.', subject:'Offer accepted — {{candidate_name}} ({{job_title}})', variables:['candidate_name','job_title','start_date','record_url'] },
     { slug:'sys_welcome_team',        name:'Welcome to the Team',                    category:'onboarding',is_system:true, description:'Sent to a new hire after their offer is accepted, welcoming them to the company.', subject:'Welcome to the team, {{first_name}}!', variables:['first_name','company_name','start_date'] },
+    { slug:'sys_reschedule_request',  name:'Reschedule Request — Slot Options',       category:'interview', is_system:true, supports_reschedule_link:true, description:'Sent when a candidate or interviewer requests to reschedule. Contains clickable time slots for the recipient to choose from.', subject:'Reschedule request from {{proposer_name}}', variables:['proposer_name','candidate_name','job_name','slots','confirm_url'] },
+    { slug:'sys_reschedule_confirmed',name:'Interview Rescheduled — Confirmation',    category:'interview', is_system:true, has_ics:true, supports_reschedule_link:true, description:'Sent to all participants when a new interview time has been agreed. Includes updated calendar attachment.', subject:'Interview rescheduled — {{date_label}} at {{time}}', variables:['candidate_name','job_name','date_label','time','format','duration'] },
   ];
   let added = 0;
   for (const tmpl of TEMPLATES) {
@@ -406,7 +408,7 @@ function seedSystemEmailTemplates() {
       added++;
     }
   }
-  if (added > 0) { saveStore(store); console.log(`[init] Seeded ${added} system email template(s)`); }
+  if (added > 0) { saveStoreNow(); console.log(`[init] Seeded ${added} system email template(s)`); }
 }
 seedSystemEmailTemplates();
 

@@ -9,7 +9,7 @@ const { query, insert, getStore, saveStore, findOne } = require('../db/init');
 router.get('/', (req, res) => {
   const { environment_id, category } = req.query;
   let templates = query('email_templates_v2', () => true).filter(t => !t.deleted_at);
-  if (environment_id) templates = templates.filter(t => t.environment_id === environment_id);
+  if (environment_id) templates = templates.filter(t => t.is_system || !t.environment_id || t.environment_id === environment_id);
   if (category) templates = templates.filter(t => t.category === category);
   templates.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
   res.json(templates);

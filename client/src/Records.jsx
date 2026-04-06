@@ -6849,10 +6849,10 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const leaveFullWidthZone = ()    => { fullWidthDropRef.current = null; setFullWidthZone(null); };
 
   const startPanelDrag = (id) => {
-    draggingRef.current  = id;
-    overSlotRef.current  = null;
-    overZoneRef.current  = null;
-    fullWidthZoneRef.current = null;
+    draggingRef.current     = id;
+    overSlotRef.current     = null;
+    overZoneRef.current     = null;
+    fullWidthDropRef.current = null;  // reset any stale zone hover
     setDraggingPanel(id);
     setOverSlot(null);
     setOverZone(null);

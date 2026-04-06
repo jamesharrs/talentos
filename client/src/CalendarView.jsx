@@ -696,7 +696,15 @@ export default function CalendarView({ interviews: interviewsProp, interviewType
   const [activeTypes, setActiveTypes] = useState([]);
   const [avatarCache, setAvatarCache] = useState({}); // {personId: {name, photo_url}}
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [scheduleForm, setScheduleForm] = useState({ candidate_name:'', date:'', time:'09:00', duration:45, format:'Video Call', notes:'' });
+  const [scheduleForm, setScheduleForm] = useState({ date:'', time:'09:00', duration:45, format:'Video Call', notes:'', general:false });
+  const [scheduleInterviewees, setScheduleInterviewees] = useState([]); // [{id,name,email}]
+  const [scheduleInterviewers, setScheduleInterviewers] = useState([]); // [{id,name,email}]
+  const [scheduleJob, setScheduleJob]           = useState(null);       // {id,name} | null
+  const [allPeople, setAllPeople]               = useState([]);         // all person records
+  const [linkedJobOptions, setLinkedJobOptions] = useState([]);         // jobs linked to selected interviewees
+  const [scheduleSearch1, setScheduleSearch1]   = useState('');
+  const [scheduleSearch2, setScheduleSearch2]   = useState('');
+  const [schedSaving, setSchedSaving]           = useState(false);
   // Self-loading when used standalone (environment prop provided)
   const [ownInterviews, setOwnInterviews] = useState([]);
   const [ownTypes, setOwnTypes] = useState([]);
@@ -713,6 +721,45 @@ export default function CalendarView({ interviews: interviewsProp, interviewType
       setOwnTypes(Array.isArray(d) ? d : []);
     }).catch(() => {});
   }, [environment?.id]);
+
+  // Load people when modal opens
+  useEffect(() => {
+    if (!showScheduleModal || !environment?.id) return;
+    api.get(`/objects?environment_id=${environment.id}`).then(objs => {
+      const arr = Array.isArray(objs) ? objs : [];
+      const peopleObj = arr.find(o => o.slug === 'people');
+      if (!peopleObj) return;
+      api.get(`/records?object_id=${peopleObj.id}&environment_id=${environment.id}&limit=500`).then(res => {
+        const recs = Array.isArray(res) ? res : (res.records || []);
+        setAllPeople(recs.map(r => ({
+          id: r.id,
+          name: `${r.data?.first_name||''} ${r.data?.last_name||''}`.trim() || r.data?.email || r.id,
+          email: r.data?.email || '',
+          person_type: r.data?.person_type || '',
+          job_title: r.data?.job_title || r.data?.current_title || '',
+        })));
+      }).catch(() => {});
+    }).catch(() => {});
+  }, [showScheduleModal, environment?.id]);
+
+  // When interviewees change, load their common linked jobs
+  useEffect(() => {
+    if (scheduleInterviewees.length === 0 || !environment?.id) { setLinkedJobOptions([]); setScheduleJob(null); return; }
+    Promise.all(scheduleInterviewees.map(p =>
+      api.get(`/records/linked-jobs?person_id=${p.id}&environment_id=${environment.id}`).catch(() => [])
+    )).then(results => {
+      // Find jobs common to ALL selected interviewees (intersect by id)
+      const allSets = results.map(r => Array.isArray(r) ? r : []);
+      const common = allSets.reduce((acc, jobs) => {
+        const ids = new Set(jobs.map(j => j.id));
+        return acc.filter(j => ids.has(j.id));
+      }, allSets[0] || []);
+      setLinkedJobOptions(common.map(j => ({ id: j.id, name: j.title || j.name || 'Job' })));
+      if (common.length === 1) setScheduleJob({ id: common[0].id, name: common[0].title || common[0].name });
+      else setScheduleJob(null);
+    });
+  }, [scheduleInterviewees.map(p=>p.id).join(','), environment?.id]);
+
 
   // Prefetch avatars for all interviewers that have person IDs
   useEffect(() => {
@@ -883,61 +930,193 @@ export default function CalendarView({ interviews: interviewsProp, interviewType
       
       {/* Quick Schedule Modal */}
       {showScheduleModal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center' }}
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
           onClick={() => setShowScheduleModal(false)}>
-          <div onClick={e => e.stopPropagation()} style={{ background:'#fff', borderRadius:20, padding:28, width:440, boxShadow:'0 20px 60px rgba(0,0,0,0.2)', fontFamily:FONT }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-              <h3 style={{ margin:0, fontSize:17, fontWeight:800, color:'#1a1a2e' }}>Schedule Interview</h3>
+          <div onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}
+            style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:520, maxHeight:'90vh', overflowY:'auto',
+              boxShadow:'0 24px 64px rgba(0,0,0,0.18)', fontFamily:FONT }}>
+            <div style={{ padding:'20px 24px 16px', borderBottom:'1px solid #f0f0f0', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <h3 style={{ margin:0, fontSize:16, fontWeight:800, color:'#1a1a2e' }}>Schedule Interview</h3>
               <button onClick={() => setShowScheduleModal(false)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:'#9ca3af' }}>×</button>
             </div>
-            {[
-              { label:'Candidate name', key:'candidate_name', type:'text', placeholder:'e.g. Ahmed Al-Rashidi' },
-              { label:'Date', key:'date', type:'date' },
-              { label:'Time', key:'time', type:'time' },
-              { label:'Duration (min)', key:'duration', type:'number' },
-              { label:'Format', key:'format', type:'select', opts:['Video Call','Phone','In-Person','Panel'] },
-              { label:'Notes', key:'notes', type:'textarea' },
-            ].map(({ label, key, type, placeholder, opts }) => (
-              <div key={key} style={{ marginBottom:14 }}>
-                <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6b7280', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.05em' }}>{label}</label>
-                {type === 'select' ? (
-                  <select value={scheduleForm[key]} onChange={e => setScheduleForm(f => ({...f, [key]: e.target.value}))}
-                    style={{ width:'100%', padding:'9px 12px', borderRadius:9, border:'1.5px solid #e5e7eb', fontSize:13, fontFamily:FONT, outline:'none' }}>
-                    {opts.map(o => <option key={o}>{o}</option>)}
-                  </select>
-                ) : type === 'textarea' ? (
-                  <textarea value={scheduleForm[key]} onChange={e => setScheduleForm(f => ({...f, [key]: e.target.value}))}
-                    placeholder={placeholder} rows={3}
-                    style={{ width:'100%', padding:'9px 12px', borderRadius:9, border:'1.5px solid #e5e7eb', fontSize:13, fontFamily:FONT, outline:'none', resize:'vertical', boxSizing:'border-box' }}/>
-                ) : (
-                  <input type={type} value={scheduleForm[key]} onChange={e => setScheduleForm(f => ({...f, [key]: e.target.value}))}
-                    placeholder={placeholder}
-                    style={{ width:'100%', padding:'9px 12px', borderRadius:9, border:'1.5px solid #e5e7eb', fontSize:13, fontFamily:FONT, outline:'none', boxSizing:'border-box' }}/>
-                )}
-              </div>
-            ))}
-            <div style={{ display:'flex', gap:10, marginTop:20 }}>
-              <button onClick={() => setShowScheduleModal(false)}
-                style={{ flex:1, padding:'11px', borderRadius:10, border:'1.5px solid #e5e7eb', background:'transparent', color:'#374151', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:FONT }}>
-                Cancel
-              </button>
-              <button onClick={async () => {
-                  if (!scheduleForm.candidate_name || !scheduleForm.date) return;
-                  try {
-                    await api.post('/interviews', { ...scheduleForm, environment_id: environment?.id, status:'pending' });
-                    setShowScheduleModal(false);
-                    setScheduleForm({ candidate_name:'', date:'', time:'09:00', duration:45, format:'Video Call', notes:'' });
-                    // Reload interviews
-                    if (environment?.id) {
-                      api.get(`/interviews?environment_id=${environment.id}&limit=200`).then(d => {
-                        setOwnInterviews(Array.isArray(d) ? d : d?.interviews ?? []);
-                      });
-                    }
-                  } catch(e) { alert('Failed to save interview'); }
-                }}
-                style={{ flex:2, padding:'11px', borderRadius:10, border:'none', background:'#7C5CFC', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:FONT }}>
-                ✓ Schedule Interview
-              </button>
+            <div style={{ padding:'20px 24px' }}>
+              {/* ── Interviewees (multi-select people search) ── */}
+              {(() => {
+                const inpSt = { width:'100%', padding:'8px 12px', borderRadius:9, border:'1.5px solid #e5e7eb', fontSize:13, fontFamily:FONT, outline:'none', boxSizing:'border-box' };
+                const labelSt = { display:'block', fontSize:11, fontWeight:700, color:'#6b7280', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.05em' };
+                const tagSt = { display:'flex', alignItems:'center', gap:4, padding:'3px 8px', borderRadius:99, background:'#EEF2FF', color:'#4361EE', fontSize:12, fontWeight:600 };
+                const filtered1 = allPeople.filter(p => !scheduleInterviewees.find(s=>s.id===p.id) && (p.name.toLowerCase().includes(scheduleSearch1.toLowerCase()) || p.email?.toLowerCase().includes(scheduleSearch1.toLowerCase())));
+                const employees = allPeople.filter(p => (p.person_type||'').toLowerCase()==='employee' && !scheduleInterviewers.find(s=>s.id===p.id) && (p.name.toLowerCase().includes(scheduleSearch2.toLowerCase()) || p.email?.toLowerCase().includes(scheduleSearch2.toLowerCase())));
+                return (
+                  <>
+                    {/* Interviewees */}
+                    <div style={{ marginBottom:14 }}>
+                      <label style={labelSt}>Interviewees (candidates)</label>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginBottom:4 }}>
+                        {scheduleInterviewees.map(p => (
+                          <span key={p.id} style={tagSt}>{p.name}
+                            <button onClick={()=>setScheduleInterviewees(a=>a.filter(x=>x.id!==p.id))}
+                              style={{background:'none',border:'none',cursor:'pointer',color:'#4361EE',padding:0,fontSize:13,lineHeight:1}}>×</button>
+                          </span>
+                        ))}
+                      </div>
+                      <div style={{ position:'relative' }}>
+                        <input value={scheduleSearch1} onChange={e=>setScheduleSearch1(e.target.value)}
+                          placeholder="Search people…" style={inpSt}/>
+                        {scheduleSearch1 && filtered1.length>0 && (
+                          <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'white', borderRadius:10, boxShadow:'0 8px 24px rgba(0,0,0,0.12)', zIndex:10, maxHeight:180, overflowY:'auto', marginTop:2 }}>
+                            {filtered1.slice(0,8).map(p => (
+                              <div key={p.id} onClick={()=>{ setScheduleInterviewees(a=>[...a,p]); setScheduleSearch1(''); }}
+                                style={{ padding:'9px 14px', cursor:'pointer', fontSize:13, borderBottom:'1px solid #f0f0f0' }}
+                                onMouseEnter={e=>e.currentTarget.style.background='#f5f5ff'}
+                                onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                                <div style={{ fontWeight:600, color:'#111827' }}>{p.name}</div>
+                                {p.email && <div style={{ fontSize:11, color:'#9ca3af' }}>{p.email}</div>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Interviewers — employees only */}
+                    <div style={{ marginBottom:14 }}>
+                      <label style={labelSt}>Interviewers <span style={{ fontWeight:400, color:'#9ca3af', fontSize:10 }}>(employees only)</span></label>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginBottom:4 }}>
+                        {scheduleInterviewers.map(p => (
+                          <span key={p.id} style={{...tagSt, background:'#ECFDF5', color:'#059669'}}>
+                            {p.name}{p.job_title ? ` · ${p.job_title}` : ''}
+                            <button onClick={()=>setScheduleInterviewers(a=>a.filter(x=>x.id!==p.id))}
+                              style={{background:'none',border:'none',cursor:'pointer',color:'#059669',padding:0,fontSize:13,lineHeight:1}}>×</button>
+                          </span>
+                        ))}
+                      </div>
+                      <div style={{ position:'relative' }}>
+                        <input value={scheduleSearch2} onChange={e=>setScheduleSearch2(e.target.value)}
+                          placeholder="Search employees…" style={inpSt}/>
+                        {scheduleSearch2 && employees.length>0 && (
+                          <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'white', borderRadius:10, boxShadow:'0 8px 24px rgba(0,0,0,0.12)', zIndex:10, maxHeight:180, overflowY:'auto', marginTop:2 }}>
+                            {employees.slice(0,8).map(p => (
+                              <div key={p.id} onClick={()=>{ setScheduleInterviewers(a=>[...a,p]); setScheduleSearch2(''); }}
+                                style={{ padding:'9px 14px', cursor:'pointer', fontSize:13, borderBottom:'1px solid #f0f0f0' }}
+                                onMouseEnter={e=>e.currentTarget.style.background='#f0fdf4'}
+                                onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                                <div style={{ fontWeight:600, color:'#111827' }}>{p.name}</div>
+                                {p.job_title && <div style={{ fontSize:11, color:'#9ca3af' }}>{p.job_title}</div>}
+                              </div>
+                            ))}
+                            {employees.length===0 && scheduleSearch2 && (
+                              <div style={{ padding:'12px 14px', color:'#9ca3af', fontSize:12 }}>No employees found</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Linked job + General toggle */}
+                    <div style={{ marginBottom:14 }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
+                        <label style={labelSt}>Linked role</label>
+                        <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, color:'#6b7280', cursor:'pointer' }}>
+                          <input type="checkbox" checked={scheduleForm.general}
+                            onChange={e => setScheduleForm(f=>({...f, general:e.target.checked}))}/>
+                          General (no role)
+                        </label>
+                      </div>
+                      {!scheduleForm.general && (
+                        linkedJobOptions.length > 0
+                          ? <select value={scheduleJob?.id||''} onChange={e => {
+                              const j = linkedJobOptions.find(x=>x.id===e.target.value);
+                              setScheduleJob(j||null);
+                            }} style={{...inpSt, background:'white'}}>
+                              <option value="">No role selected</option>
+                              {linkedJobOptions.map(j=><option key={j.id} value={j.id}>{j.name}</option>)}
+                            </select>
+                          : <div style={{ padding:'8px 12px', borderRadius:9, border:'1.5px solid #e5e7eb', fontSize:12, color:'#9ca3af', background:'#fafafa' }}>
+                              {scheduleInterviewees.length===0 ? 'Select an interviewee first' : 'No linked roles found'}
+                            </div>
+                      )}
+                    </div>
+
+                    {/* Date, Time, Duration, Format */}
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>
+                      <div>
+                        <label style={labelSt}>Date *</label>
+                        <input type="date" value={scheduleForm.date} onChange={e=>setScheduleForm(f=>({...f,date:e.target.value}))} style={inpSt}/>
+                      </div>
+                      <div>
+                        <label style={labelSt}>Time</label>
+                        <input type="time" value={scheduleForm.time} onChange={e=>setScheduleForm(f=>({...f,time:e.target.value}))} style={inpSt}/>
+                      </div>
+                      <div>
+                        <label style={labelSt}>Duration (min)</label>
+                        <input type="number" value={scheduleForm.duration} onChange={e=>setScheduleForm(f=>({...f,duration:parseInt(e.target.value)||45}))} style={inpSt}/>
+                      </div>
+                      <div>
+                        <label style={labelSt}>Format</label>
+                        <select value={scheduleForm.format} onChange={e=>setScheduleForm(f=>({...f,format:e.target.value}))} style={{...inpSt,background:'white'}}>
+                          {['Video Call','Phone','In Person','Panel'].map(o=><option key={o}>{o}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Notes */}
+                    <div style={{ marginBottom:20 }}>
+                      <label style={labelSt}>Notes</label>
+                      <textarea value={scheduleForm.notes} onChange={e=>setScheduleForm(f=>({...f,notes:e.target.value}))}
+                        rows={2} style={{...inpSt, resize:'vertical'}}/>
+                    </div>
+
+                    {/* Buttons */}
+                    <div style={{ display:'flex', gap:10 }}>
+                      <button onClick={() => setShowScheduleModal(false)}
+                        style={{ flex:1, padding:'11px', borderRadius:10, border:'1.5px solid #e5e7eb', background:'transparent', color:'#374151', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:FONT }}>
+                        Cancel
+                      </button>
+                      <button disabled={!scheduleForm.date || scheduleInterviewees.length===0 || schedSaving}
+                        onClick={async () => {
+                          if (schedSaving) return;
+                          setSchedSaving(true);
+                          try {
+                            const candidateName = scheduleInterviewees.map(p=>p.name).join(', ');
+                            await api.post('/interviews', {
+                              environment_id: environment?.id,
+                              candidate_id: scheduleInterviewees[0]?.id || null,
+                              candidate_name: candidateName,
+                              job_id: scheduleJob?.id || null,
+                              job_name: scheduleJob?.name || '',
+                              interview_type_name: 'Interview',
+                              date: scheduleForm.date,
+                              time: scheduleForm.time,
+                              duration: scheduleForm.duration,
+                              format: scheduleForm.format,
+                              interviewers: scheduleInterviewers.map(p=>({ name:p.name, id:p.id, email:p.email, title:p.job_title })),
+                              notes: scheduleForm.notes,
+                              status: 'pending',
+                            });
+                            setShowScheduleModal(false);
+                            setScheduleForm({ date:'', time:'09:00', duration:45, format:'Video Call', notes:'', general:false });
+                            setScheduleInterviewees([]); setScheduleInterviewers([]);
+                            setScheduleJob(null); setScheduleSearch1(''); setScheduleSearch2('');
+                            if (environment?.id) {
+                              api.get(`/interviews?environment_id=${environment.id}&limit=200`).then(d => {
+                                setOwnInterviews(Array.isArray(d) ? d : d?.interviews ?? []);
+                              });
+                            }
+                          } catch(e) { alert('Failed to save interview: ' + e.message); }
+                          setSchedSaving(false);
+                        }}
+                        style={{ flex:2, padding:'11px', borderRadius:10, border:'none',
+                          background: schedSaving||!scheduleForm.date||scheduleInterviewees.length===0 ? '#9ca3af' : '#7C5CFC',
+                          color:'#fff', fontSize:13, fontWeight:700,
+                          cursor: schedSaving||!scheduleForm.date||scheduleInterviewees.length===0 ? 'not-allowed' : 'pointer',
+                          fontFamily:FONT }}>
+                        {schedSaving ? 'Scheduling…' : '✓ Schedule Interview'}
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>

@@ -308,8 +308,8 @@ const AIAgentSelector = ({ value, onChange, envId }) => {
     if (!envId) return;
     api.get(`/agents?environment_id=${envId}`)
       .then(d => setAgents((Array.isArray(d)?d:[]).filter(a =>
-        (a.actions||[]).some(ac => ac.action_type === "ai_interview") ||
-        a.agent_type === "ai_interview" || a.can_interview
+        (a.actions||[]).some(ac => ac.type === "ai_interview" || ac.action_type === "ai_interview") ||
+        a.agent_type === "ai_interview" || a.type === "interview" || a.can_interview
       )))
       .catch(()=>{});
   }, [envId]);

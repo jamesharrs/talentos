@@ -6569,6 +6569,28 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     setLeftPanelOrder(order);
     try { localStorage.setItem(leftStorageKey, JSON.stringify(order)); } catch {}
   };
+
+  // ── One-time deduplication: a panel ID must only appear in ONE column ───
+  // Runs synchronously before first render — cleans up stale localStorage from old bugs.
+  const _dedupRef = useRef(false);
+  if (!_dedupRef.current) {
+    _dedupRef.current = true;
+    const dedup = (order, seen) => order.map(s => {
+      if (Array.isArray(s)) { const k = s.filter(id => !seen.has(id)); k.forEach(id => seen.add(id)); return k.length > 1 ? k : k[0] ?? null; }
+      if (seen.has(s)) return null; seen.add(s); return s;
+    }).filter(Boolean);
+    const seen = new Set();
+    const cleanTop   = dedup(topRows,        seen);
+    const cleanLeft  = dedup(leftPanelOrder, seen);
+    const cleanRight = dedup(panelOrder,     seen);
+    const cleanBot   = dedup(bottomRows,     seen);
+    const diff = (a, b) => JSON.stringify(a) !== JSON.stringify(b);
+    if (diff(cleanTop,   topRows))        try { localStorage.setItem(topStorageKey,    JSON.stringify(cleanTop));   } catch {}
+    if (diff(cleanLeft,  leftPanelOrder)) try { localStorage.setItem(leftStorageKey,   JSON.stringify(cleanLeft));  } catch {}
+    if (diff(cleanRight, panelOrder))     try { localStorage.setItem(storageKey,       JSON.stringify(cleanRight)); } catch {}
+    if (diff(cleanBot,   bottomRows))     try { localStorage.setItem(bottomStorageKey, JSON.stringify(cleanBot));   } catch {}
+  }
+
   // Always-fresh snapshot — all four panel order states are now declared, safe to read
   panelOrdersRef.current = { left: leftPanelOrder, right: panelOrder, top: topRows, bottom: bottomRows };
 

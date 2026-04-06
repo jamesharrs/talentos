@@ -912,15 +912,24 @@ Step 2: Determine roles — CRITICAL LOGIC:
   - person_type = "not set" → treat as a candidate but note this to the user
   The typical interview is between a non-Employee (candidate) and one or more Employees (interviewers).
 
-Step 3: Gather: date, time, format (Video Call / Phone / In Person), duration, and optionally interviewers and notes.
+Step 3: Determine the job/role this interview is for.
+  - CRITICAL: If the PERSON LINKED TO context lists any jobs/records, IMMEDIATELY present them as a numbered list and ask the user to pick one (or 0 for none). Do NOT just ask "Which role is this for?" without showing the options.
+  - Format the list like this:
+    "Which role is this interview for?
+    1. Senior Engineer @ Acme Corp
+    2. Product Manager @ StartupXYZ
+    0. No specific role"
+  - If there are NO linked jobs in context, ask "Which role is this interview for?" as a free-text question.
+  - Use the selected record_id as job_id in the block. If the user says "1" or "the first one", use that job's record_id.
+Step 4: Gather remaining details: date, time, format (Video Call / Phone / In Person), duration, and optionally interviewers and notes.
   - If interview types are listed in context, suggest them. Otherwise use a sensible default.
   - Date: use TODAY'S DATE from context to calculate exact dates. "Next Monday" = the coming Monday from today's date. Always output YYYY-MM-DD.
   - Time in HH:MM 24h format (e.g. 14:00). Default to 10:00 if not specified.
   - Duration in minutes. Default to 45.
   - Format options: "Video Call", "Phone", "In Person". Default to "Video Call".
   - Interviewers: look them up in ALL PEOPLE IN PLATFORM. They should have person_type = "Employee". If the named interviewer is NOT an Employee, say: "[Name] is listed as a [person_type] — interviewers are usually Employees. Do you want to proceed anyway or pick someone else?"
-Step 4: Before outputting the block, confirm attendees: name, person_type, job title, and their role in this interview. Make it clear who is the candidate and who is interviewing.
-Step 5: Output EXACTLY this format (nothing else after it):
+Step 5: Before outputting the block, confirm attendees: name, person_type, job title, and their role in this interview. Make it clear who is the candidate and who is interviewing.
+Step 6: Output EXACTLY this format (nothing else after it):
 <SCHEDULE_INTERVIEW>
 {
   "candidate_name": "Full Name",
@@ -1669,12 +1678,12 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     if(process.env.NODE_ENV !== 'production') console.log('[CP] linked jobs for context:', _lj.length, _lj.map(j=>j.title));
     if(_lj.length>0 && currentObject?.slug==='people'){
       parts.push('');
-      parts.push(`PERSON LINKED TO ${_lj.length} OPEN JOB(S)/RECORD(S) — when creating anything for this person, present these as a numbered list and ask which one to associate with (or "none"):`);
+      parts.push(`PERSON LINKED TO ${_lj.length} JOB(S) — MANDATORY: When scheduling an interview or any job-related action, you MUST immediately show this numbered list and ask the user to pick one. Do NOT ask "which role?" as a blank question — always show the options.`);
       _lj.forEach((j,i)=>{
-        parts.push(`  ${i+1}. "${j.title}" (${j.object_name||'Job'})${j.stage?' — Stage: '+j.stage:''}${j.status?' ['+j.status+']':''} [record_id:${j.id}]`);
+        parts.push(`  ${i+1}. ${j.title}${j.object_name?' ('+j.object_name+')':''}${j.stage?' — Stage: '+j.stage:''}${j.status?' ['+j.status+']':''} [record_id:${j.id}]`);
       });
-      parts.push('  0. None / keep general');
-      parts.push('Prompt the user to reply with a number (e.g. "Reply 1, 2 or 0 for none"). Use the corresponding record_id as job_id in the action block.');
+      parts.push('  0. No specific role');
+      parts.push('Wait for user to reply with a number, then use the matching record_id as job_id and the title as job_name in the action block.');
     }
     if(pageContext){parts.push('');parts.push('ADDITIONAL PAGE CONTEXT:');parts.push(pageContext);}
 

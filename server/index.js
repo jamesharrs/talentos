@@ -144,6 +144,7 @@ app.use('/api/notifications',     require('./routes/notifications'));
 app.use('/api/workflows',         require('./routes/workflows'));
 app.use('/api/stage-categories',  require('./routes/stage_categories'));
 app.use('/api/interviews',        require('./routes/interviews'));
+app.use('/api/reschedule',        require('./routes/reschedule')); // public rescheduling
 app.use('/api/interview-types',   require('./routes/interview_types'));
 app.use('/api/interview-plans',   require('./routes/interview_plans'));
 app.use('/api/interview-coordinator', require('./routes/interview_coordinator'));

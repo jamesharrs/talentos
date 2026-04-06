@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import ReschedulePage from './ReschedulePage.jsx';
 import ReportingErrorBoundary from "./ErrorBoundary.jsx";
 import InboxModule, { useInboxUnreadCount } from "./Inbox";
 import { MobileShell, useIsMobile } from "./MobileApp.jsx";
@@ -2632,6 +2633,10 @@ function UserFooterMenu({ session, activeNav, setActiveNav, clearSession, setSes
 
 // ─── Root export wrapped in ThemeProvider ─────────────────────────────────────
 export default function AppRoot() {
+  // Handle public reschedule page (no auth needed)
+  if (window.location.pathname.startsWith('/reschedule/')) {
+    return <ReschedulePage />;
+  }
   // Public interview page — no auth needed
   if (window.location.pathname.startsWith('/interview/')) {
     return <InterviewSession />;

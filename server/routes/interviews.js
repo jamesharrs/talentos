@@ -9,6 +9,7 @@ function _checkGA(req, res, action) {
   return null;
 }
 const express = require('express');
+const { makeToken } = require('./reschedule');
 const router  = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { query, insert, update, remove, getStore, saveStore } = require('../db/init');
@@ -185,7 +186,11 @@ router.post('/', async (req, res) => {
       } else {
         // Build reschedule URL pointing to the interview record
         const baseUrl = process.env.APP_URL || 'https://client-gamma-ruddy-63.vercel.app';
-        const rescheduleUrl = `${baseUrl}/interviews`;
+        // Generate unique tokens for each party so they see the right view
+        const candToken = makeToken(rec.id, 'candidate');
+        const ivToken   = makeToken(rec.id, 'interviewer');
+        const rescheduleUrl = `${baseUrl}/reschedule/${rec.id}/${candToken}?role=candidate`;
+        const ivRescheduleUrl = `${baseUrl}/reschedule/${rec.id}/${ivToken}?role=interviewer`;
 
         // Company name for organiser
         const profile = (store.company_profiles || []).find(p => p.environment_id === environment_id);
@@ -214,7 +219,7 @@ router.post('/', async (req, res) => {
           organiserEmail: fromEmail,
           organiserName:  companyName,
           attendeeEmails,
-          rescheduleUrl,
+          rescheduleUrl: rescheduleUrl,
         });
 
         // Email body

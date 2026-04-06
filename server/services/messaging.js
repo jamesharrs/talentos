@@ -96,24 +96,28 @@ async function sendWhatsApp({ to, body }) {
 }
 
 // ─── Email (Resend or SendGrid) ───────────────────────────────────────────────
-async function sendEmail({ to, toName, subject, body, text, html }) {
+async function sendEmail({ to, toName, subject, body, text, html, attachments }) {
   const textBody = text || body || '';
   const htmlBody = html || textBody.replace(/\n/g, '<br>');
 
   if (isResendConfigured()) {
+    const payload = {
+      from: `${process.env.SENDGRID_FROM_NAME || 'Vercentic'} <${process.env.SENDGRID_FROM_EMAIL || 'onboarding@resend.dev'}>`,
+      to: toName ? [{ email: to, name: toName }] : [to],
+      subject,
+      text: textBody,
+      html: htmlBody,
+    };
+    if (attachments?.length) {
+      payload.attachments = attachments.map(a => ({
+        filename: a.filename,
+        content:  a.content,  // base64 string
+      }));
+    }
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: `${process.env.SENDGRID_FROM_NAME || 'Vercentic'} <${process.env.SENDGRID_FROM_EMAIL || 'onboarding@resend.dev'}>`,
-        to: toName ? [{ email: to, name: toName }] : [to],
-        subject,
-        text: textBody,
-        html: htmlBody,
-      }),
+      headers: { 'Authorization': `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || 'Resend error');
@@ -123,20 +127,17 @@ async function sendEmail({ to, toName, subject, body, text, html }) {
   if (isSendGridConfigured()) {
     const sgMail = require('@sendgrid/mail');
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    const [response] = await sgMail.send({
+    const msg = {
       to: toName ? { email: to, name: toName } : to,
-      from: {
-        email: process.env.SENDGRID_FROM_EMAIL || 'noreply@talentos.io',
-        name:  process.env.SENDGRID_FROM_NAME  || 'Vercentic',
-      },
-      subject,
-      text: textBody,
-      html: htmlBody,
-    });
+      from: { email: process.env.SENDGRID_FROM_EMAIL || 'noreply@talentos.io', name: process.env.SENDGRID_FROM_NAME || 'Vercentic' },
+      subject, text: textBody, html: htmlBody,
+    };
+    if (attachments?.length) msg.attachments = attachments;
+    const [response] = await sgMail.send(msg);
     return { messageId: response.headers['x-message-id'], status: 'sent', provider: 'sendgrid' };
   }
 
-  console.log(`[email-sim] To: ${to} | Subject: ${subject}`);
+  console.log(`[email-sim] To: ${to} | Subject: ${subject}${attachments?.length ? ` | Attachments: ${attachments.map(a=>a.filename).join(', ')}` : ''}`);
   return { simulated: true, messageId: `sim_${Date.now()}`, status: 'simulated' };
 }
 

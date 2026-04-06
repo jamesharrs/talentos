@@ -13,6 +13,42 @@ const router  = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { query, insert, update, remove, getStore, saveStore } = require('../db/init');
 const { createInterviewMeeting, fireEvent } = require('../services/connectors');
+const { sendEmail } = require('../services/messaging');
+
+// ── ICS builder ──────────────────────────────────────────────────────────────
+function buildICS({ uid, summary, description, location, startISO, endISO, organiserEmail, organiserName, attendeeEmails, rescheduleUrl }) {
+  const fmt = (iso) => iso.replace(/[-:]/g,'').replace(/\.\d{3}/,'') + 'Z';
+  const start = fmt(startISO);
+  const end   = fmt(endISO);
+  const now   = fmt(new Date().toISOString());
+  const escape = s => (s||'').replace(/[,;\\]/g, m=>'\\'+m).replace(/\n/g,'\\n');
+  const attendees = attendeeEmails.map(e =>
+    `ATTENDEE;CN=${e};RSVP=TRUE;PARTSTAT=NEEDS-ACTION;ROLE=REQ-PARTICIPANT:mailto:${e}`
+  ).join('\r\n');
+  const reschedLine = rescheduleUrl ? `\r\nX-RESCHEDULE-URL:${rescheduleUrl}` : '';
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Vercentic//Interview//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:REQUEST',
+    'BEGIN:VEVENT',
+    `UID:${uid}@vercentic`,
+    `DTSTAMP:${now}`,
+    `DTSTART:${start}`,
+    `DTEND:${end}`,
+    `SUMMARY:${escape(summary)}`,
+    `DESCRIPTION:${escape(description)}`,
+    location ? `LOCATION:${escape(location)}` : '',
+    `ORGANIZER;CN=${escape(organiserName)}:mailto:${organiserEmail}`,
+    attendees,
+    'STATUS:CONFIRMED',
+    'SEQUENCE:0',
+    reschedLine,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n');
+}
 
 function ensure() {
   const s = getStore();
@@ -93,7 +129,7 @@ router.post('/', async (req, res) => {
     } catch (e) { console.warn('[Connectors] Meeting creation failed:', e.message); }
   });
 
-  // ── FIRE NOTIFICATIONS ────────────────────────────────────────────────────
+  // ── FIRE NOTIFICATIONS + SEND ICS EMAILS ────────────────────────────────
   setImmediate(async () => {
     try {
       await fireEvent(environment_id, 'interview_scheduled', {
@@ -104,6 +140,115 @@ router.post('/', async (req, res) => {
         interviewers: interviewers || [],
       });
     } catch (e) { console.warn('[Connectors] Notification failed:', e.message); }
+
+    // ── Send ICS calendar invite to all attendees ─────────────────────────
+    try {
+      const { getStore } = require('../db/init');
+      const store = getStore();
+      const timeStr   = time || '09:00';
+      const startISO  = `${date}T${timeStr}:00.000Z`;
+      const endISO    = new Date(new Date(startISO).getTime() + (duration || 45) * 60_000).toISOString();
+      const fmt       = format || 'Video Call';
+
+      // Collect attendee emails — candidate + all interviewers
+      const attendeeEmails = [];
+
+      // Candidate email (look up from record if not passed)
+      const candidateRec = resolvedCandidateId
+        ? (store.records || []).find(r => r.id === resolvedCandidateId)
+        : null;
+      const candidateEmail = candidateRec?.data?.email || null;
+      if (candidateEmail) attendeeEmails.push(candidateEmail);
+
+      // Interviewer emails from their person records
+      const ivList = Array.isArray(interviewers) ? interviewers : [];
+      for (const iv of ivList) {
+        // iv may be { name, id, email } or just a string name
+        const ivEmail = iv.email || null;
+        const ivRec   = iv.id ? (store.records || []).find(r => r.id === iv.id) : null;
+        const resolvedEmail = ivEmail || ivRec?.data?.email || null;
+        if (resolvedEmail && !attendeeEmails.includes(resolvedEmail)) attendeeEmails.push(resolvedEmail);
+      }
+
+      if (attendeeEmails.length === 0) {
+        console.log('[Interview] No attendee emails found — skipping ICS send');
+      } else {
+        // Build reschedule URL pointing to the interview record
+        const baseUrl = process.env.APP_URL || 'https://client-gamma-ruddy-63.vercel.app';
+        const rescheduleUrl = `${baseUrl}/interviews`;
+
+        // Company name for organiser
+        const profile = (store.company_profiles || []).find(p => p.environment_id === environment_id);
+        const companyName = profile?.name || process.env.SENDGRID_FROM_NAME || 'Vercentic';
+        const fromEmail   = process.env.SENDGRID_FROM_EMAIL || 'noreply@vercentic.com';
+
+        const summary = job_name
+          ? `Interview: ${resolvedCandidateName} — ${job_name}`
+          : `Interview: ${resolvedCandidateName}`;
+
+        const descLines = [
+          `Interview Type: ${interview_type_name || 'Interview'}`,
+          `Format: ${fmt}`,
+          `Duration: ${duration || 45} minutes`,
+          notes ? `Notes: ${notes}` : '',
+          `Reschedule: ${rescheduleUrl}`,
+        ].filter(Boolean);
+
+        const ics = buildICS({
+          uid:           rec.id,
+          summary,
+          description:   descLines.join('\n'),
+          location:      fmt === 'In Person' ? (notes || '') : fmt,
+          startISO,
+          endISO,
+          organiserEmail: fromEmail,
+          organiserName:  companyName,
+          attendeeEmails,
+          rescheduleUrl,
+        });
+
+        // Email body
+        const dateLabel = new Date(`${date}T${timeStr}`).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+        const htmlBody = `
+<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+  <div style="background:#4361EE;padding:24px 32px;border-radius:12px 12px 0 0">
+    <h2 style="color:white;margin:0;font-size:20px">Interview Scheduled</h2>
+  </div>
+  <div style="background:#f8f9fc;padding:28px 32px;border-radius:0 0 12px 12px;border:1px solid #e5e7eb">
+    <p style="font-size:15px;color:#374151;margin:0 0 20px">Your interview has been confirmed. Please find the calendar invite attached.</p>
+    <table style="width:100%;border-collapse:collapse">
+      <tr><td style="padding:10px 0;color:#6b7280;font-size:13px;width:120px">Candidate</td><td style="padding:10px 0;color:#111827;font-size:14px;font-weight:600">${resolvedCandidateName}</td></tr>
+      ${job_name ? `<tr><td style="padding:10px 0;color:#6b7280;font-size:13px">Role</td><td style="padding:10px 0;color:#111827;font-size:14px;font-weight:600">${job_name}</td></tr>` : ''}
+      <tr><td style="padding:10px 0;color:#6b7280;font-size:13px">Date</td><td style="padding:10px 0;color:#111827;font-size:14px;font-weight:600">${dateLabel}</td></tr>
+      <tr><td style="padding:10px 0;color:#6b7280;font-size:13px">Time</td><td style="padding:10px 0;color:#111827;font-size:14px;font-weight:600">${timeStr}</td></tr>
+      <tr><td style="padding:10px 0;color:#6b7280;font-size:13px">Format</td><td style="padding:10px 0;color:#111827;font-size:14px;font-weight:600">${fmt}</td></tr>
+      <tr><td style="padding:10px 0;color:#6b7280;font-size:13px">Duration</td><td style="padding:10px 0;color:#111827;font-size:14px;font-weight:600">${duration || 45} minutes</td></tr>
+      ${ivList.length ? `<tr><td style="padding:10px 0;color:#6b7280;font-size:13px">Interviewer(s)</td><td style="padding:10px 0;color:#111827;font-size:14px;font-weight:600">${ivList.map(i=>i.name||i).join(', ')}</td></tr>` : ''}
+    </table>
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid #e5e7eb">
+      <a href="${rescheduleUrl}" style="display:inline-block;background:#4361EE;color:white;text-decoration:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600">Need to reschedule? →</a>
+    </div>
+  </div>
+</div>`;
+
+        // Send to each attendee
+        for (const email of attendeeEmails) {
+          await sendEmail({
+            to:      email,
+            subject: summary,
+            html:    htmlBody,
+            text:    descLines.join('\n'),
+            attachments: [{
+              content:     Buffer.from(ics).toString('base64'),
+              filename:    'interview.ics',
+              type:        'text/calendar',
+              disposition: 'attachment',
+            }],
+          }).catch(e => console.warn(`[Interview] Email to ${email} failed:`, e.message));
+        }
+        console.log(`[Interview] ICS sent to ${attendeeEmails.length} attendee(s):`, attendeeEmails.join(', '));
+      }
+    } catch (e) { console.warn('[Interview] ICS email failed:', e.message, e.stack); }
   });
 
   res.status(201).json(rec);

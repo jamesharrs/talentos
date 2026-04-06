@@ -5005,7 +5005,148 @@ const JobQuestionsPanel = ({ record, environment }) => {
   );
 };
 
-// ─── Interview Coordination Panel ────────────────────────────────────────────
+// ─── Person Interviews Panel ─────────────────────────────────────────────────
+const INTERVIEW_STATUS_COLORS = {
+  pending:    { color:"#7C3AED", bg:"#F5F3FF" },
+  confirmed:  { color:"#059669", bg:"#ECFDF5" },
+  completed:  { color:"#374151", bg:"#F3F4F6" },
+  cancelled:  { color:"#DC2626", bg:"#FEF2F2" },
+  rescheduled:{ color:"#D97706", bg:"#FFFBEB" },
+};
+const PersonInterviewsPanel = ({ record, environment }) => {
+  const [interviews, setInterviews]   = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [jobFilter, setJobFilter]     = useState("all");
+  const [timeFilter, setTimeFilter]   = useState("all"); // all | upcoming | past
+  const [expanded, setExpanded]       = useState(null);
+
+  useEffect(() => {
+    if (!record?.id || !environment?.id) return;
+    setLoading(true);
+    api.get(`/interviews?candidate_id=${record.id}&environment_id=${environment.id}`)
+      .then(d => setInterviews(Array.isArray(d) ? d : []))
+      .catch(() => setInterviews([]))
+      .finally(() => setLoading(false));
+  }, [record?.id, environment?.id]);
+
+  // Unique jobs linked to these interviews
+  const linkedJobs = useMemo(() => {
+    const map = new Map();
+    interviews.forEach(iv => { if (iv.job_id && iv.job_name) map.set(iv.job_id, iv.job_name); });
+    return [...map.entries()].map(([id, name]) => ({ id, name }));
+  }, [interviews]);
+
+  const now = new Date();
+  const filtered = interviews.filter(iv => {
+    if (jobFilter !== "all" && iv.job_id !== jobFilter) return false;
+    const dt = new Date(`${iv.date}T${iv.time || "00:00"}`);
+    if (timeFilter === "upcoming" && dt < now) return false;
+    if (timeFilter === "past"     && dt >= now) return false;
+    return true;
+  }).sort((a, b) => new Date(`${b.date}T${b.time||"00:00"}`) - new Date(`${a.date}T${a.time||"00:00"}`));
+
+  if (loading) return <div style={{padding:16,color:C.text3,fontSize:13}}>Loading interviews…</div>;
+
+  const fmt = (iv) => {
+    try {
+      const d = new Date(`${iv.date}T${iv.time||"00:00"}`);
+      return isNaN(d) ? iv.date : d.toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+    } catch { return iv.date; }
+  };
+  const isPast = (iv) => new Date(`${iv.date}T${iv.time||"00:00"}`) < now;
+
+  return (
+    <div style={{fontSize:13,fontFamily:F}}>
+      {/* Filters */}
+      <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
+        {/* Time filter */}
+        {["all","upcoming","past"].map(v => (
+          <button key={v} onClick={()=>setTimeFilter(v)} style={{
+            padding:"4px 10px",borderRadius:99,border:`1.5px solid ${timeFilter===v?C.accent:C.border}`,
+            background:timeFilter===v?C.accentLight:"transparent",color:timeFilter===v?C.accent:C.text3,
+            fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F,
+          }}>{v==="all"?"All":v==="upcoming"?"Upcoming":"Past"}</button>
+        ))}
+        {/* Job filter */}
+        {linkedJobs.length > 0 && (
+          <select value={jobFilter} onChange={e=>setJobFilter(e.target.value)}
+            style={{padding:"4px 10px",borderRadius:99,border:`1.5px solid ${C.border}`,fontSize:11,fontWeight:600,
+              color:jobFilter!=="all"?C.accent:C.text3,cursor:"pointer",fontFamily:F,background:"white",
+              outline:"none",appearance:"none",paddingRight:20}}>
+            <option value="all">All roles</option>
+            {linkedJobs.map(j=><option key={j.id} value={j.id}>{j.name}</option>)}
+          </select>
+        )}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div style={{textAlign:"center",padding:"32px 16px",color:C.text3}}>
+          <Ic n="calendar" s={28} c={C.border}/>
+          <div style={{marginTop:8,fontSize:13,fontWeight:600,color:C.text2}}>No interviews found</div>
+          <div style={{fontSize:12,color:C.text3,marginTop:4}}>
+            {timeFilter==="upcoming"?"No upcoming interviews scheduled":"No past interviews recorded"}
+          </div>
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {filtered.map(iv => {
+            const sc = INTERVIEW_STATUS_COLORS[iv.status] || INTERVIEW_STATUS_COLORS.pending;
+            const past = isPast(iv);
+            const isOpen = expanded === iv.id;
+            const ivList = Array.isArray(iv.interviewers) ? iv.interviewers : [];
+            return (
+              <div key={iv.id} style={{borderRadius:10,border:`1.5px solid ${isOpen?C.accent:C.border}`,
+                background:past?"#FAFAFA":"white",overflow:"hidden",transition:"all .15s"}}>
+                <div onClick={()=>setExpanded(isOpen?null:iv.id)}
+                  style={{padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
+                  {/* Colour dot — past=grey, upcoming=accent */}
+                  <div style={{width:8,height:8,borderRadius:"50%",background:past?"#D1D5DB":C.accent,flexShrink:0}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:700,color:C.text1,fontSize:13,marginBottom:2}}>
+                      {iv.interview_type_name || "Interview"}
+                      {iv.job_name && <span style={{fontWeight:400,color:C.text3,marginLeft:6,fontSize:12}}>· {iv.job_name}</span>}
+                    </div>
+                    <div style={{fontSize:11,color:C.text3}}>{fmt(iv)}</div>
+                  </div>
+                  <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:99,
+                    color:sc.color,background:sc.bg,flexShrink:0}}>
+                    {iv.status || "pending"}
+                  </span>
+                  <Ic n={isOpen?"chevronUp":"chevronDown"} s={12} c={C.text4}/>
+                </div>
+                {isOpen && (
+                  <div style={{padding:"0 14px 14px",borderTop:`1px solid ${C.border}`,background:"white"}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:10}}>
+                      {[
+                        ["Format",   iv.format || "Video Call"],
+                        ["Duration", `${iv.duration || 45} min`],
+                        iv.job_name ? ["Role", iv.job_name] : null,
+                        ivList.length ? ["Interviewer(s)", ivList.map(i=>typeof i==="string"?i:i.name).join(", ")] : null,
+                        iv.meeting_link ? ["Meeting link", iv.meeting_link] : null,
+                        iv.notes ? ["Notes", iv.notes] : null,
+                      ].filter(Boolean).map(([label, val]) => (
+                        <div key={label} style={{fontSize:12}}>
+                          <div style={{color:C.text4,fontWeight:600,marginBottom:2}}>{label}</div>
+                          <div style={{color:C.text1}}>
+                            {label==="Meeting link"
+                              ? <a href={val} target="_blank" rel="noreferrer" style={{color:C.accent}}>{val}</a>
+                              : val}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── (Legacy stub — kept so old refs compile) ─────────────────────────────────
 const STATUS_COORD = {
   collecting_availability: { label:"Collecting availability", color:"#f59e0b", bg:"#fef3c7" },
   confirmed:   { label:"Interview confirmed", color:"#0ca678", bg:"#d1fae5" },
@@ -5103,7 +5244,7 @@ const CoordinationPanel = ({ record, environment }) => {
 export const PANEL_META = {
   fields:       { icon:"edit",          label:"Profile Fields",      defaultOpen:true  },
   comms:        { icon:"mail",          label:"Communications",      defaultOpen:true  },
-  coordination: { icon:"calendar",      label:"Interview Coordination", defaultOpen:false },
+  coordination: { icon:"calendar",      label:"Interviews",             defaultOpen:true  },
   notes:        { icon:"messageSquare", label:"Notes",               defaultOpen:true  },
   attachments:  { icon:"paperclip",     label:"Files",               defaultOpen:true  },
   forms:        { icon:"clipboard",     label:"Forms",               defaultOpen:false },
@@ -5122,8 +5263,8 @@ export const PANEL_META = {
 };
 
 export const getDefaultPanelOrder = (objectName) => {
-  const base = ["tasks","comms","coordination","notes","attachments","forms","activity"];
-  if (objectName === "Person") base.splice(1, 0, "linked", "reporting");
+  const base = ["tasks","comms","notes","attachments","forms","activity"];
+  if (objectName === "Person") base.splice(1, 0, "linked", "coordination", "reporting");
   if (["Person","Job"].includes(objectName)) base.push("match");
   if (objectName === "Person") base.push("scorecard");
   if (objectName === "Person") base.push("engagement");
@@ -7141,7 +7282,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       <CommunicationsPanel record={record} environment={environment} externalCompose={composeType} onExternalComposeDone={()=>setComposeType(null)} initialJobContext={activeJobContext}/>
     ) : <AccessDeniedPanel label="Communications"/>;
     if (id==="coordination") return (
-      <CoordinationPanel record={record} environment={environment}/>
+      <PersonInterviewsPanel record={record} environment={environment}/>
     );
     if (id==="notes") return canRecord('record_add_note') || canRecord('record_view_comms') ? (
       <NotesPanel record={record} notes={notes} onNotesChange={load} canAdd={canRecord('record_add_note')} canDelete={canRecord('record_delete_note')} linkedJobRecords={linkedJobRecords} activeJobContext={activeJobContext}/>

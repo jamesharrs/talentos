@@ -6553,10 +6553,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const [fullWidthZone, setFullWidthZone] = useState(null);
   const fullWidthDropRef  = useRef(null);
   const outerLayoutRef    = useRef(null);
-  // Ref for fresh panel orders — declared first, assigned below after all state is ready
+  // Ref for fresh panel orders — assigned AFTER leftPanelOrder is declared below
   const panelOrdersRef    = useRef(null);
-  // Always-fresh snapshot (written every render, used by drag closures to avoid stale state)
-  panelOrdersRef.current = { left: leftPanelOrder, right: panelOrder, top: topRows, bottom: bottomRows };
 
   // ── Left column panel order (default: just fields) ──────────────────────
   const leftStorageKey = `talentos_panels_left_${objectName}`;
@@ -6571,6 +6569,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     setLeftPanelOrder(order);
     try { localStorage.setItem(leftStorageKey, JSON.stringify(order)); } catch {}
   };
+  // Always-fresh snapshot — all four panel order states are now declared, safe to read
+  panelOrdersRef.current = { left: leftPanelOrder, right: panelOrder, top: topRows, bottom: bottomRows };
 
   // ── Column helpers ────────────────────────────────────────────────────────
   const colOfId = (id) =>

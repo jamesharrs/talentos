@@ -381,6 +381,34 @@ async function seedUsersAndRoles(tenantKey) {
   saveStore(tenantKey || 'master');
 }
 
+
+// ── Seed system email templates (idempotent) ──────────────────────────────────
+function seedSystemEmailTemplates() {
+  const store = getStore();
+  if (!store.email_templates_v2) store.email_templates_v2 = [];
+  const now = new Date().toISOString();
+  const { v4: uuidv4 } = require('uuid');
+  const TEMPLATES = [
+    { slug:'sys_interview_scheduled', name:'Interview Scheduled — Candidate & Interviewer Invite', category:'interview', is_system:true, has_ics:true, supports_reschedule_link:true, description:'Sent automatically to the candidate and all interviewers when an interview is scheduled. Includes an ICS calendar attachment.', subject:'Interview Confirmed: {{candidate_name}}', variables:['candidate_name','job_name','date_label','time','format','duration','interviewers','reschedule_url'] },
+    { slug:'sys_application_hub',     name:'Application Hub — Magic Link',           category:'portal',    is_system:true, description:'Sent when a candidate requests access to their application hub. Contains a one-time magic link that expires in 15 minutes.', subject:'Your {{company_name}} application hub', variables:['first_name','company_name','brand_color','hub_url'] },
+    { slug:'sys_saved_application',   name:'Saved Application — Resume Link',        category:'portal',    is_system:true, description:'Sent when a candidate saves their in-progress application on a career portal. Link expires in 7 days.', subject:'Continue your application — {{company_name}}', variables:['first_name','company_name','resume_url'] },
+    { slug:'sys_user_invite',         name:'Platform Invite — New User Welcome',     category:'system',    is_system:true, description:'Sent when a new platform user is invited. Contains their login credentials and a link to the platform.', subject:'You have been invited to {{company_name}}', variables:['first_name','company_name','email','temp_password','login_url'] },
+    { slug:'sys_interview_feedback',  name:'Interview Feedback Reminder',            category:'interview', is_system:true, description:'Sent to interviewers as a reminder to submit their scorecard/feedback after an interview.', subject:'Feedback needed — {{candidate_name}} interview', variables:['candidate_name','job_title','feedback_url'] },
+    { slug:'sys_offer_sent',          name:'Offer Letter — Sent to Candidate',       category:'offer',     is_system:true, description:'Sent to a candidate when a formal offer is made. Links to the offer letter for review and acceptance.', subject:'Your offer from {{company_name}}', variables:['first_name','company_name','job_title','expiry_date','offer_url'] },
+    { slug:'sys_offer_accepted',      name:'Offer Accepted — Recruiter Notification',category:'offer',     is_system:true, description:'Sent to the recruiting team when a candidate accepts their offer.', subject:'Offer accepted — {{candidate_name}} ({{job_title}})', variables:['candidate_name','job_title','start_date','record_url'] },
+    { slug:'sys_welcome_team',        name:'Welcome to the Team',                    category:'onboarding',is_system:true, description:'Sent to a new hire after their offer is accepted, welcoming them to the company.', subject:'Welcome to the team, {{first_name}}!', variables:['first_name','company_name','start_date'] },
+  ];
+  let added = 0;
+  for (const tmpl of TEMPLATES) {
+    if (!(store.email_templates_v2 || []).find(t => t.slug === tmpl.slug && !t.deleted_at)) {
+      store.email_templates_v2.push({ ...tmpl, id:uuidv4(), created_at:now, updated_at:now });
+      added++;
+    }
+  }
+  if (added > 0) { saveStore(store); console.log(`[init] Seeded ${added} system email template(s)`); }
+}
+seedSystemEmailTemplates();
+
 module.exports = { getStore, saveStore, saveStoreNow, query, findOne, insert, update, remove, initDB, tenantStorage, getCurrentTenant, provisionTenant, reloadTenantStore, loadTenantStore, listTenants, tenantDbPath, storeCache };
 
 // ── Migration: fix Skills field type multi_select → skills ───────────────────

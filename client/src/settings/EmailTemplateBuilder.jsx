@@ -15,6 +15,7 @@ const ICON_PATHS = {
   mail: "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6",
   plus: "M12 5v14M5 12h14", check: "M20 6L9 17l-5-5", x: "M18 6L6 18M6 6l12 12",
   trash: "M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2",
+  lock:  "M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2zM12 17a1 1 0 110-2 1 1 0 010 2zm3-6V7a3 3 0 00-6 0v4",
   edit: "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
   copy: "M20 9h-9a2 2 0 00-2 2v9a2 2 0 002 2h9a2 2 0 002-2v-9a2 2 0 00-2-2zM5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1",
   chevU: "M18 15l-6-6-6 6", chevD: "M6 9l6 6 6-6",
@@ -101,11 +102,12 @@ export default function EmailTemplateBuilder({ environment }) {
 
   const load = useCallback(async () => {
     if (!envId) return;
-    const [t, bk] = await Promise.all([
+    const [rawT, bk] = await Promise.all([
       api.get(`/email-builder?environment_id=${envId}`),
       api.get(`/brand-kits?environment_id=${envId}`),
     ]);
-    setTemplates(Array.isArray(t) ? t : []);
+    const sorted = (Array.isArray(rawT) ? rawT : []).filter(x => !x.deleted_at);
+    setTemplates(sorted);
     setBrandKits(Array.isArray(bk) ? bk : []);
     setLoading(false);
   }, [envId]);
@@ -492,8 +494,62 @@ export default function EmailTemplateBuilder({ environment }) {
           </button>
         </div>
       ) : (
+        <div>
+        {/* System templates section */}
+        {templates.filter(t => t.is_system).length > 0 && (
+          <>
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10 }}>
+              <Ic n="lock" s={13} c="#7C3AED"/>
+              <span style={{ fontSize:12, fontWeight:700, color:"#7C3AED", textTransform:"uppercase", letterSpacing:"0.05em" }}>System Templates</span>
+              <span style={{ fontSize:11, color:C.text4 }}>— sent automatically by the platform · editable but cannot be deleted</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14, marginBottom: 24 }}>
+              {templates.filter(t => t.is_system).map(t => {
+                const kit = brandKits.find(k => k.id === t.brand_kit_id);
+                const catLabel = CATEGORIES.find(c => c.value === t.category)?.label || t.category;
+                return (
+                  <div key={t.id} onClick={() => { setEditing({ ...t }); setHtmlEdited(!!t.html_override); setHtmlCode(t.html_override || ''); }} style={{
+                    background: "#FAFAFF", borderRadius: 14, border: `1.5px solid #E9D5FF`, overflow: "hidden", cursor: "pointer", transition: "all .15s",
+                  }}
+                    onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 20px rgba(124,58,237,.1)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; }}>
+                    {/* colour bar */}
+                    <div style={{ height: 4, background: "#7C3AED" }} />
+                    <div style={{ padding: "14px 16px" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex:1, marginRight:6 }}>{t.name}</div>
+                        <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99, background:"#F5F3FF", color:"#7C3AED", flexShrink:0 }}>{catLabel}</span>
+                      </div>
+                      {t.subject && <div style={{ fontSize: 11, color: C.text3, marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.subject}</div>}
+                      <div style={{ fontSize: 11, color: C.text4, marginBottom: 6 }}>{t.description?.slice(0,80)}{t.description?.length>80?'…':''}</div>
+                      <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:8 }}>
+                        {t.has_ics && <span style={{fontSize:9,fontWeight:700,padding:"1px 5px",borderRadius:99,background:"#EFF6FF",color:"#3B82F6"}}>📎 ICS</span>}
+                        {t.supports_reschedule_link && <span style={{fontSize:9,fontWeight:700,padding:"1px 5px",borderRadius:99,background:"#F0FDF4",color:"#059669"}}>↩ Reschedule</span>}
+                        {t.variables?.length>0 && <span style={{fontSize:9,fontWeight:700,padding:"1px 5px",borderRadius:99,background:"#FFF7ED",color:"#EA580C"}}>{t.variables.length} variables</span>}
+                      </div>
+                      <div style={{ display: "flex", gap: 6, alignItems:"center" }} onClick={e => e.stopPropagation()}>
+                        <span style={{ display:"flex", alignItems:"center", gap:3, fontSize:10, fontWeight:700, color:"#7C3AED", background:"#F5F3FF", padding:"2px 7px", borderRadius:99 }}>
+                          <Ic n="lock" s={9} c="#7C3AED"/> System — cannot delete
+                        </span>
+                        <button onClick={() => handleDuplicate(t.id)} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 5, padding: "3px 8px", fontSize: 10, fontWeight: 600, cursor: "pointer", color: C.text3, fontFamily: F, marginLeft:"auto" }}>
+                          <Ic n="copy" s={10} c={C.text4} /> Copy
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {templates.filter(t => !t.is_system).length > 0 && (
+              <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10 }}>
+                <span style={{ fontSize:12, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.05em" }}>Custom Templates</span>
+              </div>
+            )}
+          </>
+        )}
+        {/* Custom templates */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
-          {templates.map(t => {
+          {templates.filter(t => !t.is_system).map(t => {
             const kit = brandKits.find(k => k.id === t.brand_kit_id);
             const catLabel = CATEGORIES.find(c => c.value === t.category)?.label || t.category;
             return (
@@ -516,23 +572,49 @@ export default function EmailTemplateBuilder({ environment }) {
                     <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99, background: `${C.accent}12`, color: C.accent }}>{catLabel}</span>
                   </div>
                   {t.subject && <div style={{ fontSize: 11, color: C.text3, marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.subject}</div>}
-                  <div style={{ display: "flex", gap: 6, fontSize: 11, color: C.text4 }}>
-                    <span>{(t.blocks || []).length} blocks</span>
-                    {kit && <span>· {kit.name}</span>}
-                    {t.brand_rules?.length > 0 && <span style={{ color: C.purple }}>· {t.brand_rules.length} rule{t.brand_rules.length !== 1 ? 's' : ''}</span>}
+                  <div style={{ display: "flex", gap: 6, fontSize: 11, color: C.text4, flexWrap:"wrap" }}>
+                    {t.is_system
+                      ? <span style={{color:C.text3}}>{t.description?.slice(0,70)}{t.description?.length>70?'…':''}</span>
+                      : <><span>{(t.blocks || []).length} blocks</span>
+                         {kit && <span>· {kit.name}</span>}
+                         {t.brand_rules?.length > 0 && <span style={{ color: C.purple }}>· {t.brand_rules.length} rule{t.brand_rules.length !== 1 ? 's' : ''}</span>}</>
+                    }
                   </div>
-                  <div style={{ display: "flex", gap: 6, marginTop: 8 }} onClick={e => e.stopPropagation()}>
-                    <button onClick={() => handleDuplicate(t.id)} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 5, padding: "3px 8px", fontSize: 10, fontWeight: 600, cursor: "pointer", color: C.text3, fontFamily: F }}>
-                      <Ic n="copy" s={10} c={C.text4} /> Duplicate
-                    </button>
-                    <button onClick={() => handleDelete(t.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: 3 }}>
-                      <Ic n="trash" s={12} c={C.text4} />
-                    </button>
+                  {t.is_system && (
+                    <div style={{ display:"flex", gap:4, marginTop:4, flexWrap:"wrap" }}>
+                      {t.has_ics && <span style={{fontSize:9,fontWeight:700,padding:"1px 5px",borderRadius:99,background:"#EFF6FF",color:"#3B82F6"}}>📎 ICS</span>}
+                      {t.supports_reschedule_link && <span style={{fontSize:9,fontWeight:700,padding:"1px 5px",borderRadius:99,background:"#F0FDF4",color:"#059669"}}>↩ Reschedule</span>}
+                      {t.variables?.length>0 && <span style={{fontSize:9,fontWeight:700,padding:"1px 5px",borderRadius:99,background:"#FFF7ED",color:"#EA580C"}}>{t.variables.length} vars</span>}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 6, marginTop: 8, alignItems: "center" }} onClick={e => e.stopPropagation()}>
+                    {t.is_system && (
+                      <span style={{ display:"flex", alignItems:"center", gap:3, fontSize:10, fontWeight:700,
+                        color:"#7C3AED", background:"#F5F3FF", padding:"2px 7px", borderRadius:99, marginRight:"auto" }}>
+                        <Ic n="lock" s={9} c="#7C3AED"/> System
+                      </span>
+                    )}
+                    {!t.is_system && (
+                      <button onClick={() => handleDuplicate(t.id)} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 5, padding: "3px 8px", fontSize: 10, fontWeight: 600, cursor: "pointer", color: C.text3, fontFamily: F }}>
+                        <Ic n="copy" s={10} c={C.text4} /> Duplicate
+                      </button>
+                    )}
+                    {t.is_system && (
+                      <button onClick={() => handleDuplicate(t.id)} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 5, padding: "3px 8px", fontSize: 10, fontWeight: 600, cursor: "pointer", color: C.text3, fontFamily: F }}>
+                        <Ic n="copy" s={10} c={C.text4} /> Copy
+                      </button>
+                    )}
+                    {!t.is_system && (
+                      <button onClick={() => handleDelete(t.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: 3 }}>
+                        <Ic n="trash" s={12} c={C.text4} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             );
           })}
+        </div>
         </div>
       )}
     </div>

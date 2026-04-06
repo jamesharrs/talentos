@@ -75,6 +75,7 @@ router.delete('/:id', (req, res) => {
     const store = getStore();
     const idx = (store.email_templates_v2 || []).findIndex(t => t.id === req.params.id);
     if (idx < 0) return res.status(404).json({ error: 'Not found' });
+    if (store.email_templates_v2[idx].is_system) return res.status(403).json({ error: 'System templates cannot be deleted. You can edit the subject and body.' });
     store.email_templates_v2[idx].deleted_at = new Date().toISOString();
     saveStore();
     res.json({ deleted: true });
@@ -379,5 +380,176 @@ ${previewText ? `<div style="display:none;max-height:0;overflow:hidden;">${previ
 <tr><td style="padding:32px 40px;">${bodyHtml}</td></tr>
 </table></td></tr></table>${trackingPixel}</body></html>`;
 }
+
+// ── Seed system templates (idempotent — only inserts if slug not already present) ──
+router.post('/seed-system', (req, res) => {
+  const store = getStore();
+  if (!store.email_templates_v2) store.email_templates_v2 = [];
+  const now = new Date().toISOString();
+  let added = 0;
+
+  const SYSTEM_TEMPLATES = [
+    {
+      slug: 'sys_interview_scheduled',
+      name: 'Interview Scheduled — Candidate & Interviewer Invite',
+      category: 'interview',
+      is_system: true,
+      has_ics: true,
+      supports_reschedule_link: true,
+      description: 'Sent automatically to the candidate and all interviewers when an interview is scheduled. Includes an ICS calendar attachment.',
+      subject: 'Interview Confirmed: {{candidate_name}}{{job_name ? " — " + job_name : ""}}',
+      html_body: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+  <div style="background:#4361EE;padding:24px 32px;border-radius:12px 12px 0 0">
+    <h2 style="color:white;margin:0;font-size:20px">Interview Scheduled</h2>
+  </div>
+  <div style="background:#f8f9fc;padding:28px 32px;border-radius:0 0 12px 12px;border:1px solid #e5e7eb">
+    <p style="font-size:15px;color:#374151;margin:0 0 20px">Your interview has been confirmed. Please find the calendar invite attached.</p>
+    <table style="width:100%;border-collapse:collapse">
+      <tr><td style="padding:10px 0;color:#6b7280;font-size:13px;width:120px">Candidate</td><td style="padding:10px 0;color:#111827;font-size:14px;font-weight:600">{{candidate_name}}</td></tr>
+      {{#if job_name}}<tr><td style="padding:10px 0;color:#6b7280;font-size:13px">Role</td><td style="padding:10px 0;color:#111827;font-size:14px;font-weight:600">{{job_name}}</td></tr>{{/if}}
+      <tr><td style="padding:10px 0;color:#6b7280;font-size:13px">Date</td><td style="padding:10px 0;color:#111827;font-size:14px;font-weight:600">{{date_label}}</td></tr>
+      <tr><td style="padding:10px 0;color:#6b7280;font-size:13px">Time</td><td style="padding:10px 0;color:#111827;font-size:14px;font-weight:600">{{time}}</td></tr>
+      <tr><td style="padding:10px 0;color:#6b7280;font-size:13px">Format</td><td style="padding:10px 0;color:#111827;font-size:14px;font-weight:600">{{format}}</td></tr>
+      <tr><td style="padding:10px 0;color:#6b7280;font-size:13px">Duration</td><td style="padding:10px 0;color:#111827;font-size:14px;font-weight:600">{{duration}} minutes</td></tr>
+      {{#if interviewers}}<tr><td style="padding:10px 0;color:#6b7280;font-size:13px">Interviewer(s)</td><td style="padding:10px 0;color:#111827;font-size:14px;font-weight:600">{{interviewers}}</td></tr>{{/if}}
+    </table>
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid #e5e7eb">
+      <a href="{{reschedule_url}}" style="display:inline-block;background:#4361EE;color:white;text-decoration:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600">Need to reschedule? →</a>
+    </div>
+  </div>
+</div>`,
+      text_body: 'Interview confirmed for {{candidate_name}}{{job_name ? " — " + job_name : ""}}\nDate: {{date_label}} at {{time}}\nFormat: {{format}} ({{duration}} min)\nReschedule: {{reschedule_url}}',
+      variables: ['candidate_name','job_name','date_label','time','format','duration','interviewers','reschedule_url'],
+    },
+    {
+      slug: 'sys_application_hub',
+      name: 'Application Hub — Magic Link',
+      category: 'portal',
+      is_system: true,
+      description: 'Sent when a candidate requests access to their application hub. Contains a one-time magic link that expires in 15 minutes.',
+      subject: 'Your {{company_name}} application hub',
+      html_body: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;">
+  <div style="width:40px;height:40px;border-radius:10px;background:{{brand_color}};margin-bottom:24px;"></div>
+  <h2 style="margin:0 0 8px;font-size:20px;color:#0F1729;">Your application hub link</h2>
+  <p style="color:#4B5675;line-height:1.6;margin:0 0 24px;">Hi {{first_name}}, click below to access your candidate hub. This link expires in 15 minutes.</p>
+  <a href="{{hub_url}}" style="display:inline-block;padding:12px 28px;background:{{brand_color}};color:white;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">Open my hub →</a>
+  <p style="color:#9CA3AF;font-size:12px;margin-top:24px;">If you didn't request this, you can safely ignore this email.</p>
+</div>`,
+      text_body: 'Hi {{first_name}},\n\nClick here to access your hub:\n{{hub_url}}\n\nExpires in 15 minutes.',
+      variables: ['first_name','company_name','brand_color','hub_url'],
+    },
+    {
+      slug: 'sys_saved_application',
+      name: 'Saved Application — Resume Link',
+      category: 'portal',
+      is_system: true,
+      description: 'Sent when a candidate saves their in-progress application on a career portal. Contains a link to resume where they left off (expires in 7 days).',
+      subject: 'Continue your application — {{company_name}}',
+      html_body: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;">
+  <h2 style="font-size:20px;color:#0F1729;">Your saved application</h2>
+  <p style="color:#4B5675;line-height:1.6;">Hi{{first_name ? " " + first_name : ""}},</p>
+  <p style="color:#4B5675;line-height:1.6;">You saved your application. Click below to pick up where you left off. This link expires in 7 days.</p>
+  <a href="{{resume_url}}" style="display:inline-block;padding:12px 28px;background:#4361EE;color:white;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">Continue application →</a>
+</div>`,
+      text_body: 'Hi{{first_name ? " " + first_name : ""}},\n\nContinue your application here:\n{{resume_url}}\n\nThis link expires in 7 days.',
+      variables: ['first_name','company_name','resume_url'],
+    },
+    {
+      slug: 'sys_user_invite',
+      name: 'Platform Invite — New User Welcome',
+      category: 'system',
+      is_system: true,
+      description: 'Sent when a new platform user is invited. Contains their login credentials and a link to the platform.',
+      subject: 'You have been invited to {{company_name}}',
+      html_body: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;">
+  <h2 style="font-size:20px;color:#0F1729;">Welcome to {{company_name}}</h2>
+  <p style="color:#4B5675;line-height:1.6;">Hi {{first_name}}, you have been invited to join the {{company_name}} recruitment platform.</p>
+  <table style="width:100%;border-collapse:collapse;margin:20px 0">
+    <tr><td style="padding:8px 0;color:#6b7280;font-size:13px;width:100px">Email</td><td style="padding:8px 0;color:#111827;font-size:14px;font-weight:600">{{email}}</td></tr>
+    <tr><td style="padding:8px 0;color:#6b7280;font-size:13px">Password</td><td style="padding:8px 0;color:#111827;font-size:14px;font-weight:600">{{temp_password}}</td></tr>
+  </table>
+  <a href="{{login_url}}" style="display:inline-block;padding:12px 28px;background:#4361EE;color:white;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">Log in →</a>
+  <p style="color:#9CA3AF;font-size:12px;margin-top:24px;">Please change your password after your first login.</p>
+</div>`,
+      text_body: 'Hi {{first_name}},\n\nYou have been invited to {{company_name}}.\nEmail: {{email}}\nTemporary password: {{temp_password}}\nLog in at: {{login_url}}\n\nPlease change your password after first login.',
+      variables: ['first_name','company_name','email','temp_password','login_url'],
+    },
+    {
+      slug: 'sys_interview_feedback_reminder',
+      name: 'Interview Feedback Reminder',
+      category: 'interview',
+      is_system: true,
+      description: 'Sent to interviewers as a reminder to submit their scorecard/feedback after an interview.',
+      subject: 'Feedback needed — {{candidate_name}} interview',
+      html_body: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;">
+  <h2 style="font-size:20px;color:#0F1729;">Feedback reminder</h2>
+  <p style="color:#4B5675;line-height:1.6;">Hi,</p>
+  <p style="color:#4B5675;line-height:1.6;">Just a reminder to submit your interview feedback for <strong>{{candidate_name}}</strong>{{job_title ? " applying for " + job_title : ""}}.</p>
+  <p style="color:#4B5675;line-height:1.6;">Please add your scorecard notes as soon as possible so we can move quickly.</p>
+  <a href="{{feedback_url}}" style="display:inline-block;padding:12px 28px;background:#4361EE;color:white;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">Submit feedback →</a>
+</div>`,
+      text_body: 'Hi,\n\nPlease submit your interview feedback for {{candidate_name}}{{job_title ? " applying for " + job_title : ""}}.\n\n{{feedback_url}}',
+      variables: ['candidate_name','job_title','feedback_url'],
+    },
+    {
+      slug: 'sys_offer_sent',
+      name: 'Offer Letter — Sent to Candidate',
+      category: 'offer',
+      is_system: true,
+      description: 'Sent to a candidate when a formal offer is made. Links to the offer letter for review and acceptance.',
+      subject: 'Your offer from {{company_name}}',
+      html_body: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;">
+  <h2 style="font-size:20px;color:#0F1729;">Congratulations, {{first_name}}!</h2>
+  <p style="color:#4B5675;line-height:1.6;">We are delighted to offer you the position of <strong>{{job_title}}</strong> at <strong>{{company_name}}</strong>.</p>
+  <p style="color:#4B5675;line-height:1.6;">Please review your offer letter and let us know your decision by <strong>{{expiry_date}}</strong>.</p>
+  <a href="{{offer_url}}" style="display:inline-block;padding:12px 28px;background:#4361EE;color:white;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">View my offer →</a>
+</div>`,
+      text_body: 'Hi {{first_name}},\n\nWe are delighted to offer you {{job_title}} at {{company_name}}.\nPlease review your offer by {{expiry_date}}:\n{{offer_url}}',
+      variables: ['first_name','company_name','job_title','expiry_date','offer_url'],
+    },
+    {
+      slug: 'sys_offer_accepted',
+      name: 'Offer Accepted — Recruiter Notification',
+      category: 'offer',
+      is_system: true,
+      description: 'Sent to the recruiting team when a candidate accepts their offer.',
+      subject: '✅ Offer accepted — {{candidate_name}} ({{job_title}})',
+      html_body: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;">
+  <h2 style="font-size:20px;color:#059669;">Offer Accepted 🎉</h2>
+  <p style="color:#4B5675;line-height:1.6;"><strong>{{candidate_name}}</strong> has accepted the offer for <strong>{{job_title}}</strong>.</p>
+  <p style="color:#4B5675;line-height:1.6;">Start date: <strong>{{start_date}}</strong></p>
+  <a href="{{record_url}}" style="display:inline-block;padding:12px 28px;background:#059669;color:white;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">View record →</a>
+</div>`,
+      text_body: '{{candidate_name}} has accepted the offer for {{job_title}}.\nStart date: {{start_date}}\n{{record_url}}',
+      variables: ['candidate_name','job_title','start_date','record_url'],
+    },
+    {
+      slug: 'sys_welcome_team',
+      name: 'Welcome to the Team',
+      category: 'onboarding',
+      is_system: true,
+      description: 'Sent to a new hire after their offer is accepted, welcoming them to the company.',
+      subject: 'Welcome to the team, {{first_name}}!',
+      html_body: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;">
+  <h2 style="font-size:20px;color:#0F1729;">Welcome, {{first_name}}! 🎉</h2>
+  <p style="color:#4B5675;line-height:1.6;">We are absolutely delighted to welcome you to <strong>{{company_name}}</strong>!</p>
+  <p style="color:#4B5675;line-height:1.6;">Your start date is confirmed as <strong>{{start_date}}</strong> and we'll be in touch shortly with everything you need to know before day one.</p>
+  <p style="color:#4B5675;line-height:1.6;">We cannot wait to have you on board!</p>
+</div>`,
+      text_body: 'Hi {{first_name}},\n\nWe are absolutely delighted to welcome you to {{company_name}}!\n\nYour start date is confirmed as {{start_date}} and we will be in touch shortly.\n\nWe cannot wait to have you on board!',
+      variables: ['first_name','company_name','start_date'],
+    },
+  ];
+
+  for (const tmpl of SYSTEM_TEMPLATES) {
+    const exists = (store.email_templates_v2 || []).find(t => t.slug === tmpl.slug && !t.deleted_at);
+    if (!exists) {
+      store.email_templates_v2.push({ ...tmpl, id: uuidv4(), created_at: now, updated_at: now });
+      added++;
+    }
+  }
+  saveStore();
+  res.json({ seeded: added, total: SYSTEM_TEMPLATES.length });
+});
 
 module.exports = router;

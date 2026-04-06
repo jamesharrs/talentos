@@ -924,6 +924,8 @@ Step 5: Output EXACTLY this format (nothing else after it):
   "candidate_name": "Full Name",
   "candidate_id": "record-id-if-known-or-null",
   "candidate_title": "Current Job Title or null",
+  "job_id": "record-id-of-the-job-or-null",
+  "job_name": "Job title or null",
   "interview_type_name": "Technical Interview",
   "interview_type_id": "type-id-if-known-or-null",
   "date": "2026-04-10",
@@ -939,6 +941,8 @@ Step 5: Output EXACTLY this format (nothing else after it):
 
 SCHEDULING RULES:
 - candidate_id: use the current record's id if viewing a record, otherwise null (server looks it up by name)
+- job_id: the record_id of the job the interview is for (from the job association answer or PERSON LINKED TO context). Use null if no job context.
+- job_name: the job title string, e.g. "Senior Product Manager". Use null if no job context.
 - candidate_title: the candidate's current job title from their record data, or null
 - interview_type_id: use the id from the available interview types list if matched, otherwise null
 - interviewers: array of objects with name, id (record id or null), title (job title or null), is_employee (bool — true if person_type is Employee, false otherwise)
@@ -2832,6 +2836,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         environment_id:       environment.id,
         candidate_id:         candidateId,
         candidate_name:       candidateName,
+        job_id:               iv.job_id   || null,
+        job_name:             iv.job_name || '',
         interview_type_id:    iv.interview_type_id   || null,
         interview_type_name:  iv.interview_type_name || 'Interview',
         date:                 iv.date,

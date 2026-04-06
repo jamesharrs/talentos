@@ -5013,7 +5013,7 @@ const INTERVIEW_STATUS_COLORS = {
   cancelled:  { color:"#DC2626", bg:"#FEF2F2" },
   rescheduled:{ color:"#D97706", bg:"#FFFBEB" },
 };
-const PersonInterviewsPanel = ({ record, environment }) => {
+const PersonInterviewsPanel = ({ record, environment, linkedJobRecords }) => {
   const [interviews, setInterviews]   = useState([]);
   const [loading, setLoading]         = useState(true);
   const [jobFilter, setJobFilter]     = useState("all");
@@ -5029,21 +5029,34 @@ const PersonInterviewsPanel = ({ record, environment }) => {
       .finally(() => setLoading(false));
   }, [record?.id, environment?.id]);
 
-  // Unique jobs linked to these interviews
+  // Unique jobs — from interview data OR from the person's linked records
   const linkedJobs = useMemo(() => {
     const map = new Map();
-    interviews.forEach(iv => { if (iv.job_id && iv.job_name) map.set(iv.job_id, iv.job_name); });
+    // From interview records
+    interviews.forEach(iv => {
+      if (iv.job_id && iv.job_name) map.set(iv.job_id, iv.job_name);
+    });
+    // From the person's linked job records (even if interview lacks job_id)
+    (linkedJobRecords || []).forEach(j => {
+      if (j.id && j.title && !map.has(j.id)) map.set(j.id, j.title);
+    });
     return [...map.entries()].map(([id, name]) => ({ id, name }));
-  }, [interviews]);
+  }, [interviews, linkedJobRecords]);
+
+  // When a job filter is active and we click on an interview, also filter by that job's linked records
+  const jobFilterName = linkedJobs.find(j => j.id === jobFilter)?.name || null;
 
   const now = new Date();
   const filtered = interviews.filter(iv => {
-    if (jobFilter !== "all" && iv.job_id !== jobFilter) return false;
+    if (jobFilter !== "all") {
+      // Match by job_id if set, otherwise show interview when no job context (ambiguous)
+      if (iv.job_id && iv.job_id !== jobFilter) return false;
+    }
     const dt = new Date(`${iv.date}T${iv.time || "00:00"}`);
     if (timeFilter === "upcoming" && dt < now) return false;
     if (timeFilter === "past"     && dt >= now) return false;
     return true;
-  }).sort((a, b) => new Date(`${b.date}T${b.time||"00:00"}`) - new Date(`${a.date}T${a.time||"00:00"}`));
+  }).sort((a, b) => new Date(`${a.date}T${a.time||"00:00"}`) - new Date(`${b.date}T${b.time||"00:00"}`));
 
   if (loading) return <div style={{padding:16,color:C.text3,fontSize:13}}>Loading interviews…</div>;
 
@@ -5104,7 +5117,11 @@ const PersonInterviewsPanel = ({ record, environment }) => {
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:700,color:C.text1,fontSize:13,marginBottom:2}}>
                       {iv.interview_type_name || "Interview"}
-                      {iv.job_name && <span style={{fontWeight:400,color:C.text3,marginLeft:6,fontSize:12}}>· {iv.job_name}</span>}
+                      {(iv.job_name || linkedJobs.find(j=>j.id===iv.job_id)?.name) && (
+                        <span style={{fontWeight:400,color:C.text3,marginLeft:6,fontSize:12}}>
+                          · {iv.job_name || linkedJobs.find(j=>j.id===iv.job_id)?.name}
+                        </span>
+                      )}
                     </div>
                     <div style={{fontSize:11,color:C.text3}}>{fmt(iv)}</div>
                   </div>
@@ -7282,7 +7299,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       <CommunicationsPanel record={record} environment={environment} externalCompose={composeType} onExternalComposeDone={()=>setComposeType(null)} initialJobContext={activeJobContext}/>
     ) : <AccessDeniedPanel label="Communications"/>;
     if (id==="coordination") return (
-      <PersonInterviewsPanel record={record} environment={environment}/>
+      <PersonInterviewsPanel record={record} environment={environment} linkedJobRecords={linkedJobRecords}/>
     );
     if (id==="notes") return canRecord('record_add_note') || canRecord('record_view_comms') ? (
       <NotesPanel record={record} notes={notes} onNotesChange={load} canAdd={canRecord('record_add_note')} canDelete={canRecord('record_delete_note')} linkedJobRecords={linkedJobRecords} activeJobContext={activeJobContext}/>

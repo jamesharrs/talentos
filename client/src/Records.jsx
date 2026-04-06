@@ -193,6 +193,166 @@ const FilterPill = ({ label, color, fieldKey, fieldName }) => (
 );
 
 
+
+// ─── Table field pop-out modal ────────────────────────────────────────────────
+const TableModal = ({ field, value, onSave, onClose }) => {
+  const [rows, setRows] = React.useState(() => Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : []);
+  const cols = field.table_columns || [];
+  const _uid = () => Math.random().toString(36).slice(2,10);
+  const [sortCol, setSortCol] = React.useState(null);
+  const [sortDir, setSortDir] = React.useState('asc');
+  const [filterText, setFilterText] = React.useState('');
+
+  const updateRows = r => setRows(r);
+  const addRow = () => {
+    const row = { _id:_uid() };
+    cols.forEach(c => { row[c.id] = c.type==='boolean' ? false : ''; });
+    setRows(prev => [...prev, row]);
+  };
+  const removeRow = idx => setRows(prev => prev.filter((_,i)=>i!==idx));
+  const updateCell = (idx, colId, val) => setRows(prev => prev.map((r,i)=>i===idx?{...r,[colId]:val}:r));
+  const moveRow = (idx, dir) => setRows(prev => {
+    const r=[...prev]; const t=r[idx]; r[idx]=r[idx+dir]; r[idx+dir]=t; return r;
+  });
+
+  let displayRows = rows.map((r,i)=>({...r,_origIdx:i}));
+  if (filterText) {
+    const q = filterText.toLowerCase();
+    displayRows = displayRows.filter(r => cols.some(c => String(r[c.id]||'').toLowerCase().includes(q)));
+  }
+  if (sortCol) {
+    displayRows = [...displayRows].sort((a,b) => {
+      const av=a[sortCol]||'', bv=b[sortCol]||'';
+      return sortDir==='asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+    });
+  }
+
+  const cellSt = {padding:"6px 8px",fontSize:13,fontFamily:F,border:"none",outline:"none",background:"transparent",width:"100%",color:C.text1};
+
+  return (
+    <div onClick={e=>e.target===e.currentTarget&&onClose()}
+      style={{position:"fixed",inset:0,background:"rgba(15,23,41,.45)",zIndex:3000,
+        display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{background:"#fff",borderRadius:20,width:"100%",maxWidth:860,
+        maxHeight:"85vh",display:"flex",flexDirection:"column",
+        boxShadow:"0 24px 64px rgba(0,0,0,.18)",fontFamily:F,overflow:"hidden"}}>
+        {/* Header */}
+        <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,
+          display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:32,height:32,borderRadius:8,background:C.accentLight,
+              display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <Ic n="table" s={15} c={C.accent}/>
+            </div>
+            <div>
+              <div style={{fontSize:14,fontWeight:700,color:C.text1}}>{field.name}</div>
+              <div style={{fontSize:11,color:C.text3}}>{rows.length} row{rows.length!==1?'s':''} · {cols.length} column{cols.length!==1?'s':''}</div>
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <input value={filterText} onChange={e=>setFilterText(e.target.value)} placeholder="Filter rows…"
+              style={{padding:"5px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,
+                fontSize:12,fontFamily:F,outline:"none",color:C.text1,width:180}}/>
+            <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:C.text3,fontSize:20,lineHeight:1,padding:4}}>✕</button>
+          </div>
+        </div>
+        {/* Table */}
+        <div style={{flex:1,overflowY:"auto",overflowX:"auto",padding:"0 0 4px"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead style={{position:"sticky",top:0,zIndex:2}}>
+              <tr style={{background:C.surface2}}>
+                <th style={{width:40,padding:"8px 6px",borderBottom:`1.5px solid ${C.border}`}}/>
+                {cols.map(col=>(
+                  <th key={col.id} onClick={()=>{
+                    setSortCol(c=>c===col.id?(sortDir==='asc'?(setSortDir('desc'),col.id):(setSortDir('asc'),null)):col.id);
+                    if(sortCol!==col.id){setSortDir('asc');setSortCol(col.id);}
+                    else if(sortDir==='asc') setSortDir('desc');
+                    else setSortCol(null);
+                  }}
+                    style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:C.text3,
+                      fontSize:11,textTransform:"uppercase",letterSpacing:"0.04em",
+                      borderBottom:`1.5px solid ${C.border}`,whiteSpace:"nowrap",
+                      cursor:"pointer",userSelect:"none",minWidth:col.width||140}}>
+                    {col.name} {sortCol===col.id && <span>{sortDir==='asc'?'↑':'↓'}</span>}
+                  </th>
+                ))}
+                <th style={{width:44,borderBottom:`1.5px solid ${C.border}`}}/>
+              </tr>
+            </thead>
+            <tbody>
+              {displayRows.length===0&&(
+                <tr><td colSpan={cols.length+2} style={{padding:"32px",textAlign:"center",color:C.text3}}>
+                  {filterText ? "No rows match filter" : "No rows yet — click Add Row below"}
+                </td></tr>
+              )}
+              {displayRows.map((row)=>{
+                const origIdx=row._origIdx;
+                return (
+                  <tr key={row._id||origIdx}
+                    style={{borderBottom:`1px solid ${C.border}`,transition:"background .06s"}}
+                    onMouseEnter={e=>e.currentTarget.style.background="#f9fafb"}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <td style={{padding:"0 6px",textAlign:"center",verticalAlign:"middle"}}>
+                      <div style={{display:"flex",flexDirection:"column",gap:0,alignItems:"center"}}>
+                        <button onClick={()=>origIdx>0&&moveRow(origIdx,-1)} disabled={origIdx===0}
+                          style={{background:"none",border:"none",cursor:"pointer",color:C.text4,padding:0,lineHeight:1.2,fontSize:10,opacity:origIdx===0?0.2:1}}>▲</button>
+                        <button onClick={()=>origIdx<rows.length-1&&moveRow(origIdx,1)} disabled={origIdx>=rows.length-1}
+                          style={{background:"none",border:"none",cursor:"pointer",color:C.text4,padding:0,lineHeight:1.2,fontSize:10,opacity:origIdx>=rows.length-1?0.2:1}}>▼</button>
+                      </div>
+                    </td>
+                    {cols.map(col=>(
+                      <td key={col.id} style={{padding:0,verticalAlign:"middle"}}>
+                        {col.type==="boolean"
+                          ? <div style={{padding:"4px 10px"}}><input type="checkbox" checked={!!row[col.id]} onChange={e=>updateCell(origIdx,col.id,e.target.checked)}/></div>
+                          : col.type==="select"
+                          ? <select value={row[col.id]||''} onChange={e=>updateCell(origIdx,col.id,e.target.value)}
+                              style={{...cellSt,appearance:"auto",paddingRight:8}}>
+                              <option value=""/>{(col.options||[]).map(o=><option key={o} value={o}>{o}</option>)}
+                            </select>
+                          : col.type==="date"
+                          ? <input type="date" value={row[col.id]||''} onChange={e=>updateCell(origIdx,col.id,e.target.value)} style={cellSt}/>
+                          : col.type==="number"
+                          ? <input type="number" value={row[col.id]||''} onChange={e=>updateCell(origIdx,col.id,e.target.value)} style={cellSt}/>
+                          : col.type==="url"
+                          ? <input type="url" value={row[col.id]||''} onChange={e=>updateCell(origIdx,col.id,e.target.value)} placeholder="https://…" style={cellSt}/>
+                          : <input type="text" value={row[col.id]||''} onChange={e=>updateCell(origIdx,col.id,e.target.value)} style={cellSt}/>
+                        }
+                      </td>
+                    ))}
+                    <td style={{padding:"0 8px",textAlign:"center",verticalAlign:"middle"}}>
+                      <button onClick={()=>removeRow(origIdx)}
+                        style={{background:"none",border:"none",cursor:"pointer",color:C.text4,padding:"3px",borderRadius:5,fontSize:14,lineHeight:1}}
+                        onMouseEnter={e=>e.currentTarget.style.color="#ef4444"}
+                        onMouseLeave={e=>e.currentTarget.style.color=C.text4}>✕</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {/* Footer */}
+        <div style={{padding:"12px 20px",borderTop:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+          <button onClick={addRow} style={{padding:"7px 16px",borderRadius:9,border:`1.5px dashed ${C.accent}`,
+            background:C.accentLight,color:C.accent,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F}}>
+            + Add row
+          </button>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={onClose} style={{padding:"7px 16px",borderRadius:9,border:`1.5px solid ${C.border}`,
+              background:"transparent",color:C.text2,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>
+              Cancel
+            </button>
+            <button onClick={()=>onSave(rows)} style={{padding:"7px 18px",borderRadius:9,border:"none",
+              background:C.accent,color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F}}>
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Table field components ───────────────────────────────────────────────────
 const TABLE_COL_INPUT_TYPES = ["text","number","date","select","boolean","url"];
 
@@ -7042,7 +7202,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   useEffect(() => { load(); setEditing({}); setTab("fields"); }, [record.id, load]);
 
   // Click-based types save immediately when value changes; text types wait for explicit save
-  const CLICK_SAVE_TYPES = ["select","multi_select","boolean","rating","people","lookup","multi_lookup","skills","dataset","table"];
+  const CLICK_SAVE_TYPES = ["select","multi_select","boolean","rating","people","lookup","multi_lookup","skills","dataset"]; // "table" excluded — has its own save button
 
   const handleFieldEdit = (key, value, fieldType) => {
     setEditing(e=>({...e,[key]:value}));
@@ -7138,6 +7298,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const [cvParseResult,   setCvParseResult]   = useState(null);
   const [cvParsing,       setCvParsing]       = useState(false);
   const [cvParseAtt,      setCvParseAtt]      = useState(null);
+  const [tableModalField, setTableModalField] = useState(null); // {field, value}
   const [previewAtt,      setPreviewAtt]      = useState(null);
   const [selectedFileType, setSelectedFileType] = useState('');
   const [docExtractResult,   setDocExtractResult]   = useState(null);
@@ -7499,9 +7660,14 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                       onMouseLeave={e=>{ e.currentTarget.style.background=isEditing?"#fafbff":"transparent";const btn=e.currentTarget.querySelector(".edit-hint");if(btn)btn.style.opacity=0;}}>
                       <div style={{ width:130, fontSize:12, fontWeight:600, color:C.text3, flexShrink:0 }}>{field.name}</div>
                       <div style={{ flex:1, minWidth:0 }}
-                        onBlur={e=>{ if(isEditing&&!isClickSave&&!e.currentTarget.contains(e.relatedTarget)) handleSaveField(field.api_key, originalVal); }}
-                        onKeyDown={e=>{ if(isEditing&&!isClickSave){ if(e.key==="Enter"&&field.field_type!=="textarea"&&field.field_type!=="rich_text") handleSaveField(field.api_key, originalVal); if(e.key==="Escape") setEditing(prev=>{const n={...prev};delete n[field.api_key];return n;}); }}}>
-                        {isPickerField
+                        onBlur={e=>{ if(isEditing&&!isClickSave&&field.field_type!=="table"&&!e.currentTarget.contains(e.relatedTarget)) handleSaveField(field.api_key, originalVal); }}
+                        onKeyDown={e=>{ if(isEditing&&!isClickSave&&field.field_type!=="table"){ if(e.key==="Enter"&&field.field_type!=="textarea"&&field.field_type!=="rich_text") handleSaveField(field.api_key, originalVal); if(e.key==="Escape") setEditing(prev=>{const n={...prev};delete n[field.api_key];return n;}); }}}>
+                        {field.field_type==="table"
+                          ? <div style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}
+                              onClick={()=>!isReadonly&&setTableModalField({field,value:originalVal})}>
+                              <TableFieldValue field={field} value={originalVal}/>
+                            </div>
+                          : isPickerField
                           ? <PeoplePicker field={field} value={originalVal} onChange={v=>handleFieldEdit(field.api_key, v, field.field_type)}/>
                           : isEditing
                           ? <FieldEditor field={field} value={val} onChange={v=>handleFieldEdit(field.api_key, v, field.field_type)} autoFocus={!isClickSave} environment={environment} recordData={record?.data}/>
@@ -7510,18 +7676,26 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                             </div>
                         }
                       </div>
-                      {!isPickerField && (isEditing ? (
-                        <button onClick={()=>{ setEditing(e=>{const n={...e};delete n[field.api_key];return n;}); }}
-                          style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:"3px 4px", display:"flex", alignItems:"center", borderRadius:5, flexShrink:0, fontFamily:F }}
-                          title="Cancel (Esc)">
-                          <Ic n="x" s={12} c={C.text3}/>
-                        </button>
-                      ) : !isReadonly && (
-                        <button className="edit-hint" onClick={()=>setEditing(e=>({...e,[field.api_key]:originalVal}))}
-                          style={{ background:"none", border:"none", cursor:"pointer", color:C.accent, opacity:0, padding:"3px 6px", display:"flex", alignItems:"center", gap:4, fontSize:11, fontWeight:600, borderRadius:6, transition:"opacity .1s", flexShrink:0, fontFamily:F }}>
-                          <Ic n="edit" s={12} c={C.accent}/> Edit
-                        </button>
-                      ))}
+                      {field.field_type==="table"
+                        ? !isReadonly && (
+                          <button className="edit-hint" onClick={()=>setTableModalField({field,value:originalVal})}
+                            style={{ background:"none", border:"none", cursor:"pointer", color:C.accent, opacity:0, padding:"3px 6px", display:"flex", alignItems:"center", gap:4, fontSize:11, fontWeight:600, borderRadius:6, transition:"opacity .1s", flexShrink:0, fontFamily:F }}
+                            title="Open table editor">
+                            <Ic n="maximize" s={12} c={C.accent}/>
+                          </button>
+                        )
+                        : !isPickerField && (isEditing ? (
+                          <button onClick={()=>{ setEditing(e=>{const n={...e};delete n[field.api_key];return n;}); }}
+                            style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:"3px 4px", display:"flex", alignItems:"center", borderRadius:5, flexShrink:0, fontFamily:F }}
+                            title="Cancel (Esc)">
+                            <Ic n="x" s={12} c={C.text3}/>
+                          </button>
+                        ) : !isReadonly && (
+                          <button className="edit-hint" onClick={()=>setEditing(e=>({...e,[field.api_key]:originalVal}))}
+                            style={{ background:"none", border:"none", cursor:"pointer", color:C.accent, opacity:0, padding:"3px 6px", display:"flex", alignItems:"center", gap:4, fontSize:11, fontWeight:600, borderRadius:6, transition:"opacity .1s", flexShrink:0, fontFamily:F }}>
+                            <Ic n="edit" s={12} c={C.accent}/> Edit
+                          </button>
+                        ))}
                     </div>
                   );
                 })}
@@ -7654,6 +7828,17 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         {docExtractResult && (
           <DocExtractModal result={docExtractResult} mappings={docExtractMappings} record={record}
             onApply={handleApplyDocFields} onClose={()=>{ setDocExtractResult(null); setDocExtractAtt(null); }}/>
+        )}
+        {tableModalField && (
+          <TableModal
+            field={tableModalField.field}
+            value={tableModalField.value}
+            onSave={(rows)=>{
+              handleSaveFieldValue(tableModalField.field.api_key, tableModalField.value, rows);
+              setTableModalField(null);
+            }}
+            onClose={()=>setTableModalField(null)}
+          />
         )}
       </div>
     );

@@ -233,8 +233,8 @@ router.get('/linked-jobs', (req, res) => {
   const store = getStore();
   // Find all pipeline links where this person is linked to a job/object record
   const links = (store.people_links || []).filter(l =>
-    (l.person_id === person_id || l.person_record_id === person_id) &&
-    (!environment_id || l.environment_id === environment_id)
+    (l.person_id === person_id || l.person_record_id === person_id)
+    // Note: intentionally no environment_id filter — person record IDs are globally unique
   );
   // Fetch the target records and return their titles + status
   const { open_only } = req.query; // default: only open records

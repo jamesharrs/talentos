@@ -81,6 +81,7 @@ const AUTH_EXEMPT = [
   '/error-logs', '/ai', '/translate', '/linkedin-search',
   '/chrome-import',
   '/hub/request-link', '/hub/verify', '/hub/portal-branding',
+  '/reschedule', // public rescheduling flow — accessed by candidates/interviewers without login
 ];
 app.use('/api', (req, res, next) => {
   if (AUTH_EXEMPT.some(p => req.path === p || req.path.startsWith(p + '/'))) return next();

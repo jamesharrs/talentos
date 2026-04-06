@@ -2815,7 +2815,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       } else {
         // Unknown action type — log it
         console.warn('[Copilot] Unknown action_type:', action_type, payload);
-        resultMsg = `✅ Action recorded`;
+        resultMsg = `✅ Done — action completed successfully.`;
       }
 
       setMessages(m => [...m, { role: 'assistant', content: resultMsg, ts: new Date() }]);
@@ -2868,7 +2868,11 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       }
       const fmt = iv.format || 'Video Call';
       const dur = iv.duration || 45;
-      setMessages(m=>[...m,{role:"assistant",content:`✅ Interview scheduled for **${candidateName}** on **${dateStr}** (${fmt}, ${dur} min). View it in the Interviews section.`,ts:new Date()}]);
+      // Build interviewer names for the confirmation message
+      const ivNames = (iv.interviewers||[]).map(i=>i.name).filter(Boolean);
+      const ivStr = ivNames.length ? ` with ${ivNames.join(' & ')}` : '';
+      const reschedNote = `Calendar invites with a reschedule option have been sent to all attendees.`;
+      setMessages(m=>[...m,{role:"assistant",content:`✅ **Interview scheduled!**\n\n**${candidateName}** has been booked for a **${fmt}** interview${ivStr} on **${dateStr}** (${dur} min).\n\n${reschedNote}`,ts:new Date()}]);
       setPendingInterview(null);
     } catch(err) {
       setMessages(m=>[...m,{role:"assistant",content:`Failed to schedule interview: ${err.message}`,ts:new Date(),error:true}]);

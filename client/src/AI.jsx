@@ -874,15 +874,22 @@ Step 1: Identify the candidate.
   - If the user names a specific person (e.g. "schedule an interview for Lewie Harrison"), ALWAYS emit a <SEARCH_QUERY> to find them BEFORE asking for interview details. Use: <SEARCH_QUERY>{"q":"Lewie Harrison","slug":"people"}</SEARCH_QUERY>. The search results will give you their record ID to use as candidate_id.
   - NEVER say "I don't see [Name] in the platform" without first running a search. The database may contain them — you just haven't looked yet.
   - Only ask "who is the interview for?" if the user hasn't named anyone.
-Step 2: Gather: date, time, format (Video Call / Phone / In Person), duration, and optionally interviewers and notes.
+Step 2: Determine roles — CRITICAL LOGIC:
+  Look up the person_type of the candidate from ALL PEOPLE IN PLATFORM context:
+  - person_type = "Candidate" or "Contact" → they are the interviewee (standard case)
+  - person_type = "Employee" → this is unusual. Before proceeding, clarify: "I see [Name] is an Employee — is this an internal interview (e.g. for a promotion or internal role), or a manager/recruiter meeting?"
+  - person_type = "not set" → treat as a candidate but note this to the user
+  The typical interview is between a non-Employee (candidate) and one or more Employees (interviewers).
+
+Step 3: Gather: date, time, format (Video Call / Phone / In Person), duration, and optionally interviewers and notes.
   - If interview types are listed in context, suggest them. Otherwise use a sensible default.
   - Date: use TODAY'S DATE from context to calculate exact dates. "Next Monday" = the coming Monday from today's date. Always output YYYY-MM-DD.
   - Time in HH:MM 24h format (e.g. 14:00). Default to 10:00 if not specified.
   - Duration in minutes. Default to 45.
   - Format options: "Video Call", "Phone", "In Person". Default to "Video Call".
-  - Interviewers: for each interviewer, try to find their Person record in the platform. Interviewers MUST be Employees (person_type = "Employee"). Warn the user if they name someone who is not an Employee or cannot be found.
-Step 3: Before outputting the block, ALWAYS confirm attendees by stating: their name, current job title (if known), and their role (candidate vs interviewer). Warn if an interviewer is not an Employee.
-Step 4: Output EXACTLY this format (nothing else after it):
+  - Interviewers: look them up in ALL PEOPLE IN PLATFORM. They should have person_type = "Employee". If the named interviewer is NOT an Employee, say: "[Name] is listed as a [person_type] — interviewers are usually Employees. Do you want to proceed anyway or pick someone else?"
+Step 4: Before outputting the block, confirm attendees: name, person_type, job title, and their role in this interview. Make it clear who is the candidate and who is interviewing.
+Step 5: Output EXACTLY this format (nothing else after it):
 <SCHEDULE_INTERVIEW>
 {
   "candidate_name": "Full Name",
@@ -905,10 +912,10 @@ SCHEDULING RULES:
 - candidate_id: use the current record's id if viewing a record, otherwise null (server looks it up by name)
 - candidate_title: the candidate's current job title from their record data, or null
 - interview_type_id: use the id from the available interview types list if matched, otherwise null
-- interviewers: array of objects with name, id (record id or null), title (job title or null), is_employee (bool — MUST be true for interviewers)
+- interviewers: array of objects with name, id (record id or null), title (job title or null), is_employee (bool — true if person_type is Employee, false otherwise)
 - notes: optional string, can be empty ""
 - When the user confirms ("yes", "go ahead", "schedule it", "looks good", "correct") — output the SCHEDULE_INTERVIEW block immediately. Do NOT ask again.
-- NEVER schedule an interview with an interviewer whose is_employee is false — tell the user and ask for an Employee instead.
+- If an interviewer is not an Employee, WARN the user before confirming — but proceed if they confirm anyway (some organisations use non-employees as interviewers).
 
 FORM CREATION INSTRUCTIONS:
 When a user wants to create a form, questionnaire, scorecard, survey, or data capture template:
@@ -1632,23 +1639,18 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     }
 
     // Inject real AI match scores when on a person record so copilot uses same engine as AI Match widget
-    // Inject employee list for interviewer suggestions (always useful on person records)
+    // Inject ALL people with their person_type so copilot can reason about candidates vs employees
     if(allPeople.length>0){
-      const employees = allPeople.filter(p => {
-        const pt = (p.data?.person_type||'').toLowerCase();
-        return pt === 'employee' || pt === '';  // include unset person_type as potential employee
-      }).slice(0,50);
-      if(employees.length>0){
-        parts.push('');
-        parts.push('AVAILABLE EMPLOYEES (for interviewer selection — only employees can be interviewers):');
-        employees.forEach(p=>{
-          const d=p.data||{};
-          const name=[d.first_name,d.last_name].filter(Boolean).join(' ')||d.email||'Unnamed';
-          const title=d.current_title||d.job_title||'';
-          const dept=d.department||'';
-          parts.push(`  - ${name}${title?' | '+title:''}${dept?' (${dept})':''} [id:${p.id}]`);
-        });
-      }
+      parts.push('');
+      parts.push('ALL PEOPLE IN PLATFORM (person_type shown — use this to identify candidates vs employees vs contacts):');
+      allPeople.slice(0,100).forEach(p=>{
+        const d=p.data||{};
+        const name=[d.first_name,d.last_name].filter(Boolean).join(' ')||d.email||'Unnamed';
+        const pt=(d.person_type||'not set');
+        const title=d.current_title||d.job_title||'';
+        const dept=d.department||'';
+        parts.push(`  - ${name} | type:${pt}${title?' | '+title:''}${dept?' | '+dept:''} [id:${p.id}]`);
+      });
     }
     if(currentRecord && currentObject?.slug==='people' && allJobs.length>0){
       const scored = allJobs

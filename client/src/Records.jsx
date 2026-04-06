@@ -6549,13 +6549,16 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const [bottomRows, setBottomRows] = useState(() => { try { const s=JSON.parse(localStorage.getItem(bottomStorageKey)); return Array.isArray(s) ? s : []; } catch { return []; } });
   const saveTopRows    = (order) => { setTopRows(order);    try { localStorage.setItem(topStorageKey,    JSON.stringify(order)); } catch {} };
   const saveBottomRows = (order) => { setBottomRows(order); try { localStorage.setItem(bottomStorageKey, JSON.stringify(order)); } catch {} };
+  // Always-fresh snapshot used by drag closures to avoid stale state
+  panelOrdersRef.current = { left: leftPanelOrder, right: panelOrder, top: topRows, bottom: bottomRows };
 
-  // ── Dwell-timer zone state for full-width row creation ────────────────────
+  // ── Full-width row drop zone state ───────────────────────────────────────
+  // Simple hover detection on always-visible drop zone bars (no dwell timer)
   const [fullWidthZone, setFullWidthZone] = useState(null); // 'top' | 'bottom' | null
-  const fullWidthZoneRef       = useRef(null); // current hover zone (set immediately on cursor enter)
-  const fullWidthZoneActiveRef  = useRef(null); // activated zone (set only after 1.5s dwell fires)
-  const dwellTimerRef           = useRef(null);
-  const outerLayoutRef          = useRef(null);
+  const fullWidthDropRef  = useRef(null); // which zone is currently hovered (ref = always fresh in closures)
+  const outerLayoutRef    = useRef(null);
+  // Refs to hold fresh panel orders — prevents stale-closure duplicates
+  const panelOrdersRef    = useRef(null);
 
   // ── Left column panel order (default: just fields) ──────────────────────
   const leftStorageKey = `talentos_panels_left_${objectName}`;
@@ -6844,6 +6847,9 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
   // ── Mouse-based panel drag: event-driven zone detection ──────────────────
   // Each card reports its hovered zone via onMouseMove; mouseup reads the refs.
+  const enterFullWidthZone = (pos) => { if (draggingRef.current) { fullWidthDropRef.current = pos; setFullWidthZone(pos); } };
+  const leaveFullWidthZone = ()    => { fullWidthDropRef.current = null; setFullWidthZone(null); };
+
   const startPanelDrag = (id) => {
     draggingRef.current  = id;
     overSlotRef.current  = null;
@@ -6854,29 +6860,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     setOverZone(null);
     setFullWidthZone(null);
 
-    // ── Dwell-zone mouse tracker ──────────────────────────────────────────
-    const onDragMove = (e) => {
-      // Use VIEWPORT-relative position so the bottom zone is at the bottom of
-      // the visible screen, not the bottom of all scrollable content.
-      const HOT  = 100; // px from viewport top/bottom
-      const near = e.clientY < HOT ? 'top' : e.clientY > window.innerHeight - HOT ? 'bottom' : null;
-
-      if (near !== fullWidthZoneRef.current) {
-        // Cursor moved in/out of a hot zone — reset dwell timer
-        clearTimeout(dwellTimerRef.current);
-        dwellTimerRef.current = null;
-        fullWidthZoneRef.current = near;
-        fullWidthZoneActiveRef.current = null; // reset active state
-        if (!near) { setFullWidthZone(null); return; }
-        // Show hint immediately, activate after 1.5s dwell
-        setFullWidthZone(near + '-hint'); // intermediate state: show hint bar
-        dwellTimerRef.current = setTimeout(() => {
-          fullWidthZoneActiveRef.current = near; // mark as drop-ready
-          setFullWidthZone(near);               // expand to full drop zone
-        }, 1500);
-      }
-    };
-    window.addEventListener('mousemove', onDragMove);
+    // No mousemove tracking needed — drop zones use onMouseEnter/Leave
 
     const onUp = () => {
       const fromId = draggingRef.current;
@@ -6887,23 +6871,19 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       setOverSlot(null);
       setOverZone(null);
 
-      // Clean up dwell tracking
-      window.removeEventListener('mousemove', onDragMove);
-      clearTimeout(dwellTimerRef.current);
-      dwellTimerRef.current = null;
-      // Use activeRef — only activated after the 1.5s dwell completed
-      const droppedInFullWidthZone = fullWidthZoneActiveRef.current;
-      fullWidthZoneRef.current       = null;
-      fullWidthZoneActiveRef.current = null;
       setFullWidthZone(null);
+      // Use the ref (always fresh — avoids stale closure) to check which zone was hovered
+      const droppedInFullWidthZone = fullWidthDropRef.current;
+      fullWidthDropRef.current = null;
 
-      // ── Full-width row drop — takes priority even if hovering a panel card ──
+      // ── Full-width row drop — takes priority over regular card drops ──────
       if (droppedInFullWidthZone && fromId) {
         const fromCol = colOfId(fromId);
-        let newLeft   = fromCol === 'left'   ? removePanel(leftPanelOrder, fromId) : [...leftPanelOrder];
-        let newRight  = fromCol === 'right'  ? removePanel(panelOrder,     fromId) : [...panelOrder];
-        let newTop    = fromCol === 'top'    ? removePanel(topRows,        fromId) : [...topRows];
-        let newBottom = fromCol === 'bottom' ? removePanel(bottomRows,     fromId) : [...bottomRows];
+        const fresh2  = panelOrdersRef.current || { left: leftPanelOrder, right: panelOrder, top: topRows, bottom: bottomRows };
+        let newLeft   = fromCol === 'left'   ? removePanel(fresh2.left,   fromId) : [...fresh2.left];
+        let newRight  = fromCol === 'right'  ? removePanel(fresh2.right,  fromId) : [...fresh2.right];
+        let newTop    = fromCol === 'top'    ? removePanel(fresh2.top,    fromId) : [...fresh2.top];
+        let newBottom = fromCol === 'bottom' ? removePanel(fresh2.bottom, fromId) : [...fresh2.bottom];
         if (droppedInFullWidthZone === 'top')    newTop    = [...newTop,    fromId];
         else                                     newBottom = [...newBottom, fromId];
         saveLeftPanelOrder(newLeft); savePanelOrder(newRight);
@@ -6925,11 +6905,12 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       const fromCol = colOfId(fromId);
       const toCol   = colOfSlot(slot);
 
-      // Remove fromId from its source column
-      let newLeft   = fromCol === 'left'   ? removePanel(leftPanelOrder, fromId) : [...leftPanelOrder];
-      let newRight  = fromCol === 'right'  ? removePanel(panelOrder,     fromId) : [...panelOrder];
-      let newTop    = fromCol === 'top'    ? removePanel(topRows,        fromId) : [...topRows];
-      let newBottom = fromCol === 'bottom' ? removePanel(bottomRows,     fromId) : [...bottomRows];
+      // Use panelOrdersRef for FRESH state (avoids stale closure duplicates)
+      const fresh   = panelOrdersRef.current || { left: leftPanelOrder, right: panelOrder, top: topRows, bottom: bottomRows };
+      let newLeft   = fromCol === 'left'   ? removePanel(fresh.left,   fromId) : [...fresh.left];
+      let newRight  = fromCol === 'right'  ? removePanel(fresh.right,  fromId) : [...fresh.right];
+      let newTop    = fromCol === 'top'    ? removePanel(fresh.top,    fromId) : [...fresh.top];
+      let newBottom = fromCol === 'bottom' ? removePanel(fresh.bottom, fromId) : [...fresh.bottom];
 
       const insertInto = (order) => {
         const idx = order.findIndex(s => repIdOf(s) === slot);
@@ -6954,9 +6935,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
       saveLeftPanelOrder(newLeft); savePanelOrder(newRight);
       saveTopRows(newTop);         saveBottomRows(newBottom);
-      window.removeEventListener('mousemove', onDragMove);
-      fullWidthZoneRef.current       = null;
-      fullWidthZoneActiveRef.current = null;
+      fullWidthDropRef.current = null;
       window.removeEventListener("mouseup",  onUp);
       window.removeEventListener("touchend", onUp);
     };
@@ -7730,29 +7709,29 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         if (Array.isArray(slot)) {
           const validIds = slot.filter(id => PANEL_META[id]);
           if (!validIds.length) return null;
-          if (validIds.length === 1) {
-            const id = validIds[0];
-            return <div key={id} style={{ padding:"0 20px 0" }}>{DropIndicator({beforeRepId:id,afterRepId:prevRepId})}<PanelCard id={id} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} renderPanel={renderPanel} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/></div>;
-          }
-          const repId = validIds[0];
-          return <div key={repId} style={{ padding:"0 20px 0" }}>{DropIndicator({beforeRepId:repId,afterRepId:prevRepId})}<GroupCard ids={validIds} overSlot={overSlot} overZone={overZone} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} panelOrder={topRows} savePanelOrder={saveTopRows} removePanel={removePanel} renderPanel={renderPanel} startPanelDrag={startPanelDrag} clearZone={clearZone} reportZone={reportZone}/></div>;
+          if (validIds.length === 1) { const id=validIds[0]; return <div key={id} style={{padding:"12px 20px 0"}}><PanelCard id={id} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} renderPanel={renderPanel} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/></div>; }
+          const repId=validIds[0]; return <div key={repId} style={{padding:"12px 20px 0"}}><GroupCard ids={validIds} overSlot={overSlot} overZone={overZone} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} panelOrder={topRows} savePanelOrder={saveTopRows} removePanel={removePanel} renderPanel={renderPanel} startPanelDrag={startPanelDrag} clearZone={clearZone} reportZone={reportZone}/></div>;
         }
         if (!PANEL_META[slot]) return null;
-        return <div key={slot} style={{ padding:"12px 20px 0" }}>{DropIndicator({beforeRepId:slot,afterRepId:prevRepId})}<PanelCard id={slot} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} renderPanel={renderPanel} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/></div>;
+        return <div key={slot} style={{padding:"12px 20px 0"}}><PanelCard id={slot} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} renderPanel={renderPanel} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/></div>;
       })}
 
-      {/* Dwell drop zone — TOP */}
-      {draggingPanel && (fullWidthZone === 'top' || fullWidthZone === 'top-hint') && (
-        <div style={{ margin:"8px 20px 0", borderRadius:12,
-          border:`2px dashed ${fullWidthZone==='top' ? C.accent : C.border}`,
-          padding: fullWidthZone==='top' ? "20px 16px" : "10px 16px",
-          background: fullWidthZone==='top' ? `${C.accent}08` : "transparent",
-          display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-          transition:"all .3s", cursor:"default", minHeight: fullWidthZone==='top' ? 72 : 38 }}>
-          <Ic n="layout" s={fullWidthZone==='top'?18:13} c={fullWidthZone==='top'?C.accent:C.text3}/>
-          <span style={{ fontSize:fullWidthZone==='top'?13:11, fontWeight:fullWidthZone==='top'?700:500,
-            color:fullWidthZone==='top'?C.accent:C.text3 }}>
-            {fullWidthZone==='top' ? "Release to add a full-width row above ✓" : "Hold here to add a full-width row above…"}
+      {/* TOP drop zone bar — appears ABOVE the 2-col section when dragging */}
+      {draggingPanel && (
+        <div
+          onMouseEnter={() => enterFullWidthZone('top')}
+          onMouseLeave={leaveFullWidthZone}
+          style={{ margin:"8px 20px 4px", borderRadius:10,
+            border:`2px dashed ${fullWidthZone==='top' ? C.accent : C.border}`,
+            padding: fullWidthZone==='top' ? "18px 16px" : "8px 16px",
+            background: fullWidthZone==='top' ? `${C.accent}08` : "transparent",
+            display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+            transition:"all .25s", cursor:"copy",
+            minHeight: fullWidthZone==='top' ? 60 : 32 }}>
+          <Ic n="layout" s={fullWidthZone==='top'?16:12} c={fullWidthZone==='top'?C.accent:C.text3}/>
+          <span style={{ fontSize:fullWidthZone==='top'?12:11, fontWeight:fullWidthZone==='top'?700:400,
+            color:fullWidthZone==='top'?C.accent:C.text3, userSelect:"none" }}>
+            {fullWidthZone==='top' ? "Drop here — full-width row above columns" : "Drop here for a full-width row above"}
           </span>
         </div>
       )}
@@ -7852,18 +7831,22 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         </div>
       </div>
 
-      {/* Dwell drop zone — BOTTOM */}
-      {draggingPanel && (fullWidthZone === 'bottom' || fullWidthZone === 'bottom-hint') && (
-        <div style={{ margin:"0 20px 8px", borderRadius:12,
-          border:`2px dashed ${fullWidthZone==='bottom' ? C.accent : C.border}`,
-          padding: fullWidthZone==='bottom' ? "20px 16px" : "10px 16px",
-          background: fullWidthZone==='bottom' ? `${C.accent}08` : "transparent",
-          display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-          transition:"all .3s", cursor:"default", minHeight: fullWidthZone==='bottom' ? 72 : 38 }}>
-          <Ic n="layout" s={fullWidthZone==='bottom'?18:13} c={fullWidthZone==='bottom'?C.accent:C.text3}/>
-          <span style={{ fontSize:fullWidthZone==='bottom'?13:11, fontWeight:fullWidthZone==='bottom'?700:500,
-            color:fullWidthZone==='bottom'?C.accent:C.text3 }}>
-            {fullWidthZone==='bottom' ? "Release to add a full-width row below ✓" : "Hold here to add a full-width row below…"}
+      {/* BOTTOM drop zone bar — appears BELOW the 2-col section when dragging */}
+      {draggingPanel && (
+        <div
+          onMouseEnter={() => enterFullWidthZone('bottom')}
+          onMouseLeave={leaveFullWidthZone}
+          style={{ margin:"4px 20px 8px", borderRadius:10,
+            border:`2px dashed ${fullWidthZone==='bottom' ? C.accent : C.border}`,
+            padding: fullWidthZone==='bottom' ? "18px 16px" : "8px 16px",
+            background: fullWidthZone==='bottom' ? `${C.accent}08` : "transparent",
+            display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+            transition:"all .25s", cursor:"copy",
+            minHeight: fullWidthZone==='bottom' ? 60 : 32 }}>
+          <Ic n="layout" s={fullWidthZone==='bottom'?16:12} c={fullWidthZone==='bottom'?C.accent:C.text3}/>
+          <span style={{ fontSize:fullWidthZone==='bottom'?12:11, fontWeight:fullWidthZone==='bottom'?700:400,
+            color:fullWidthZone==='bottom'?C.accent:C.text3, userSelect:"none" }}>
+            {fullWidthZone==='bottom' ? "Drop here — full-width row below columns" : "Drop here for a full-width row below"}
           </span>
         </div>
       )}

@@ -871,34 +871,39 @@ When a user wants to schedule, book, or arrange an interview:
 Step 1: Identify the candidate. If viewing a record, use that person. Otherwise ask who the interview is for.
 Step 2: Gather: date, time, format (Video Call / Phone / In Person), duration, and optionally interviewers and notes.
   - If interview types are listed in context, suggest them. Otherwise use a sensible default.
-  - Date must be a real future date (YYYY-MM-DD format). If user says "next Tuesday", work it out from today's date.
+  - Date: use TODAY'S DATE from context to calculate exact dates. "Next Monday" = the coming Monday from today's date. Always output YYYY-MM-DD.
   - Time in HH:MM 24h format (e.g. 14:00). Default to 10:00 if not specified.
   - Duration in minutes. Default to 45.
   - Format options: "Video Call", "Phone", "In Person". Default to "Video Call".
-Step 3: Confirm the details with the user before outputting the block.
+  - Interviewers: for each interviewer, try to find their Person record in the platform. Interviewers MUST be Employees (person_type = "Employee"). Warn the user if they name someone who is not an Employee or cannot be found.
+Step 3: Before outputting the block, ALWAYS confirm attendees by stating: their name, current job title (if known), and their role (candidate vs interviewer). Warn if an interviewer is not an Employee.
 Step 4: Output EXACTLY this format (nothing else after it):
 <SCHEDULE_INTERVIEW>
 {
   "candidate_name": "Full Name",
   "candidate_id": "record-id-if-known-or-null",
+  "candidate_title": "Current Job Title or null",
   "interview_type_name": "Technical Interview",
   "interview_type_id": "type-id-if-known-or-null",
-  "date": "2026-03-20",
+  "date": "2026-04-10",
   "time": "14:00",
   "duration": 45,
   "format": "Video Call",
-  "interviewers": ["Sarah Jones"],
+  "interviewers": [
+    { "name": "Sarah Jones", "id": "record-id-or-null", "title": "Job Title or null", "is_employee": true }
+  ],
   "notes": "Focus on system design"
 }
 </SCHEDULE_INTERVIEW>
 
 SCHEDULING RULES:
-- candidate_id: use the current record's id if viewing a record, otherwise null (the server will look it up by name)
+- candidate_id: use the current record's id if viewing a record, otherwise null (server looks it up by name)
+- candidate_title: the candidate's current job title from their record data, or null
 - interview_type_id: use the id from the available interview types list if matched, otherwise null
-- interviewers: array of names (strings), can be empty []
+- interviewers: array of objects with name, id (record id or null), title (job title or null), is_employee (bool — MUST be true for interviewers)
 - notes: optional string, can be empty ""
 - When the user confirms ("yes", "go ahead", "schedule it", "looks good", "correct") — output the SCHEDULE_INTERVIEW block immediately. Do NOT ask again.
-- Be helpful and suggest sensible defaults
+- NEVER schedule an interview with an interviewer whose is_employee is false — tell the user and ask for an Employee instead.
 
 FORM CREATION INSTRUCTIONS:
 When a user wants to create a form, questionnaire, scorecard, survey, or data capture template:
@@ -2196,8 +2201,11 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         return `${o.name} slug:${o.slug}\n  Required:${req.join(",")}\n  Optional:${opt.slice(0,12).join(",")}`;
       }).join("\n\n");
 
+      const todayStr = new Date().toLocaleDateString('en-GB', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+      const todayISO  = new Date().toISOString().slice(0,10);
       const systemFull = [
         SYSTEM_PROMPT,
+        `\n\nTODAY'S DATE: ${todayStr} (${todayISO}). Always use this when calculating dates like "next Monday" or "in two weeks".`,
         `\n\nHELP DOCUMENTATION (use this to answer "how do I" questions):\n${buildHelpContext()}`,
         `\n\nPLATFORM OBJECTS:\n${objectsInfo}`,
         context?`\n\nCURRENT PAGE CONTEXT:\n${context}`:"",
@@ -3415,36 +3423,77 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                 {/* ── Interview Scheduling Card ── */}
                 {msg.role==="assistant"&&msg.hasInterview&&msg.interviewData&&!msg.confirmed&&(()=>{
                   const iv = msg.interviewData;
+                  // Normalise interviewers — support both old (string[]) and new ({name,title,is_employee}[]) shapes
+                  const ivList = (Array.isArray(iv.interviewers)?iv.interviewers:[]).map(x=>
+                    typeof x==="string" ? {name:x,title:null,is_employee:true} : x
+                  );
+                  const nonEmployee = ivList.filter(x=>x.is_employee===false);
                   return (
                   <div style={{margin:"8px 0",padding:"14px",borderRadius:12,border:`1.5px solid #7C3AED`,background:"#FAF5FF"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-                      <div style={{width:28,height:28,borderRadius:8,background:"#7C3AED",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                      <div style={{width:28,height:28,borderRadius:8,background:"#7C3AED",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                         <Ic n="calendar" s={14} c="white"/>
                       </div>
                       <div style={{flex:1}}>
                         <div style={{fontSize:13,fontWeight:700,color:C.text1}}>{iv.interview_type_name||'Interview'}</div>
-                        <div style={{fontSize:11,color:"#7C3AED",fontWeight:600}}>{iv.candidate_name}</div>
+                        <div style={{fontSize:11,color:"#7C3AED",fontWeight:600}}>Review attendees before confirming</div>
                       </div>
                     </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
+
+                    {/* Attendees section */}
+                    <div style={{background:"white",borderRadius:8,border:"1px solid #E9D5FF",marginBottom:8,overflow:"hidden"}}>
+                      {/* Candidate row */}
+                      <div style={{padding:"8px 10px",borderBottom:"1px solid #F3F0FF",display:"flex",alignItems:"center",gap:8}}>
+                        <div style={{width:6,height:6,borderRadius:"50%",background:"#7C3AED",flexShrink:0}}/>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:12,fontWeight:700,color:C.text1}}>{iv.candidate_name}</div>
+                          {iv.candidate_title&&<div style={{fontSize:11,color:C.text3}}>{iv.candidate_title}</div>}
+                        </div>
+                        <div style={{fontSize:10,fontWeight:700,color:"#7C3AED",background:"#EDE9FE",padding:"2px 7px",borderRadius:99}}>CANDIDATE</div>
+                      </div>
+                      {/* Interviewer rows */}
+                      {ivList.map((p,idx)=>(
+                        <div key={idx} style={{padding:"8px 10px",borderBottom:idx<ivList.length-1?"1px solid #F3F0FF":"none",display:"flex",alignItems:"center",gap:8}}>
+                          <div style={{width:6,height:6,borderRadius:"50%",background:p.is_employee===false?"#EF4444":"#059669",flexShrink:0}}/>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:12,fontWeight:700,color:C.text1}}>{p.name}</div>
+                            {p.title&&<div style={{fontSize:11,color:C.text3}}>{p.title}</div>}
+                          </div>
+                          <div style={{fontSize:10,fontWeight:700,color:p.is_employee===false?"#EF4444":"#059669",background:p.is_employee===false?"#FEF2F2":"#ECFDF5",padding:"2px 7px",borderRadius:99}}>
+                            {p.is_employee===false?"NOT EMPLOYEE":"INTERVIEWER"}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Warning if non-employee interviewers */}
+                    {nonEmployee.length>0&&(
+                      <div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,padding:"8px 10px",marginBottom:8,fontSize:12,color:"#B91C1C",display:"flex",gap:6}}>
+                        <Ic n="alert-circle" s={14} c="#B91C1C"/>
+                        <span><strong>{nonEmployee.map(x=>x.name).join(", ")}</strong> {nonEmployee.length===1?"is":"are"} not marked as an Employee and should not be added as an interviewer.</span>
+                      </div>
+                    )}
+
+                    {/* Details grid */}
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
                       {[
-                        ["📅 Date", iv.date],
-                        ["⏰ Time", iv.time||"10:00"],
-                        ["⏱ Duration", `${iv.duration||45} min`],
-                        ["📍 Format", iv.format||"Video Call"],
-                        iv.interviewers?.length ? ["👥 Interviewers", (Array.isArray(iv.interviewers)?iv.interviewers:[iv.interviewers]).join(", ")] : null,
-                        iv.notes ? ["📝 Notes", iv.notes] : null,
+                        ["Date", iv.date],
+                        ["Time", iv.time||"10:00"],
+                        ["Duration", `${iv.duration||45} min`],
+                        ["Format", iv.format||"Video Call"],
+                        iv.notes ? ["Notes", iv.notes] : null,
                       ].filter(Boolean).map(([label,val])=>(
-                        <div key={label} style={{background:"white",borderRadius:8,padding:"7px 10px",border:`1px solid #E9D5FF`}}>
+                        <div key={label} style={{background:"white",borderRadius:8,padding:"7px 10px",border:"1px solid #E9D5FF"}}>
                           <div style={{fontSize:10,color:"#9CA3AF",marginBottom:2}}>{label}</div>
                           <div style={{fontSize:12,fontWeight:600,color:C.text1}}>{val}</div>
                         </div>
                       ))}
                     </div>
+
                     <div style={{display:"flex",gap:8}}>
                       <button onClick={()=>setMessages(m=>m.map((x,j)=>j===i?{...x,confirmed:true}:x))} style={{flex:1,padding:"8px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.text2,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>Discard</button>
-                      <button onClick={()=>{setMessages(m=>m.map((x,j)=>j===i?{...x,confirmed:true}:x));handleConfirmInterview(iv);}} disabled={creating} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:"#7C3AED",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-                        {creating?<><Ic n="loader" s={12}/> Scheduling…</>:<><Ic n="check" s={12}/> Confirm Interview</>}
+                      <button onClick={()=>{setMessages(m=>m.map((x,j)=>j===i?{...x,confirmed:true}:x));handleConfirmInterview(iv);}} disabled={creating||nonEmployee.length>0} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:nonEmployee.length>0?"#9CA3AF":"#7C3AED",color:"white",fontSize:12,fontWeight:700,cursor:nonEmployee.length>0?"not-allowed":"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                        {creating?<><Ic n="loader" s={12}/> Scheduling…</>:<><Ic n="check" s={12}/> {nonEmployee.length>0?"Fix interviewers first":"Confirm Interview"}</>}
                       </button>
                     </div>
                   </div>

@@ -203,7 +203,7 @@ const ProposePhase = ({ interview, id, token, role, onDone }) => {
 
       <button onClick={submit} disabled={sending || slots.length===0}
         style={{marginTop:20,width:"100%",padding:"12px",borderRadius:12,border:"none",
-          background: slots.length===0 ? C.border : C.accent,
+          background: slots.length===0 ? C.border : (interview?.primary_color||C.accent),
           color: slots.length===0 ? C.text3 : "white",
           fontSize:14,fontWeight:700,cursor:slots.length===0?"default":"pointer",fontFamily:F}}>
         {sending ? "Sending…" : `Send ${slots.length} time option${slots.length!==1?"s":""} →`}
@@ -341,13 +341,22 @@ export default function ReschedulePage() {
   const companyName = "Vercentic";
 
   return (
-    <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,display:"flex",flexDirection:"column"}}>
-      {/* Header */}
-      <div style={{background:"white",borderBottom:`1px solid ${C.border}`,padding:"16px 24px",display:"flex",alignItems:"center",gap:12}}>
-        <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#4361EE,#7c3aed)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <span style={{color:"white",fontWeight:900,fontSize:16}}>V</span>
-        </div>
-        <span style={{fontSize:15,fontWeight:700,color:C.text1}}>Vercentic</span>
+    <div style={{minHeight:"100vh",background:interview?.bg_color||C.bg,fontFamily:F,display:"flex",flexDirection:"column"}}>
+      {/* Header — brand-aware */}
+      <div style={{background:"white",borderBottom:`1px solid ${C.border}`,padding:"14px 24px",display:"flex",alignItems:"center",gap:12}}>
+        {interview?.company_logo
+          ? <img src={interview.company_logo} alt={interview.company_name||"Company"} style={{height:32,maxWidth:120,objectFit:"contain"}}/>
+          : <div style={{width:36,height:36,borderRadius:10,
+              background:interview?.primary_color ? `linear-gradient(135deg,${interview.primary_color},${interview.primary_color}aa)` : "linear-gradient(135deg,#4361EE,#7c3aed)",
+              display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <span style={{color:"white",fontWeight:900,fontSize:16}}>
+                {(interview?.company_name||"V")[0].toUpperCase()}
+              </span>
+            </div>
+        }
+        <span style={{fontSize:15,fontWeight:700,color:C.text1}}>
+          {interview?.company_name || "Vercentic"}
+        </span>
       </div>
 
       {/* Card */}
@@ -356,7 +365,7 @@ export default function ReschedulePage() {
           boxShadow:"0 4px 24px rgba(0,0,0,.08)",border:`1px solid ${C.border}`,overflow:"hidden"}}>
           {/* Interview summary header */}
           {interview && !done && (
-            <div style={{padding:"20px 24px",background:"#0f1729",color:"white"}}>
+            <div style={{padding:"20px 24px",background:interview?.primary_color||"#0f1729",color:"white"}}>
               <div style={{fontSize:12,color:"#94a3b8",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>
                 {phase==="propose" ? "Request to reschedule" : "Choose a new time"}
               </div>

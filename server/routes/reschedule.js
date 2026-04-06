@@ -25,6 +25,13 @@ router.get('/:id/:token', (req, res) => {
   if (!verifyToken(id, validRole, token)) return res.status(403).json({ error: 'Invalid or expired link' });
 
   // Return safe subset of interview data
+  // Include branding from company profile + default brand kit
+  const store = getStore();
+  const profile  = (store.company_profiles || []).find(p => p.environment_id === iv.environment_id);
+  const brandKit = (store.brand_kits || []).find(k => k.id === profile?.default_brand_kit_id)
+                || (store.brand_kits || [])[0]
+                || null;
+
   res.json({
     id: iv.id,
     date: iv.date,
@@ -38,6 +45,11 @@ router.get('/:id/:token', (req, res) => {
     proposed_slots: iv.proposed_slots || [],
     proposed_by: iv.proposed_by || null,
     role: validRole,
+    // Branding
+    company_name: profile?.name || process.env.SENDGRID_FROM_NAME || 'Vercentic',
+    company_logo: brandKit?.logo || profile?.logo || null,
+    primary_color: brandKit?.theme?.primaryColor || '#4361EE',
+    bg_color: brandKit?.theme?.bgColor || '#f8f9fc',
   });
 });
 

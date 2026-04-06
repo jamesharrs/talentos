@@ -7314,7 +7314,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
   const FunctionalityBar = () => (
     <div style={{ display:"flex", alignItems:"center", gap:0, background:C.surface,
-      borderBottom:`1px solid ${C.border}`, flexShrink:0, position:"relative", zIndex:50, minHeight:58 }}>
+      borderBottom:`1px solid ${C.border}`, flexShrink:0, position:"sticky", top:0, zIndex:90, minHeight:58 }}>
 
       {/* LEFT: back crumb + avatar + name + subtitle + pills */}
       <div style={{ display:"flex", alignItems:"center", gap:0, borderRight:`1px solid ${C.border}`, padding:"0 16px", minHeight:58, flexShrink:0, maxWidth:"50%" }}>
@@ -7557,7 +7557,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   );
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", flex:1, minHeight:0, overflow:"hidden", background:"#F4F6FB" }}>
+    <div style={{ display:"flex", flexDirection:"column", background:"#F4F6FB" }}>
       <FunctionalityBar/>
       <SuggestedActions record={record} environment={environment} objectName={objectName} objectColor={objectColor} onAction={handleSuggestedAction}/>
       {/* Full-width Linked People widget — funnel bar, non-Person objects only */}
@@ -7568,10 +7568,10 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       )}
 
       {/* 2-col body */}
-      <div ref={containerRef} style={{ flex:1, display:"flex", overflow:"hidden", minHeight:0, userSelect:draggingCol.current?"none":"auto" }}>
+      <div ref={containerRef} style={{ display:"flex", minHeight:"60vh", userSelect:draggingCol.current?"none":"auto" }}>
 
         {/* LEFT COL — Fields as panel card */}
-        <div style={{ width:`${leftPct}%`, flexShrink:0, background:"#F4F6FB", display:"flex", flexDirection:"column", overflowY:"auto", overflowX:"hidden", padding:"16px 0 24px 16px", minHeight:0 }}>
+        <div style={{ width:`${leftPct}%`, flexShrink:0, background:"#F4F6FB", display:"flex", flexDirection:"column", overflowX:"hidden", padding:"16px 0 24px 16px" }}>
           <div style={{ background:C.surface, border:`1.5px solid ${C.border}`, borderRadius:14, overflow:"visible", boxShadow:"0 1px 4px rgba(0,0,0,.04)", flexShrink:0 }}>
             <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px", borderBottom:`1px solid ${C.border}` }}>
               <Ic n="edit" s={14} c={globalEdit ? C.accent : C.text3}/>
@@ -7622,7 +7622,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         </div>
 
         {/* RIGHT COL — Panel cards (standalone or grouped) */}
-        <div ref={rightColRef} style={{ flex:1, overflowY:"auto", overflowX:"hidden", padding:"16px 20px 24px", background:"#F4F6FB", minHeight:0,
+        <div ref={rightColRef} style={{ flex:1, overflowX:"hidden", padding:"16px 20px 24px", background:"#F4F6FB",
           userSelect: draggingPanel ? "none" : "auto" }}>
           {panelOrder.map((slot, idx) => {
             const slots  = panelOrder.filter(s => Array.isArray(s) ? s.some(id => PANEL_META[id]) : PANEL_META[s]);

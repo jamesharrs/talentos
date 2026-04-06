@@ -2234,7 +2234,7 @@ function App() {
                />
              } />
         {/* Page content */}
-        <div style={{ flex: 1, display:"flex", flexDirection:"column", padding: (activeNav.startsWith("record_") || activeNav.startsWith("obj_")) ? 0 : "28px 32px", overflow: activeNav.startsWith("record_") ? "hidden" : "auto", minHeight: 0, position: "relative", zIndex: 0 }}>
+        <div style={{ flex: 1, display:"flex", flexDirection:"column", padding: (activeNav.startsWith("record_") || activeNav.startsWith("obj_")) ? 0 : "28px 32px", overflow: "auto", minHeight: 0, position: "relative", zIndex: 0 }}>
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300, color: "#9ca3af" }}>Loading…</div>
         ) : !selectedEnv ? (
@@ -2245,7 +2245,7 @@ function App() {
           activeNav.startsWith("record_")   ? "page-record" :
           activeNav.startsWith("obj_")      ? "page-obj" :
           `page-${activeNav}`
-        } style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0, overflow: activeNav.startsWith("record_") ? "hidden" : "visible" }}>
+        } style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0, overflow: "visible" }}>
         { activeNav === "inbox" ? (
           <InboxModule environment={selectedEnv} session={session} onNavigate={openRecord} />
         ) : activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers" || activeNav === "dashboard_admin" || activeNav === "dashboard_agents" || activeNav === "dashboard_screening" || activeNav === "dashboard_onboarding" || activeNav === "dashboard_custom" || activeNav === "dashboard_insights" ? (
@@ -2284,7 +2284,7 @@ function App() {
         : activeNav.startsWith("record_") ? (() => {
           const parts = activeNav.split("_"); const recordId = parts[1]; const objectId = parts[2];
           const obj = navObjects.find(o => o.id === objectId);
-          return <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}><RecordPage recordId={recordId} objectId={objectId} environment={selectedEnv} allObjects={navObjects} onBack={() => { setActiveRecord(null); setActiveRecordObj(null); setActiveNav(obj ? `obj_${obj.id}` : "dashboard"); }} onNavigate={openRecord} onHistoryUpdate={pushHistory}
+          return <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"visible"}}><RecordPage recordId={recordId} objectId={objectId} environment={selectedEnv} allObjects={navObjects} onBack={() => { setActiveRecord(null); setActiveRecordObj(null); setActiveNav(obj ? `obj_${obj.id}` : "dashboard"); }} onNavigate={openRecord} onHistoryUpdate={pushHistory}
             onRecordLoad={(rec, recObj) => {
             setActiveRecord(rec); setActiveRecordObj(recObj);
             // Swap UUID URL for clean numeric URL once record is loaded

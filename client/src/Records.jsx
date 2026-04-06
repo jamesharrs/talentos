@@ -192,6 +192,169 @@ const FilterPill = ({ label, color, fieldKey, fieldName }) => (
   </span>
 );
 
+
+// ─── Table field components ───────────────────────────────────────────────────
+const TABLE_COL_INPUT_TYPES = ["text","number","date","select","boolean","url"];
+
+const TableFieldValue = ({ field, value }) => {
+  const cols = field.table_columns || [];
+  const rows = Array.isArray(value) ? value : [];
+  if (!rows.length || !cols.length) return <span style={{color:C.text3,fontSize:12}}>—</span>;
+  const preview = rows.slice(0,2).map(r => {
+    const first = cols[0]; const second = cols[1];
+    return [r[first?.id]||'', r[second?.id]||''].filter(Boolean).join(' · ');
+  }).join(', ');
+  return (
+    <span style={{fontSize:12,color:C.text2,cursor:"default"}} title={`${rows.length} row${rows.length!==1?'s':''}`}>
+      <span style={{fontWeight:600,color:C.text1}}>{rows.length}</span>
+      <span style={{color:C.text3}}> row{rows.length!==1?'s':''}</span>
+      {preview && <span style={{color:C.text3,marginLeft:6,fontSize:11}}>({preview})</span>}
+    </span>
+  );
+};
+
+const TableFieldEditor = ({ field, value, onChange }) => {
+  const cols = field.table_columns || [];
+  const [rows, setRows] = React.useState(() => Array.isArray(value) ? value : []);
+  const [sortCol, setSortCol] = React.useState(null);
+  const [sortDir, setSortDir] = React.useState('asc');
+  const [filterText, setFilterText] = React.useState('');
+
+  const _uid = () => Math.random().toString(36).slice(2,10);
+
+  const updateRows = r => { setRows(r); onChange(r); };
+  const addRow = () => {
+    const row = { _id:_uid() };
+    cols.forEach(c => { row[c.id] = c.type==='boolean' ? false : ''; });
+    updateRows([...rows, row]);
+  };
+  const removeRow = idx => updateRows(rows.filter((_,i)=>i!==idx));
+  const updateCell = (idx, colId, val) => updateRows(rows.map((r,i)=>i===idx?{...r,[colId]:val}:r));
+  const moveRow = (idx, dir) => {
+    const r=[...rows]; const t=r[idx]; r[idx]=r[idx+dir]; r[idx+dir]=t;
+    updateRows(r);
+  };
+
+  // Sort + filter
+  let displayRows = rows.map((r,i)=>({...r,_origIdx:i}));
+  if (filterText) {
+    const q = filterText.toLowerCase();
+    displayRows = displayRows.filter(r => cols.some(c => String(r[c.id]||'').toLowerCase().includes(q)));
+  }
+  if (sortCol) {
+    displayRows = [...displayRows].sort((a,b) => {
+      const av=a[sortCol]||'', bv=b[sortCol]||'';
+      return sortDir==='asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+    });
+  }
+
+  if (!cols.length) return (
+    <div style={{padding:"14px",textAlign:"center",color:C.text3,fontSize:12,
+      border:`1.5px dashed ${C.border}`,borderRadius:8}}>
+      No columns configured — edit this field in Settings → Data Model
+    </div>
+  );
+
+  const cellSt = {padding:"5px 8px",fontSize:12,fontFamily:F,border:"none",outline:"none",
+    background:"transparent",width:"100%",color:C.text1};
+
+  return (
+    <div>
+      {/* Toolbar */}
+      {rows.length > 0 && (
+        <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"center"}}>
+          <input value={filterText} onChange={e=>setFilterText(e.target.value)} placeholder="Filter rows…"
+            style={{flex:1,padding:"5px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,
+              fontSize:12,fontFamily:F,outline:"none",color:C.text1}}/>
+          <span style={{fontSize:11,color:C.text3,flexShrink:0}}>{rows.length} row{rows.length!==1?'s':''}</span>
+        </div>
+      )}
+      <div style={{overflowX:"auto",borderRadius:10,border:`1.5px solid ${C.border}`}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+          <thead>
+            <tr style={{background:C.surface2}}>
+              <th style={{width:28,padding:"6px 4px",borderBottom:`1.5px solid ${C.border}`}}/>
+              {cols.map(col=>(
+                <th key={col.id} onClick={()=>{
+                  if(sortCol===col.id){setSortDir(d=>d==='asc'?'desc':'asc');}
+                  else{setSortCol(col.id);setSortDir('asc');}
+                }} style={{padding:"7px 8px",textAlign:"left",fontWeight:700,color:C.text3,
+                  fontSize:11,textTransform:"uppercase",letterSpacing:"0.04em",
+                  borderBottom:`1.5px solid ${C.border}`,whiteSpace:"nowrap",
+                  cursor:"pointer",userSelect:"none",minWidth:col.width||120}}>
+                  {col.name}
+                  {sortCol===col.id && <span style={{marginLeft:4}}>{sortDir==='asc'?'↑':'↓'}</span>}
+                </th>
+              ))}
+              <th style={{width:36,borderBottom:`1.5px solid ${C.border}`}}/>
+            </tr>
+          </thead>
+          <tbody>
+            {displayRows.length===0&&(
+              <tr><td colSpan={cols.length+2} style={{padding:"20px",textAlign:"center",color:C.text3}}>
+                {filterText ? "No rows match filter" : "No rows yet"}
+              </td></tr>
+            )}
+            {displayRows.map((row)=>{
+              const origIdx=row._origIdx;
+              return (
+                <tr key={row._id||origIdx}
+                  style={{borderBottom:`1px solid ${C.border}`,transition:"background .08s"}}
+                  onMouseEnter={e=>e.currentTarget.style.background="#f9fafb"}
+                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  {/* Reorder handles */}
+                  <td style={{padding:"0 4px",textAlign:"center",verticalAlign:"middle",color:C.text4,fontSize:10}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:0}}>
+                      <button onClick={()=>origIdx>0&&moveRow(origIdx,-1)} disabled={origIdx===0}
+                        style={{background:"none",border:"none",cursor:"pointer",color:C.text4,padding:0,lineHeight:1,fontSize:10,opacity:origIdx===0?0.2:1}}>▲</button>
+                      <button onClick={()=>origIdx<rows.length-1&&moveRow(origIdx,1)} disabled={origIdx>=rows.length-1}
+                        style={{background:"none",border:"none",cursor:"pointer",color:C.text4,padding:0,lineHeight:1,fontSize:10,opacity:origIdx>=rows.length-1?0.2:1}}>▼</button>
+                    </div>
+                  </td>
+                  {cols.map(col=>(
+                    <td key={col.id} style={{padding:0,verticalAlign:"middle",maxWidth:col.width||200}}>
+                      {col.type==="boolean"
+                        ? <div style={{padding:"4px 8px"}}>
+                            <input type="checkbox" checked={!!row[col.id]}
+                              onChange={e=>updateCell(origIdx,col.id,e.target.checked)}/>
+                          </div>
+                        : col.type==="select"
+                        ? <select value={row[col.id]||''} onChange={e=>updateCell(origIdx,col.id,e.target.value)}
+                            style={{...cellSt,appearance:"auto"}}>
+                            <option value=""/>
+                            {(col.options||[]).map(o=><option key={o} value={o}>{o}</option>)}
+                          </select>
+                        : col.type==="date"
+                        ? <input type="date" value={row[col.id]||''} onChange={e=>updateCell(origIdx,col.id,e.target.value)} style={cellSt}/>
+                        : col.type==="number"
+                        ? <input type="number" value={row[col.id]||''} onChange={e=>updateCell(origIdx,col.id,e.target.value)} style={cellSt}/>
+                        : col.type==="url"
+                        ? <input type="url" value={row[col.id]||''} onChange={e=>updateCell(origIdx,col.id,e.target.value)} placeholder="https://…" style={cellSt}/>
+                        : <input type="text" value={row[col.id]||''} onChange={e=>updateCell(origIdx,col.id,e.target.value)} style={cellSt}/>
+                      }
+                    </td>
+                  ))}
+                  <td style={{padding:"0 6px",textAlign:"center",verticalAlign:"middle"}}>
+                    <button onClick={()=>removeRow(origIdx)}
+                      style={{background:"none",border:"none",cursor:"pointer",color:C.text4,padding:"2px",borderRadius:4,fontSize:14,lineHeight:1}}
+                      onMouseEnter={e=>e.currentTarget.style.color="#ef4444"}
+                      onMouseLeave={e=>e.currentTarget.style.color=C.text4}>✕</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <button onClick={addRow} style={{marginTop:8,padding:"5px 14px",borderRadius:8,
+        border:`1.5px dashed ${C.accent}`,background:C.accentLight,color:C.accent,
+        fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:F,width:"100%"}}>
+        + Add row
+      </button>
+    </div>
+  );
+};
+
 const FieldValue = ({ field, value, allFieldValues = {} }) => {
   if (value===null||value===undefined||value==="") return <span style={{color:C.text3,fontSize:12}}>—</span>;
 
@@ -306,6 +469,7 @@ const FieldValue = ({ field, value, allFieldValues = {} }) => {
         {arr.map(v=><span key={v} style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:99,background:"#F59F0018",border:"1px solid #F59F0028",fontSize:11,fontWeight:600,color:"#F59F00"}}>⚡ {v}</span>)}
       </div>;
     }
+    case "table":     return <TableFieldValue field={field} value={value}/>;
     default:        return <span style={{fontSize:13,color:C.text1,lineHeight:1.5}}>{String(value)}</span>;
   }
 };
@@ -452,6 +616,8 @@ const FieldEditor = ({ field, value, onChange, autoFocus, environment, recordDat
     case "people": {
       return <PeoplePicker field={field} value={value} onChange={onChange}/>;
     }
+    case "table":
+      return <TableFieldEditor field={field} value={value} onChange={onChange}/>;
     case "multi_lookup": {
       return <PeoplePicker field={field} value={value} onChange={onChange}/>;
     }
@@ -6876,7 +7042,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   useEffect(() => { load(); setEditing({}); setTab("fields"); }, [record.id, load]);
 
   // Click-based types save immediately when value changes; text types wait for explicit save
-  const CLICK_SAVE_TYPES = ["select","multi_select","boolean","rating","people","lookup","multi_lookup","skills","dataset"];
+  const CLICK_SAVE_TYPES = ["select","multi_select","boolean","rating","people","lookup","multi_lookup","skills","dataset","table"];
 
   const handleFieldEdit = (key, value, fieldType) => {
     setEditing(e=>({...e,[key]:value}));
@@ -7213,10 +7379,41 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   // Filter fields by condition — check editing state first so conditional fields
   // appear/disappear immediately as person_type is changed before saving
   const liveData = { ...record.data, ...editing };
+  // Multi-condition evaluator (replaces legacy single condition_field/condition_value)
+  const evaluateFieldConditions = (f, data) => {
+    // New multi-rule conditions object
+    if (f.conditions?.rules?.length) {
+      const { logic='AND', rules } = f.conditions;
+      const results = rules.map(rule => {
+        const raw = data[rule.field];
+        const val = Array.isArray(raw) ? raw.join(',') : String(raw ?? '').toLowerCase();
+        const rv  = String(rule.value ?? '').toLowerCase();
+        switch(rule.operator) {
+          case 'equals':       return val === rv;
+          case 'not_equals':   return val !== rv;
+          case 'contains':     return val.includes(rv);
+          case 'not_contains': return !val.includes(rv);
+          case 'starts_with':  return val.startsWith(rv);
+          case 'is_empty':     return !raw || raw === '';
+          case 'is_not_empty': return !!(raw && raw !== '');
+          case 'greater_than': return parseFloat(val) > parseFloat(rv);
+          case 'less_than':    return parseFloat(val) < parseFloat(rv);
+          case 'in':           return rv.split(',').map(s=>s.trim()).some(v=>val===v.toLowerCase());
+          default:             return true;
+        }
+      });
+      return logic === 'OR' ? results.some(Boolean) : results.every(Boolean);
+    }
+    // Legacy single condition
+    if (f.condition_field && f.condition_value) {
+      const recordVal = data[f.condition_field];
+      return String(recordVal || '').toLowerCase() === String(f.condition_value).toLowerCase();
+    }
+    return true;
+  };
+
   const visibleFields = fields.filter(f => {
-    if (!f.condition_field || !f.condition_value) return true;
-    const recordVal = liveData[f.condition_field];
-    return String(recordVal || '').toLowerCase() === String(f.condition_value).toLowerCase();
+    return evaluateFieldConditions(f, liveData);
   });
 
   // Build sections dynamically from section_separator fields.

@@ -55,6 +55,7 @@ const FIELD_TYPE_GROUPS = [
     {value:"country", label:"Country", icon:"🌍", desc:"Country picker with flag display"},
   ]},
   { key:"advanced", label:"Advanced", types:[
+    {value:"table",       label:"Table",       icon:"⊞",  desc:"Multi-row table with configurable columns — work history, education, languages"},
     {value:"auto_number", label:"Auto Number", icon:"№",  desc:"Auto-incrementing sequence (e.g. CAN-001)"},
     {value:"unique_id",   label:"Unique ID",   icon:"⌗",  desc:"Auto-generated unique identifier"},
     {value:"dataset",     label:"Data Set",    icon:"≡",  desc:"Options from a shared, reusable data set"},
@@ -649,6 +650,7 @@ function TypeConfig({ fieldType, form, set, objectFields, objects, datasets }) {
     case "dataset":          return <DatasetConfig {...p}/>;
     case "skills":           return <SkillsConfig {...p}/>;
     case "section_separator": return <SectionConfig {...p}/>;
+    case "table": return <TableConfig form={p.form} set={p.set}/>;
     default:                 return <HelpBox>No additional configuration needed for this field type.</HelpBox>;
   }
 }
@@ -657,6 +659,184 @@ function TypeConfig({ fieldType, form, set, objectFields, objects, datasets }) {
 // MAIN MODAL — Two-step flow
 // Props match existing interface: field, selEnv, selObj, onSaved, onClose
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Table column types ────────────────────────────────────────────────────────
+const TABLE_COLUMN_TYPES = [
+  {value:"text",    label:"Text"},
+  {value:"number",  label:"Number"},
+  {value:"date",    label:"Date"},
+  {value:"select",  label:"Select"},
+  {value:"boolean", label:"Yes/No"},
+  {value:"url",     label:"URL"},
+];
+
+const TABLE_TEMPLATES = [
+  { id:"work_history", label:"Work History", columns:[
+    {id:"wh1",name:"Company",     type:"text",   width:180},
+    {id:"wh2",name:"Job Title",   type:"text",   width:160},
+    {id:"wh3",name:"From",        type:"date",   width:110},
+    {id:"wh4",name:"To",          type:"date",   width:110},
+    {id:"wh5",name:"Current",     type:"boolean",width:80},
+    {id:"wh6",name:"Description", type:"text",   width:220},
+  ]},
+  { id:"education", label:"Education", columns:[
+    {id:"ed1",name:"Institution",  type:"text",  width:180},
+    {id:"ed2",name:"Degree",       type:"text",  width:160},
+    {id:"ed3",name:"Field of Study",type:"text", width:160},
+    {id:"ed4",name:"From",         type:"date",  width:110},
+    {id:"ed5",name:"To",           type:"date",  width:110},
+    {id:"ed6",name:"Grade",        type:"text",  width:100},
+  ]},
+  { id:"languages", label:"Languages", columns:[
+    {id:"lg1",name:"Language",    type:"text",  width:160},
+    {id:"lg2",name:"Proficiency", type:"select",width:140, options:["Native","Fluent","Intermediate","Basic"]},
+    {id:"lg3",name:"Certified",   type:"boolean",width:90},
+  ]},
+  { id:"certifications", label:"Certifications", columns:[
+    {id:"ce1",name:"Name",         type:"text",  width:200},
+    {id:"ce2",name:"Issuer",       type:"text",  width:160},
+    {id:"ce3",name:"Issued",       type:"date",  width:110},
+    {id:"ce4",name:"Expiry",       type:"date",  width:110},
+    {id:"ce5",name:"Credential ID",type:"text",  width:140},
+  ]},
+  { id:"publications", label:"Publications", columns:[
+    {id:"pb1",name:"Title",     type:"text",  width:200},
+    {id:"pb2",name:"Publisher", type:"text",  width:160},
+    {id:"pb3",name:"Date",      type:"date",  width:110},
+    {id:"pb4",name:"URL",       type:"url",   width:180},
+  ]},
+];
+
+const _uid = () => Math.random().toString(36).slice(2,10);
+
+const TableConfig = ({ form, set }) => {
+  const cols = Array.isArray(form.table_columns) ? form.table_columns : [];
+  const setCols = c => set("table_columns", c);
+  const addCol = () => setCols([...cols, {id:_uid(),name:"Column",type:"text",width:150,options:[]}]);
+  const removeCol = id => setCols(cols.filter(c=>c.id!==id));
+  const updateCol = (id,k,v) => setCols(cols.map(c=>c.id===id?{...c,[k]:v}:c));
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div>
+        <div style={{fontSize:11,fontWeight:700,color:C.text3,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.05em"}}>Start from template</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+          {TABLE_TEMPLATES.map(t=>(
+            <button key={t.id} onClick={()=>{setCols(t.columns.map(c=>({...c,id:_uid()})));set("table_template",t.id);}}
+              style={{padding:"4px 10px",borderRadius:8,border:`1.5px solid ${form.table_template===t.id?C.accent:C.border}`,
+                background:form.table_template===t.id?C.accentLight:"white",
+                fontSize:11,fontWeight:600,color:form.table_template===t.id?C.accent:C.text2,cursor:"pointer",fontFamily:F}}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div style={{fontSize:11,fontWeight:700,color:C.text3,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.05em"}}>Columns ({cols.length})</div>
+        {cols.length===0&&<div style={{padding:"12px",textAlign:"center",color:C.text3,fontSize:12,border:`1.5px dashed ${C.border}`,borderRadius:8}}>Pick a template above or add columns manually</div>}
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {cols.map((col,i)=>(
+            <div key={col.id} style={{display:"flex",alignItems:"center",gap:6,background:C.surface2,borderRadius:8,border:`1px solid ${C.border}`,padding:"8px 10px"}}>
+              <span style={{color:C.text4,fontSize:12,width:18,flexShrink:0,textAlign:"center"}}>{i+1}</span>
+              <input value={col.name} onChange={e=>updateCol(col.id,"name",e.target.value)} placeholder="Column name"
+                style={{flex:2,padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:12,fontFamily:F,color:C.text1,outline:"none",minWidth:0}}/>
+              <select value={col.type} onChange={e=>updateCol(col.id,"type",e.target.value)}
+                style={{flex:1,padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:12,fontFamily:F,color:C.text1,background:"white",outline:"none",minWidth:0}}>
+                {TABLE_COLUMN_TYPES.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              {col.type==="select"&&(
+                <input value={(col.options||[]).join(", ")} onChange={e=>updateCol(col.id,"options",e.target.value.split(",").map(s=>s.trim()).filter(Boolean))}
+                  placeholder="Options: A, B, C"
+                  style={{flex:2,padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,fontFamily:F,color:C.text1,outline:"none",minWidth:0}}/>
+              )}
+              <button onClick={()=>removeCol(col.id)} style={{background:"none",border:"none",cursor:"pointer",color:C.text3,padding:"2px 4px",borderRadius:4,flexShrink:0,fontSize:14,lineHeight:1}}>✕</button>
+            </div>
+          ))}
+        </div>
+        <button onClick={addCol} style={{marginTop:8,padding:"6px 14px",borderRadius:8,border:`1.5px dashed ${C.accent}`,background:C.accentLight,color:C.accent,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:F,width:"100%"}}>+ Add column</button>
+      </div>
+      <HelpBox>Each record stores its own rows. Columns apply to all records using this field.</HelpBox>
+    </div>
+  );
+};
+
+// ─── Conditions (criteria) builder ────────────────────────────────────────────
+const CONDITION_OPERATORS = [
+  {value:"equals",       label:"equals",           showValue:true},
+  {value:"not_equals",   label:"does not equal",   showValue:true},
+  {value:"contains",     label:"contains",          showValue:true},
+  {value:"not_contains", label:"does not contain",  showValue:true},
+  {value:"starts_with",  label:"starts with",       showValue:true},
+  {value:"is_empty",     label:"is empty",          showValue:false},
+  {value:"is_not_empty", label:"is not empty",      showValue:false},
+  {value:"greater_than", label:"is greater than",   showValue:true},
+  {value:"less_than",    label:"is less than",      showValue:true},
+  {value:"in",           label:"is one of (comma-separated)", showValue:true},
+];
+
+const ConditionsConfig = ({ form, set, objectFields }) => {
+  const conditions = (form.conditions && form.conditions.rules) ? form.conditions : { logic:"AND", rules:[] };
+  const setCond = c => set("conditions", c);
+  const otherFields = objectFields.filter(f => f.api_key !== form.api_key && f.field_type !== "section_separator" && f.field_type !== "table");
+  const addRule = () => setCond({...conditions, rules:[...conditions.rules,{field:"",operator:"equals",value:""}]});
+  const removeRule = i => setCond({...conditions, rules:conditions.rules.filter((_,j)=>j!==i)});
+  const updateRule = (i,k,v) => setCond({...conditions, rules:conditions.rules.map((r,j)=>j===i?{...r,[k]:v}:r)});
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.05em"}}>Visibility Conditions</div>
+      <div style={{fontSize:12,color:C.text3,lineHeight:1.5}}>This field is hidden unless ALL (or ANY) of these conditions are met. Leave empty to always show.</div>
+      {conditions.rules.length>0&&(
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:12,color:C.text2,fontWeight:600}}>Show when</span>
+          {["AND","OR"].map(op=>(
+            <button key={op} onClick={()=>setCond({...conditions,logic:op})}
+              style={{padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:700,
+                border:`1.5px solid ${conditions.logic===op?C.accent:C.border}`,
+                background:conditions.logic===op?C.accentLight:"white",
+                color:conditions.logic===op?C.accent:C.text3,cursor:"pointer",fontFamily:F}}>
+              {op}
+            </button>
+          ))}
+          <span style={{fontSize:12,color:C.text2,fontWeight:600}}>of these are true:</span>
+        </div>
+      )}
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {conditions.rules.map((rule,i)=>{
+          const opMeta=CONDITION_OPERATORS.find(o=>o.value===rule.operator)||CONDITION_OPERATORS[0];
+          const tf=otherFields.find(f=>f.api_key===rule.field);
+          const tfOpts=tf?Array.isArray(tf.options)?tf.options:String(tf.options||"").split("\n").filter(Boolean):[];
+          return (
+            <div key={i} style={{display:"flex",alignItems:"center",gap:6,background:C.surface2,borderRadius:8,border:`1px solid ${C.border}`,padding:"8px 10px"}}>
+              <select value={rule.field} onChange={e=>updateRule(i,"field",e.target.value)}
+                style={{flex:2,padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:12,fontFamily:F,color:rule.field?C.text1:C.text3,background:"white",outline:"none",minWidth:0}}>
+                <option value="">Pick field…</option>
+                {otherFields.map(f=><option key={f.id} value={f.api_key}>{f.name}</option>)}
+              </select>
+              <select value={rule.operator} onChange={e=>updateRule(i,"operator",e.target.value)}
+                style={{flex:2,padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:12,fontFamily:F,color:C.text1,background:"white",outline:"none",minWidth:0}}>
+                {CONDITION_OPERATORS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              {opMeta.showValue&&(
+                tfOpts.length>0
+                  ?<select value={rule.value} onChange={e=>updateRule(i,"value",e.target.value)}
+                      style={{flex:2,padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:12,fontFamily:F,color:C.text1,background:"white",outline:"none",minWidth:0}}>
+                      <option value="">Any value</option>
+                      {tfOpts.map(o=><option key={o} value={o}>{o}</option>)}
+                    </select>
+                  :<input value={rule.value} onChange={e=>updateRule(i,"value",e.target.value)} placeholder="Value…"
+                      style={{flex:2,padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:12,fontFamily:F,color:C.text1,outline:"none",minWidth:0}}/>
+              )}
+              <button onClick={()=>removeRule(i)} style={{background:"none",border:"none",cursor:"pointer",color:C.text3,padding:"2px 4px",borderRadius:4,flexShrink:0,fontSize:14,lineHeight:1}}>✕</button>
+            </div>
+          );
+        })}
+      </div>
+      <button onClick={addRule} style={{padding:"6px 14px",borderRadius:8,border:`1.5px dashed ${C.accent}`,background:C.accentLight,color:C.accent,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:F,alignSelf:"flex-start"}}>+ Add condition</button>
+    </div>
+  );
+};
+
 export default function FieldModal({ field, selEnv, selObj, onSaved, onClose }) {
   const isEdit = !!field?.id;
   const [step, setStep] = useState(isEdit ? 2 : 1);
@@ -692,6 +872,7 @@ export default function FieldModal({ field, selEnv, selObj, onSaved, onClose }) 
       "auto_number_prefix","auto_number_start","auto_number_padding","unique_id_format","auto_generate",
       "dataset_id","dataset_multi","skills_input","skills_multi","show_proficiency","max_skills",
       "skills_categories","section_label","collapsible",
+      "table_columns","table_template","conditions",
     ];
     extras.forEach(k => { if (field?.[k] !== undefined) base[k] = field[k]; });
     return base;
@@ -751,6 +932,9 @@ export default function FieldModal({ field, selEnv, selObj, onSaved, onClose }) 
         social_platform: form.field_type==="social" ? (form.social_platform||"linkedin") : undefined,
         address_fields: form.field_type==="address" ? (form.address_fields||["street","city","country","postal_code"]) : undefined,
         section_label: form.field_type==="section_separator" ? (form.section_label||form.name) : undefined,
+        table_columns: form.field_type==="table" ? (form.table_columns || []) : undefined,
+        table_template: form.field_type==="table" ? (form.table_template||null) : undefined,
+        conditions: form.conditions || null,
       };
       const result = isEdit
         ? await api.patch(`/fields/${field.id}`, payload)
@@ -844,6 +1028,12 @@ export default function FieldModal({ field, selEnv, selObj, onSaved, onClose }) 
                     <Tog label="Required" checked={!!form.is_required} onChange={v=>set("is_required",v)}/>
                     <Tog label="Show in list view" checked={form.show_in_list!==false} onChange={v=>set("show_in_list",v)}/>
                   </div>
+                  {/* Visibility conditions — hide section_separator and table fields don't need conditions */}
+                  {!["section_separator","table"].includes(form.field_type) && (
+                    <div style={{borderTop:`1px solid ${C.border}`,paddingTop:12}}>
+                      <ConditionsConfig form={form} set={set} objectFields={objectFields}/>
+                    </div>
+                  )}
                 </div>
               </details>
             </div>

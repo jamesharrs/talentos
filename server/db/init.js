@@ -226,6 +226,7 @@ async function initDB() {
     (store.fields || []).forEach(f => {
       if (f.condition_field === undefined) f.condition_field = null;
       if (f.condition_value === undefined) f.condition_value = null;
+      if (f.conditions === undefined) f.conditions = null;
     });
     (store.objects || []).forEach(o => {
       if (o.person_type_options === undefined) o.person_type_options = null;

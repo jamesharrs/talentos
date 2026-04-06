@@ -24,6 +24,8 @@ const VALID = [
   'file','image',
   // System / Special
   'section_separator','unique_id','dataset','skills',
+  // Structured
+  'table',
 ];
 
 router.get('/', (req, res) => {
@@ -48,7 +50,8 @@ router.post('/', (req, res) => {
   if (!VALID.includes(field_type)) return res.status(400).json({error:'Invalid field_type'});
   if (findOne('fields', f=>f.object_id===object_id&&f.api_key===api_key&&f.environment_id===environment_id)) return res.status(409).json({error:'api_key already exists on this object'});
   const maxOrder = Math.max(0, ...query('fields', f=>f.object_id===object_id&&f.environment_id===environment_id).map(f=>f.sort_order));
-  res.status(201).json(insert('fields', {id:uuidv4(),object_id,environment_id,name,api_key,field_type,is_required:is_required?1:0,is_unique:is_unique?1:0,is_system:0,show_in_list:show_in_list!==undefined?(show_in_list?1:0):1,show_in_form:show_in_form!==undefined?(show_in_form?1:0):1,options:options||null,lookup_object_id:lookup_object_id||null,default_value:default_value||null,placeholder:placeholder||null,help_text:help_text||null,sort_order:sort_order!==undefined?sort_order:maxOrder+1,created_at:new Date().toISOString(),updated_at:new Date().toISOString()}));
+  const { conditions, table_columns, table_template } = req.body;
+  res.status(201).json(insert('fields', {id:uuidv4(),object_id,environment_id,name,api_key,field_type,is_required:is_required?1:0,is_unique:is_unique?1:0,is_system:0,show_in_list:show_in_list!==undefined?(show_in_list?1:0):1,show_in_form:show_in_form!==undefined?(show_in_form?1:0):1,options:options||null,lookup_object_id:lookup_object_id||null,default_value:default_value||null,placeholder:placeholder||null,help_text:help_text||null,sort_order:sort_order!==undefined?sort_order:maxOrder+1,conditions:conditions||null,table_columns:table_columns||null,table_template:table_template||null,created_at:new Date().toISOString(),updated_at:new Date().toISOString()}));
 });
 
 router.patch('/:id', (req, res) => {

@@ -179,7 +179,24 @@ router.get('/', (req, res) => {
     }
   }
 
-  if (search) records = records.filter(r=>JSON.stringify(r.data).toLowerCase().includes(search.toLowerCase()));
+  if (search) {
+    const _sq = search.toLowerCase();
+    records = records.filter(r => {
+      if (!r.data) return false;
+      // Flat field search
+      if (JSON.stringify(r.data).toLowerCase().includes(_sq)) return true;
+      return false; // (table rows included via JSON.stringify above)
+    });
+    // Annotate each record with whether a table row matched (for relevance sorting)
+    records.forEach(r => {
+      if (!r.data) return;
+      for (const v of Object.values(r.data)) {
+        if (Array.isArray(v) && v.some(row =>
+          Object.values(row).some(c => c != null && String(c).toLowerCase().includes(_sq))
+        )) { r._tableMatch = true; break; }
+      }
+    });
+  }
   if (filter_key && filter_value !== undefined) {
     // Resolve $me → current user's full name (or email)
     const resolveMeToken = (val) => {

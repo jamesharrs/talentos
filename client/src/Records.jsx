@@ -5969,7 +5969,7 @@ const PanelCard = ({ id, compact, openPanels, setOpenPanels, openPanelsKey, rend
 };
 
 // ── Tabbed group card — defined at module level (hooks must not be in nested functions) ──
-const GroupCard = ({ ids, overSlot, overZone, openPanels, setOpenPanels, openPanelsKey, panelOrder, savePanelOrder, removePanel, renderPanel, startPanelDrag }) => {
+const GroupCard = ({ ids, overSlot, overZone, openPanels, setOpenPanels, openPanelsKey, panelOrder, savePanelOrder, removePanel, renderPanel, startPanelDrag, clearZone, reportZone }) => {
   const repId   = ids[0];
   const cardRef = useRef(null);
   const tabStripRef = useRef(null);
@@ -7640,7 +7640,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
               return (
                 <div key={repId}>
                   {DropIndicator({beforeRepId:repId, afterRepId:prevRepId})}
-                  <GroupCard ids={validIds} overSlot={overSlot} overZone={overZone} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} panelOrder={panelOrder} savePanelOrder={savePanelOrder} removePanel={removePanel} renderPanel={renderPanel} startPanelDrag={startPanelDrag}/>
+                  <GroupCard ids={validIds} overSlot={overSlot} overZone={overZone} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} panelOrder={panelOrder} savePanelOrder={savePanelOrder} removePanel={removePanel} renderPanel={renderPanel} startPanelDrag={startPanelDrag} clearZone={clearZone} reportZone={reportZone}/>
                 </div>
               );
             }

@@ -1509,8 +1509,16 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   const [adminUsers,   setAdminUsers]   = useState([]);
   const [interviewTypes, setInterviewTypes] = useState([]);
   const [companyDocs, setCompanyDocs] = useState([]);
+  const [userOrgUnit, setUserOrgUnit] = useState(null); // current user's org unit / team
   const _pcAI = _usePermCtxAI();
   const canRecord = (flag) => _pcAI ? _pcAI.canGlobal(flag) : true;
+
+  // Read current user + org from session (available immediately, no API call needed)
+  const _session = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('talentos_session') || 'null') || {}; }
+    catch { return {}; }
+  }, []); // stable reference — session doesn't change mid-conversation
+  const _sessionUser = _session?.user || {};
   const [pendingInterview, setPendingInterview] = useState(null);
   const [pendingForm,      setPendingForm]      = useState(null);
   const [pendingReport,    setPendingReport]    = useState(null);
@@ -1834,6 +1842,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     api.get("/users").then(u=>{ if(Array.isArray(u)) setAdminUsers(u); }).catch(()=>{});
     if(environment?.id) api.get(`/interview-types?environment_id=${environment.id}`).then(t=>{ if(Array.isArray(t)) setInterviewTypes(t); }).catch(()=>{});
     if(environment?.id) api.get(`/company-documents?environment_id=${environment.id}`).then(d=>{ if(Array.isArray(d)) setCompanyDocs(d); }).catch(()=>{});
+    // Load current user's org unit (for company context)
+    if(_sessionUser?.org_unit_id) api.get(`/org-units?environment_id=${environment?.id||''}`).then(d=>{ if(Array.isArray(d)){ const u=d.find(o=>o.id===_sessionUser.org_unit_id); if(u) setUserOrgUnit(u); } }).catch(()=>{});
     // (settings-section listener is in its own useEffect above)
   },[open]);
 
@@ -2219,6 +2229,26 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         objects.length ? `\n\nLIVE OBJECTS (use these slugs and IDs for dashboard panels):\n${objects.map(o=>`- ${o.plural_name||o.name} | slug: ${o.slug} | id: ${o.id}`).join("\n")}` : "",
         // RBAC: inject user role so AI knows what actions are allowed
         _pcAI?.permissions?._roleSlug ? `\n\nUSER ROLE: ${_pcAI.permissions._roleSlug}${_pcAI.permissions._roleSlug==='super_admin'?' (full access)':_pcAI.permissions._roleSlug==='read_only'?' — READ ONLY, do NOT suggest any create/edit/delete actions':''}` : '',
+        // ── WHO YOU ARE TALKING TO ────────────────────────────────────────
+        (() => {
+          const u = _sessionUser;
+          const lines = [];
+          lines.push("\n\nYOU ARE ASSISTING:");
+          if (u.first_name || u.last_name) lines.push(`- Name: ${[u.first_name, u.last_name].filter(Boolean).join(' ')}`);
+          if (u.email)                     lines.push(`- Email: ${u.email}`);
+          if (_pcAI?.permissions?._roleSlug) lines.push(`- Platform role: ${_pcAI.permissions._roleSlug}`);
+          if (userOrgUnit)                 lines.push(`- Team / Org unit: ${userOrgUnit.name} (type: ${userOrgUnit.type||'team'})`);
+          lines.push("\n\nCOMPANY / ENVIRONMENT:");
+          if (environment?.name)           lines.push(`- Environment name: ${environment.name}`);
+          if (environment?.locale)         lines.push(`- Locale / Region: ${environment.locale}`);
+          return lines.join("\n");
+        })(),
+        // ── BEHAVIOURAL GUIDANCE ──────────────────────────────────────────
+        `\n\nTONE & BEHAVIOUR:
+- Address the user by their first name occasionally to make responses feel personal.
+- When referring to the company or organisation, use the environment name (e.g. "your team at ${environment?.name||'your company'}").
+- Always tailor advice and suggestions to be relevant to this user's role and team context.
+- Never refer to yourself as Claude, ChatGPT or any other AI — you are Vercentic Copilot.`,
       ].join("");
 
       // First AI call

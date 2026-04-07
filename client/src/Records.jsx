@@ -8060,32 +8060,37 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
   const FunctionalityBar = () => (
     <div style={{ display:"flex", alignItems:"center", gap:0, background:C.surface,
-      borderBottom:`1px solid ${C.border}`, flexShrink:0, position:"sticky", top:0, zIndex:90, minHeight:58 }}>
+      borderBottom:`1px solid ${C.border}`, flexShrink:0, position:"sticky", top:0, zIndex:90, minHeight:56, padding:"0 16px" }}>
 
-      {/* LEFT: back crumb + avatar + name + subtitle + pills */}
-      <div style={{ display:"flex", alignItems:"center", gap:0, borderRight:`1px solid ${C.border}`, padding:"0 16px", minHeight:58, flexShrink:0, maxWidth:"50%" }}>
+      {/* IDENTITY — back crumb + avatar + name + subtitle — grows naturally */}
+      <div style={{ display:"flex", alignItems:"center", gap:0, flex:"1 1 0", minWidth:0 }}>
         {/* Back link */}
         <button onClick={onClose}
-          style={{ display:"flex", alignItems:"center", gap:5, background:"none", border:"none",
-            cursor:"pointer", color:C.text3, fontSize:12, fontWeight:600, fontFamily:F, padding:"4px 0", flexShrink:0 }}
+          style={{ display:"flex", alignItems:"center", gap:4, background:"none", border:"none",
+            cursor:"pointer", color:C.text3, fontSize:12, fontWeight:600, fontFamily:F,
+            padding:"4px 8px 4px 0", flexShrink:0, whiteSpace:"nowrap" }}
           onMouseEnter={e=>e.currentTarget.style.color=C.accent}
           onMouseLeave={e=>e.currentTarget.style.color=C.text3}>
-          <Ic n="arrowLeft" s={13}/> {objectName}s
+          <Ic n="arrowLeft" s={12}/> {objectName}s
         </button>
-        <span style={{ margin:"0 8px", color:C.border, fontSize:16, flexShrink:0 }}>/</span>
+        <span style={{ margin:"0 6px", color:C.border, fontSize:14, flexShrink:0 }}>/</span>
+
         {/* Avatar */}
         <div style={{ position:"relative", flexShrink:0, marginRight:10, cursor:"pointer" }}
           onClick={()=>photoInputRef.current?.click()} title="Click to upload photo">
           {photoUrl
-            ? <img src={photoUrl} style={{ width:32, height:32, borderRadius:8, objectFit:"cover" }}/>
-            : <Avatar name={title} color={objectColor} size={32}/>
+            ? <img src={photoUrl} style={{ width:34, height:34, borderRadius:9, objectFit:"cover" }}/>
+            : <Avatar name={title} color={objectColor} size={34}/>
           }
           <input ref={photoInputRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handlePhotoUpload}/>
         </div>
-        {/* Name + subtitle */}
-        <div style={{ minWidth:0, display:"flex", flexDirection:"column", gap:2 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-            <span style={{ fontSize:14, fontWeight:700, color:C.text1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:220, fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.3px" }}>{title}</span>
+
+        {/* Name + subtitle — no artificial maxWidth, just natural truncation */}
+        <div style={{ minWidth:0, display:"flex", flexDirection:"column", gap:1 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"nowrap" }}>
+            <span style={{ fontSize:15, fontWeight:700, color:C.text1, whiteSpace:"nowrap",
+              overflow:"hidden", textOverflow:"ellipsis",
+              fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.3px" }}>{title}</span>
             {status && statusField && (
               <Badge color={STATUS_COLORS[status]||C.accent} light>{status}</Badge>
             )}
@@ -8094,100 +8099,107 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
             const jobLine = record?.data?.current_title || record?.data?.job_title || "";
             const company = record?.data?.current_company || "";
             const combined = [jobLine, company].filter(Boolean).join(" · ");
-            return combined ? <div style={{ fontSize:12, color:C.text2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:340 }}>{combined}</div> : null;
+            return combined
+              ? <div style={{ fontSize:12, color:C.text2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{combined}</div>
+              : null;
           })() : subtitle ? (
-            <div style={{ fontSize:11, color:C.text3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:340 }}>{subtitle}</div>
+            <div style={{ fontSize:11, color:C.text3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{subtitle}</div>
           ) : null}
         </div>
       </div>
 
-      {/* RIGHT: action buttons */}
-      <div style={{ display:"flex", alignItems:"center", gap:6, padding:"0 16px", flex:1 }}>
-        {/* Communicate dropdown — only on Person records with comms access */}
-        {objectName === "Person" && canRecord('record_view_comms') && (
-        <div style={{ position:"relative" }}>
-          <button
-            onClick={()=>setShowCommMenu(v=>!v)}
-            onBlur={()=>setTimeout(()=>setShowCommMenu(false),150)}
-            style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 13px", borderRadius:9,
-              border:`1.5px solid ${C.accent}`, background:C.accentLight, color:C.accent,
-              fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:F }}>
-            <Ic n="mail" s={13} c={C.accent}/> Communicate
-            <svg width="10" height="10" viewBox="0 0 10 10" style={{ marginLeft:2, opacity:0.7 }}><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
-          </button>
-          {showCommMenu && (
-            <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, background:C.surface,
-              border:`1.5px solid ${C.border}`, borderRadius:12, boxShadow:"0 8px 32px rgba(0,0,0,.14)",
-              minWidth:200, zIndex:200, overflow:"hidden", padding:"4px 0" }}>
-              {COMM_OPTIONS.filter(opt => {
-                if (opt.type==='email') return canRecord('record_send_email');
-                if (opt.type==='sms' || opt.type==='whatsapp') return canRecord('record_send_sms');
-                if (opt.type==='call') return canRecord('record_log_call');
-                return true;
-              }).map(opt=>(
-                <button key={opt.type}
-                  onClick={()=>{ setComposeType(opt.type); setShowCommMenu(false); }}
-                  style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 16px",
-                    background:"none", border:"none", cursor:"pointer", fontSize:13, color:C.text1,
-                    textAlign:"left", fontFamily:F, transition:"background .1s" }}
-                  onMouseEnter={e=>e.currentTarget.style.background=C.accentLight}
-                  onMouseLeave={e=>e.currentTarget.style.background="none"}>
-                  <span style={{ fontSize:15 }}>{opt.icon}</span>
-                  <span style={{ fontWeight:500 }}>{opt.label}</span>
-                </button>
-              ))}
-              <div style={{ borderTop:`1px solid ${C.border}`, margin:"4px 0", padding:"2px 16px 2px" }}>
-                <div style={{ fontSize:11, color:C.text3, paddingTop:4 }}>Shortcut: <kbd style={{ background:"#f1f5f9", borderRadius:4, padding:"1px 5px", fontFamily:"monospace" }}>C</kbd></div>
-              </div>
-            </div>
-          )}
-        </div>
-        )} {/* end Person-only communicate */}
+      {/* DIVIDER — slim, sits between identity and actions */}
+      <div style={{ width:1, height:28, background:C.border, flexShrink:0, margin:"0 14px" }}/>
 
-        {/* Engagement Score badge — Person records only */}
+      {/* ACTIONS — consistent style, no mixed treatments */}
+      <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+
+        {/* Communicate dropdown — Person only */}
+        {objectName === "Person" && canRecord('record_view_comms') && (
+          <div style={{ position:"relative" }}>
+            <button
+              onClick={()=>setShowCommMenu(v=>!v)}
+              onBlur={()=>setTimeout(()=>setShowCommMenu(false),150)}
+              style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 12px", borderRadius:8,
+                border:`1.5px solid ${C.accent}`, background:C.accentLight, color:C.accent,
+                fontWeight:700, fontSize:12, cursor:"pointer", fontFamily:F, whiteSpace:"nowrap" }}>
+              <Ic n="mail" s={12} c={C.accent}/> Communicate
+              <svg width="10" height="10" viewBox="0 0 10 10" style={{ opacity:0.7 }}><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
+            </button>
+            {showCommMenu && (
+              <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, background:C.surface,
+                border:`1.5px solid ${C.border}`, borderRadius:12, boxShadow:"0 8px 32px rgba(0,0,0,.14)",
+                minWidth:200, zIndex:200, overflow:"hidden", padding:"4px 0" }}>
+                {COMM_OPTIONS.filter(opt => {
+                  if (opt.type==='email') return canRecord('record_send_email');
+                  if (opt.type==='sms' || opt.type==='whatsapp') return canRecord('record_send_sms');
+                  if (opt.type==='call') return canRecord('record_log_call');
+                  return true;
+                }).map(opt=>(
+                  <button key={opt.type}
+                    onClick={()=>{ setComposeType(opt.type); setShowCommMenu(false); }}
+                    style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 16px",
+                      background:"none", border:"none", cursor:"pointer", fontSize:13, color:C.text1,
+                      textAlign:"left", fontFamily:F, transition:"background .1s" }}
+                    onMouseEnter={e=>e.currentTarget.style.background=C.accentLight}
+                    onMouseLeave={e=>e.currentTarget.style.background="none"}>
+                    <span style={{ fontSize:15 }}>{opt.icon}</span>
+                    <span style={{ fontWeight:500 }}>{opt.label}</span>
+                  </button>
+                ))}
+                <div style={{ borderTop:`1px solid ${C.border}`, margin:"4px 0", padding:"2px 16px 2px" }}>
+                  <div style={{ fontSize:11, color:C.text3, paddingTop:4 }}>Shortcut: <kbd style={{ background:"#f1f5f9", borderRadius:4, padding:"1px 5px", fontFamily:"monospace" }}>C</kbd></div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Engagement badge — Person only */}
         {objectName === "Person" && (
           <EngagementBadge
             recordId={record?.id}
             onClick={() => {
-              // scroll / open the engagement panel
               const el = document.querySelector('[data-panel-id="engagement"]');
               if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }}
           />
         )}
 
-        {/* Spacer */}
-        <div style={{ flex:1 }}/>
-
-        {/* Campaign Link builder — non-Person records only (Jobs, Talent Pools, etc.) */}
+        {/* Campaign link — non-Person only */}
         {objectName !== "Person" && (
-          <button
-            onClick={() => setShowCampaignLinks(true)}
-            title="Create a tracked campaign link for this record"
-            style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 12px", borderRadius:9,
-              border:`1.5px solid ${C.border}`, background:C.surface, color:C.text2,
-              fontWeight:600, fontSize:12, cursor:"pointer", fontFamily:F, flexShrink:0 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
-            </svg>
-            Campaign link
+          <button onClick={() => setShowCampaignLinks(true)} title="Create a tracked campaign link"
+            style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 11px", borderRadius:8,
+              border:`1px solid ${C.border}`, background:"transparent", color:C.text2,
+              fontWeight:600, fontSize:12, cursor:"pointer", fontFamily:F, whiteSpace:"nowrap" }}
+            onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
+            onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.text2; }}>
+            <Ic n="link" s={12}/> Campaign link
           </button>
         )}
 
-
-        {/* Last activity indicator */}
+        {/* Last contact — muted, non-interactive */}
         {lastCommDate && (
-          <div style={{ fontSize:12, color:C.text3, display:"flex", alignItems:"center", gap:5 }}>
-            <Ic n="activity" s={12} c={C.text3}/> Last contact {lastCommDate}
+          <div style={{ fontSize:11, color:C.text3, display:"flex", alignItems:"center", gap:4, whiteSpace:"nowrap" }}>
+            <Ic n="activity" s={11} c={C.text3}/> {lastCommDate}
           </div>
         )}
 
-        {/* ── Record Search ── */}
+        {/* Pipeline widget — non-Person only */}
+        {objectName !== "Person" && (
+          <PeoplePipelineWidget
+            record={record} objectId={record.object_id}
+            environment={environment} onNavigate={onNavigate}
+            toolbarMode
+          />
+        )}
+
+        {/* Search */}
         <div ref={recordSearchRef} style={{ position:"relative", display:"flex", alignItems:"center" }}>
           {recordSearchOpen ? (
-            <div style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 10px", borderRadius:9,
+            <div style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 10px", borderRadius:8,
               border:`1.5px solid ${C.accent}`, background:C.surface, boxShadow:"0 2px 8px rgba(0,0,0,.08)" }}>
-              <Ic n="search" s={13} c={C.text3}/>
+              <Ic n="search" s={12} c={C.text3}/>
               <input
                 ref={recordSearchInputRef}
                 value={recordSearch}
@@ -8195,24 +8207,24 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                 onKeyDown={e=>{ if(e.key==="Escape"){ setRecordSearchOpen(false); setRecordSearch(""); }}}
                 placeholder="Search this record…"
                 autoFocus
-                style={{ border:"none", outline:"none", fontSize:13, fontFamily:F, color:C.text1,
-                  background:"transparent", width:200, fontWeight:400 }}/>
+                style={{ border:"none", outline:"none", fontSize:12, fontFamily:F, color:C.text1,
+                  background:"transparent", width:180, fontWeight:400 }}/>
               {recordSearch && (
                 <button onClick={()=>{ setRecordSearch(""); setRecordSearchResults([]); recordSearchInputRef.current?.focus(); }}
                   style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, display:"flex", padding:0 }}>
-                  <Ic n="x" s={12}/>
+                  <Ic n="x" s={11}/>
                 </button>
               )}
             </div>
           ) : (
             <button onClick={()=>{ setRecordSearchOpen(true); setTimeout(()=>recordSearchInputRef.current?.focus(),50); }}
-              title="Search this record (notes, files, activity…)"
-              style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 10px", borderRadius:9,
+              title="Search this record"
+              style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 10px", borderRadius:8,
                 border:`1px solid ${C.border}`, background:"transparent", color:C.text3,
-                fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F, transition:"all .12s" }}
+                fontSize:12, fontWeight:500, cursor:"pointer", fontFamily:F, transition:"all .12s" }}
               onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}
               onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.text3; }}>
-              <Ic n="search" s={13}/> Search
+              <Ic n="search" s={12}/> Search
             </button>
           )}
           {/* Search results dropdown */}
@@ -8249,9 +8261,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                           {r.created_at && <span>{new Date(r.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>}
                         </div>
                       </div>
-                      {r.panelId && (
-                        <Ic n="chevR" s={13} c={C.text3}/>
-                      )}
+                      {r.panelId && <Ic n="chevR" s={13} c={C.text3}/>}
                     </div>
                   ))}
                 </>
@@ -8260,31 +8270,26 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
           )}
         </div>
 
-        {/* Linked People workflow picker — non-Person objects only, inline in toolbar */}
-        {objectName !== "Person" && (
-          <PeoplePipelineWidget
-            record={record} objectId={record.object_id}
-            environment={environment} onNavigate={onNavigate}
-            toolbarMode
-          />
-        )}
+        {/* Slim divider before destructive actions */}
+        <div style={{ width:1, height:20, background:C.border, flexShrink:0, margin:"0 4px" }}/>
 
-        {/* Destructive + close — far right, always visible */}
-        <div style={{ display:"flex", gap:2, marginLeft:8, alignItems:"center" }}>
-          <div style={{ width:1, height:20, background:C.border, marginRight:6, flexShrink:0 }}/>
-          <button onClick={()=>onDelete(record.id)} title="Delete record"
-            style={{ width:32, height:32, borderRadius:8, border:"none", background:"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all .15s", color:"#9CA3AF" }}
-            onMouseEnter={e=>{ e.currentTarget.style.background="#FEE2E2"; e.currentTarget.style.color="#DC2626"; }}
-            onMouseLeave={e=>{ e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#9CA3AF"; }}>
-            <Ic n="trash" s={14} c="currentColor"/>
-          </button>
-          <button onClick={onClose} title="Close"
-            style={{ width:32, height:32, borderRadius:8, border:"none", background:"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all .15s", color:"#9CA3AF" }}
-            onMouseEnter={e=>{ e.currentTarget.style.background="#F1F5F9"; e.currentTarget.style.color="#475569"; }}
-            onMouseLeave={e=>{ e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#9CA3AF"; }}>
-            <Ic n="x" s={14} c="currentColor"/>
-          </button>
-        </div>
+        {/* Delete + Close */}
+        <button onClick={()=>onDelete(record.id)} title="Delete record"
+          style={{ width:30, height:30, borderRadius:7, border:"none", background:"transparent",
+            cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+            transition:"all .15s", color:"#9CA3AF" }}
+          onMouseEnter={e=>{ e.currentTarget.style.background="#FEE2E2"; e.currentTarget.style.color="#DC2626"; }}
+          onMouseLeave={e=>{ e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#9CA3AF"; }}>
+          <Ic n="trash" s={14} c="currentColor"/>
+        </button>
+        <button onClick={onClose} title="Close"
+          style={{ width:30, height:30, borderRadius:7, border:"none", background:"transparent",
+            cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+            transition:"all .15s", color:"#9CA3AF" }}
+          onMouseEnter={e=>{ e.currentTarget.style.background="#F1F5F9"; e.currentTarget.style.color="#475569"; }}
+          onMouseLeave={e=>{ e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#9CA3AF"; }}>
+          <Ic n="x" s={14} c="currentColor"/>
+        </button>
       </div>
     </div>
   );

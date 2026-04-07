@@ -70,17 +70,15 @@ export function EngagementBadge({ recordId, onClick }) {
   }, [recordId]);
   if (!data) return null;
   return (
-    <div onClick={onClick} title={`Engagement: ${data.grade}`}
-      style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 10px', borderRadius:99,
-        background:data.color+'15', border:`1.5px solid ${data.color}30`,
-        cursor:onClick?'pointer':'default', transition:'opacity .15s', userSelect:'none' }}
-      onMouseEnter={e=>{ if(onClick) e.currentTarget.style.opacity='.8'; }}
-      onMouseLeave={e=>{ e.currentTarget.style.opacity='1'; }}>
-      <ScoreRing score={data.score} color={data.color} size={22}/>
-      <div style={{ minWidth:0 }}>
-        <div style={{ fontSize:11, fontWeight:700, color:data.color, lineHeight:1 }}>{data.score}</div>
-        <div style={{ fontSize:9, color:data.color+'aa', fontWeight:600, lineHeight:1, marginTop:1, whiteSpace:'nowrap' }}>{data.grade}</div>
-      </div>
+    <div onClick={onClick} title={`Engagement: ${data.grade} (${data.score}/100)`}
+      style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 9px 4px 6px', borderRadius:99,
+        background:data.color+'12', border:`1.5px solid ${data.color}28`,
+        cursor:onClick?'pointer':'default', transition:'all .15s', userSelect:'none' }}
+      onMouseEnter={e=>{ if(onClick){ e.currentTarget.style.background=data.color+'20'; e.currentTarget.style.borderColor=data.color+'50'; } }}
+      onMouseLeave={e=>{ e.currentTarget.style.background=data.color+'12'; e.currentTarget.style.borderColor=data.color+'28'; }}>
+      {/* Simple coloured dot instead of the full ring */}
+      <div style={{ width:8, height:8, borderRadius:'50%', background:data.color, flexShrink:0 }}/>
+      <span style={{ fontSize:12, fontWeight:700, color:data.color, lineHeight:1 }}>{data.score}</span>
     </div>
   );
 }

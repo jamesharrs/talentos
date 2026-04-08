@@ -6973,30 +6973,15 @@ function _DropIndicator({ beforeRepId, afterRepId, draggingPanel, overSlot, over
   if (!showBefore && !showAfter) return null;
   return (
     <div style={{
-      height: 28, margin: "0 0 12px", position: "relative",
-      display: "flex", alignItems: "center",
+      height: 6, margin: "0 0 8px", position: "relative",
+      pointerEvents: "none",         // CRITICAL: must not block elementFromPoint on cards below
     }}>
-      {/* Wide invisible hover target (full height) */}
-      <div style={{ position: "absolute", inset: 0 }}/>
-      {/* Visible line */}
       <div style={{
         position: "absolute", left: 0, right: 0, top: "50%", height: 3,
         borderRadius: 2, background: C.accent,
         boxShadow: `0 0 8px ${C.accent}90, 0 0 0 3px ${C.accent}20`,
         transform: "translateY(-50%)",
       }}/>
-      {/* Drop here label */}
-      <div style={{
-        position: "absolute", left: "50%", top: "50%",
-        transform: "translate(-50%, -50%)",
-        background: C.accent, color: "#fff",
-        fontSize: 9, fontWeight: 700, letterSpacing: "0.05em",
-        padding: "2px 8px", borderRadius: 99,
-        boxShadow: `0 1px 4px ${C.accent}60`,
-        pointerEvents: "none", whiteSpace: "nowrap",
-      }}>
-        INSERT HERE
-      </div>
     </div>
   );
 }
@@ -7523,12 +7508,17 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
       // ── Full-width row drop — takes priority over regular card drops ──────
       if (droppedInFullWidthZone && fromId) {
-        const fromCol = colOfId(fromId);
-        const fresh2  = panelOrdersRef.current || { left: leftPanelOrder, right: panelOrder, top: topRows, bottom: bottomRows };
-        let newLeft   = fromCol === 'left'   ? removePanel(fresh2.left,   fromId) : [...fresh2.left];
-        let newRight  = fromCol === 'right'  ? removePanel(fresh2.right,  fromId) : [...fresh2.right];
-        let newTop    = fromCol === 'top'    ? removePanel(fresh2.top,    fromId) : [...fresh2.top];
-        let newBottom = fromCol === 'bottom' ? removePanel(fresh2.bottom, fromId) : [...fresh2.bottom];
+        // Use ref for FRESH state — avoids stale closure
+        const f = panelOrdersRef.current || { left: leftPanelOrder, right: panelOrder, top: topRows, bottom: bottomRows };
+        const fromColFW =
+          f.top.some(s => Array.isArray(s) ? s.includes(fromId) : s === fromId)    ? 'top'
+          : f.left.some(s => Array.isArray(s) ? s.includes(fromId) : s === fromId) ? 'left'
+          : f.right.some(s => Array.isArray(s) ? s.includes(fromId) : s === fromId) ? 'right'
+          : f.bottom.some(s => Array.isArray(s) ? s.includes(fromId) : s === fromId) ? 'bottom' : null;
+        let newLeft   = fromColFW === 'left'   ? removePanel(f.left,   fromId) : [...f.left];
+        let newRight  = fromColFW === 'right'  ? removePanel(f.right,  fromId) : [...f.right];
+        let newTop    = fromColFW === 'top'    ? removePanel(f.top,    fromId) : [...f.top];
+        let newBottom = fromColFW === 'bottom' ? removePanel(f.bottom, fromId) : [...f.bottom];
         if (droppedInFullWidthZone === 'top')    newTop    = [...newTop,    fromId];
         else                                     newBottom = [...newBottom, fromId];
         saveLeftPanelOrder(newLeft); savePanelOrder(newRight);
@@ -7549,13 +7539,19 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         return;
       }
 
-      // Find what's currently in that slot
-      // Determine source and target columns
-      const fromCol = colOfId(fromId);
-      const toCol   = colOfSlot(slot);
-
-      // Use panelOrdersRef for FRESH state (avoids stale closure duplicates)
+      // Use panelOrdersRef for FRESH state — avoids stale closure duplicates
       const fresh   = panelOrdersRef.current || { left: leftPanelOrder, right: panelOrder, top: topRows, bottom: bottomRows };
+      // Compute fromCol and toCol from FRESH ref, not stale closure
+      const fromCol =
+        fresh.top.some(s    => Array.isArray(s) ? s.includes(fromId) : s === fromId) ? 'top'
+        : fresh.left.some(s => Array.isArray(s) ? s.includes(fromId) : s === fromId) ? 'left'
+        : fresh.right.some(s => Array.isArray(s) ? s.includes(fromId) : s === fromId) ? 'right'
+        : fresh.bottom.some(s => Array.isArray(s) ? s.includes(fromId) : s === fromId) ? 'bottom' : null;
+      const toCol =
+        fresh.top.some(s    => repIdOf(s) === slot) ? 'top'
+        : fresh.left.some(s => repIdOf(s) === slot) ? 'left'
+        : fresh.right.some(s => repIdOf(s) === slot) ? 'right'
+        : fresh.bottom.some(s => repIdOf(s) === slot) ? 'bottom' : null;
       let newLeft   = fromCol === 'left'   ? removePanel(fresh.left,   fromId) : [...fresh.left];
       let newRight  = fromCol === 'right'  ? removePanel(fresh.right,  fromId) : [...fresh.right];
       let newTop    = fromCol === 'top'    ? removePanel(fresh.top,    fromId) : [...fresh.top];

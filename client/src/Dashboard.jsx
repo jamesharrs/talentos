@@ -228,7 +228,7 @@ function ActivityFeedCard({ activity, onOpenRecord, onViewAll }) {
 
   return (
     <div style={{ background: V.card, border: `0.5px solid ${V.border}`, borderRadius: 16,
-      padding: "20px 22px", display: "flex", flexDirection: "column" }}>
+      padding: "20px 22px", display: "flex", flexDirection: "column", alignSelf: "stretch" }}>
 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -756,7 +756,7 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
       )}
 
       {/* ── Bottom section: 3-col grid — left/mid stack 2 cards each, right = activity ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 12, marginBottom: 12, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 12, marginBottom: 12, alignItems: "stretch" }}>
 
         {/* COL 1: Candidate Pipeline + Top Sources stacked */}
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -796,8 +796,8 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
             )}
           </Card>
 
-          {/* Top Candidate Sources */}
-          <Card>
+          {/* Top Candidate Sources — donut pie chart */}
+          <Card style={{ flex: 1 }}>
             <CardTitle title="Top Candidate Sources"
               sub="where candidates come from"
               action={
@@ -814,22 +814,45 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
                 sourceCounts[s] = (sourceCounts[s] || 0) + 1;
               });
               const rows = Object.entries(sourceCounts).sort((a,b) => b[1]-a[1]).slice(0, 6);
-              const max  = rows[0]?.[1] || 1;
-              const cols = [V.purple, V.rose, V.teal, V.amber, V.purpleL, V.gray];
-              return rows.length ? (
-                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                  {rows.map(([src, cnt], i) => (
-                    <div key={src} style={{ display:"flex", alignItems:"center", gap:10 }}>
-                      <div style={{ fontSize:11, color:V.gray, width:72, textAlign:"right", flexShrink:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{src}</div>
-                      <div style={{ flex:1, height:6, background:"rgba(0,0,0,0.05)", borderRadius:99, overflow:"hidden" }}>
-                        <div style={{ width:`${Math.round((cnt/max)*100)}%`, height:"100%", background:cols[i%cols.length], borderRadius:99, transition:"width 0.7s ease" }}/>
+              const total = rows.reduce((s,[,c]) => s+c, 0) || 1;
+              const cols  = [V.purple, V.rose, V.teal, V.amber, V.purpleL, V.gray];
+              if (!rows.length) return (
+                <div style={{ height:120, display:"flex", alignItems:"center", justifyContent:"center", color:V.gray, fontSize:12 }}>No source data yet</div>
+              );
+              // Build SVG donut segments
+              const R = 52, r = 30, cx = 70, cy = 70;
+              let angle = -Math.PI / 2;
+              const segments = rows.map(([src, cnt], i) => {
+                const sweep = (cnt / total) * 2 * Math.PI;
+                const x1 = cx + R * Math.cos(angle), y1 = cy + R * Math.sin(angle);
+                const x2 = cx + R * Math.cos(angle + sweep), y2 = cy + R * Math.sin(angle + sweep);
+                const ix1 = cx + r * Math.cos(angle), iy1 = cy + r * Math.sin(angle);
+                const ix2 = cx + r * Math.cos(angle + sweep), iy2 = cy + r * Math.sin(angle + sweep);
+                const large = sweep > Math.PI ? 1 : 0;
+                const d = `M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${r} ${r} 0 ${large} 0 ${ix1} ${iy1} Z`;
+                angle += sweep;
+                return { d, color: cols[i % cols.length], src, cnt };
+              });
+              return (
+                <div style={{ display:"flex", alignItems:"center", gap:16 }}>
+                  <svg width="140" height="140" viewBox="0 0 140 140" style={{ flexShrink:0 }}>
+                    {segments.map((seg, i) => (
+                      <path key={i} d={seg.d} fill={seg.color} opacity={0.88}/>
+                    ))}
+                    <circle cx={cx} cy={cy} r={r - 2} fill="white"/>
+                    <text x={cx} y={cy - 5} textAnchor="middle" fontSize="15" fontWeight="800" fill="#111827">{total}</text>
+                    <text x={cx} y={cy + 11} textAnchor="middle" fontSize="9" fill={V.gray}>total</text>
+                  </svg>
+                  <div style={{ display:"flex", flexDirection:"column", gap:6, flex:1, minWidth:0 }}>
+                    {segments.map((seg, i) => (
+                      <div key={i} style={{ display:"flex", alignItems:"center", gap:7 }}>
+                        <div style={{ width:8, height:8, borderRadius:"50%", background:seg.color, flexShrink:0 }}/>
+                        <div style={{ fontSize:11, color:V.gray, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{seg.src}</div>
+                        <div style={{ fontSize:11, fontWeight:700, color:"#111827" }}>{seg.cnt}</div>
                       </div>
-                      <div style={{ fontSize:11, fontWeight:700, color:"#111827", width:28, flexShrink:0 }}>{cnt}</div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                <div style={{ height:80, display:"flex", alignItems:"center", justifyContent:"center", color:V.gray, fontSize:12 }}>No source data yet</div>
               );
             })()}
           </Card>
@@ -872,7 +895,7 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
           </Card>
 
           {/* Candidate Skills */}
-          <Card>
+          <Card style={{ flex: 1 }}>
             <CardTitle title="Candidate Skills"
               sub="top skills across candidates"
               action={

@@ -7412,7 +7412,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   // ── Mouse-based panel drag: event-driven zone detection ──────────────────
   // Each card reports its hovered zone via onMouseMove; mouseup reads the refs.
   const enterFullWidthZone = (pos) => { if (draggingRef.current) { fullWidthDropRef.current = pos; setFullWidthZone(pos); } };
-  const leaveFullWidthZone = ()    => { fullWidthDropRef.current = null; setFullWidthZone(null); };
+  // leaveFullWidthZone is now advisory only — global mousemove is authoritative
+  const leaveFullWidthZone = ()    => { /* global onMove handles clearing */ };
 
   const startPanelDrag = (id) => {
     draggingRef.current     = id;
@@ -7424,7 +7425,58 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     setOverZone(null);
     setFullWidthZone(null);
 
-    // No mousemove tracking needed — drop zones use onMouseEnter/Leave
+    // Global mousemove using elementFromPoint — reliably tracks cursor across ALL zones
+    // including when dragging FROM top/bottom full-width rows INTO the 2-col area
+    const onMove = (e) => {
+      if (!draggingRef.current) return;
+      const clientX = e.clientX ?? e.touches?.[0]?.clientX;
+      const clientY = e.clientY ?? e.touches?.[0]?.clientY;
+      if (clientX == null) return;
+
+      const target = document.elementFromPoint(clientX, clientY);
+
+      // 1. Check full-width drop zones (data-drop-zone attribute)
+      const dropZoneEl = target?.closest('[data-drop-zone]');
+      if (dropZoneEl) {
+        const pos = dropZoneEl.getAttribute('data-drop-zone');
+        if (fullWidthDropRef.current !== pos) {
+          fullWidthDropRef.current = pos;
+          setFullWidthZone(pos);
+        }
+        // Clear any card hover
+        if (overSlotRef.current) { overSlotRef.current = null; overZoneRef.current = null; setOverSlot(null); setOverZone(null); }
+        return;
+      }
+      // Left full-width zone
+      if (fullWidthDropRef.current) { fullWidthDropRef.current = null; setFullWidthZone(null); }
+
+      // 2. Check panel cards (data-panel-id attribute)
+      const card = target?.closest('[data-panel-id]');
+      if (card) {
+        const repId = card.getAttribute('data-panel-id');
+        if (repId === draggingRef.current) {
+          // Hovering own card — clear
+          if (overSlotRef.current) { overSlotRef.current = null; overZoneRef.current = null; setOverSlot(null); setOverZone(null); }
+          return;
+        }
+        const rect = card.getBoundingClientRect();
+        const pct  = (clientY - rect.top) / rect.height;
+        const zone = pct < 0.3 ? "top" : pct > 0.7 ? "bottom" : "middle";
+        if (overSlotRef.current !== repId || overZoneRef.current !== zone) {
+          overSlotRef.current = repId;
+          overZoneRef.current = zone;
+          setOverSlot(repId);
+          setOverZone(zone);
+        }
+        return;
+      }
+
+      // 3. Over nothing useful — clear card hover
+      if (overSlotRef.current) { overSlotRef.current = null; overZoneRef.current = null; setOverSlot(null); setOverZone(null); }
+    };
+
+    window.addEventListener("mousemove", onMove, { passive: true });
+    window.addEventListener("touchmove", onMove, { passive: true });
 
     const onUp = () => {
       const fromId = draggingRef.current;
@@ -7452,6 +7504,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         else                                     newBottom = [...newBottom, fromId];
         saveLeftPanelOrder(newLeft); savePanelOrder(newRight);
         saveTopRows(newTop);         saveBottomRows(newBottom);
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("touchmove",  onMove);
         window.removeEventListener("mouseup",  onUp);
         window.removeEventListener("touchend", onUp);
         return;
@@ -7459,6 +7513,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
       if (!fromId || !slot) {
         // dropped outside any card — no change
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("touchmove",  onMove);
         window.removeEventListener("mouseup",  onUp);
         window.removeEventListener("touchend", onUp);
         return;
@@ -7500,6 +7556,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       saveLeftPanelOrder(newLeft); savePanelOrder(newRight);
       saveTopRows(newTop);         saveBottomRows(newBottom);
       fullWidthDropRef.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("touchmove",  onMove);
       window.removeEventListener("mouseup",  onUp);
       window.removeEventListener("touchend", onUp);
     };
@@ -8315,9 +8373,10 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         return <div key={slot} style={{padding:"12px 20px 0"}}><PanelCard id={slot} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} renderPanel={renderPanel} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/></div>;
       })}
 
-      {/* TOP drop zone bar — appears ABOVE the 2-col section when dragging */}
+      {/* TOP drop zone bar */}
       {draggingPanel && (
         <div
+          data-drop-zone="top"
           onMouseEnter={() => enterFullWidthZone('top')}
           onMouseLeave={leaveFullWidthZone}
           style={{ margin:"8px 20px 4px", borderRadius:10,
@@ -8430,26 +8489,6 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         </div>
       </div>
 
-      {/* BOTTOM drop zone bar — appears BELOW the 2-col section when dragging */}
-      {draggingPanel && (
-        <div
-          onMouseEnter={() => enterFullWidthZone('bottom')}
-          onMouseLeave={leaveFullWidthZone}
-          style={{ margin:"4px 20px 8px", borderRadius:10,
-            border:`2px dashed ${fullWidthZone==='bottom' ? C.accent : C.border}`,
-            padding: fullWidthZone==='bottom' ? "18px 16px" : "8px 16px",
-            background: fullWidthZone==='bottom' ? `${C.accent}08` : "transparent",
-            display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-            transition:"all .25s", cursor:"copy",
-            minHeight: fullWidthZone==='bottom' ? 60 : 32 }}>
-          <Ic n="layout" s={fullWidthZone==='bottom'?16:12} c={fullWidthZone==='bottom'?C.accent:C.text3}/>
-          <span style={{ fontSize:fullWidthZone==='bottom'?12:11, fontWeight:fullWidthZone==='bottom'?700:400,
-            color:fullWidthZone==='bottom'?C.accent:C.text3, userSelect:"none" }}>
-            {fullWidthZone==='bottom' ? "Drop here — full-width row below columns" : "Drop here for a full-width row below"}
-          </span>
-        </div>
-      )}
-
       {/* BOTTOM full-width rows */}
       {bottomRows.map((slot, idx) => {
         const prevRepId = idx > 0 ? repIdOf(bottomRows[idx-1]) : null;
@@ -8466,6 +8505,27 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         if (!PANEL_META[slot]) return null;
         return <div key={slot} style={{ padding:"0 20px 12px" }}>{DropIndicator({beforeRepId:slot,afterRepId:prevRepId})}<PanelCard id={slot} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} renderPanel={renderPanel} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/></div>;
       })}
+
+      {/* BOTTOM drop zone — always after bottomRows so it's reachable */}
+      {draggingPanel && (
+        <div
+          data-drop-zone="bottom"
+          onMouseEnter={() => enterFullWidthZone('bottom')}
+          onMouseLeave={leaveFullWidthZone}
+          style={{ margin:"4px 20px 12px", borderRadius:10,
+            border:`2px dashed ${fullWidthZone==='bottom' ? C.accent : C.border}`,
+            padding: fullWidthZone==='bottom' ? "18px 16px" : "8px 16px",
+            background: fullWidthZone==='bottom' ? `${C.accent}08` : "transparent",
+            display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+            transition:"all .25s", cursor:"copy",
+            minHeight: fullWidthZone==='bottom' ? 60 : 32 }}>
+          <Ic n="layout" s={fullWidthZone==='bottom'?16:12} c={fullWidthZone==='bottom'?C.accent:C.text3}/>
+          <span style={{ fontSize:fullWidthZone==='bottom'?12:11, fontWeight:fullWidthZone==='bottom'?700:400,
+            color:fullWidthZone==='bottom'?C.accent:C.text3, userSelect:"none" }}>
+            {fullWidthZone==='bottom' ? "Drop here — full-width row below columns" : "Drop here for a full-width row below"}
+          </span>
+        </div>
+      )}
 
       {/* Campaign Links modal — pre-populated from this record */}
       {showCampaignLinks && (

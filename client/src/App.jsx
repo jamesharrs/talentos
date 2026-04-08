@@ -2236,7 +2236,7 @@ function App() {
                />
              } />
         {/* Page content */}
-        <div style={{ flex: 1, display:"flex", flexDirection:"column", padding: (activeNav.startsWith("record_") || activeNav.startsWith("obj_")) ? 0 : "28px 32px", overflow: "auto", minHeight: 0, position: "relative", zIndex: 0 }}>
+        <div style={{ flex: 1, display:"flex", flexDirection:"column", padding: (activeNav.startsWith("record_") || activeNav.startsWith("obj_") || activeNav === "activity_journal") ? 0 : "28px 32px", overflow: "auto", minHeight: 0, position: "relative", zIndex: 0 }}>
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300, color: "#9ca3af" }}>Loading…</div>
         ) : !selectedEnv ? (
@@ -2373,7 +2373,9 @@ function App() {
           </div>
         ) : activeNav === "activity_journal" ? (
           <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}>
-            <ActivityJournal environment={selectedEnv} onOpenRecord={openRecord} />
+            <div style={{ flex:1, display:"flex", minHeight:0, overflow:"hidden" }}>
+              <ActivityJournal environment={selectedEnv} onOpenRecord={openRecord} />
+            </div>
           </Suspense>
         ) : activeNav === "calendar" ? (
           <div style={{ flex:1, overflow:"auto" }}>

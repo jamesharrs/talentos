@@ -564,6 +564,25 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
           </div>
         </div>
         <div data-tour="dashboard-stats" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Dashboard nav pills */}
+          {[
+            { label:"Overview",   color:"#6B7280", nav:"overview",   current:true },
+            { label:"Screening",  color:V.purple,  nav:"screening"  },
+            { label:"Interviews", color:V.teal,    nav:"interviews" },
+            { label:"Offers",     color:V.rose,    nav:"offers"     },
+            { label:"Onboarding", color:V.amber,   nav:"onboarding" },
+          ].map(({ label, color, nav, current }) => (
+            <button key={nav} onClick={() => onNavigate?.(nav)}
+              style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 13px", borderRadius:20,
+                border: current ? `1.5px solid ${color}` : `1.5px solid ${color}40`,
+                background: current ? `${color}18` : `${color}10`, color,
+                fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit", transition:"all .15s" }}
+              onMouseEnter={e => { e.currentTarget.style.background=`${color}22`; e.currentTarget.style.borderColor=color; }}
+              onMouseLeave={e => { e.currentTarget.style.background=current?`${color}18`:`${color}10`; e.currentTarget.style.borderColor=current?color:`${color}40`; }}>
+              <span style={{ width:6, height:6, borderRadius:"50%", background:color, flexShrink:0 }}/>
+              {label}
+            </button>
+          ))}
           <button onClick={() => { _cache = null; load(true); }}
             style={{ fontSize: 11, padding: "6px 12px", borderRadius: 20, border: `0.5px solid ${V.border}`,
               background: V.card, color: V.gray, cursor: "pointer", fontFamily: "inherit" }}>

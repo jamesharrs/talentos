@@ -126,7 +126,7 @@ export default function ScreeningDashboard({ environment, onNavigate }) {
   const aiPieData = [{name:"Approved",value:aiApproved.length,color:C.green},{name:"Rejected",value:aiRejected.length,color:"#e03131"},{name:"Pending",value:aiPending.length,color:C.amber}].filter(d=>d.value>0);
 
   return (
-    <div style={{ fontFamily:F, color:C.text1, width:"100%" }}>
+    <div style={{ fontFamily:F, color:C.text1, padding:"28px 32px 80px", background:"#F8F7FF", minHeight:"100%" }}>
       {/* Header with nav pills */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, padding:"0 0 0 0" }}>
         <div>

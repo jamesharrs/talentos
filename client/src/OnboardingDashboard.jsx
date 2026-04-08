@@ -105,7 +105,7 @@ export default function OnboardingDashboard({ environment, onNavigate }) {
   const { acceptedOffers, startingThisMonth, docsNeeded, onboarding, probationDue, monthlyStarters } = data;
 
   return (
-    <div style={{ fontFamily:F, color:C.text1, width:"100%" }}>
+    <div style={{ fontFamily:F, color:C.text1, padding:"28px 32px 80px", background:"#F8F7FF", minHeight:"100%" }}>
       {/* Header with nav pills */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
         <div>

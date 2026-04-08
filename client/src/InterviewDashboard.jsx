@@ -142,7 +142,7 @@ export default function InterviewDashboard({ environment, session, onNavigate })
   const ACCENT_PIE = ["#4361EE","#0CAF77","#EF4444","#F79009","#9DA8C7","#7C3AED"];
 
   return (
-    <div style={{padding:"28px 32px",fontFamily:F,background:"#F8F7FF",minHeight:"100vh"}}>
+    <div style={{padding:"28px 32px 80px",fontFamily:F,background:"#F8F7FF",minHeight:"100%"}}>
       {/* Header */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
         <div>

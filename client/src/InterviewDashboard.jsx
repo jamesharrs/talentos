@@ -142,7 +142,7 @@ export default function InterviewDashboard({ environment, session, onNavigate })
   const ACCENT_PIE = ["#4361EE","#0CAF77","#EF4444","#F79009","#9DA8C7","#7C3AED"];
 
   return (
-    <div style={{padding:"28px 32px",fontFamily:F,background:C.bg,minHeight:"100vh"}}>
+    <div style={{padding:"28px 32px",fontFamily:F,background:"#F8F7FF",minHeight:"100vh"}}>
       {/* Header */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
         <div>
@@ -161,10 +161,7 @@ export default function InterviewDashboard({ environment, session, onNavigate })
               <span style={{width:6,height:6,borderRadius:"50%",background:color,flexShrink:0}}/>{label}
             </button>
           ))}
-          <button onClick={load} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:9,
-            border:`1.5px solid ${C.border}`,background:C.surface,cursor:"pointer",fontFamily:F,fontSize:12,fontWeight:600,color:C.text2}}>
-            <Ic n="refresh" s={13} c={C.text3}/> Refresh
-          </button>
+          <button onClick={load} style={{fontSize:11,padding:"6px 12px",borderRadius:20,border:"0.5px solid rgba(0,0,0,0.06)",background:"white",color:"#888780",cursor:"pointer",fontFamily:F}}>↻</button>
         </div>
       </div>
 

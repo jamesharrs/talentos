@@ -20,3 +20,8 @@ server/_cleanup/
 client/_cleanup/
 _deploy_scripts/
 server/uploads/
+
+# Playwright e2e — generated output only, specs stay in git
+test-results/
+e2e/report/
+playwright-report/

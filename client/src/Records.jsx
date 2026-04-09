@@ -7106,7 +7106,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const leftStorageKey   = `talentos_panels_left_${objectName}`;
   const topStorageKey    = `talentos_panels_top_${objectName}`;
   const bottomStorageKey = `talentos_panels_bottom_${objectName}`;
-  const PANEL_VERSION    = "v12"; // bumped — forces clean reset, fixes duplicate panel bug
+  const PANEL_VERSION    = "v13"; // bumped — fixes stale-closure race that caused duplicates
   const versionKey       = `talentos_panels_version_${objectName}`;
 
   // ── Single atomic layout load — deduplicates all 4 zones together ───────
@@ -7164,9 +7164,13 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const panelOrder     = layout.right;
   const bottomRows     = layout.bottom;
 
-  // Save helpers — always persist all 4 zones atomically
+  // Save helpers — individual column saves (safe because they read fresh layout from ref)
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+
   const saveLayout = (next) => {
     setLayout(next);
+    layoutRef.current = next;
     try {
       localStorage.setItem(topStorageKey,    JSON.stringify(next.top));
       localStorage.setItem(leftStorageKey,   JSON.stringify(next.left));
@@ -7174,10 +7178,13 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       localStorage.setItem(bottomStorageKey, JSON.stringify(next.bottom));
     } catch {}
   };
-  const savePanelOrder     = (right)  => saveLayout({ ...layout, right });
-  const saveLeftPanelOrder = (left)   => saveLayout({ ...layout, left });
-  const saveTopRows        = (top)    => saveLayout({ ...layout, top });
-  const saveBottomRows     = (bottom) => saveLayout({ ...layout, bottom });
+  // These read from the LIVE ref, not the stale closure
+  const savePanelOrder     = (right)  => saveLayout({ ...layoutRef.current, right });
+  const saveLeftPanelOrder = (left)   => saveLayout({ ...layoutRef.current, left });
+  const saveTopRows        = (top)    => saveLayout({ ...layoutRef.current, top });
+  const saveBottomRows     = (bottom) => saveLayout({ ...layoutRef.current, bottom });
+  // Atomic save for drag-end (all 4 zones change simultaneously)
+  const saveAllZones = (top, left, right, bottom) => saveLayout({ top, left, right, bottom });
 
   const resetLayout = () => {
     const fresh = { top: [], left: ['fields'], right: getDefaultPanelOrder(objectName), bottom: [] };
@@ -7590,8 +7597,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         let newBottom = fromColFW === 'bottom' ? removePanel(f.bottom, fromId) : [...f.bottom];
         if (droppedInFullWidthZone === 'top')    newTop    = [...newTop,    fromId];
         else                                     newBottom = [...newBottom, fromId];
-        saveLeftPanelOrder(newLeft); savePanelOrder(newRight);
-        saveTopRows(newTop);         saveBottomRows(newBottom);
+        saveAllZones(newTop, newLeft, newRight, newBottom);
         window.removeEventListener("mousemove", onMove);
         window.removeEventListener("touchmove",  onMove);
         window.removeEventListener("mouseup",  onUp);
@@ -7647,8 +7653,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         else if (toCol === 'bottom') newBottom = insertInto(newBottom);
       }
 
-      saveLeftPanelOrder(newLeft); savePanelOrder(newRight);
-      saveTopRows(newTop);         saveBottomRows(newBottom);
+      saveAllZones(newTop, newLeft, newRight, newBottom);
       fullWidthDropRef.current = null;
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("touchmove",  onMove);
@@ -8480,26 +8485,30 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         return <div key={slot} style={{padding:"12px 20px 0"}}><PanelCard id={slot} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} renderPanel={renderPanel} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/></div>;
       })}
 
-      {/* TOP drop zone bar */}
-      {draggingPanel && (
-        <div
-          data-drop-zone="top"
-          onMouseEnter={() => enterFullWidthZone('top')}
-          onMouseLeave={leaveFullWidthZone}
-          style={{ margin:"8px 20px 4px", borderRadius:10,
-            border:`2px dashed ${fullWidthZone==='top' ? C.accent : C.border}`,
-            padding: fullWidthZone==='top' ? "18px 16px" : "8px 16px",
-            background: fullWidthZone==='top' ? `${C.accent}08` : "transparent",
-            display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-            transition:"all .25s", cursor:"copy",
-            minHeight: fullWidthZone==='top' ? 60 : 32 }}>
-          <Ic n="layout" s={fullWidthZone==='top'?16:12} c={fullWidthZone==='top'?C.accent:C.text3}/>
-          <span style={{ fontSize:fullWidthZone==='top'?12:11, fontWeight:fullWidthZone==='top'?700:400,
-            color:fullWidthZone==='top'?C.accent:C.text3, userSelect:"none" }}>
-            {fullWidthZone==='top' ? "Drop here — full-width row above columns" : "Drop here for a full-width row above"}
-          </span>
-        </div>
-      )}
+      {/* TOP drop zone bar — always rendered, prominent when dragging */}
+      <div
+        data-drop-zone="top"
+        onMouseEnter={() => enterFullWidthZone('top')}
+        onMouseLeave={leaveFullWidthZone}
+        style={{ margin: draggingPanel ? "8px 20px 4px" : "0 20px",
+          borderRadius:10,
+          border:`2px dashed ${fullWidthZone==='top' ? C.accent : draggingPanel ? C.border : 'transparent'}`,
+          padding: fullWidthZone==='top' ? "18px 16px" : draggingPanel ? "8px 16px" : "0",
+          background: fullWidthZone==='top' ? `${C.accent}08` : "transparent",
+          display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+          transition:"all .25s", cursor: draggingPanel ? "copy" : "default",
+          minHeight: fullWidthZone==='top' ? 60 : draggingPanel ? 36 : 0,
+          overflow:"hidden" }}>
+        {draggingPanel && (
+          <>
+            <Ic n="layout" s={fullWidthZone==='top'?16:12} c={fullWidthZone==='top'?C.accent:C.text3}/>
+            <span style={{ fontSize:fullWidthZone==='top'?12:11, fontWeight:fullWidthZone==='top'?700:400,
+              color:fullWidthZone==='top'?C.accent:C.text3, userSelect:"none" }}>
+              {fullWidthZone==='top' ? "Drop here — full-width row above columns" : "Drop here for a full-width row above"}
+            </span>
+          </>
+        )}
+      </div>
 
       {/* 2-col body */}
       <div ref={containerRef} style={{ display:"flex", minHeight:"60vh", userSelect:draggingCol.current?"none":"auto" }}>

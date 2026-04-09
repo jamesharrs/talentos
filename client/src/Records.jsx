@@ -2129,13 +2129,23 @@ const SavedViewsDropdown = ({ objectId, environmentId, userId, currentFilters, c
 /* ─── Column Picker Dropdown ───────────────────────────────────────────────── */
 const ColumnPickerDropdown = ({ fields, visibleIds, onChange, onClose, isPeopleObj = false }) => {
   const ref = useRef(null);
+  const searchRef = useRef(null);
+  const [search, setSearch] = useState("");
+
   useEffect(() => {
     const h = e => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, [onClose]);
 
-  const allCols = [...fields, ...SYSTEM_COLS];
+  // Auto-focus search on open
+  useEffect(() => { setTimeout(() => searchRef.current?.focus(), 50); }, []);
+
+  const q = search.toLowerCase().trim();
+  const filteredFields = q ? fields.filter(f => f.name?.toLowerCase().includes(q)) : fields;
+  const filteredSystem = q
+    ? SYSTEM_COLS.filter(f => (!f.isPeopleOnly || isPeopleObj) && f.name?.toLowerCase().includes(q))
+    : SYSTEM_COLS.filter(f => !f.isPeopleOnly || isPeopleObj);
 
   const toggleField = (id) => {
     if (visibleIds.includes(id)) {
@@ -2149,12 +2159,33 @@ const ColumnPickerDropdown = ({ fields, visibleIds, onChange, onClose, isPeopleO
   return (
     <div ref={ref} style={{ position:"absolute", top:"100%", right:0, zIndex:300, marginTop:4,
       background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, boxShadow:"0 8px 24px rgba(0,0,0,.12)",
-      minWidth:220, maxHeight:400, overflowY:"auto", padding:"8px 0" }}>
-      <div style={{ padding:"6px 14px 8px", fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.07em", borderBottom:`1px solid ${C.border}`, marginBottom:4 }}>
+      minWidth:240, maxHeight:420, display:"flex", flexDirection:"column" }}>
+      {/* Header label */}
+      <div style={{ padding:"8px 14px 6px", fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.07em", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
         Columns
       </div>
+      {/* Search input */}
+      <div style={{ padding:"8px 10px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:6, background:"#f4f5f8", borderRadius:8, padding:"5px 10px" }}>
+          <Ic n="search" s={12} c={C.text3}/>
+          <input
+            ref={searchRef}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search columns…"
+            style={{ border:"none", background:"transparent", outline:"none", fontSize:12, color:C.text1, width:"100%", fontFamily:"inherit" }}
+          />
+          {search && (
+            <button onClick={() => setSearch("")} style={{ border:"none", background:"none", cursor:"pointer", padding:0, display:"flex", color:C.text3 }}>
+              <Ic n="x" s={11} c={C.text3}/>
+            </button>
+          )}
+        </div>
+      </div>
+      {/* Scrollable list */}
+      <div style={{ overflowY:"auto", flex:1, padding:"4px 0" }}>
       {/* Field columns */}
-      {fields.map(f => {
+      {filteredFields.map(f => {
         const on = visibleIds.includes(f.id);
         return (
           <div key={f.id} onClick={() => toggleField(f.id)}
@@ -2171,8 +2202,10 @@ const ColumnPickerDropdown = ({ fields, visibleIds, onChange, onClose, isPeopleO
         );
       })}
       {/* System columns divider */}
-      <div style={{ padding:"6px 14px 6px", fontSize:10, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.07em", borderTop:`1px solid ${C.border}`, marginTop:4 }}>System</div>
-      {SYSTEM_COLS.filter(f => !f.isPeopleOnly || isPeopleObj).map(f => {
+      {filteredSystem.length > 0 && (
+        <div style={{ padding:"6px 14px 6px", fontSize:10, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.07em", borderTop:`1px solid ${C.border}`, marginTop:4 }}>System</div>
+      )}
+      {filteredSystem.map(f => {
         const on = visibleIds.includes(f.id);
         return (
           <div key={f.id} onClick={() => toggleField(f.id)}
@@ -2189,6 +2222,10 @@ const ColumnPickerDropdown = ({ fields, visibleIds, onChange, onClose, isPeopleO
           </div>
         );
       })}
+      {q && filteredFields.length === 0 && filteredSystem.length === 0 && (
+        <div style={{ padding:"16px 14px", textAlign:"center", fontSize:12, color:C.text3 }}>No columns match "{search}"</div>
+      )}
+      </div>
     </div>
   );
 };

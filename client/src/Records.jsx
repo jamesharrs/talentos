@@ -7952,8 +7952,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                   <div style={{ flex:1, minWidth:0 }}>
                     {isEditing ? (
                       <FieldEditor field={field} value={val} env={environment?.id}
-                        onChange={v=>{ if(isClickSave){handleSaveField(field.api_key,v);} else setEditing(p=>({...p,[field.api_key]:v})); }}
-                        onSave={()=>handleSaveField(field.api_key,editing[field.api_key])}
+                        onChange={v=>{ if(isClickSave){ setEditing(p=>({...p,[field.api_key]:v})); handleSaveFieldValue(field.api_key, record.data?.[field.api_key], v); } else setEditing(p=>({...p,[field.api_key]:v})); }}
+                        onSave={()=>handleSaveField(field.api_key, record.data?.[field.api_key])}
                         onCancel={()=>setEditing(p=>{const n={...p};delete n[field.api_key];return n;})}/>
                     ) : (
                       <FieldValue field={field} value={val} onPillClick={onPillClick}/>
@@ -8164,7 +8164,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     );
     return null;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [record, notes, attachments, fields, environment, objectName, composeType, fileTypes, cvParsing, cvParseAtt, docExtracting, docExtractAtt, uploading, uploadDragging, selectedFileType, currentObject, allObjects, openPanels, _permCtx, uploadError, globalEdit, saving]);
+  }, [record, notes, attachments, fields, environment, objectName, composeType, fileTypes, cvParsing, cvParseAtt, docExtracting, docExtractAtt, uploading, uploadDragging, selectedFileType, currentObject, allObjects, openPanels, _permCtx, uploadError, globalEdit, saving, panelSections, editing]);
 
 
   // PanelCard is defined at module level above RecordDetail

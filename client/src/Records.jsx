@@ -7742,24 +7742,67 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
   // Build sections dynamically from section_separator fields.
   // Fields before the first separator go into an implicit "Details" section.
-  // Each separator starts a new named section containing all fields until the next separator.
-  const fieldSections = useMemo(() => {
-    const sections = [];
-    let current = { label: "Details", fs: [], collapsible: false };
+  // Separators with as_panel=true produce standalone panels; others stay inline.
+  const { fieldSections, panelSections } = useMemo(() => {
+    const inline = [];   // sections shown inside the "fields" panel
+    const panels = [];   // sections that become independent draggable panels
+    let current = { label: "Details", fs: [], collapsible: false, separatorId: null, asPanel: false };
     for (const f of visibleFields) {
       if (f.field_type === "section_separator") {
-        if (current.fs.length) sections.push(current);
-        current = { label: f.section_label || f.name, fs: [], collapsible: true, separatorId: f.id };
+        if (current.fs.length || current.separatorId === null) {
+          if (current.asPanel && current.fs.length) panels.push(current);
+          else if (current.fs.length || current.separatorId === null) inline.push(current);
+        }
+        current = {
+          label: f.section_label || f.name,
+          fs: [],
+          collapsible: f.collapsible !== false,
+          separatorId: f.id,
+          asPanel: !!f.as_panel,
+        };
       } else {
         current.fs.push(f);
       }
     }
-    if (current.fs.length) sections.push(current);
-    return sections;
+    // flush last section
+    if (current.fs.length) {
+      if (current.asPanel) panels.push(current);
+      else inline.push(current);
+    }
+    return { fieldSections: inline, panelSections: panels };
   }, [visibleFields]);
 
+  // Register as_panel sections as dynamic PANEL_META entries + ensure they're in layout
+  // Panel ID = "section__<separatorId>" to avoid clashing with built-in panel IDs
+  const sectionPanelIds = panelSections.map(s => `section__${s.separatorId}`);
+  panelSections.forEach(s => {
+    const pid = `section__${s.separatorId}`;
+    if (!PANEL_META[pid]) {
+      PANEL_META[pid] = { icon: "edit", label: s.label, defaultOpen: true, dynamic: true };
+    } else {
+      // Keep label in sync with field definition
+      PANEL_META[pid].label = s.label;
+    }
+  });
+  // Add any new section panels that aren't yet in any zone → append to right column
+  useEffect(() => {
+    const allIds = flatPanelIds([...topRows, ...leftPanelOrder, ...panelOrder, ...bottomRows]);
+    const missing = sectionPanelIds.filter(id => !allIds.includes(id));
+    if (missing.length) saveAllZones(topRows, leftPanelOrder, [...panelOrder, ...missing], bottomRows);
+    // Remove stale section panel IDs that no longer exist in the field schema
+    const validSectionIds = new Set(sectionPanelIds);
+    const isStaleSection = (id) => typeof id === 'string' && id.startsWith('section__') && !validSectionIds.has(id);
+    const strip = (order) => order.map(s => Array.isArray(s) ? s.filter(id => !isStaleSection(id)) : s).filter(s => Array.isArray(s) ? s.length > 0 : !isStaleSection(s));
+    const newTop    = strip(topRows);
+    const newLeft   = strip(leftPanelOrder);
+    const newRight  = strip(panelOrder);
+    const newBottom = strip(bottomRows);
+    const changed = JSON.stringify([newTop,newLeft,newRight,newBottom]) !== JSON.stringify([topRows,leftPanelOrder,panelOrder,bottomRows]);
+    if (changed) saveAllZones(newTop, newLeft, newRight, newBottom);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sectionPanelIds.join(",")]);
 
-  // ── Shared field panel (used in both slide-out tab and full-page left col) ──
+
   // Defined as JSX variable (not a component) so React never creates a new component
   // boundary here — critical for inline editing state to survive re-renders
   const fieldsPanelJSX = (
@@ -7882,6 +7925,47 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
   // ── Panel content renderer ── (lowercase = render function, NOT a React component)
   const renderPanel = useCallback(({ id }) => {
+    // Dynamic section panels — render the fields for this section
+    if (id?.startsWith("section__")) {
+      const section = panelSections.find(s => `section__${s.separatorId}` === id);
+      if (!section) return <div style={{ padding:"12px 14px", fontSize:12, color:C.text3 }}>Section not found.</div>;
+      return (
+        <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
+          <div style={{ background:"#f8f9fc", borderRadius:12, border:`1px solid ${C.border}`, overflow:"hidden" }}>
+            {section.fs.map((field, i) => {
+              const isEditing = editing.hasOwnProperty(field.api_key);
+              const val = isEditing ? editing[field.api_key] : record.data?.[field.api_key];
+              const READONLY_KEYS = ["id","created_at","updated_at"];
+              const isReadonly = READONLY_KEYS.includes(field.api_key);
+              const isClickSave = CLICK_SAVE_TYPES.includes(field.field_type);
+              return (
+                <div key={field.id}
+                  style={{ display:"flex", alignItems:isEditing?"flex-start":"center", gap:12,
+                    padding:"11px 14px",
+                    borderBottom: i < section.fs.length-1 ? `1px solid ${C.border}` : "none",
+                    transition:"background .1s", cursor: isReadonly||isEditing ? "default" : "pointer",
+                    background: isEditing ? `${C.accent}06` : "transparent" }}
+                  onMouseEnter={e=>{ if (!isEditing&&!isReadonly) e.currentTarget.style.background="#f8f9fc"; }}
+                  onMouseLeave={e=>{ if (!isEditing) e.currentTarget.style.background="transparent"; }}
+                  onClick={()=>{ if(!isEditing&&!isReadonly&&!isClickSave) setEditing(prev=>({...prev,[field.api_key]:record.data?.[field.api_key]??null})); }}>
+                  <span style={{ fontSize:12, color:C.text3, width:130, flexShrink:0, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{field.name}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    {isEditing ? (
+                      <FieldEditor field={field} value={val} env={environment?.id}
+                        onChange={v=>{ if(isClickSave){handleSaveField(field.api_key,v);} else setEditing(p=>({...p,[field.api_key]:v})); }}
+                        onSave={()=>handleSaveField(field.api_key,editing[field.api_key])}
+                        onCancel={()=>setEditing(p=>{const n={...p};delete n[field.api_key];return n;})}/>
+                    ) : (
+                      <FieldValue field={field} value={val} onPillClick={onPillClick}/>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
     if (id==="comms") return canRecord('record_view_comms') ? (
       <CommunicationsPanel record={record} environment={environment} externalCompose={composeType} onExternalComposeDone={()=>setComposeType(null)} initialJobContext={activeJobContext}/>
     ) : <AccessDeniedPanel label="Communications"/>;

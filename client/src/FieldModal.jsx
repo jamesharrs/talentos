@@ -610,6 +610,12 @@ function SectionConfig({ form, set }) {
   return <>
     <Inp label="Section Label" value={form.section_label||form.name||""} onChange={v=>set("section_label",v)} placeholder="e.g. Employment Details"/>
     <Tog label="Collapsible (users can hide/show)" checked={form.collapsible!==false} onChange={v=>set("collapsible",v)}/>
+    <Tog label="Create as standalone panel" checked={!!form.as_panel} onChange={v=>set("as_panel",v)}/>
+    {form.as_panel && (
+      <div style={{ padding:"10px 12px", background:"#EEF2FF", borderRadius:8, fontSize:12, color:"#4361EE", lineHeight:1.5 }}>
+        Fields in this section will appear as a separate draggable panel on the record page — independent from Profile Fields and moveable by each user.
+      </div>
+    )}
     <HelpBox>Visual divider in the record detail. Groups related fields under a labelled heading. No data is stored — purely for layout.</HelpBox>
   </>;
 }
@@ -871,7 +877,7 @@ export default function FieldModal({ field, selEnv, selObj, onSaved, onClose }) 
       "rollup_object_slug","rollup_field","rollup_function","country_region","country_display",
       "auto_number_prefix","auto_number_start","auto_number_padding","unique_id_format","auto_generate",
       "dataset_id","dataset_multi","skills_input","skills_multi","show_proficiency","max_skills",
-      "skills_categories","section_label","collapsible",
+      "skills_categories","section_label","collapsible","as_panel",
       "table_columns","table_template","conditions",
     ];
     extras.forEach(k => { if (field?.[k] !== undefined) base[k] = field[k]; });
@@ -932,6 +938,7 @@ export default function FieldModal({ field, selEnv, selObj, onSaved, onClose }) 
         social_platform: form.field_type==="social" ? (form.social_platform||"linkedin") : undefined,
         address_fields: form.field_type==="address" ? (form.address_fields||["street","city","country","postal_code"]) : undefined,
         section_label: form.field_type==="section_separator" ? (form.section_label||form.name) : undefined,
+        as_panel:      form.field_type==="section_separator" ? (!!form.as_panel) : undefined,
         table_columns: form.field_type==="table" ? (form.table_columns || []) : undefined,
         table_template: form.field_type==="table" ? (form.table_template||null) : undefined,
         conditions: form.conditions || null,

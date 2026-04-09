@@ -306,10 +306,13 @@ app.get('/api/health', (req, res) =>
 // ── Boot ──────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 
-// Start listening immediately so Railway health check passes during DB init
-app.listen(PORT, () => {
-  console.log(`Vercentic API → http://localhost:${PORT}`);
-});
+// Don't start the HTTP server when loaded by the test suite (supertest handles transport)
+if (process.env.NODE_ENV !== 'test') {
+  // Start listening immediately so Railway health check passes during DB init
+  app.listen(PORT, () => {
+    console.log(`Vercentic API → http://localhost:${PORT}`);
+  });
+}
 
 initDB().then(() => {
   const store = getStore();
@@ -469,3 +472,6 @@ app.use((err, req, res, next) => {
     code: err.code || 'INTERNAL_ERROR',
   });
 });
+
+// Export app for testing (supertest uses this without starting a server)
+module.exports = app;

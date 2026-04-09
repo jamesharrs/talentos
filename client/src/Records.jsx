@@ -8776,6 +8776,8 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
 
   const [visibleFieldIds, setVisibleFieldIds] = useState(null);
   const [showColPicker, setShowColPicker]     = useState(false);
+  // isPeopleObj must be declared before showEngagement (which depends on it)
+  const isPeopleObj = (object?.slug||"").toLowerCase() === "people" || (object?.name||"").toLowerCase() === "people";
   // Engagement column is now driven by the Columns picker (system col '__engagement')
   const showEngagement = isPeopleObj && (visibleFieldIds || []).includes('__engagement');
   const [engagementScores,  setEngagementScores]  = useState({});
@@ -8946,7 +8948,6 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   useEffect(() => { load(); }, [load]);
 
   // Fetch batch engagement scores whenever records load (People object only, when column toggled on)
-  const isPeopleObj = (object?.slug||"").toLowerCase() === "people" || (object?.name||"").toLowerCase() === "people";
   useEffect(() => {
     if (!isPeopleObj || !records.length || !showEngagement) return;
     setLoadingEngagement(true);

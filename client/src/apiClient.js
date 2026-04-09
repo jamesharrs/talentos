@@ -95,6 +95,20 @@ const api = {
   delete: (path)       => fetch(`/api${path}`, { method: 'DELETE', headers: authHeaders()  }).then(handleResponse),
 };
 
+// ── Backward-compatible silent variant ────────────────────────────────────────
+// Components that haven't been updated to handle ApiError can use api.quietly.*
+// These never throw — they return the data on success, or null on error (and
+// log the error to the console so it's still visible during development).
+const quietly = {
+  get:    async (path, fallback = null)       => { try { return await api.get(path);        } catch(e) { console.warn('[api]', 'GET',    path, e.message); return fallback; } },
+  post:   async (path, body, fallback = null) => { try { return await api.post(path, body);  } catch(e) { console.warn('[api]', 'POST',   path, e.message); return fallback; } },
+  patch:  async (path, body, fallback = null) => { try { return await api.patch(path, body); } catch(e) { console.warn('[api]', 'PATCH',  path, e.message); return fallback; } },
+  put:    async (path, body, fallback = null) => { try { return await api.put(path, body);   } catch(e) { console.warn('[api]', 'PUT',    path, e.message); return fallback; } },
+  del:    async (path, fallback = null)       => { try { return await api.del(path);         } catch(e) { console.warn('[api]', 'DELETE', path, e.message); return fallback; } },
+  delete: async (path, fallback = null)       => { try { return await api.delete(path);      } catch(e) { console.warn('[api]', 'DELETE', path, e.message); return fallback; } },
+};
+api.quietly = quietly;
+
 export default api;
 export { authHeaders, jsonHeaders, getTenantSlug, getSession, ApiError };
 

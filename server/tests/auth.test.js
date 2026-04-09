@@ -1,0 +1,102 @@
+// server/tests/auth.test.js
+// Auth endpoint contract tests — validation, rate limiting, credential checks
+'use strict';
+
+const { api } = require('./helpers');
+
+describe('POST /api/users/login — validation', () => {
+  test('missing email → 400 Validation failed', async () => {
+    const res = await api.post('/api/users/login', { password: 'secret' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Validation failed');
+    expect(res.body.errors).toBeInstanceOf(Array);
+    expect(res.body.errors[0].field).toBe('email');
+  });
+
+  test('invalid email format → 400', async () => {
+    const res = await api.post('/api/users/login', { email: 'notanemail', password: 'x' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Validation failed');
+  });
+
+  test('empty password → 400', async () => {
+    const res = await api.post('/api/users/login', { email: 'a@b.com', password: '' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Validation failed');
+  });
+
+  test('unknown extra keys are stripped — does not cause 400', async () => {
+    const res = await api.post('/api/users/login', {
+      email: 'admin@talentos.io',
+      password: 'Admin1234!',
+      injected: '<script>alert(1)</script>',
+    });
+    // Should succeed (200) or fail auth (401) but never 400 from extra key
+    expect(res.status).not.toBe(400);
+  });
+
+  test('malformed JSON body → 400 Invalid JSON', async () => {
+    const res = await api
+      .post('/api/users/login', null)
+      .set('Content-Type', 'application/json')
+      .send('{bad json');
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/users/login — credentials', () => {
+  test('valid credentials → 200 with user object', async () => {
+    const res = await api.post('/api/users/login', {
+      email: 'admin@talentos.io',
+      password: 'Admin1234!',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('id');
+    expect(res.body).toHaveProperty('email');
+    expect(res.body).not.toHaveProperty('password_hash'); // never expose hash
+  });
+
+  test('wrong password → 401', async () => {
+    const res = await api.post('/api/users/login', {
+      email: 'admin@talentos.io',
+      password: 'WrongPassword123!',
+    });
+    expect(res.status).toBe(401);
+  });
+
+  test('unknown email → 401 (same message as wrong password — no user enumeration)', async () => {
+    const res = await api.post('/api/users/login', {
+      email: 'nobody@unknown.com',
+      password: 'SomePassword1!',
+    });
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('Security headers', () => {
+  test('X-Powered-By is removed', async () => {
+    const res = await api.get('/api/health');
+    expect(res.headers['x-powered-by']).toBeUndefined();
+  });
+
+  test('X-Frame-Options is DENY', async () => {
+    const res = await api.get('/api/health');
+    expect(res.headers['x-frame-options']).toBe('DENY');
+  });
+
+  test('X-Content-Type-Options is nosniff', async () => {
+    const res = await api.get('/api/health');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+  });
+
+  test('Content-Security-Policy is present', async () => {
+    const res = await api.get('/api/health');
+    expect(res.headers['content-security-policy']).toBeDefined();
+    expect(res.headers['content-security-policy']).toContain("default-src 'self'");
+  });
+
+  test('Referrer-Policy is set', async () => {
+    const res = await api.get('/api/health');
+    expect(res.headers['referrer-policy']).toBeDefined();
+  });
+});

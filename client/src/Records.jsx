@@ -7106,84 +7106,91 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const leftStorageKey   = `talentos_panels_left_${objectName}`;
   const topStorageKey    = `talentos_panels_top_${objectName}`;
   const bottomStorageKey = `talentos_panels_bottom_${objectName}`;
-  const PANEL_VERSION    = "v11"; // bumped — clears ALL four keys on mismatch
+  const PANEL_VERSION    = "v12"; // bumped — forces clean reset, fixes duplicate panel bug
   const versionKey       = `talentos_panels_version_${objectName}`;
 
-  // On version mismatch wipe ALL four storage keys so nothing stale persists
-  const _storedVersion = localStorage.getItem(versionKey);
-  if (_storedVersion !== PANEL_VERSION) {
-    try {
-      localStorage.removeItem(storageKey);
-      localStorage.removeItem(leftStorageKey);
-      localStorage.removeItem(topStorageKey);
-      localStorage.removeItem(bottomStorageKey);
-      localStorage.setItem(versionKey, PANEL_VERSION);
-    } catch {}
-  }
+  // ── Single atomic layout load — deduplicates all 4 zones together ───────
+  // Previously 4 separate useState calls allowed the same panel ID to appear
+  // in multiple columns before the dedup code ran. This loads all zones at
+  // once and deduplicates in the initializer so the first render is clean.
+  const [layout, setLayout] = useState(() => {
+    const tryParse = (key) => { try { const s = JSON.parse(localStorage.getItem(key)); return Array.isArray(s) ? s : null; } catch { return null; } };
 
-  const [panelOrder, setPanelOrder] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(storageKey));
-      if (!saved) return getDefaultPanelOrder(objectName);
-      const defaults  = getDefaultPanelOrder(objectName);
-      const savedFlat = flatPanelIds(saved);
-      return [...saved, ...defaults.filter(id => !savedFlat.includes(id))];
+    // Clear stale storage on version mismatch
+    if (localStorage.getItem(versionKey) !== PANEL_VERSION) {
+      try {
+        [storageKey, leftStorageKey, topStorageKey, bottomStorageKey].forEach(k => localStorage.removeItem(k));
+        localStorage.setItem(versionKey, PANEL_VERSION);
+      } catch {}
+      const defaultRight = getDefaultPanelOrder(objectName);
+      return { top: [], left: ['fields'], right: defaultRight, bottom: [] };
     }
-    catch { return getDefaultPanelOrder(objectName); }
+
+    // Load raw saved orders
+    let top    = tryParse(topStorageKey)    || [];
+    let left   = tryParse(leftStorageKey)   || ['fields'];
+    let right  = tryParse(storageKey)       || getDefaultPanelOrder(objectName);
+    let bottom = tryParse(bottomStorageKey) || [];
+
+    // Full cross-column dedup — each panel ID in exactly ONE zone
+    const seen = new Set();
+    const dedup = (order) => order.map(s => {
+      if (Array.isArray(s)) {
+        const k = s.filter(id => !seen.has(id));
+        k.forEach(id => seen.add(id));
+        return k.length > 1 ? k : (k[0] ?? null);
+      }
+      if (seen.has(s)) return null;
+      seen.add(s);
+      return s;
+    }).filter(Boolean);
+
+    top    = dedup(top);
+    left   = dedup(left);
+    right  = dedup(right);
+    bottom = dedup(bottom);
+
+    // Add any new panel IDs (added since last save) to right column
+    const allSaved = new Set([...flatPanelIds(top), ...flatPanelIds(left), ...flatPanelIds(right), ...flatPanelIds(bottom)]);
+    const newPanels = getDefaultPanelOrder(objectName).filter(id => !allSaved.has(id));
+    if (newPanels.length) right = [...right, ...newPanels];
+
+    return { top, left, right, bottom };
   });
 
-  const savePanelOrder = (order) => {
-    setPanelOrder(order);
-    try { localStorage.setItem(storageKey, JSON.stringify(order)); } catch {}
+  // Destructure for use throughout
+  const topRows        = layout.top;
+  const leftPanelOrder = layout.left;
+  const panelOrder     = layout.right;
+  const bottomRows     = layout.bottom;
+
+  // Save helpers — always persist all 4 zones atomically
+  const saveLayout = (next) => {
+    setLayout(next);
+    try {
+      localStorage.setItem(topStorageKey,    JSON.stringify(next.top));
+      localStorage.setItem(leftStorageKey,   JSON.stringify(next.left));
+      localStorage.setItem(storageKey,       JSON.stringify(next.right));
+      localStorage.setItem(bottomStorageKey, JSON.stringify(next.bottom));
+    } catch {}
+  };
+  const savePanelOrder     = (right)  => saveLayout({ ...layout, right });
+  const saveLeftPanelOrder = (left)   => saveLayout({ ...layout, left });
+  const saveTopRows        = (top)    => saveLayout({ ...layout, top });
+  const saveBottomRows     = (bottom) => saveLayout({ ...layout, bottom });
+
+  const resetLayout = () => {
+    const fresh = { top: [], left: ['fields'], right: getDefaultPanelOrder(objectName), bottom: [] };
+    saveLayout(fresh);
   };
 
-  // ── Top / bottom full-width rows ────────────────────────────────────────
-  const [topRows,    setTopRows]    = useState(() => { try { const s=JSON.parse(localStorage.getItem(topStorageKey));    return Array.isArray(s) ? s : []; } catch { return []; } });
-  const [bottomRows, setBottomRows] = useState(() => { try { const s=JSON.parse(localStorage.getItem(bottomStorageKey)); return Array.isArray(s) ? s : []; } catch { return []; } });
-  const saveTopRows    = (order) => { setTopRows(order);    try { localStorage.setItem(topStorageKey,    JSON.stringify(order)); } catch {} };
-  const saveBottomRows = (order) => { setBottomRows(order); try { localStorage.setItem(bottomStorageKey, JSON.stringify(order)); } catch {} };
   // ── Full-width row drop zone state ───────────────────────────────────────
   const [fullWidthZone, setFullWidthZone] = useState(null);
   const fullWidthDropRef  = useRef(null);
   const outerLayoutRef    = useRef(null);
-  // Ref for fresh panel orders — assigned AFTER leftPanelOrder is declared below
   const panelOrdersRef    = useRef(null);
 
-  // ── Left column panel order (default: just fields) ──────────────────────
-  const [leftPanelOrder, setLeftPanelOrder] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(leftStorageKey));
-      if (saved && Array.isArray(saved) && saved.length) return saved;
-    } catch {}
-    return ['fields'];
-  });
-  const saveLeftPanelOrder = (order) => {
-    setLeftPanelOrder(order);
-    try { localStorage.setItem(leftStorageKey, JSON.stringify(order)); } catch {}
-  };
-
-  // ── One-time deduplication: a panel ID must only appear in ONE column ───
-  // Runs synchronously before first render — cleans up stale localStorage from old bugs.
-  const _dedupRef = useRef(false);
-  if (!_dedupRef.current) {
-    _dedupRef.current = true;
-    const dedup = (order, seen) => order.map(s => {
-      if (Array.isArray(s)) { const k = s.filter(id => !seen.has(id)); k.forEach(id => seen.add(id)); return k.length > 1 ? k : k[0] ?? null; }
-      if (seen.has(s)) return null; seen.add(s); return s;
-    }).filter(Boolean);
-    const seen = new Set();
-    const cleanTop   = dedup(topRows,        seen);
-    const cleanLeft  = dedup(leftPanelOrder, seen);
-    const cleanRight = dedup(panelOrder,     seen);
-    const cleanBot   = dedup(bottomRows,     seen);
-    const diff = (a, b) => JSON.stringify(a) !== JSON.stringify(b);
-    if (diff(cleanTop,   topRows))        try { localStorage.setItem(topStorageKey,    JSON.stringify(cleanTop));   } catch {}
-    if (diff(cleanLeft,  leftPanelOrder)) try { localStorage.setItem(leftStorageKey,   JSON.stringify(cleanLeft));  } catch {}
-    if (diff(cleanRight, panelOrder))     try { localStorage.setItem(storageKey,       JSON.stringify(cleanRight)); } catch {}
-    if (diff(cleanBot,   bottomRows))     try { localStorage.setItem(bottomStorageKey, JSON.stringify(cleanBot));   } catch {}
-  }
-
-  // Always-fresh snapshot — all four panel order states are now declared, safe to read
+  // Always-fresh snapshot for drag closures
   panelOrdersRef.current = { left: leftPanelOrder, right: panelOrder, top: topRows, bottom: bottomRows };
 
   // ── Column helpers ────────────────────────────────────────────────────────
@@ -8415,6 +8422,19 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         {/* Slim divider before destructive actions */}
         <div style={{ width:1, height:20, background:C.border, flexShrink:0, margin:"0 4px" }}/>
 
+        {/* Reset layout */}
+        <button onClick={resetLayout} title="Reset panel layout to default"
+          style={{ height:30, padding:"0 8px", borderRadius:7, border:"none", background:"transparent",
+            cursor:"pointer", display:"flex", alignItems:"center", gap:4,
+            transition:"all .15s", color:"#9CA3AF", fontSize:11, fontWeight:600, fontFamily:F }}
+          onMouseEnter={e=>{ e.currentTarget.style.background="#F1F5F9"; e.currentTarget.style.color="#475569"; }}
+          onMouseLeave={e=>{ e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#9CA3AF"; }}>
+          <Ic n="refresh" s={12} c="currentColor"/> Layout
+        </button>
+
+        {/* Slim divider before destructive actions */}
+        <div style={{ width:1, height:20, background:C.border, flexShrink:0, margin:"0 4px" }}/>
+
         {/* Delete + Close */}
         <button onClick={()=>onDelete(record.id)} title="Delete record"
           style={{ width:30, height:30, borderRadius:7, border:"none", background:"transparent",
@@ -8593,26 +8613,28 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         return <div key={slot} style={{ padding:"0 20px 12px" }}>{DropIndicator({beforeRepId:slot,afterRepId:prevRepId})}<PanelCard id={slot} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} renderPanel={renderPanel} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/></div>;
       })}
 
-      {/* BOTTOM drop zone — always after bottomRows so it's reachable */}
-      {draggingPanel && (
-        <div
-          data-drop-zone="bottom"
-          onMouseEnter={() => enterFullWidthZone('bottom')}
-          onMouseLeave={leaveFullWidthZone}
-          style={{ margin:"4px 20px 12px", borderRadius:10,
-            border:`2px dashed ${fullWidthZone==='bottom' ? C.accent : C.border}`,
-            padding: fullWidthZone==='bottom' ? "18px 16px" : "8px 16px",
-            background: fullWidthZone==='bottom' ? `${C.accent}08` : "transparent",
-            display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-            transition:"all .25s", cursor:"copy",
-            minHeight: fullWidthZone==='bottom' ? 60 : 32 }}>
-          <Ic n="layout" s={fullWidthZone==='bottom'?16:12} c={fullWidthZone==='bottom'?C.accent:C.text3}/>
-          <span style={{ fontSize:fullWidthZone==='bottom'?12:11, fontWeight:fullWidthZone==='bottom'?700:400,
-            color:fullWidthZone==='bottom'?C.accent:C.text3, userSelect:"none" }}>
-            {fullWidthZone==='bottom' ? "Drop here — full-width row below columns" : "Drop here for a full-width row below"}
-          </span>
-        </div>
-      )}
+      {/* BOTTOM drop zone — always visible so users know it's there */}
+      <div
+        data-drop-zone="bottom"
+        onMouseEnter={() => enterFullWidthZone('bottom')}
+        onMouseLeave={leaveFullWidthZone}
+        style={{ margin:"4px 20px 12px", borderRadius:10,
+          border:`2px dashed ${fullWidthZone==='bottom' ? C.accent : draggingPanel ? C.border : 'transparent'}`,
+          padding: fullWidthZone==='bottom' ? "18px 16px" : "6px 16px",
+          background: fullWidthZone==='bottom' ? `${C.accent}08` : "transparent",
+          display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+          transition:"all .25s", cursor: draggingPanel ? "copy" : "default",
+          minHeight: fullWidthZone==='bottom' ? 60 : draggingPanel ? 28 : 8 }}>
+        {draggingPanel && (
+          <>
+            <Ic n="layout" s={fullWidthZone==='bottom'?16:12} c={fullWidthZone==='bottom'?C.accent:C.text3}/>
+            <span style={{ fontSize:fullWidthZone==='bottom'?12:11, fontWeight:fullWidthZone==='bottom'?700:400,
+              color:fullWidthZone==='bottom'?C.accent:C.text3, userSelect:"none" }}>
+              {fullWidthZone==='bottom' ? "Drop here — full-width row below columns" : "Drop here for a full-width row below"}
+            </span>
+          </>
+        )}
+      </div>
 
       {/* Campaign Links modal — pre-populated from this record */}
       {showCampaignLinks && (

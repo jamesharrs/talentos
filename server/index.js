@@ -108,6 +108,46 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+const rateLimit = require('express-rate-limit');
+
+// Auth endpoints — tight limit to block brute-force and credential stuffing.
+// 10 attempts per 15 minutes per IP.  Resets on server restart (in-memory store).
+const authLimiter = rateLimit({
+  windowMs:         15 * 60 * 1000, // 15 minutes
+  limit:            10,              // max 10 attempts per window
+  standardHeaders:  'draft-7',
+  legacyHeaders:    false,
+  message: {
+    error: 'Too many login attempts. Please wait 15 minutes before trying again.',
+    code:  'RATE_LIMITED',
+  },
+  // Only skip when key is explicitly set AND matches — never skip on missing key
+  skip: (req) =>
+    !!process.env.INTERNAL_API_KEY &&
+    req.headers['x-internal-key'] === process.env.INTERNAL_API_KEY,
+});
+
+// General write operations — 200 mutating requests per minute per IP
+const writeLimiter = rateLimit({
+  windowMs:        60 * 1000,
+  limit:           200,
+  standardHeaders: 'draft-7',
+  legacyHeaders:   false,
+  message: {
+    error: 'Too many requests. Please slow down.',
+    code:  'RATE_LIMITED',
+  },
+  skip: (req) => req.method === 'GET' || req.method === 'OPTIONS',
+});
+
+// Apply auth limiter to all login routes
+app.use('/api/users/login',      authLimiter);
+app.use('/api/users/auth/login', authLimiter);
+
+// Apply write limiter to all mutating API calls
+app.use('/api', writeLimiter);
+
 // ── Core data ─────────────────────────────────────────────────────────────────
 app.use('/api/auth',              require('./routes/auth'));
 app.use('/api/environments',      require('./routes/environments'));

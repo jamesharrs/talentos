@@ -1,11 +1,18 @@
 /**
  * apiClient.js — shared authenticated API helper
- * Import this instead of defining a local `api` object in each component.
  *
  * Automatically attaches:
  *   X-User-Id     — from talentos_session in localStorage
  *   X-Tenant-Slug — from session or URL subdomain
  *   Content-Type  — application/json (for mutations)
+ *
+ * All methods now THROW on non-2xx responses so callers can catch errors
+ * rather than silently receiving { error: "..." } objects.
+ * The thrown error always has:
+ *   err.message  — human-readable error text
+ *   err.status   — HTTP status code
+ *   err.body     — full response body (may include err.body.errors[] for validation failures)
+ *   err.detail   — short summary (Zod "detail" field or message)
  */
 
 function getSession() {
@@ -13,20 +20,16 @@ function getSession() {
 }
 
 function getTenantSlug() {
-  // 1. Subdomain detection (production: acme.vercentic.com → slug = 'acme')
-  const host = window.location.hostname;
+  const host  = window.location.hostname;
   const parts = host.split('.');
   const INFRA = new Set(['www','app','api','admin','portal','localhost','mail','cdn','static','assets']);
-  // Must be subdomain.vercentic.com (3+ parts) and not an infra subdomain
   if (parts.length >= 3 &&
       !INFRA.has(parts[0]) &&
       !['vercel','railway','up','netlify','herokuapp'].some(r => host.includes(r))) {
     return parts[0];
   }
-  // 2. Session slug (set after login — covers ?tenant= logins and same-domain sessions)
   const sess = getSession();
   if (sess?.tenant_slug && sess.tenant_slug !== 'master') return sess.tenant_slug;
-  // 3. ?tenant= query param (super admin testing / fallback)
   const params = new URLSearchParams(window.location.search);
   if (params.get('tenant')) return params.get('tenant');
   return null;
@@ -36,7 +39,7 @@ function authHeaders(extra = {}) {
   const sess   = getSession();
   const slug   = getTenantSlug();
   const userId = sess?.user?.id || null;
-  const h = { ...extra };
+  const h      = { ...extra };
   if (slug)   h['X-Tenant-Slug'] = slug;
   if (userId) h['X-User-Id']     = userId;
   return h;
@@ -46,19 +49,56 @@ function jsonHeaders() {
   return { 'Content-Type': 'application/json', ...authHeaders() };
 }
 
+/**
+ * Parse a fetch Response and throw an ApiError on non-2xx status.
+ * Always resolves to the parsed JSON body on success.
+ */
+class ApiError extends Error {
+  constructor(message, status, body) {
+    super(message);
+    this.name   = 'ApiError';
+    this.status = status;
+    this.body   = body;
+    // Zod validation failures surface a short "detail" field — use it if present
+    this.detail = body?.detail || body?.error || message;
+    // Full validation errors array (each has { field, message, code })
+    this.errors = body?.errors || null;
+  }
+}
+
+async function handleResponse(res) {
+  let body;
+  const ct = res.headers.get('content-type') || '';
+  try {
+    body = ct.includes('application/json') ? await res.json() : await res.text();
+  } catch {
+    body = null;
+  }
+
+  if (!res.ok) {
+    const message =
+      (typeof body === 'object' && body !== null)
+        ? (body.detail || body.error || `HTTP ${res.status}`)
+        : `HTTP ${res.status}`;
+    throw new ApiError(message, res.status, body);
+  }
+
+  return body;
+}
+
 const api = {
-  get:    (path)       => fetch(`/api${path}`, { headers: authHeaders() }).then(r => r.json()),
-  post:   (path, body) => fetch(`/api${path}`, { method: 'POST',   headers: jsonHeaders(), body: JSON.stringify(body) }).then(r => r.json()),
-  patch:  (path, body) => fetch(`/api${path}`, { method: 'PATCH',  headers: jsonHeaders(), body: JSON.stringify(body) }).then(r => r.json()),
-  put:    (path, body) => fetch(`/api${path}`, { method: 'PUT',    headers: jsonHeaders(), body: JSON.stringify(body) }).then(r => r.json()),
-  del:    (path)       => fetch(`/api${path}`, { method: 'DELETE', headers: authHeaders() }).then(r => r.json()),
-  delete: (path)       => fetch(`/api${path}`, { method: 'DELETE', headers: authHeaders() }).then(r => r.json()),
+  get:    (path)       => fetch(`/api${path}`, { headers: authHeaders()  }).then(handleResponse),
+  post:   (path, body) => fetch(`/api${path}`, { method: 'POST',   headers: jsonHeaders(), body: JSON.stringify(body) }).then(handleResponse),
+  patch:  (path, body) => fetch(`/api${path}`, { method: 'PATCH',  headers: jsonHeaders(), body: JSON.stringify(body) }).then(handleResponse),
+  put:    (path, body) => fetch(`/api${path}`, { method: 'PUT',    headers: jsonHeaders(), body: JSON.stringify(body) }).then(handleResponse),
+  del:    (path)       => fetch(`/api${path}`, { method: 'DELETE', headers: authHeaders()  }).then(handleResponse),
+  delete: (path)       => fetch(`/api${path}`, { method: 'DELETE', headers: authHeaders()  }).then(handleResponse),
 };
 
 export default api;
-export { authHeaders, jsonHeaders, getTenantSlug, getSession };
+export { authHeaders, jsonHeaders, getTenantSlug, getSession, ApiError };
 
-// Bare fetch wrapper — use instead of raw fetch() so tenant + user headers are always sent.
+// Bare fetch wrapper — attaches tenant + user headers without throwing
 export function tFetch(url, opts = {}) {
   const h = { ...authHeaders(), ...(opts.headers || {}) };
   return fetch(url, { ...opts, headers: h });

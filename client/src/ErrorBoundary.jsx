@@ -12,7 +12,7 @@ function generateCode() {
 async function reportError({ code, message, stack, component, severity = 'error', extra = {} }) {
   try {
     const session = (() => {
-      try { return JSON.parse(sessionStorage.getItem('talentos_session') || '{}'); }
+      try { return JSON.parse(localStorage.getItem('talentos_session') || '{}'); }
       catch { return {}; }
     })();
     await fetch('/api/error-logs', {

@@ -283,7 +283,7 @@ export default function HMPortal({ portal, api }) {
               {portal.wizard?.enabled && portal.wizard?.pages?.length>0 && (
                 <button onClick={()=>setShowCreateWizard(true)}
                   style={{ padding:'8px 16px', borderRadius:9, background:c.primary, color:'white', fontSize:13, fontWeight:700, border:'none', cursor:'pointer', fontFamily:c.font }}>
-                  + New Requisition
+                  + {portal.wizard?.trigger?.button_label || 'New Requisition'}
                 </button>
               )}
             </div>

@@ -114,7 +114,7 @@ const JobDetail = ({ job, portal, onApply, onBack }) => {
           </div>
           {d.description && <div style={{ marginBottom:24 }}><h3 style={{ fontSize:16, fontWeight:700, color:'#0F1729', marginBottom:10 }}>Description</h3><p style={{ fontSize:15, color:'#4B5675', lineHeight:1.7, margin:0 }}>{d.description}</p></div>}
           {d.required_skills?.length > 0 && <div style={{ marginBottom:28 }}><h3 style={{ fontSize:16, fontWeight:700, color:'#0F1729', marginBottom:10 }}>Required skills</h3><div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>{(Array.isArray(d.required_skills)?d.required_skills:d.required_skills.split(',')).map(s=><Badge key={s} color={c.primary}>{s.trim()}</Badge>)}</div></div>}
-          <Btn color={c.button} onClick={onApply}>Apply for this role →</Btn>
+          <Btn color={c.button} onClick={onApply}>{portal.wizard?.trigger?.apply_label || 'Apply for this role →'}</Btn>
         </div>
       </Section>
     </div>
@@ -505,11 +505,19 @@ export default function CareerSite({ portal, objects, api }) {
   const depts = [...new Set(jobs.map(j=>j.data?.department).filter(Boolean))]
   const filtered = jobs.filter(j=>(!search||(j.data?.job_title||'').toLowerCase().includes(search.toLowerCase()))&&(!dept||j.data?.department===dept))
 
+  // Standalone mode — wizard IS the portal, skip straight to it
+  const isStandalone = portal.wizard?.enabled && portal.wizard?.trigger?.mode === 'standalone';
+  if (isStandalone && view === 'list') {
+    return <WizardRenderer wizard={portal.wizard} portal={portal} job={null} api={api}
+      onBack={null} onSuccess={()=>{ /* stay on success screen */ }}/>;
+  }
+
   if (view==='apply') {
     // Use the configurable WizardRenderer when wizard is enabled, else fall back to ApplyForm
     if (portal.wizard?.enabled && portal.wizard?.pages?.length) {
-      return <WizardRenderer wizard={portal.wizard} portal={portal} job={selected} api={api}
-        onBack={()=>setView('detail')} onSuccess={()=>{ setView('list'); setSelected(null); }}/>;
+      return <WizardRenderer wizard={portal.wizard} portal={portal} job={selected||null} api={api}
+        onBack={()=>selected ? setView('detail') : setView('list')}
+        onSuccess={()=>{ setView('list'); setSelected(null); }}/>;
     }
     return <ApplyForm job={selected} portal={portal} api={api} onBack={()=>setView('detail')} onSuccess={()=>setView('list')}/>
   }
@@ -522,6 +530,19 @@ export default function CareerSite({ portal, objects, api }) {
           {br.logo_url && <img src={br.logo_url} alt="logo" style={{ height:40, marginBottom:20, objectFit:'contain' }}/>}
           <h1 style={{ margin:'0 0 10px', fontSize:38, fontWeight:900, color:'white', letterSpacing:'-1px', lineHeight:1.15 }}>{br.tagline||`Join ${br.company_name||'Us'}`}</h1>
           <p style={{ margin:'0 0 32px', fontSize:16, color:'rgba(255,255,255,0.75)', maxWidth:520 }}>{br.company_name?`${br.company_name} is hiring. Find your next opportunity below.`:'Explore our open positions.'}</p>
+          {/* Hero CTA — shown when wizard trigger is hero_cta or job_apply+hero */}
+          {portal.wizard?.enabled && ['hero_cta','job_apply+hero'].includes(portal.wizard?.trigger?.mode) && (
+            <div style={{ marginBottom:24 }}>
+              <button onClick={()=>{ setSelected(null); setView('apply'); }}
+                style={{ padding:'13px 26px', borderRadius:10, background:'white', color:c.primary,
+                  fontSize:15, fontWeight:800, border:'none', cursor:'pointer', fontFamily:c.font,
+                  boxShadow:'0 4px 16px rgba(0,0,0,.15)', transition:'all .15s' }}
+                onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 6px 20px rgba(0,0,0,.2)'; }}
+                onMouseLeave={e=>{ e.currentTarget.style.transform=''; e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,.15)'; }}>
+                {portal.wizard.trigger?.hero_label || 'Register your interest →'}
+              </button>
+            </div>
+          )}
           <div style={{ display:'flex', gap:10, flexWrap:'wrap', maxWidth:600 }}>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search roles…" style={{ flex:1, minWidth:200, padding:'12px 16px', borderRadius:10, border:'none', fontSize:14, fontFamily:c.font, outline:'none' }}/>
             {depts.length>0 && <select value={dept} onChange={e=>setDept(e.target.value)} style={{ padding:'12px 14px', borderRadius:10, border:'none', fontSize:14, fontFamily:c.font, background:'white', cursor:'pointer' }}><option value="">All departments</option>{depts.map(d=><option key={d} value={d}>{d}</option>)}</select>}

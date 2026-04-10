@@ -29,6 +29,7 @@ export const DEFAULT_WIZARDS = {
   candidate_apply: {
     type:'candidate_apply', target_object:'people', link_to_job:true,
     show_progress:true, allow_save_draft:true,
+    trigger:{ mode:'job_apply', apply_label:'Apply for this role →', hero_label:'Register your interest →' },
     pages:[
       { id:uid(), title:'Let\'s get started',     subtitle:'How would you like to apply?',    blocks:[{id:uid(),type:'entry_method',config:{allow_cv:true,allow_manual:true,allow_linkedin:true,allow_returning:true}}], navigation:{next:null} },
       { id:uid(), title:'Your details',            subtitle:'Tell us about yourself.',          blocks:[{id:uid(),type:'profile_fields',config:{fields:['first_name','last_name','email','phone','location','current_title','cover_letter']}},{id:uid(),type:'file_upload',config:{label:'Upload your CV',field_key:'cv',parse_cv:true,required:false}}], navigation:{next:null} },
@@ -42,6 +43,7 @@ export const DEFAULT_WIZARDS = {
   hm_create_job: {
     type:'hm_create_job', target_object:'jobs', link_to_job:false,
     show_progress:true, allow_save_draft:false,
+    trigger:{ mode:'hm_dashboard', button_label:'New Requisition' },
     pages:[
       { id:uid(), title:'New Requisition',  subtitle:'Tell us about the role.',  blocks:[{id:uid(),type:'job_fields',config:{fields:['job_title','department','location','work_type','employment_type','priority']}}], navigation:{next:null} },
       { id:uid(), title:'Role description', subtitle:'',                          blocks:[{id:uid(),type:'job_fields',config:{fields:['description','required_skills']}},{id:uid(),type:'info_block',config:{icon:'💡',heading:'Tip',content:'Add the key skills required for this role, separated by commas.'}}], navigation:{next:null} },
@@ -359,7 +361,66 @@ export default function WizardBuilder({ portal, onChange }) {
         <SmBtn onClick={()=>setW('enabled',false)} variant='danger' icon='🗑'>Disable wizard</SmBtn>
       </div>
 
-      {/* Global settings */}
+      {/* ── Trigger configuration ── */}
+      <div style={{padding:'12px 14px',background:'#FFFBEB',borderRadius:10,border:'1.5px solid #FDE68A',display:'flex',flexDirection:'column',gap:10}}>
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          <span style={{fontSize:15}}>⚡</span>
+          <span style={{fontSize:11,fontWeight:700,color:'#92400E',textTransform:'uppercase',letterSpacing:'0.05em'}}>How is this wizard triggered?</span>
+        </div>
+
+        <Sel label="Trigger mode" value={wizard.trigger?.mode||'job_apply'} onChange={v=>setW('trigger',{...(wizard.trigger||{}),mode:v})}
+          options={[
+            {value:'job_apply',      label:'Apply button on each job listing (Career Site)'},
+            {value:'hero_cta',       label:'CTA button on the portal hero section (Career Site)'},
+            {value:'job_apply+hero', label:'Both — apply button AND hero CTA (Career Site)'},
+            {value:'hm_dashboard',   label:'New Requisition button in HM portal dashboard'},
+            {value:'standalone',     label:'Standalone — wizard is the whole portal page'},
+          ]}/>
+
+        {/* Trigger-specific explanation */}
+        {(wizard.trigger?.mode||'job_apply')==='job_apply'&&(
+          <div style={{background:'white',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#6B7280',lineHeight:1.6}}>
+            📋 The <strong>"Apply for this role →"</strong> button on every job detail page will launch this wizard. The candidate must click a job first — the wizard runs in the context of that specific job.
+          </div>
+        )}
+        {(wizard.trigger?.mode)==='hero_cta'&&(
+          <div style={{background:'white',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#6B7280',lineHeight:1.6}}>
+            🦸 A CTA button appears in the career site hero section. Clicking it launches the wizard <strong>without a specific job</strong> — useful for expressions of interest or talent pool sign-ups.
+          </div>
+        )}
+        {(wizard.trigger?.mode)==='job_apply+hero'&&(
+          <div style={{background:'white',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#6B7280',lineHeight:1.6}}>
+            🔀 Two triggers: the <strong>Apply</strong> button on job listings (job-specific), and a <strong>general CTA</strong> in the hero section (no job). Use when you want both targeted applications and general interest.
+          </div>
+        )}
+        {(wizard.trigger?.mode)==='hm_dashboard'&&(
+          <div style={{background:'white',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#6B7280',lineHeight:1.6}}>
+            💼 A <strong>"{wizard.trigger?.button_label||'New Requisition'}"</strong> button appears on the HM portal dashboard. Clicking it launches this wizard to collect job/requisition details.
+          </div>
+        )}
+        {(wizard.trigger?.mode)==='standalone'&&(
+          <div style={{background:'white',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#6B7280',lineHeight:1.6}}>
+            🚀 The wizard <strong>is the portal</strong> — anyone who visits the portal URL goes straight into the wizard. No job listing, no separate landing page.
+          </div>
+        )}
+
+        {/* Button label config — shown for modes that have a configurable button */}
+        {['job_apply','hero_cta','job_apply+hero','hm_dashboard'].includes(wizard.trigger?.mode||'job_apply')&&(
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            {['job_apply','job_apply+hero'].includes(wizard.trigger?.mode||'job_apply')&&(
+              <Inp label="Apply button label" value={wizard.trigger?.apply_label||''} onChange={v=>setW('trigger',{...(wizard.trigger||{}),apply_label:v})} placeholder="Apply for this role →"/>
+            )}
+            {['hero_cta','job_apply+hero'].includes(wizard.trigger?.mode)&&(
+              <Inp label="Hero CTA button label" value={wizard.trigger?.hero_label||''} onChange={v=>setW('trigger',{...(wizard.trigger||{}),hero_label:v})} placeholder="Register your interest →"/>
+            )}
+            {(wizard.trigger?.mode)==='hm_dashboard'&&(
+              <Inp label="Dashboard button label" value={wizard.trigger?.button_label||''} onChange={v=>setW('trigger',{...(wizard.trigger||{}),button_label:v})} placeholder="New Requisition"/>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Global settings ── */}
       <div style={{padding:'10px 12px',background:C.surface2,borderRadius:10,border:`1px solid ${C.border}`,display:'flex',flexDirection:'column',gap:8}}>
         <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.05em'}}>Global settings</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>

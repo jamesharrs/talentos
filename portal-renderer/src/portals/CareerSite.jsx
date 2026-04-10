@@ -484,9 +484,14 @@ export default function CareerSite({ portal, objects, api }) {
 
   useEffect(() => {
     if (!jobObj) { setLoading(false); return }
-    api.get(`/records?object_id=${jobObj.id}&environment_id=${portal.environment_id}&limit=50`)
-      .then(d => { setJobs((d.records||[]).filter(j=>j.data?.status==='Open'||!j.data?.status)); setLoading(false) })
-      .catch(() => setLoading(false))
+    api.get(`/portals/${portal.id}/jobs`)
+      .then(d => { setJobs(d.jobs||[]); setLoading(false) })
+      .catch(() => {
+        // Fallback: fetch all jobs if the portal jobs endpoint isn't available
+        api.get(`/records?object_id=${jobObj.id}&environment_id=${portal.environment_id}&limit=50`)
+          .then(d => { setJobs((d.records||[]).filter(j=>j.data?.status==='Open'||!j.data?.status)); setLoading(false) })
+          .catch(() => setLoading(false))
+      })
   }, [jobObj?.id])
 
   useEffect(() => {

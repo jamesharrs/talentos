@@ -147,6 +147,7 @@ const AUTH_EXEMPT = [
 app.use('/api', (req, res, next) => {
   if (AUTH_EXEMPT.some(p => req.path === p || req.path.startsWith(p + '/'))) return next();
   if (req.path.match(/^\/portals\/[^/]+\/apply$/)) return next();
+  if (req.path.match(/^\/portals\/[^/]+\/jobs$/)) return next();
   if (req.path.match(/^\/portals\/[^/]+\/wizard\//)) return next();
   if (req.path.match(/^\/portals\/[^/]+\/apply\/check-email$/)) return next();
   if (req.path.match(/^\/portals\/[^/]+\/draft/)) return next();

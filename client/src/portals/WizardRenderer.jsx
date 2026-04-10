@@ -21,6 +21,7 @@ const WZ_PATHS = {
   save:        "M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8",
   partyPopper: "M5.8 11.3L2 22l10.7-3.79M4 3h.01M22 8h.01M15 2h.01M22 20h.01M2 8h.01M20 2l-7.5 7.5M15 9.5L9.5 15",
   thumbsDown:  "M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zM17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17",
+  user:        "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
   arrowLeft:   "M19 12H5M12 19l-7-7 7-7",
   send:        "M22 2L11 13M22 2L15 22l-4-9-9-4 19-7z",
 };
@@ -449,6 +450,7 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
   const [draftSaved, setDraftSaved]    = useState(false);
   const [knockedOut, setKnockedOut]    = useState(false);
   const [submitted, setSubmitted]      = useState(false);
+  const [hubCredentials, setHubCredentials] = useState(null);
   const [error, setError]              = useState('');
   const [questions, setQuestions]      = useState([]);
   const [emailCheck, setEmailCheck]    = useState(null);
@@ -636,6 +638,7 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
       });
       if (result.error) { setError(result.error); setSubmitting(false); return; }
       try { sessionStorage.removeItem(`wiz_${portal.id}_${job?.id||'gen'}`); } catch {}
+      if (result.hub_credentials) setHubCredentials(result.hub_credentials);
       setSubmitted(true);
     } catch { setError('Something went wrong. Please try again.'); setSubmitting(false); }
   };
@@ -646,14 +649,48 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
     const name = formData.first_name || '';
     return (
       <div style={{minHeight:'100vh',background:c.bg,fontFamily:c.font,display:'flex',alignItems:'center',justifyContent:'center'}}>
-        <div style={{textAlign:'center',padding:40,maxWidth:480}}>
+        <div style={{textAlign:'center',padding:40,maxWidth:520}}>
           <div style={{width:72,height:72,borderRadius:'50%',background:`${color}14`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
             <WzIc n="partyPopper" s={36} c={color}/>
           </div>
           <h2 style={{fontSize:26,fontWeight:900,color:'#0F1729',marginBottom:8}}>{sp.title||'Submitted!'}</h2>
-          <p style={{color:'#6B7280',lineHeight:1.7,marginBottom:28}}>
+          <p style={{color:'#6B7280',lineHeight:1.7,marginBottom:hubCredentials?20:28}}>
             {(sp.message||'Thank you {first_name} — your submission is on its way.').replace('{first_name}',name).replace('{job_title}',job?.data?.job_title||'')}
           </p>
+          {hubCredentials && (
+            <div style={{background:'white',borderRadius:16,border:'1.5px solid #E5E7EB',padding:'20px 24px',marginBottom:24,textAlign:'left',boxShadow:'0 2px 12px rgba(0,0,0,0.06)'}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+                <div style={{width:36,height:36,borderRadius:10,background:`${color}14`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <WzIc n="user" s={18} c={color}/>
+                </div>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700,color:'#0F1729'}}>
+                    {hubCredentials.is_new ? 'Your Candidate Hub account is ready' : 'You already have a Hub account'}
+                  </div>
+                  <div style={{fontSize:12,color:'#6B7280'}}>
+                    {hubCredentials.is_new ? 'Track your application and manage your profile' : 'Log in to track your application status'}
+                  </div>
+                </div>
+              </div>
+              <div style={{background:'#F9FAFB',borderRadius:10,padding:'12px 14px',fontSize:13}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:hubCredentials.is_new?8:0}}>
+                  <span style={{color:'#6B7280'}}>Email</span>
+                  <span style={{fontWeight:600,color:'#0F1729'}}>{hubCredentials.email}</span>
+                </div>
+                {hubCredentials.is_new && hubCredentials.password && (
+                  <div style={{display:'flex',justifyContent:'space-between'}}>
+                    <span style={{color:'#6B7280'}}>Temporary password</span>
+                    <span style={{fontWeight:700,color:'#0F1729',fontFamily:'monospace',letterSpacing:'0.05em'}}>{hubCredentials.password}</span>
+                  </div>
+                )}
+              </div>
+              {hubCredentials.is_new && (
+                <div style={{fontSize:11,color:'#9CA3AF',marginTop:10}}>
+                  Please save your password — you can change it after logging in.
+                </div>
+              )}
+            </div>
+          )}
           {onSuccess&&<button onClick={onSuccess} style={{padding:'10px 24px',borderRadius:10,background:color,color:'white',fontSize:14,fontWeight:700,border:'none',cursor:'pointer',fontFamily:c.font}}>Done</button>}
         </div>
       </div>

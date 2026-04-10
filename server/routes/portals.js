@@ -376,8 +376,35 @@ router.post('/:id/wizard/submit', async (req, res) => {
       if (di!==-1) { store.wizard_drafts[di].submitted_at=new Date().toISOString(); }
     }
 
+    // ── Auto-create candidate hub account ──────────────────────────────────
+    let hub_credentials = null;
+    if (target_object === 'people' && form_data.email) {
+      const email = form_data.email.toLowerCase().trim();
+      const hashPw = (pw) => crypto.createHash('sha256').update(pw + 'vrc_portal_2026').digest('hex');
+      if (!store.portal_users) store.portal_users = [];
+      const existing_hub = store.portal_users.find(u => u.email === email);
+      if (!existing_hub) {
+        // Generate a readable temporary password
+        const tempPw = crypto.randomBytes(4).toString('hex') + '-' + crypto.randomBytes(4).toString('hex');
+        const fullName = [form_data.first_name, form_data.last_name].filter(Boolean).join(' ');
+        store.portal_users.push({
+          id: uid(), email, name: fullName || email,
+          password_hash: hashPw(tempPw),
+          client_id: portal.environment_id, client_name: portal.name || 'Career Portal',
+          client_domain: portal.slug || '', role: 'candidate',
+          record_id: record.id, status: 'active',
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        });
+        hub_credentials = { email, password: tempPw, is_new: true };
+      } else {
+        // Account already exists — don't expose the password
+        hub_credentials = { email, is_new: false };
+      }
+    }
+
     saveStore();
-    res.json({ success:true, record_id:record.id, is_new:!(target_object==='people' && !!record.created_at<new Date().toISOString()) });
+    res.json({ success:true, record_id:record.id, hub_credentials,
+      is_new:!(target_object==='people' && !!record.created_at<new Date().toISOString()) });
   } catch(e) {
     console.error('Wizard submit error:',e);
     res.status(500).json({ error:e.message });
@@ -444,6 +471,38 @@ router.get('/:id/wizard/draft/:token', (req, res) => {
 });
 
 module.exports = router;
+
+// ── Portal jobs — only jobs with a linked_person workflow attached ─────────────
+// GET /api/portals/:id/jobs
+router.get('/:id/jobs', (req, res) => {
+  try {
+    const store = getStore();
+    const portal = (store.portals||[]).find(p=>p.id===req.params.id && !p.deleted_at);
+    if (!portal) return res.status(404).json({ error:'Portal not found' });
+
+    const jobObj = (store.objects||[]).find(
+      o => o.environment_id===portal.environment_id && (o.slug==='jobs' || o.slug==='job')
+    );
+    if (!jobObj) return res.json({ jobs: [] });
+
+    // Find job IDs that have a linked_person workflow assignment
+    const assignments = (store.record_workflow_assignments||[])
+      .filter(a => a.assignment_type==='linked_person');
+    const jobsWithWorkflow = new Set(assignments.map(a => a.record_id));
+
+    // Fetch open jobs, filter to only those with an assignment
+    const allJobs = (store.records||[]).filter(r =>
+      r.object_id===jobObj.id &&
+      !r.deleted_at &&
+      (r.data?.status==='Open' || r.data?.status==='open' || !r.data?.status) &&
+      jobsWithWorkflow.has(r.id)
+    );
+
+    res.json({ jobs: allJobs });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ── Portal session auth (for HM portal login) ────────────────────────────────
 // POST /api/portals/:id/session — login as a platform user for a specific portal.

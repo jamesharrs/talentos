@@ -51,6 +51,9 @@ const VALID_FIELD_TYPES = [
   'text','textarea','number','email','phone','url','date','datetime',
   'boolean','select','multi_select','lookup','multi_lookup','file',
   'rich_text','currency','rating','people','formula','progress','address','phone_intl',
+  'section_separator','skills','dataset','auto_number','unique_id','status',
+  'date_range','datetime_range','duration','percent','rollup','social',
+  'country','table','multi_text','color','slider',
 ];
 const createFieldSchema = z.object({
   object_id:        uuid(),

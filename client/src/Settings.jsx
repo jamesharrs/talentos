@@ -667,7 +667,7 @@ const RolesSection = ({ environment }) => {
               </div>
               {/* Tab bar */}
               <div style={{display:"flex",gap:4,marginBottom:14,borderBottom:`1px solid ${C.border}`,paddingBottom:8}}>
-                {[{id:"permissions",label:"Permissions"},{id:"field_visibility",label:"Field Visibility"},{id:"feature_access",label:"Feature Access"}].map(tab=>(
+                {[{id:"permissions",label:"Permissions"},{id:"field_visibility",label:"Field Visibility"},{id:"feature_access",label:"Feature Access"},{id:"admin_settings",label:"Admin Settings"}].map(tab=>(
                   <button key={tab.id} onClick={()=>setRoleTab(tab.id)}
                     style={{padding:"5px 14px",borderRadius:20,fontSize:12,fontWeight:roleTab===tab.id?700:500,border:"none",
                       background:roleTab===tab.id?C.accent:"transparent",color:roleTab===tab.id?"white":C.text3,cursor:"pointer",fontFamily:F}}>
@@ -675,7 +675,9 @@ const RolesSection = ({ environment }) => {
                   </button>
                 ))}
               </div>
-              {roleTab==="feature_access"
+              {roleTab==="admin_settings"
+                ? <AdminSettingsSection selectedRole={selectedRole}/>
+                : roleTab==="feature_access"
                 ? <FeatureAccessSection selectedRole={selectedRole}/>
                 : roleTab==="field_visibility"
                 ? <FieldVisibilityPanel role={selectedRole} environment={environment}/>
@@ -2735,6 +2737,142 @@ export default function SettingsPage({ currentUser, environment, initialSection,
   );
 }
 
+
+// ── Admin Settings Access Section ────────────────────────────────────────────
+const ADMIN_SETTINGS_FLAGS = [
+  // User Settings (always available to everyone)
+  { id:'appearance_always', label:'Appearance',              group:'User Settings',              flag:null,                    alwaysOn:true },
+  { id:'language_always',   label:'Language',                group:'User Settings',              flag:null,                    alwaysOn:true },
+  // System Admin — Data
+  { id:'manage_settings_dm',  label:'Data Model',            group:'System Admin — Data',         flag:'manage_settings' },
+  { id:'manage_settings_ft',  label:'File Types',            group:'System Admin — Data',         flag:'manage_settings' },
+  { id:'manage_settings_ds',  label:'Data Sets',             group:'System Admin — Data',         flag:'manage_settings' },
+  { id:'manage_settings_dup', label:'Duplicate Rules',       group:'System Admin — Data',         flag:'manage_settings' },
+  // System Admin — People
+  { id:'manage_users',        label:'Users',                 group:'System Admin — People',        flag:'manage_users' },
+  { id:'manage_roles',        label:'Roles & Permissions',   group:'System Admin — People',        flag:'manage_roles' },
+  { id:'manage_org_structure',label:'Org Structure',         group:'System Admin — People',        flag:'manage_org_structure' },
+  // System Admin — Automation
+  { id:'manage_workflows',    label:'Workflows',             group:'System Admin — Automation',    flag:'manage_workflows' },
+  { id:'manage_forms',        label:'Forms',                 group:'System Admin — Automation',    flag:'manage_forms' },
+  { id:'manage_interviews_a', label:'Interview Templates',   group:'System Admin — Automation',    flag:'manage_interviews' },
+  { id:'manage_portals',      label:'Portals',               group:'System Admin — Automation',    flag:'manage_portals' },
+  // System Admin — Platform
+  { id:'manage_integrations', label:'Integrations',          group:'System Admin — Platform',      flag:'manage_integrations' },
+  { id:'view_audit_log',      label:'Audit Log',             group:'System Admin — Platform',      flag:'view_audit_log' },
+  { id:'manage_settings_sec', label:'Security',              group:'System Admin — Platform',      flag:'manage_settings' },
+  { id:'manage_settings_ses', label:'Active Sessions',       group:'System Admin — Platform',      flag:'manage_settings' },
+  { id:'manage_settings_imp', label:'Import / Export',       group:'System Admin — Platform',      flag:'manage_settings' },
+];
+const UNIQUE_ADMIN_FLAGS = [...new Set(ADMIN_SETTINGS_FLAGS.filter(f=>f.flag).map(f=>f.flag))];
+const ADMIN_GROUPS_LIST  = [...new Set(ADMIN_SETTINGS_FLAGS.map(f=>f.group))];
+
+const AdminSettingsSection = ({ selectedRole }) => {
+  const [perms,   setPerms]   = useState({});
+  const [orig,    setOrig]    = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving,  setSaving]  = useState(false);
+  const [saved,   setSaved]   = useState(false);
+  const [saveErr, setSaveErr] = useState('');
+
+  useEffect(() => {
+    if (!selectedRole) { setLoading(false); return; }
+    setLoading(true);
+    api.get(`/roles/${selectedRole.id}/permissions`).then(p => {
+      const map = {};
+      (Array.isArray(p)?p:[]).forEach(x => { if (x.object_slug==='__global__') map[x.action]=Boolean(x.allowed); });
+      setPerms(map); setOrig(map); setLoading(false);
+    });
+  }, [selectedRole?.id]);
+
+  const toggle = (flag) => { if (!flag) return; setPerms(prev=>({...prev,[flag]:!prev[flag]})); };
+  const isDirty = JSON.stringify(perms) !== JSON.stringify(orig);
+
+  const handleSave = async () => {
+    if (!selectedRole) return;
+    setSaving(true); setSaveErr('');
+    const existing = await api.get(`/roles/${selectedRole.id}/permissions`);
+    const objectPerms  = (Array.isArray(existing)?existing:[]).filter(p=>p.object_slug!=='__global__').map(p=>({object_slug:p.object_slug,action:p.action,allowed:p.allowed}));
+    const otherGlobals = (Array.isArray(existing)?existing:[]).filter(p=>p.object_slug==='__global__'&&!UNIQUE_ADMIN_FLAGS.includes(p.action)).map(p=>({object_slug:'__global__',action:p.action,allowed:p.allowed}));
+    const adminFlags   = UNIQUE_ADMIN_FLAGS.map(flag=>({object_slug:'__global__',action:flag,allowed:perms[flag]?1:0}));
+    try {
+      const result = await api.put(`/roles/${selectedRole.id}/permissions`,{permissions:[...objectPerms,...otherGlobals,...adminFlags]});
+      if (result?.error){setSaveErr(result.error);setSaving(false);return;}
+      setOrig({...perms}); setSaved(true); setSaveErr('');
+      setTimeout(()=>setSaved(false),2000);
+    } catch(e){ setSaveErr(e.message||'Save failed'); }
+    setSaving(false);
+  };
+
+  if (!selectedRole) return <div style={{padding:'24px 0',textAlign:'center',color:C.text3,fontSize:13}}>Select a role to configure admin access.</div>;
+  if (loading) return <div style={{padding:20,color:C.text3,fontSize:13}}>Loading…</div>;
+
+  const isSA = selectedRole.slug==='super_admin';
+  const roleColor = selectedRole.color||C.accent;
+
+  const renderGrid = (locked) => (
+    <div>
+      {ADMIN_GROUPS_LIST.map(group=>(
+        <div key={group} style={{marginBottom:16}}>
+          <div style={{fontSize:10,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:6,paddingBottom:4,borderBottom:`1px solid ${C.border}`}}>{group}</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px 12px'}}>
+            {ADMIN_SETTINGS_FLAGS.filter(f=>f.group===group).map(feat=>{
+              const isAlwaysOn = feat.alwaysOn;
+              const flag = feat.flag;
+              const on = isAlwaysOn||locked ? true : Boolean(perms[flag]);
+              const editable = !isAlwaysOn && !locked;
+              return (
+                <div key={feat.id} onClick={()=>editable&&toggle(flag)} title={isAlwaysOn?'Always available to all users':on?`Revoke ${feat.label} access`:`Grant ${feat.label} access`}
+                  style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 10px',borderRadius:8,
+                    border:`1.5px solid ${on?(isAlwaysOn?'#93c5fd40':'#0ca67840'):'#e5e7eb'}`,
+                    background:on?(isAlwaysOn?'#eff6ff':'#f0fdf4'):'transparent',
+                    cursor:editable?'pointer':'default',transition:'all .15s',userSelect:'none'}}>
+                  <div>
+                    <span style={{fontSize:12,fontWeight:600,color:C.text1}}>{feat.label}</span>
+                    {isAlwaysOn&&<span style={{fontSize:10,color:'#3b82f6',marginLeft:6}}>always on</span>}
+                  </div>
+                  <div style={{flexShrink:0,width:32,height:18,borderRadius:99,background:on?(isAlwaysOn?'#93c5fd':'#0ca678'):'#d1d5db',position:'relative',transition:'background .2s'}}>
+                    <div style={{position:'absolute',top:2,left:on?16:2,width:14,height:14,borderRadius:'50%',background:'white',boxShadow:'0 1px 3px rgba(0,0,0,.2)',transition:'left .2s'}}/>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (isSA) return (
+    <div>
+      <div style={{padding:"14px 16px",borderRadius:10,background:"#f0fdf4",border:"1.5px solid #bbf7d0",marginBottom:16,display:"flex",alignItems:"center",gap:10}}>
+        <Ic n="check" s={16} c="#0ca678"/>
+        <span style={{fontSize:13,fontWeight:600,color:"#065f46"}}>Super Admin has full access to all settings. These cannot be modified.</span>
+      </div>
+      {renderGrid(true)}
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+        <div style={{fontSize:13,color:C.text2}}>
+          Control which <strong style={{color:roleColor}}>{selectedRole.name}</strong> users can access in Settings.
+        </div>
+        <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
+          <Btn onClick={handleSave} disabled={saving||!isDirty} sz="sm" style={{opacity:isDirty?1:0.4}}>
+            {saved?'✓ Saved':saving?'Saving…':'Save Changes'}
+          </Btn>
+          {saveErr&&<div style={{fontSize:11,color:'#dc2626'}}>{saveErr}</div>}
+        </div>
+      </div>
+      <div style={{padding:'10px 12px',borderRadius:8,background:'#f0f9ff',border:'1px solid #bae6fd',marginBottom:14,fontSize:12,color:'#0369a1'}}>
+        <strong>Note:</strong> Some Settings sections share a permission flag — toggling one affects all sections that use the same flag (e.g. Security, Active Sessions, and Data Model all use <em>manage_settings</em>).
+      </div>
+      {renderGrid(false)}
+    </div>
+  );
+};
 
 // ── Feature Access Section ────────────────────────────────────────────────────
 const FEATURE_FLAGS_LIST = [

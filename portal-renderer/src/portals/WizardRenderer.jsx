@@ -203,7 +203,14 @@ const FileUploadBlock = ({ config={}, formData, set, color }) => {
       try {
         const fd = new FormData(); fd.append('file',f);
         const r = await fetch('/api/cv-parse',{method:'POST',body:fd});
-        if (r.ok) { const {result}=await r.json(); if(result) Object.entries(result).forEach(([k,v])=>{ if(v) set(k,v); }); }
+        if (r.ok) {
+          const data = await r.json();
+          const parsed = data?.parsed || data?.result?.parsed || data?.result || {};
+          if (typeof parsed === 'object') {
+            ['first_name','last_name','email','phone','location','current_title','linkedin_url',
+             'years_experience','skills','summary'].forEach(k => { if (parsed[k]) set(k, parsed[k]); });
+          }
+        }
       } catch {}
       setParsing(false);
     }
@@ -510,8 +517,7 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
       const fd = new FormData(); fd.append('file', file);
       const res = await fetch('/api/cv-parse', { method:'POST', body:fd, credentials:'include' });
       const data = res.ok ? await res.json() : null;
-      const outer = data?.result || data;
-      const result = outer?.parsed || outer;
+      const result = data?.parsed || data?.result?.parsed || data?.result || {};
       if (result && typeof result === 'object') {
         ['first_name','last_name','email','phone','location','current_title','linkedin_url',
          'years_experience','skills','summary'].forEach(k => { if (result[k]) set(k, result[k]); });

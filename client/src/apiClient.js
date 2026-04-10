@@ -104,7 +104,8 @@ async function handleResponse(res) {
 
 const api = {
   get:    (path)       => fetch(`/api${path}`, { credentials: 'include', headers: authHeaders()          }).then(handleResponse),
-  post:   (path, body) => fetch(`/api${path}`, { credentials: 'include', method: 'POST',   headers: mutationHeaders(), body: JSON.stringify(body) }).then(handleResponse),
+  post:     (path, body) => fetch(`/api${path}`, { credentials: 'include', method: 'POST',   headers: mutationHeaders(), body: JSON.stringify(body) }).then(handleResponse),
+  postForm: (path, formData) => fetch(`/api${path}`, { credentials: 'include', method: 'POST', headers: authHeaders(), body: formData }).then(handleResponse),
   patch:  (path, body) => fetch(`/api${path}`, { credentials: 'include', method: 'PATCH',  headers: mutationHeaders(), body: JSON.stringify(body) }).then(handleResponse),
   put:    (path, body) => fetch(`/api${path}`, { credentials: 'include', method: 'PUT',    headers: mutationHeaders(), body: JSON.stringify(body) }).then(handleResponse),
   del:    (path)       => fetch(`/api${path}`, { credentials: 'include', method: 'DELETE', headers: { ...authHeaders(), 'X-CSRF-Token': getCsrfToken() || '' } }).then(handleResponse),
@@ -117,7 +118,8 @@ const api = {
 // log the error to the console so it's still visible during development).
 const quietly = {
   get:    async (path, fallback = null)       => { try { return await api.get(path);        } catch(e) { console.warn('[api]', 'GET',    path, e.message); return fallback; } },
-  post:   async (path, body, fallback = null) => { try { return await api.post(path, body);  } catch(e) { console.warn('[api]', 'POST',   path, e.message); return fallback; } },
+  post:     async (path, body, fallback = null) => { try { return await api.post(path, body);           } catch(e) { console.warn('[api]', 'POST',   path, e.message); return fallback; } },
+  postForm: async (path, fd,   fallback = null) => { try { return await api.postForm(path, fd);         } catch(e) { console.warn('[api]', 'POST',   path, e.message); return fallback; } },
   patch:  async (path, body, fallback = null) => { try { return await api.patch(path, body); } catch(e) { console.warn('[api]', 'PATCH',  path, e.message); return fallback; } },
   put:    async (path, body, fallback = null) => { try { return await api.put(path, body);   } catch(e) { console.warn('[api]', 'PUT',    path, e.message); return fallback; } },
   del:    async (path, fallback = null)       => { try { return await api.del(path);         } catch(e) { console.warn('[api]', 'DELETE', path, e.message); return fallback; } },

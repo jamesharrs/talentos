@@ -508,12 +508,20 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
     set('__cv_file', file);
     try {
       const fd = new FormData(); fd.append('file', file);
-      const r = await fetch('/api/cv-parse', { method:'POST', body:fd });
-      if (r.ok) {
-        const { result } = await r.json();
-        if (result) ['first_name','last_name','email','phone','location','current_title','linkedin_url'].forEach(k => { if (result[k]) set(k, result[k]); });
+      // Use api prop if available (adds auth headers), fall back to bare fetch for standalone renderer
+      let r;
+      if (api?.postForm) {
+        r = await api.postForm('/cv-parse', fd);
+      } else {
+        const res = await fetch('/api/cv-parse', { method:'POST', body:fd, credentials:'include' });
+        r = res.ok ? await res.json() : null;
       }
-    } catch {}
+      const result = r?.result || r;
+      if (result && typeof result === 'object') {
+        ['first_name','last_name','email','phone','location','current_title','linkedin_url',
+         'years_experience','skills','summary'].forEach(k => { if (result[k]) set(k, result[k]); });
+      }
+    } catch(e) { console.warn('CV parse error:', e); }
     setParsing(false);
   };
 
@@ -668,6 +676,7 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
 
   return (
     <div style={{minHeight:'100vh',background:c.bg,fontFamily:c.font}}>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       {/* Header bar */}
       <div style={{background:color,padding:'14px 0',position:'sticky',top:0,zIndex:50}}>
         <Section>
@@ -706,6 +715,17 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
 
           {/* Alerts */}
           {error&&<div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:10,padding:'10px 14px',color:'#DC2626',fontSize:13,marginBottom:16}}>{error}</div>}
+
+          {/* CV parsing banner — shows while NLP extraction is in progress */}
+          {parsing&&!isEntryPage&&(
+            <div style={{background:'#EEF6FF',border:'1px solid #BFDBFE',borderRadius:10,padding:'12px 16px',marginBottom:16,display:'flex',alignItems:'center',gap:10}}>
+              <svg style={{animation:'spin .8s linear infinite',flexShrink:0}} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              <div>
+                <div style={{fontSize:13,fontWeight:700,color:'#1D4ED8'}}>Reading your CV…</div>
+                <div style={{fontSize:12,color:'#3B82F6'}}>We're extracting your details — fields will fill in automatically.</div>
+              </div>
+            </div>
+          )}
           {draftSaved&&<div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'10px 14px',color:'#15803D',fontSize:13,marginBottom:16,display:'flex',alignItems:'center',gap:7}}><WzIc n="checkCircle" s={14} c="#15803D"/>Progress saved — a link to continue has been sent to {formData.email}.</div>}
 
           {/* Page title & subtitle */}

@@ -170,7 +170,8 @@ const PROFILE_FIELD_DEFS = [
   {key:'salary_expectation',label:'Salary expectation',type:'text',required:false,placeholder:'AED 25,000/month'},
 ];
 
-const ProfileFieldsBlock = ({ config={}, formData, set, onEmailBlur, emailCheck, checkingEmail, color }) => {
+const ProfileFieldsBlock = ({ config={}, formData, set, onEmailBlur, emailCheck, checkingEmail,
+  otpState, otpCode, setOtpCode, otpError, otpSimCode, onVerifyOtp, color }) => {
   const visibleKeys = config.fields?.length ? config.fields : ['first_name','last_name','email','phone','location','current_title'];
   const defs = PROFILE_FIELD_DEFS.filter(f=>visibleKeys.includes(f.key));
   const pairs = [];
@@ -184,7 +185,47 @@ const ProfileFieldsBlock = ({ config={}, formData, set, onEmailBlur, emailCheck,
             onBlur={f.key==='email'?onEmailBlur:undefined}/>
           {f.key==='email'&&checkingEmail&&<div style={{fontSize:11,color:'#9CA3AF',marginTop:4}}>Checking…</div>}
           {f.key==='email'&&emailCheck?.already_applied_this_job&&<div style={{marginTop:8,padding:'10px 12px',background:'#FEF3C7',border:'1px solid #FCD34D',borderRadius:8,fontSize:12,color:'#92400E',display:'flex',alignItems:'center',gap:6}}><WzIc n="alertCircle" s={13} c="#92400E"/>You've already applied for this role.</div>}
-          {f.key==='email'&&emailCheck?.exists&&!emailCheck?.already_applied_this_job&&<div style={{marginTop:8,padding:'10px 12px',background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:8,fontSize:12,color:'#15803D',display:'flex',alignItems:'center',gap:6}}><WzIc n="checkCircle" s={13} c="#15803D"/>Welcome back — we've pre-filled your details.</div>}
+          {f.key==='email'&&emailCheck?.exists&&!emailCheck?.already_applied_this_job&&(
+            <div style={{marginTop:10}}>
+              {otpState==='sending'&&(
+                <div style={{padding:'10px 12px',background:'#F0F9FF',border:'1px solid #BAE6FD',borderRadius:8,fontSize:12,color:'#0369A1',display:'flex',alignItems:'center',gap:6}}>
+                  <WzIc n="loader" s={13} c="#0369A1"/>Sending verification code…
+                </div>
+              )}
+              {(otpState==='sent'||otpState==='error')&&(
+                <div style={{padding:'14px',background:'#F0F9FF',border:'1px solid #BAE6FD',borderRadius:10}}>
+                  <div style={{fontSize:12,fontWeight:700,color:'#0369A1',marginBottom:6}}>
+                    We've sent a 6-digit code to {formData.email}
+                  </div>
+                  {otpSimCode&&<div style={{fontSize:11,color:'#6B7280',marginBottom:8,padding:'6px 8px',background:'#FEF9C3',borderRadius:6}}>
+                    Dev mode — code: <strong style={{fontFamily:'monospace'}}>{otpSimCode}</strong>
+                  </div>}
+                  <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                    <input
+                      value={otpCode} onChange={e=>setOtpCode(e.target.value.replace(/\D/g,'').slice(0,6))}
+                      onKeyDown={e=>{ if(e.key==='Enter'&&otpCode.length===6) onVerifyOtp(); }}
+                      placeholder="000000" maxLength={6}
+                      style={{flex:1,padding:'10px 12px',borderRadius:8,border:`1.5px solid ${otpError?'#EF4444':'#BAE6FD'}`,fontSize:18,fontFamily:'monospace',letterSpacing:'0.2em',textAlign:'center',outline:'none',background:'white'}}
+                    />
+                    <button onClick={onVerifyOtp} disabled={otpCode.length!==6}
+                      style={{padding:'10px 16px',borderRadius:8,border:'none',background:otpCode.length===6?color:'#E5E7EB',color:otpCode.length===6?'white':'#9CA3AF',fontSize:13,fontWeight:700,cursor:otpCode.length===6?'pointer':'default',whiteSpace:'nowrap',fontFamily:'inherit'}}>
+                      Verify
+                    </button>
+                  </div>
+                  {otpError&&<div style={{marginTop:6,fontSize:12,color:'#EF4444'}}>{otpError}</div>}
+                  <button onClick={()=>{ setOtpCode(''); onEmailBlur(); }}
+                    style={{marginTop:8,fontSize:11,color:'#6B7280',background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline'}}>
+                    Resend code
+                  </button>
+                </div>
+              )}
+              {otpState==='verified'&&(
+                <div style={{padding:'10px 12px',background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:8,fontSize:12,color:'#15803D',display:'flex',alignItems:'center',gap:6}}>
+                  <WzIc n="checkCircle" s={13} c="#15803D"/>Identity verified — we've pre-filled your details.
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -405,7 +446,9 @@ const renderBlock = (block, ctx) => {
         onMethodChosen={onMethodChosen} parsing={parsing} color={color} onCvFile={onCvFile}/>;
     case 'profile_fields':
       return <ProfileFieldsBlock key={block.id} config={block.config} formData={formData} set={set}
-        onEmailBlur={onEmailBlur} emailCheck={emailCheck} checkingEmail={checkingEmail} color={color}/>;
+        onEmailBlur={onEmailBlur} emailCheck={emailCheck} checkingEmail={checkingEmail}
+        otpState={otpState} otpCode={otpCode} setOtpCode={setOtpCode}
+        otpError={otpError} otpSimCode={otpSimCode} onVerifyOtp={onVerifyOtp} color={color}/>;
     case 'file_upload':
       return <FileUploadBlock key={block.id} config={block.config} formData={formData} set={set} color={color}/>;
     case 'screening_questions':
@@ -455,6 +498,10 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
   const [questions, setQuestions]      = useState([]);
   const [emailCheck, setEmailCheck]    = useState(null);
   const [checkingEmail, setCheckingEmail] = useState(false);
+  const [otpState, setOtpState]        = useState(null);
+  const [otpCode, setOtpCode]          = useState('');
+  const [otpError, setOtpError]        = useState('');
+  const [otpSimCode, setOtpSimCode]    = useState('');
   const emailCheckedRef = useRef('');
   const wizardRef = useRef(null);
   const scrollToTop = () => wizardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -502,15 +549,35 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
     if (!email || email === emailCheckedRef.current) return;
     emailCheckedRef.current = email;
     setCheckingEmail(true);
+    setOtpState(null); setOtpCode(''); setOtpError(''); setOtpSimCode('');
     try {
       const res = await api.get(`/portals/${portal.id}/apply/check-email?email=${encodeURIComponent(email)}&job_id=${job?.id||''}`);
       setEmailCheck(res);
-      if (res.exists && res.person) {
-        const p = res.person;
-        ['first_name','last_name','phone','location','current_title','linkedin_url'].forEach(k => { if (p[k]) set(k, p[k]); });
+      if (res.exists && !res.already_applied_this_job) {
+        setOtpState('sending');
+        try {
+          const otpRes = await api.post(`/portals/${portal.id}/apply/send-otp`, { email });
+          setOtpState('sent');
+          if (otpRes.simulated && otpRes.code) setOtpSimCode(otpRes.code);
+        } catch { setOtpState('error'); setOtpError('Could not send code. Please try again.'); }
       }
     } catch {}
     setCheckingEmail(false);
+  };
+
+  const handleVerifyOtp = async () => {
+    const email = (formData.email || '').toLowerCase().trim();
+    setOtpError('');
+    try {
+      const res = await api.post(`/portals/${portal.id}/apply/verify-otp`, { email, code: otpCode.trim() });
+      if (res.verified) {
+        setOtpState('verified');
+        const p = res.person || {};
+        ['first_name','last_name','phone','location','current_title','linkedin_url'].forEach(k => { if (p[k]) set(k, p[k]); });
+      }
+    } catch(e) {
+      setOtpError(e?.message || 'Incorrect code. Please try again.');
+    }
   };
 
   // ── CV upload handler ─────────────────────────────────────────────────────
@@ -718,6 +785,7 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
     currentPageIdx >= pages.length - 1;
   const isEntryPage = currentPage?.blocks?.some(b => b.type === 'entry_method');
   const blockCtx = { formData, set, color, emailCheck, checkingEmail, onEmailBlur:handleEmailBlur,
+    otpState, otpCode, setOtpCode, otpError, otpSimCode, onVerifyOtp:handleVerifyOtp,
     onMethodChosen:(m)=>{ setEntryMethod(m); handleNext(); }, onCvFile:handleCvFile, parsing,
     questions, jobLocation:job?.data?.location, companyName:br.company_name, pages };
 

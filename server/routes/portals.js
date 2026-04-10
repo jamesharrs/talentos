@@ -242,8 +242,78 @@ router.get('/:id/apply/check-email', (req, res) => {
     if (!person) return res.json({ exists:false });
     const priorApplication = jobId ? (store.activity||[]).find(a=>a.record_id===person.id&&a.action==='applied'&&a.details?.job_id===jobId) : null;
     const priorAny = (store.activity||[]).find(a=>a.record_id===person.id&&a.action==='applied');
-    res.json({ exists:true, already_applied_this_job:!!priorApplication, already_applied_any:!!priorAny,
-      person:{ first_name:person.data?.first_name||'', last_name:person.data?.last_name||'', phone:person.data?.phone||'', location:person.data?.location||'', current_title:person.data?.current_title||'', linkedin_url:person.data?.linkedin_url||'' } });
+    // Return exists:true but do NOT return person data — that only comes after OTP verification
+    res.json({ exists:true, already_applied_this_job:!!priorApplication, already_applied_any:!!priorAny });
+  } catch(e) { res.status(500).json({ error:e.message }); }
+});
+
+// POST /api/portals/:id/apply/send-otp — send a 6-digit verification code
+router.post('/:id/apply/send-otp', async (req, res) => {
+  try {
+    const store = getStore();
+    const portal = (store.portals||[]).find(p=>p.id===req.params.id);
+    if (!portal) return res.status(404).json({ error:'Portal not found' });
+    const email = (req.body.email||'').toLowerCase().trim();
+    if (!email) return res.status(400).json({ error:'email required' });
+
+    // Generate 6-digit code
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 mins
+
+    if (!store.wizard_otps) store.wizard_otps = [];
+    // Remove any prior OTPs for this email+portal
+    store.wizard_otps = store.wizard_otps.filter(o => !(o.email===email && o.portal_id===req.params.id));
+    store.wizard_otps.push({ id:uid(), email, portal_id:req.params.id, code, expires_at:expiresAt, used:false });
+    saveStore();
+
+    // Try to send via messaging service; fall back to simulation
+    let simulated = true;
+    try {
+      const { sendEmail } = require('../services/messaging');
+      const portalName = portal.name || 'Career Portal';
+      const result = await sendEmail({
+        to: email,
+        subject: `Your verification code — ${portalName}`,
+        text: `Your verification code is: ${code}\n\nThis code expires in 10 minutes.`,
+        html: `<p style="font-family:sans-serif">Your verification code for <strong>${portalName}</strong> is:</p><p style="font-family:monospace;font-size:32px;font-weight:bold;letter-spacing:0.1em">${code}</p><p style="font-family:sans-serif;color:#6b7280">This code expires in 10 minutes.</p>`,
+      });
+      if (!result.simulated) simulated = false;
+    } catch {}
+
+    res.json({ sent:true, simulated, ...(simulated ? { code } : {}) });
+  } catch(e) { res.status(500).json({ error:e.message }); }
+});
+
+// POST /api/portals/:id/apply/verify-otp — check code and return person data if valid
+router.post('/:id/apply/verify-otp', (req, res) => {
+  try {
+    const store = getStore();
+    const portal = (store.portals||[]).find(p=>p.id===req.params.id);
+    if (!portal) return res.status(404).json({ error:'Portal not found' });
+    const email = (req.body.email||'').toLowerCase().trim();
+    const code  = (req.body.code||'').trim();
+    if (!email || !code) return res.status(400).json({ error:'email and code required' });
+
+    const otp = (store.wizard_otps||[]).find(o =>
+      o.email===email && o.portal_id===req.params.id && !o.used
+    );
+    if (!otp) return res.status(400).json({ error:'No code found — please request a new one.' });
+    if (new Date(otp.expires_at) < new Date()) return res.status(400).json({ error:'Code expired — please request a new one.' });
+    if (otp.code !== code) return res.status(400).json({ error:'Incorrect code. Please try again.' });
+
+    // Mark used
+    otp.used = true;
+    saveStore();
+
+    // Return person data now that identity is verified
+    const person = (store.records||[]).find(r=>r.data?.email?.toLowerCase()===email);
+    const personData = person ? {
+      first_name:person.data?.first_name||'', last_name:person.data?.last_name||'',
+      phone:person.data?.phone||'', location:person.data?.location||'',
+      current_title:person.data?.current_title||'', linkedin_url:person.data?.linkedin_url||'',
+    } : {};
+
+    res.json({ verified:true, person:personData });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 

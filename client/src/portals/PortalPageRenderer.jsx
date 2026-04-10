@@ -60,8 +60,8 @@ const HeroWidget = ({ cfg, theme }) => {
   const t = theme
   const pr = t.primaryColor || '#4361EE'
   const bg = t.bgColor || '#fff'
-  const tc = cfg.videoUrl || (cfg.bgImage && (cfg.overlayOpacity||0) > 20) ? '#FFFFFF' : (t.textColor || '#0F1729')
-  const tcSub = cfg.videoUrl || (cfg.bgImage && (cfg.overlayOpacity||0) > 20) ? 'rgba(255,255,255,.8)' : (t.textColor || '#0F1729')
+  const tc = cfg.headingColor || (cfg.videoUrl || (cfg.bgImage && (cfg.overlayOpacity||0) > 20) ? '#FFFFFF' : (t.textColor || '#0F1729'))
+  const tcSub = cfg.bodyColor || (cfg.videoUrl || (cfg.bgImage && (cfg.overlayOpacity||0) > 20) ? 'rgba(255,255,255,.8)' : (t.textColor || '#0F1729'))
   const ff = t.fontFamily || "'Inter', sans-serif"
   const hf = t.headingFont || ff
   const br = t.buttonRadius || '8px'

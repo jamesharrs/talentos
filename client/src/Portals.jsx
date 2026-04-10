@@ -827,10 +827,10 @@ const WidgetPreview = ({ cell, theme }) => {
       {!cfg.videoUrl&&cfg.bgImage&&(cfg.overlayOpacity||0)>0&&<div style={{position:"absolute",inset:0,background:`rgba(0,0,0,${(cfg.overlayOpacity||0)/100})`}}/>}
       <div style={{position:"relative",zIndex:2}}>
         {cfg.eyebrow&&<div style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:t.primaryColor,marginBottom:8,fontFamily:t.fontFamily}}>{cfg.eyebrow}</div>}
-        <div style={{fontSize:20,fontWeight:parseInt(t.headingWeight)||700,color: cfg.videoUrl||( cfg.bgImage&&(cfg.overlayOpacity||0)>20)?"#fff":t.textColor,fontFamily:t.headingFont,marginBottom:6}}>
+        <div style={{fontSize:20,fontWeight:parseInt(t.headingWeight)||700,color: cfg.headingColor||(cfg.videoUrl||( cfg.bgImage&&(cfg.overlayOpacity||0)>20)?"#fff":t.textColor),fontFamily:t.headingFont,marginBottom:6}}>
           {cfg.headline||"Your Compelling Headline"}
         </div>
-        <div style={{fontSize:12,color: cfg.videoUrl||(cfg.bgImage&&(cfg.overlayOpacity||0)>20)?"rgba(255,255,255,.8)":t.textColor,opacity:0.65,marginBottom:14,fontFamily:t.fontFamily,lineHeight:1.6}}>
+        <div style={{fontSize:12,color: cfg.bodyColor||(cfg.videoUrl||(cfg.bgImage&&(cfg.overlayOpacity||0)>20)?"rgba(255,255,255,.8)":t.textColor),opacity:0.65,marginBottom:14,fontFamily:t.fontFamily,lineHeight:1.6}}>
           {cfg.subheading||"A short description that tells visitors what to expect here."}
         </div>
         <div style={{display:"flex",gap:8,justifyContent:cfg.align==="center"?"center":"flex-start",flexWrap:"wrap"}}>
@@ -1818,6 +1818,28 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
           </div>
           <div>{lbl("Background image URL")}<input value={cfg.bgImage||""} onChange={e=>set("bgImage",e.target.value)} placeholder="https://… (optional)" style={inp}/></div>
           {cfg.bgImage&&<div>{lbl(`Overlay opacity: ${cfg.overlayOpacity||0}%`)}<input type="range" min={0} max={80} value={cfg.overlayOpacity||0} onChange={e=>set("overlayOpacity",Number(e.target.value))} style={{width:"100%"}}/></div>}
+          <div style={{borderTop:`1px solid ${C.border}`,paddingTop:12,marginTop:4}}>
+            {lbl("Font colours")}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:6}}>
+              <div>
+                <div style={{fontSize:10,color:C.text3,marginBottom:4}}>Heading</div>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <input type="color" value={cfg.headingColor||"#000000"} onChange={e=>set("headingColor",e.target.value)} style={{width:32,height:28,borderRadius:4,border:`1px solid ${C.border}`,cursor:"pointer",padding:2}}/>
+                  <span style={{fontSize:10,fontFamily:"monospace",color:C.text2}}>{cfg.headingColor||"auto"}</span>
+                  {cfg.headingColor&&<button onClick={()=>set("headingColor","")} style={{fontSize:9,color:C.text3,background:"none",border:"none",cursor:"pointer",padding:0}}>reset</button>}
+                </div>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:C.text3,marginBottom:4}}>Body</div>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <input type="color" value={cfg.bodyColor||"#000000"} onChange={e=>set("bodyColor",e.target.value)} style={{width:32,height:28,borderRadius:4,border:`1px solid ${C.border}`,cursor:"pointer",padding:2}}/>
+                  <span style={{fontSize:10,fontFamily:"monospace",color:C.text2}}>{cfg.bodyColor||"auto"}</span>
+                  {cfg.bodyColor&&<button onClick={()=>set("bodyColor","")} style={{fontSize:9,color:C.text3,background:"none",border:"none",cursor:"pointer",padding:0}}>reset</button>}
+                </div>
+              </div>
+            </div>
+            <div style={{fontSize:10,color:C.text3,marginTop:6}}>Leave unset to use theme defaults (auto-white on dark/image backgrounds).</div>
+          </div>
         </div>
       );
       case "text": return (

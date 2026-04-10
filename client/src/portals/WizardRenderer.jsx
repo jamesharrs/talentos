@@ -438,6 +438,7 @@ const JobFieldsBlock = ({ config={}, formData, set, color }) => {
 // ── Block Renderer — dispatches to the right component ───────────────────────
 const renderBlock = (block, ctx) => {
   const { formData, set, color, emailCheck, checkingEmail, onEmailBlur,
+    otpState, otpCode, setOtpCode, otpError, otpSimCode, onVerifyOtp,
     onMethodChosen, onCvFile, parsing, questions, jobLocation, companyName, pages } = ctx;
 
   switch (block.type) {

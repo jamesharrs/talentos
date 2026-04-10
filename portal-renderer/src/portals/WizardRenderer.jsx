@@ -454,6 +454,8 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
   const [emailCheck, setEmailCheck]    = useState(null);
   const [checkingEmail, setCheckingEmail] = useState(false);
   const emailCheckedRef = useRef('');
+  const wizardRef = useRef(null);
+  const scrollToTop = () => wizardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const currentPage = pages[currentPageIdx] || pages[0];
 
@@ -563,7 +565,7 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
     if (nextIdx < 0 || nextIdx >= pages.length) { await handleSubmit(); return; }
     setPageHistory(h => [...h, nextIdx]);
     setCurrentPageIdx(nextIdx);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTop();
   };
 
   // ── Navigation: back ─────────────────────────────────────────────────────
@@ -572,7 +574,7 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
     const newHistory = pageHistory.slice(0, -1);
     setPageHistory(newHistory);
     setCurrentPageIdx(newHistory[newHistory.length - 1]);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTop();
   };
 
   // ── Save draft ────────────────────────────────────────────────────────────
@@ -676,7 +678,7 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
     questions, jobLocation:job?.data?.location, companyName:br.company_name, pages };
 
   return (
-    <div style={{minHeight:'100vh',background:c.bg,fontFamily:c.font}}>
+    <div ref={wizardRef} style={{minHeight:'100vh',background:c.bg,fontFamily:c.font}}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       {/* Header bar */}
       <div style={{background:color,padding:'14px 0',position:'sticky',top:0,zIndex:50}}>

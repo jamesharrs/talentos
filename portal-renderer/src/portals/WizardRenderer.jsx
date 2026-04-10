@@ -3,6 +3,33 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { css, Badge, Btn, Section } from './shared.jsx';
 
+// ── Lucide icon component (portal-renderer has no shared Ic) ─────────────────
+const WZ_PATHS = {
+  upload:      "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
+  fileText:    "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8",
+  linkedin:    "M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6zM2 9h4v12H2z M4 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
+  edit:        "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",
+  userCheck:   "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM16 11l2 2 4-4",
+  paperclip:   "M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48",
+  check:       "M20 6L9 17l-5-5",
+  checkCircle: "M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3",
+  loader:      "M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83",
+  lock:        "M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4",
+  x:           "M18 6L6 18M6 6l12 12",
+  alertCircle: "M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zM12 8v4M12 16h.01",
+  info:        "M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zM12 8h.01M12 12v4",
+  save:        "M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8",
+  partyPopper: "M5.8 11.3L2 22l10.7-3.79M4 3h.01M22 8h.01M15 2h.01M22 20h.01M2 8h.01M20 2l-7.5 7.5M15 9.5L9.5 15",
+  thumbsDown:  "M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zM17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17",
+  arrowLeft:   "M19 12H5M12 19l-7-7 7-7",
+  send:        "M22 2L11 13M22 2L15 22l-4-9-9-4 19-7z",
+};
+const WzIc = ({n,s=16,c='currentColor'}) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+    {WZ_PATHS[n]&&<path d={WZ_PATHS[n]}/>}
+  </svg>
+);
+
 // ── EO templates (same as CareerSite) ────────────────────────────────────────
 const EO_TEMPLATES = {
   uk: {
@@ -81,7 +108,7 @@ const WizardProgress = ({ pages, currentIndex, color }) => (
         <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
           <div style={{width:26,height:26,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,
             background:i<=currentIndex?color:'#E8ECF8',color:i<=currentIndex?'white':'#9DA8C7',transition:'all .2s'}}>
-            {i<currentIndex?'✓':i+1}
+            {i<currentIndex ? <WzIc n="check" s={12} c="white"/> : i+1}
           </div>
           <div style={{fontSize:10,fontWeight:600,color:i===currentIndex?color:'#9DA8C7',marginTop:3,whiteSpace:'nowrap',maxWidth:80,textAlign:'center',overflow:'hidden',textOverflow:'ellipsis'}}>
             {p.title||`Step ${i+1}`}
@@ -96,10 +123,10 @@ const WizardProgress = ({ pages, currentIndex, color }) => (
 // ── BLOCK: Entry Method ───────────────────────────────────────────────────────
 const EntryMethodBlock = ({ config={}, formData, set, onMethodChosen, parsing, color, onCvFile }) => {
   const methods = [];
-  if (config.allow_cv!==false)      methods.push({ id:'cv',       icon:'📄', label:'Upload my CV / Resume',    sub:'PDF, DOC or DOCX — we\'ll fill in your details automatically' });
-  if (config.allow_linkedin!==false) methods.push({ id:'linkedin', icon:'🔗', label:'Enter LinkedIn profile URL',sub:'Paste your LinkedIn URL — we\'ll note it for the team' });
-  if (config.allow_manual!==false)   methods.push({ id:'manual',   icon:'✏️', label:'Fill in the form manually', sub:'Complete the application yourself' });
-  if (config.allow_returning!==false) methods.push({ id:'returning',icon:'🔑', label:'Returning applicant',       sub:'Continue or update your existing profile', dashed:true });
+  if (config.allow_cv!==false)       methods.push({ id:'cv',        iconN:'upload',    label:'Upload my CV / Resume',     sub:'PDF, DOC or DOCX — we\'ll fill in your details automatically' });
+  if (config.allow_linkedin!==false)  methods.push({ id:'linkedin',  iconN:'linkedin',  label:'Enter LinkedIn profile URL', sub:'Paste your LinkedIn URL — we\'ll note it for the team' });
+  if (config.allow_manual!==false)    methods.push({ id:'manual',    iconN:'edit',      label:'Fill in the form manually',  sub:'Complete the application yourself' });
+  if (config.allow_returning!==false) methods.push({ id:'returning', iconN:'userCheck', label:'Returning applicant',        sub:'Continue or update your existing profile', dashed:true });
   return (
     <div style={{display:'flex',flexDirection:'column',gap:10}}>
       {methods.map(m=>{
@@ -107,7 +134,7 @@ const EntryMethodBlock = ({ config={}, formData, set, onMethodChosen, parsing, c
           <label key="cv" style={{display:'flex',alignItems:'flex-start',gap:14,padding:'16px 18px',background:'white',borderRadius:14,
             border:`2px solid ${color}`,cursor:'pointer',boxShadow:`0 2px 12px ${color}14`}}>
             <input type="file" accept=".pdf,.doc,.docx" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0];if(f){onCvFile&&onCvFile(f);onMethodChosen('cv');}e.target.value='';}}/>
-            <div style={{width:40,height:40,borderRadius:10,background:`${color}14`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:20}}>{m.icon}</div>
+            <div style={{width:40,height:40,borderRadius:10,background:`${color}14`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><WzIc n={m.iconN} s={20} c={color}/></div>
             <div><div style={{fontSize:15,fontWeight:700,color:'#0F1729',marginBottom:2}}>{parsing?'Reading your CV…':m.label}</div><div style={{fontSize:13,color:'#6B7280'}}>{m.sub}</div></div>
           </label>
         );
@@ -115,7 +142,7 @@ const EntryMethodBlock = ({ config={}, formData, set, onMethodChosen, parsing, c
           <button key={m.id} onClick={()=>onMethodChosen(m.id)}
             style={{display:'flex',alignItems:'flex-start',gap:14,padding:`${m.dashed?'14px':'16px'} 18px`,background:m.dashed?'#FAFBFF':'white',borderRadius:14,
               border:m.dashed?`1.5px dashed #C7D0E8`:'1.5px solid #E8ECF8',cursor:'pointer',textAlign:'left',width:'100%',fontFamily:'inherit'}}>
-            <div style={{width:40,height:40,borderRadius:10,background:`${color}14`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:18}}>{m.icon}</div>
+            <div style={{width:40,height:40,borderRadius:10,background:`${color}14`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><WzIc n={m.iconN} s={18} c={color}/></div>
             <div><div style={{fontSize:15,fontWeight:700,color:'#0F1729',marginBottom:2}}>{m.label}</div><div style={{fontSize:13,color:'#6B7280'}}>{m.sub}</div></div>
           </button>
         );
@@ -151,8 +178,8 @@ const ProfileFieldsBlock = ({ config={}, formData, set, onEmailBlur, emailCheck,
             required={f.required} placeholder={f.placeholder} rows={f.rows} color={color}
             onBlur={f.key==='email'?onEmailBlur:undefined}/>
           {f.key==='email'&&checkingEmail&&<div style={{fontSize:11,color:'#9CA3AF',marginTop:4}}>Checking…</div>}
-          {f.key==='email'&&emailCheck?.already_applied_this_job&&<div style={{marginTop:8,padding:'10px 12px',background:'#FEF3C7',border:'1px solid #FCD34D',borderRadius:8,fontSize:12,color:'#92400E'}}>⚠️ You've already applied for this role.</div>}
-          {f.key==='email'&&emailCheck?.exists&&!emailCheck?.already_applied_this_job&&<div style={{marginTop:8,padding:'10px 12px',background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:8,fontSize:12,color:'#15803D'}}>✓ Welcome back — we've pre-filled your details.</div>}
+          {f.key==='email'&&emailCheck?.already_applied_this_job&&<div style={{marginTop:8,padding:'10px 12px',background:'#FEF3C7',border:'1px solid #FCD34D',borderRadius:8,fontSize:12,color:'#92400E',display:'flex',alignItems:'center',gap:6}}><WzIc n="alertCircle" s={13} c="#92400E"/>You've already applied for this role.</div>}
+          {f.key==='email'&&emailCheck?.exists&&!emailCheck?.already_applied_this_job&&<div style={{marginTop:8,padding:'10px 12px',background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:8,fontSize:12,color:'#15803D',display:'flex',alignItems:'center',gap:6}}><WzIc n="checkCircle" s={13} c="#15803D"/>Welcome back — we've pre-filled your details.</div>}
         </div>
       ))}
     </div>
@@ -182,8 +209,8 @@ const FileUploadBlock = ({ config={}, formData, set, color }) => {
       <label style={{display:'flex',alignItems:'center',gap:14,padding:'16px 18px',background:'white',borderRadius:14,
         border:`2px dashed ${file?color:'#C7D0E8'}`,cursor:'pointer',transition:'border-color .2s'}}>
         <input type="file" accept={accept} style={{display:'none'}} onChange={e=>{ const f=e.target.files?.[0]; if(f) handleFile(f); e.target.value=''; }}/>
-        <div style={{width:36,height:36,borderRadius:10,background:`${color}14`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:18}}>
-          {parsing?'⏳':file?'✅':'📎'}
+        <div style={{width:36,height:36,borderRadius:10,background:`${color}14`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          {parsing?<WzIc n="loader" s={18} c={color}/>:file?<WzIc n="checkCircle" s={18} c="#0CAF77"/>:<WzIc n="paperclip" s={18} c={color}/>}
         </div>
         <div>
           <div style={{fontSize:14,fontWeight:700,color:'#0F1729'}}>{parsing?'Reading file…':file?file.name:label}</div>
@@ -247,7 +274,10 @@ const EqualOppsBlock = ({ config={}, formData, set, jobLocation }) => {
   return (
     <div>
       <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'12px 16px',marginBottom:20}}>
-        <p style={{fontSize:12,color:'#15803D',margin:0,lineHeight:1.6}}>🔒 <strong>Anonymous & confidential.</strong> {tmpl.intro}</p>
+        <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
+          <WzIc n="lock" s={14} c="#15803D" style={{marginTop:2,flexShrink:0}}/>
+          <p style={{fontSize:12,color:'#15803D',margin:0,lineHeight:1.6}}><strong>Anonymous & confidential.</strong> {tmpl.intro}</p>
+        </div>
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:16}}>
         {tmpl.fields.map(f=><WzSelect key={f.id} label={f.label} value={formData[f.id]||''} onChange={v=>set(f.id,v)} options={f.options}/>)}
@@ -595,7 +625,9 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
     return (
       <div style={{minHeight:'100vh',background:c.bg,fontFamily:c.font,display:'flex',alignItems:'center',justifyContent:'center'}}>
         <div style={{textAlign:'center',padding:40,maxWidth:480}}>
-          <div style={{width:72,height:72,borderRadius:'50%',background:`${color}14`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px',fontSize:40}}>🎉</div>
+          <div style={{width:72,height:72,borderRadius:'50%',background:`${color}14`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
+            <WzIc n="partyPopper" s={36} c={color}/>
+          </div>
           <h2 style={{fontSize:26,fontWeight:900,color:'#0F1729',marginBottom:8}}>{sp.title||'Submitted!'}</h2>
           <p style={{color:'#6B7280',lineHeight:1.7,marginBottom:28}}>
             {(sp.message||'Thank you {first_name} — your submission is on its way.').replace('{first_name}',name).replace('{job_title}',job?.data?.job_title||'')}
@@ -611,7 +643,9 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
     return (
       <div style={{minHeight:'100vh',background:c.bg,fontFamily:c.font,display:'flex',alignItems:'center',justifyContent:'center'}}>
         <div style={{textAlign:'center',padding:40,maxWidth:480}}>
-          <div style={{fontSize:48,marginBottom:20}}>🙏</div>
+          <div style={{width:72,height:72,borderRadius:'50%',background:'#FEF3C7',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
+            <WzIc n="thumbsDown" s={36} c="#F59F00"/>
+          </div>
           <h2 style={{fontSize:22,fontWeight:800,color:'#0F1729',marginBottom:12}}>{rp.title||'Thank you for your interest'}</h2>
           <p style={{color:'#6B7280',lineHeight:1.7,marginBottom:28}}>{rp.message||"Based on your answers, we're unable to progress your application for this role at this time."}</p>
           {onBack&&<button onClick={onBack} style={{padding:'10px 24px',borderRadius:10,background:color,color:'white',fontSize:14,fontWeight:700,border:'none',cursor:'pointer',fontFamily:c.font}}>Back to roles</button>}
@@ -645,8 +679,12 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
             )}
             {allowDraft&&formData.email&&!isEntryPage&&(
               <button onClick={handleSaveDraft} disabled={savingDraft}
-                style={{background:'rgba(255,255,255,.18)',border:'1px solid rgba(255,255,255,.35)',borderRadius:8,color:'white',fontSize:12,fontWeight:600,cursor:'pointer',padding:'5px 12px',fontFamily:c.font,flexShrink:0}}>
-                {savingDraft?'Saving…':draftSaved?'✓ Saved!':'💾 Save & continue later'}
+                style={{background:'rgba(255,255,255,.18)',border:'1px solid rgba(255,255,255,.35)',borderRadius:8,color:'white',fontSize:12,fontWeight:600,cursor:'pointer',padding:'5px 12px',fontFamily:c.font,flexShrink:0,display:'flex',alignItems:'center',gap:5}}>
+                {savingDraft
+                  ? <><WzIc n="loader" s={11} c="white"/>Saving…</>
+                  : draftSaved
+                  ? <><WzIc n="check" s={11} c="white"/>Saved!</>
+                  : <><WzIc n="save" s={11} c="white"/>Save & continue later</>}
               </button>
             )}
           </div>
@@ -664,7 +702,7 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
 
           {/* Alerts */}
           {error&&<div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:10,padding:'10px 14px',color:'#DC2626',fontSize:13,marginBottom:16}}>{error}</div>}
-          {draftSaved&&<div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'10px 14px',color:'#15803D',fontSize:13,marginBottom:16}}>✓ Progress saved — a link to continue has been sent to {formData.email}.</div>}
+          {draftSaved&&<div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'10px 14px',color:'#15803D',fontSize:13,marginBottom:16,display:'flex',alignItems:'center',gap:7}}><WzIc n="checkCircle" s={14} c="#15803D"/>Progress saved — a link to continue has been sent to {formData.email}.</div>}
 
           {/* Page title & subtitle */}
           {currentPage?.title&&(

@@ -11,17 +11,52 @@ const C = {
 
 const uid = () => Math.random().toString(36).slice(2,10);
 
+// ── Lucide SVG icon component ─────────────────────────────────────────────────
+const PATHS = {
+  doorOpen:    "M13 2H3a1 1 0 0 0-1 1v18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V9zM13 2v7h7M9 12h.01",
+  user:        "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+  paperclip:   "M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48",
+  helpCircle:  "M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01",
+  scale:       "M16 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1zM2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1zM7 21h10M12 3v18M3 7h2.5M18.5 7H21",
+  checkSquare: "M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11",
+  info:        "M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zM12 8h.01M12 12v4",
+  clipboard:   "M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z",
+  briefcase:   "M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2",
+  settings:    "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
+  zap:         "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+  fileText:    "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8",
+  arrowRight:  "M5 12h14M12 5l7 7-7 7",
+  rocket:      "M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09zM12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2zM9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5",
+  layoutGrid:  "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z",
+  trash:       "M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2",
+  plus:        "M12 5v14M5 12h14",
+  chevUp:      "M18 15l-6-6-6 6",
+  chevDown:    "M6 9l6 6 6-6",
+  x:           "M18 6L6 18M6 6l12 12",
+  lock:        "M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4",
+  save:        "M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8",
+  check:       "M20 6L9 17l-5-5",
+  partyPopper: "M5.8 11.3L2 22l10.7-3.79M4 3h.01M22 8h.01M15 2h.01M22 20h.01M2 8h.01M20 2l-7.5 7.5M15 9.5L9.5 15",
+  thumbsDown:  "M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zM17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17",
+  alertCircle: "M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zM12 8v4M12 16h.01",
+};
+const WzIc = ({n,s=14,c='currentColor'}) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+    {PATHS[n]&&<path d={PATHS[n]}/>}
+  </svg>
+);
+
 // ── Block palette definitions ──────────────────────────────────────────────────
 export const BLOCK_TYPES = [
-  { type:'entry_method',       icon:'🚪', label:'Entry Method',       desc:'CV upload, manual entry, LinkedIn or returning applicant' },
-  { type:'profile_fields',     icon:'👤', label:'Profile Fields',     desc:'Configurable person fields (name, email, phone, location…)' },
-  { type:'file_upload',        icon:'📎', label:'File Upload',        desc:'Upload any document — CV, right to work, portfolio' },
-  { type:'screening_questions',icon:'❓', label:'Screening Questions',desc:'Pre-screen questions from the question bank with knockout support' },
-  { type:'equal_opps',         icon:'⚖️', label:'Equal Opportunities',desc:'Anonymous EO monitoring form (auto-detects region)' },
-  { type:'consent',            icon:'✅', label:'Consent / GDPR',     desc:'Data processing consent checkbox' },
-  { type:'info_block',         icon:'ℹ️', label:'Info Block',         desc:'Instructions or rich text shown to the applicant' },
-  { type:'review_summary',     icon:'📋', label:'Review Summary',     desc:'Read-only summary of all collected data before submission' },
-  { type:'job_fields',         icon:'💼', label:'Job Fields',         desc:'Job creation fields for HM portal requisition wizard' },
+  { type:'entry_method',       icon:'doorOpen',    label:'Entry Method',       desc:'CV upload, manual entry, LinkedIn or returning applicant' },
+  { type:'profile_fields',     icon:'user',        label:'Profile Fields',     desc:'Configurable person fields (name, email, phone, location…)' },
+  { type:'file_upload',        icon:'paperclip',   label:'File Upload',        desc:'Upload any document — CV, right to work, portfolio' },
+  { type:'screening_questions',icon:'helpCircle',  label:'Screening Questions',desc:'Pre-screen questions from the question bank with knockout support' },
+  { type:'equal_opps',         icon:'scale',       label:'Equal Opportunities',desc:'Anonymous EO monitoring form (auto-detects region)' },
+  { type:'consent',            icon:'checkSquare', label:'Consent / GDPR',     desc:'Data processing consent checkbox' },
+  { type:'info_block',         icon:'info',        label:'Info Block',         desc:'Instructions or rich text shown to the applicant' },
+  { type:'review_summary',     icon:'clipboard',   label:'Review Summary',     desc:'Read-only summary of all collected data before submission' },
+  { type:'job_fields',         icon:'briefcase',   label:'Job Fields',         desc:'Job creation fields for HM portal requisition wizard' },
 ];
 
 // ── Default wizard configs per type ───────────────────────────────────────────
@@ -46,7 +81,7 @@ export const DEFAULT_WIZARDS = {
     trigger:{ mode:'hm_dashboard', button_label:'New Requisition' },
     pages:[
       { id:uid(), title:'New Requisition',  subtitle:'Tell us about the role.',  blocks:[{id:uid(),type:'job_fields',config:{fields:['job_title','department','location','work_type','employment_type','priority']}}], navigation:{next:null} },
-      { id:uid(), title:'Role description', subtitle:'',                          blocks:[{id:uid(),type:'job_fields',config:{fields:['description','required_skills']}},{id:uid(),type:'info_block',config:{icon:'💡',heading:'Tip',content:'Add the key skills required for this role, separated by commas.'}}], navigation:{next:null} },
+      { id:uid(), title:'Role description', subtitle:'',                          blocks:[{id:uid(),type:'job_fields',config:{fields:['description','required_skills']}},{id:uid(),type:'info_block',config:{heading:'Tip',content:'Add the key skills required for this role, separated by commas.'}}], navigation:{next:null} },
       { id:uid(), title:'Review & submit',  subtitle:'',                          blocks:[{id:uid(),type:'review_summary',config:{}}], navigation:{submit:true} },
     ],
     success_page:{ title:'Requisition Created', message:'Your requisition for {job_title} has been created and is now pending review.' },
@@ -124,7 +159,9 @@ const BlockConfig = ({ block, onUpdate, onRemove }) => {
     <div style={{background:C.accentLight,borderRadius:10,border:`1.5px solid ${C.accent}30`,padding:'12px 14px',display:'flex',flexDirection:'column',gap:10}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div style={{display:'flex',alignItems:'center',gap:6}}>
-          <span style={{fontSize:16}}>{BLOCK_TYPES.find(b=>b.type===block.type)?.icon||'🔧'}</span>
+          <div style={{width:24,height:24,borderRadius:6,background:C.accentLight,display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <WzIc n={BLOCK_TYPES.find(b=>b.type===block.type)?.icon||'settings'} s={13} c={C.accent}/>
+          </div>
           <span style={{fontSize:12,fontWeight:700,color:C.text1}}>{BLOCK_TYPES.find(b=>b.type===block.type)?.label||block.type}</span>
         </div>
         <SmBtn onClick={onRemove} variant='danger' icon='✕'>Remove</SmBtn>
@@ -175,7 +212,6 @@ const BlockConfig = ({ block, onUpdate, onRemove }) => {
         <div style={{display:'flex',flexDirection:'column',gap:8}}>
           <Inp label="Heading" value={cfg.heading} onChange={v=>set('heading',v)} placeholder="Important information"/>
           <Inp label="Content" value={cfg.content} onChange={v=>set('content',v)} rows={3} placeholder="Instructions or information…"/>
-          <Inp label="Icon (emoji)" value={cfg.icon} onChange={v=>set('icon',v)} placeholder="💡"/>
         </div>
       )}
     </div>
@@ -238,7 +274,9 @@ const PageEditor = ({ page, allPages, onUpdate, onDelete, isOnly }) => {
                 style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:C.surface,borderRadius:10,border:`1.5px solid ${C.border}`,cursor:'pointer',transition:'all .1s'}}
                 onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
                 onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
-                <span style={{fontSize:18,flexShrink:0}}>{BLOCK_TYPES.find(b=>b.type===block.type)?.icon||'🔧'}</span>
+                <div style={{width:28,height:28,borderRadius:7,background:C.accentLight,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <WzIc n={BLOCK_TYPES.find(b=>b.type===block.type)?.icon||'settings'} s={14} c={C.accent}/>
+                </div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:12,fontWeight:700,color:C.text1}}>{BLOCK_TYPES.find(b=>b.type===block.type)?.label||block.type}</div>
                   <div style={{fontSize:10,color:C.text3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{BLOCK_TYPES.find(b=>b.type===block.type)?.desc||''}</div>
@@ -265,7 +303,9 @@ const PageEditor = ({ page, allPages, onUpdate, onDelete, isOnly }) => {
                   style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:8,border:'none',background:'transparent',cursor:'pointer',textAlign:'left',fontFamily:F}}
                   onMouseEnter={e=>e.currentTarget.style.background=C.surface2}
                   onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                  <span style={{fontSize:18,flexShrink:0}}>{bt.icon}</span>
+                  <div style={{width:28,height:28,borderRadius:7,background:C.accentLight,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                    <WzIc n={bt.icon} s={14} c={C.accent}/>
+                  </div>
                   <div><div style={{fontSize:12,fontWeight:700,color:C.text1}}>{bt.label}</div><div style={{fontSize:10,color:C.text3}}>{bt.desc}</div></div>
                 </button>
               ))}
@@ -330,14 +370,16 @@ export default function WizardBuilder({ portal, onChange }) {
           <div style={{display:'flex',flexDirection:'column',gap:8}}>
             <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.05em'}}>Start from a template</div>
             {[
-              {key:'candidate_apply', icon:'📝', label:'Candidate Application', desc:'5-step wizard: entry method, details, screening, EO monitoring, review'},
-              {key:'hm_create_job',   icon:'💼', label:'HM Requisition',        desc:'3-step job creation: role details, description, review'},
+              {key:'candidate_apply', icon:'fileText',   label:'Candidate Application', desc:'5-step wizard: entry method, details, screening, EO monitoring, review'},
+              {key:'hm_create_job',   icon:'briefcase',  label:'HM Requisition',        desc:'3-step job creation: role details, description, review'},
             ].map(t=>(
               <button key={t.key} onClick={()=>applyTemplate(t.key)}
                 style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:C.surface,borderRadius:10,border:`1.5px solid ${C.border}`,cursor:'pointer',textAlign:'left',fontFamily:F,width:'100%'}}
                 onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
                 onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
-                <span style={{fontSize:24,flexShrink:0}}>{t.icon}</span>
+                <div style={{width:36,height:36,borderRadius:10,background:C.accentLight,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <WzIc n={t.icon} s={18} c={C.accent}/>
+                </div>
                 <div><div style={{fontSize:13,fontWeight:700,color:C.text1}}>{t.label}</div><div style={{fontSize:11,color:C.text3}}>{t.desc}</div></div>
               </button>
             ))}
@@ -364,7 +406,7 @@ export default function WizardBuilder({ portal, onChange }) {
       {/* ── Trigger configuration ── */}
       <div style={{padding:'12px 14px',background:'#FFFBEB',borderRadius:10,border:'1.5px solid #FDE68A',display:'flex',flexDirection:'column',gap:10}}>
         <div style={{display:'flex',alignItems:'center',gap:6}}>
-          <span style={{fontSize:15}}>⚡</span>
+          <WzIc n="zap" s={14} c="#92400E"/>
           <span style={{fontSize:11,fontWeight:700,color:'#92400E',textTransform:'uppercase',letterSpacing:'0.05em'}}>How is this wizard triggered?</span>
         </div>
 
@@ -380,27 +422,27 @@ export default function WizardBuilder({ portal, onChange }) {
         {/* Trigger-specific explanation */}
         {(wizard.trigger?.mode||'job_apply')==='job_apply'&&(
           <div style={{background:'white',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#6B7280',lineHeight:1.6}}>
-            📋 The <strong>"Apply for this role →"</strong> button on every job detail page will launch this wizard. The candidate must click a job first — the wizard runs in the context of that specific job.
+            The <strong>"Apply for this role →"</strong> button on every job detail page will launch this wizard. The candidate must click a job first — the wizard runs in the context of that specific job.
           </div>
         )}
         {(wizard.trigger?.mode)==='hero_cta'&&(
           <div style={{background:'white',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#6B7280',lineHeight:1.6}}>
-            🦸 A CTA button appears in the career site hero section. Clicking it launches the wizard <strong>without a specific job</strong> — useful for expressions of interest or talent pool sign-ups.
+            A CTA button appears in the career site hero section. Clicking it launches the wizard <strong>without a specific job</strong> — useful for expressions of interest or talent pool sign-ups.
           </div>
         )}
         {(wizard.trigger?.mode)==='job_apply+hero'&&(
           <div style={{background:'white',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#6B7280',lineHeight:1.6}}>
-            🔀 Two triggers: the <strong>Apply</strong> button on job listings (job-specific), and a <strong>general CTA</strong> in the hero section (no job). Use when you want both targeted applications and general interest.
+            Two triggers: the <strong>Apply</strong> button on job listings (job-specific), and a <strong>general CTA</strong> in the hero section (no job). Use when you want both targeted applications and general interest.
           </div>
         )}
         {(wizard.trigger?.mode)==='hm_dashboard'&&(
           <div style={{background:'white',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#6B7280',lineHeight:1.6}}>
-            💼 A <strong>"{wizard.trigger?.button_label||'New Requisition'}"</strong> button appears on the HM portal dashboard. Clicking it launches this wizard to collect job/requisition details.
+            A <strong>"{wizard.trigger?.button_label||'New Requisition'}"</strong> button appears on the HM portal dashboard. Clicking it launches this wizard to collect job/requisition details.
           </div>
         )}
         {(wizard.trigger?.mode)==='standalone'&&(
           <div style={{background:'white',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#6B7280',lineHeight:1.6}}>
-            🚀 The wizard <strong>is the portal</strong> — anyone who visits the portal URL goes straight into the wizard. No job listing, no separate landing page.
+            The wizard <strong>is the portal</strong> — anyone who visits the portal URL goes straight into the wizard. No job listing, no separate landing page.
           </div>
         )}
 
@@ -475,12 +517,12 @@ export default function WizardBuilder({ portal, onChange }) {
         <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.05em'}}>Completion messages</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
           <div style={{display:'flex',flexDirection:'column',gap:6}}>
-            <div style={{fontSize:11,fontWeight:600,color:C.green}}>✓ Success page</div>
+            <div style={{fontSize:11,fontWeight:600,color:C.green,display:'flex',alignItems:'center',gap:4}}><WzIc n="checkSquare" s={12} c={C.green}/>Success page</div>
             <Inp label="Heading" value={wizard.success_page?.title} onChange={v=>setW('success_page',{...wizard.success_page,title:v})} placeholder="Submitted!"/>
             <Inp label="Message (use {first_name}, {job_title})" value={wizard.success_page?.message} onChange={v=>setW('success_page',{...wizard.success_page,message:v})} rows={2} placeholder="Thank you {first_name}…"/>
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:6}}>
-            <div style={{fontSize:11,fontWeight:600,color:C.amber}}>⚠ Rejection page (knockout)</div>
+            <div style={{fontSize:11,fontWeight:600,color:C.amber,display:'flex',alignItems:'center',gap:4}}><WzIc n="alertCircle" s={12} c={C.amber}/>Rejection page (knockout)</div>
             <Inp label="Heading" value={wizard.rejection_page?.title} onChange={v=>setW('rejection_page',{...wizard.rejection_page,title:v})} placeholder="Thank you for your interest"/>
             <Inp label="Message" value={wizard.rejection_page?.message} onChange={v=>setW('rejection_page',{...wizard.rejection_page,message:v})} rows={2} placeholder="Based on your answers…"/>
           </div>

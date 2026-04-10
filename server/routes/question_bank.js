@@ -114,20 +114,45 @@ router.delete('/templates/:id', (req, res) => {
 // ─── JOB QUESTIONS ────────────────────────────────────────────────────────────
 router.get('/jobs/:job_id', (req, res) => {
   const store = getStore();
-  const assignments = (store.job_questions||[]).filter(jq=>jq.job_id===req.params.job_id);
+  const jobId = req.params.job_id;
+  const assignments = (store.job_questions||[]).filter(jq=>jq.job_id===jobId);
   const qIds = assignments.map(a=>a.question_id);
   // Library questions
   const libraryQs = (store.question_bank_v2||[]).filter(q=>qIds.includes(q.id));
   // Job-only (inline) questions stored directly on the assignment
   const ordered = assignments.map(a=>{
     if (a.question_data) {
-      // Job-only question — data lives on the assignment itself
       return { ...a.question_data, id: a.question_id, order: a.order, _job_only: true };
     }
     const q = libraryQs.find(q=>q.id===a.question_id);
     return q ? { ...q, order: a.order } : null;
   }).filter(Boolean).sort((a,b)=>(a.order||0)-(b.order||0));
-  res.json(ordered);
+
+  // Also pull questions from the Screening Rules panel (screening_job_rules)
+  // These have question_text/question_type/question_options rather than text/type/options
+  const screeningRules = (store.screening_job_rules||[]).filter(r => r.record_id === jobId && r.question_text);
+  const screeningQs = screeningRules.map(r => ({
+    id: r.id,
+    type: r.question_type || 'competency',
+    text: r.question_text,
+    options: r.question_options || [],
+    pass_value: r.pass_value || null,
+    weight: r.weight || 5,
+    _from_screening_rules: true,
+  }));
+
+  // Merge — avoid duplicates, knockout questions first
+  const existingIds = new Set(ordered.map(q => q.id));
+  const merged = [
+    ...ordered,
+    ...screeningQs.filter(q => !existingIds.has(q.id)),
+  ];
+  merged.sort((a,b) => {
+    if ((a.type==='knockout') && (b.type!=='knockout')) return -1;
+    if ((a.type!=='knockout') && (b.type==='knockout')) return 1;
+    return 0;
+  });
+  res.json(merged);
 });
 
 router.put('/jobs/:job_id', async (req, res) => {

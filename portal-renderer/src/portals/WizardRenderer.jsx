@@ -171,7 +171,7 @@ const PROFILE_FIELD_DEFS = [
 ];
 
 const ProfileFieldsBlock = ({ config={}, formData, set, onEmailBlur, emailCheck, checkingEmail,
-  otpState, otpCode, setOtpCode, otpError, otpSimCode, onVerifyOtp, color }) => {
+  otpState, otpCode, setOtpCode, otpError, otpSimCode, onVerifyOtp, onSendOtp, color }) => {
   const visibleKeys = config.fields?.length ? config.fields : ['first_name','last_name','email','phone','location','current_title'];
   const defs = PROFILE_FIELD_DEFS.filter(f=>visibleKeys.includes(f.key));
   const pairs = [];
@@ -187,6 +187,19 @@ const ProfileFieldsBlock = ({ config={}, formData, set, onEmailBlur, emailCheck,
           {f.key==='email'&&emailCheck?.already_applied_this_job&&<div style={{marginTop:8,padding:'10px 12px',background:'#FEF3C7',border:'1px solid #FCD34D',borderRadius:8,fontSize:12,color:'#92400E',display:'flex',alignItems:'center',gap:6}}><WzIc n="alertCircle" s={13} c="#92400E"/>You've already applied for this role.</div>}
           {f.key==='email'&&emailCheck?.exists&&!emailCheck?.already_applied_this_job&&(
             <div style={{marginTop:10}}>
+              {otpState==='prompt'&&(
+                <div style={{padding:'14px',background:'#F0F9FF',border:'1px solid #BAE6FD',borderRadius:10,display:'flex',alignItems:'flex-start',gap:12}}>
+                  <WzIc n="user" s={18} c="#0369A1" style={{flexShrink:0,marginTop:1}}/>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:700,color:'#0369A1',marginBottom:4}}>It looks like you've applied before</div>
+                    <div style={{fontSize:12,color:'#6B7280',marginBottom:10}}>To pre-fill your details, we'll send a one-time code to verify it's you.</div>
+                    <button onClick={onSendOtp}
+                      style={{padding:'8px 16px',borderRadius:8,border:'none',background:color,color:'white',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+                      Send me a code →
+                    </button>
+                  </div>
+                </div>
+              )}
               {otpState==='sending'&&(
                 <div style={{padding:'10px 12px',background:'#F0F9FF',border:'1px solid #BAE6FD',borderRadius:8,fontSize:12,color:'#0369A1',display:'flex',alignItems:'center',gap:6}}>
                   <WzIc n="loader" s={13} c="#0369A1"/>Sending verification code…
@@ -438,7 +451,7 @@ const JobFieldsBlock = ({ config={}, formData, set, color }) => {
 // ── Block Renderer — dispatches to the right component ───────────────────────
 const renderBlock = (block, ctx) => {
   const { formData, set, color, emailCheck, checkingEmail, onEmailBlur,
-    otpState, otpCode, setOtpCode, otpError, otpSimCode, onVerifyOtp,
+    otpState, otpCode, setOtpCode, otpError, otpSimCode, onVerifyOtp, onSendOtp,
     onMethodChosen, onCvFile, parsing, questions, jobLocation, companyName, pages } = ctx;
 
   switch (block.type) {
@@ -449,7 +462,7 @@ const renderBlock = (block, ctx) => {
       return <ProfileFieldsBlock key={block.id} config={block.config} formData={formData} set={set}
         onEmailBlur={onEmailBlur} emailCheck={emailCheck} checkingEmail={checkingEmail}
         otpState={otpState} otpCode={otpCode} setOtpCode={setOtpCode}
-        otpError={otpError} otpSimCode={otpSimCode} onVerifyOtp={onVerifyOtp} color={color}/>;
+        otpError={otpError} otpSimCode={otpSimCode} onVerifyOtp={onVerifyOtp} onSendOtp={onSendOtp} color={color}/>;
     case 'file_upload':
       return <FileUploadBlock key={block.id} config={block.config} formData={formData} set={set} color={color}/>;
     case 'screening_questions':
@@ -554,17 +567,23 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
     try {
       const res = await api.get(`/portals/${portal.id}/apply/check-email?email=${encodeURIComponent(email)}&job_id=${job?.id||''}`);
       setEmailCheck(res);
-      // If returning candidate: auto-send OTP, don't pre-fill yet
+      // If returning candidate: show prompt first, don't auto-send
       if (res.exists && !res.already_applied_this_job) {
-        setOtpState('sending');
-        try {
-          const otpRes = await api.post(`/portals/${portal.id}/apply/send-otp`, { email });
-          setOtpState('sent');
-          if (otpRes.simulated && otpRes.code) setOtpSimCode(otpRes.code);
-        } catch { setOtpState('error'); setOtpError('Could not send code. Please try again.'); }
+        setOtpState('prompt');
       }
     } catch {}
     setCheckingEmail(false);
+  };
+
+  // ── OTP send (triggered by candidate clicking the prompt) ─────────────────
+  const handleSendOtp = async () => {
+    const email = (formData.email || '').toLowerCase().trim();
+    setOtpState('sending'); setOtpError('');
+    try {
+      const otpRes = await api.post(`/portals/${portal.id}/apply/send-otp`, { email });
+      setOtpState('sent');
+      if (otpRes.simulated && otpRes.code) setOtpSimCode(otpRes.code);
+    } catch { setOtpState('error'); setOtpError('Could not send code. Please try again.'); }
   };
 
   // ── OTP verify ───────────────────────────────────────────────────────────
@@ -785,7 +804,7 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
     currentPageIdx >= pages.length - 1;
   const isEntryPage = currentPage?.blocks?.some(b => b.type === 'entry_method');
   const blockCtx = { formData, set, color, emailCheck, checkingEmail, onEmailBlur:handleEmailBlur,
-    otpState, otpCode, setOtpCode, otpError, otpSimCode, onVerifyOtp:handleVerifyOtp,
+    otpState, otpCode, setOtpCode, otpError, otpSimCode, onVerifyOtp:handleVerifyOtp, onSendOtp:handleSendOtp,
     onMethodChosen:(m)=>{ setEntryMethod(m); handleNext(); }, onCvFile:handleCvFile, parsing,
     questions, jobLocation:job?.data?.location, companyName:br.company_name, pages };
 

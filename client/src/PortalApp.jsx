@@ -1,17 +1,6 @@
 import { useState, useEffect } from 'react'
 import PortalPageRenderer from './portals/PortalPageRenderer.jsx'
-
-// Simple fetch helper — credentials:include sends session cookie for draft previews
-const api = {
-  get:  (p) => fetch(`/api${p}`, { credentials: 'include' })
-                 .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
-  post: (p, b) => fetch(`/api${p}`, {
-                   method: 'POST',
-                   credentials: 'include',
-                   headers: { 'Content-Type': 'application/json' },
-                   body: JSON.stringify(b)
-                 }).then(r => r.json()),
-}
+import api from './apiClient.js'
 
 const Spinner = ({ color = '#4361EE' }) => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', background:'#EEF2FF' }}>
@@ -23,7 +12,9 @@ const Spinner = ({ color = '#4361EE' }) => (
 const ErrorScreen = ({ message }) => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', background:'#FEF2F2', fontFamily:"'DM Sans', sans-serif" }}>
     <div style={{ textAlign:'center', maxWidth:440, padding:40 }}>
-      <div style={{ fontSize:48, marginBottom:16 }}>🔒</div>
+      <div style={{ width:64, height:64, borderRadius:'50%', background:'#FEE2E2', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
       <h2 style={{ margin:'0 0 8px', fontSize:20, fontWeight:800, color:'#0F1729' }}>Portal Unavailable</h2>
       <p style={{ color:'#6B7280', fontSize:14, lineHeight:1.6 }}>{message}</p>
     </div>
@@ -62,7 +53,7 @@ export default function PortalApp({ slug }) {
         setLoading(false)
       })
       .catch(err => {
-        const status = err?.message || ''
+        const status = String(err?.status || err?.message || '')
         if (status === '403') {
           setError('This portal exists but has not been published yet. Open the portal builder and click Publish.')
         } else if (status === '404') {

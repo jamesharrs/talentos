@@ -81,10 +81,18 @@ router.get('/templates/:id', (req, res) => {
 });
 
 router.post('/templates', (req, res) => {
-  const { name, description, category, question_ids } = req.body;
+  const { name, description, category, question_ids, template_type, rules } = req.body;
   if (!name) return res.status(400).json({error:'name required'});
   const store = getStore();
-  const tpl = { id:uuidv4(), name, description:description||'', category:category||'Custom', question_ids:question_ids||[], is_system:false, created_at:new Date().toISOString() };
+  const tpl = {
+    id: uuidv4(), name, description: description||'',
+    category: category||'Custom',
+    template_type: template_type||'interview',  // 'interview' | 'screening'
+    question_ids: question_ids||[],
+    rules: rules||[],                           // used by screening templates
+    is_system: false,
+    created_at: new Date().toISOString(),
+  };
   if (!store.question_templates) store.question_templates=[];
   store.question_templates.push(tpl);
   saveStore(store);
@@ -96,7 +104,7 @@ router.patch('/templates/:id', (req, res) => {
   const idx = (store.question_templates||[]).findIndex(t=>t.id===req.params.id);
   if (idx===-1) return res.status(404).json({error:'Not found'});
   if (store.question_templates[idx].is_system) return res.status(403).json({error:'System templates cannot be edited'});
-  ['name','description','category','question_ids'].forEach(k=>{if(req.body[k]!==undefined)store.question_templates[idx][k]=req.body[k];});
+  ['name','description','category','question_ids','template_type','rules'].forEach(k=>{if(req.body[k]!==undefined)store.question_templates[idx][k]=req.body[k];});
   store.question_templates[idx].updated_at=new Date().toISOString();
   saveStore(store);
   res.json(store.question_templates[idx]);

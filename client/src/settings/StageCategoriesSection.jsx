@@ -80,7 +80,7 @@ export default function StageCategoriesSection({ environment }) {
   const load = useCallback(async () => {
     if (!envId) return;
     setLoading(true);
-    const data = await api.get(`/api/stage-categories?environment_id=${envId}`);
+    const data = await api.get(`/stage-categories?environment_id=${envId}`);
     setCats(Array.isArray(data) ? data : []);
     setLoading(false);
   }, [envId]);
@@ -90,9 +90,9 @@ export default function StageCategoriesSection({ environment }) {
   const handleSave = async (form) => {
     setSaving(true);
     if (editing === 'new') {
-      await api.post('/api/stage-categories', { ...form, environment_id: envId });
+      await api.post('/stage-categories', { ...form, environment_id: envId });
     } else {
-      await api.patch(`/api/stage-categories/${editing.id}`, form);
+      await api.patch(`/stage-categories/${editing.id}`, form);
     }
     await load();
     setEditing(null);
@@ -101,7 +101,7 @@ export default function StageCategoriesSection({ environment }) {
 
   const handleDelete = async (cat) => {
     if (!confirm(`Delete "${cat.name}"? This cannot be undone.`)) return;
-    await api.delete(`/api/stage-categories/${cat.id}`);
+    await api.delete(`/stage-categories/${cat.id}`);
     await load();
   };
 
@@ -109,7 +109,7 @@ export default function StageCategoriesSection({ environment }) {
     if (idx === 0) return;
     const ordered = [...cats];
     [ordered[idx - 1], ordered[idx]] = [ordered[idx], ordered[idx - 1]];
-    await api.post('/api/stage-categories/reorder', { environment_id: envId, ordered_ids: ordered.map(c => c.id) });
+    await api.post('/stage-categories/reorder', { environment_id: envId, ordered_ids: ordered.map(c => c.id) });
     await load();
   };
 
@@ -117,7 +117,7 @@ export default function StageCategoriesSection({ environment }) {
     if (idx === cats.length - 1) return;
     const ordered = [...cats];
     [ordered[idx], ordered[idx + 1]] = [ordered[idx + 1], ordered[idx]];
-    await api.post('/api/stage-categories/reorder', { environment_id: envId, ordered_ids: ordered.map(c => c.id) });
+    await api.post('/stage-categories/reorder', { environment_id: envId, ordered_ids: ordered.map(c => c.id) });
     await load();
   };
 

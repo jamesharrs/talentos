@@ -1257,6 +1257,8 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
   const [triggerType, setTriggerType] = useState(workflow?.trigger_type || "manual");
   const [triggerConfig, setTriggerConfig] = useState(workflow?.trigger_config || {});
   const [steps, setSteps]     = useState(workflow?.steps || []);
+  const [portalEntryStages, setPortalEntryStages] = useState(workflow?.portal_entry_stages || []);
+  const [portals, setPortals] = useState([]);
   const [viewMode, setViewMode] = useState(workflow?._openCanvas ? "canvas" : "list"); // "list" | "canvas"
   const [flowType, setFlowType] = useState(workflow?.flow_type || 'unstructured');
   const [saving, setSaving]   = useState(false);
@@ -1281,6 +1283,15 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
   }, [objectId]);
 
   // For people_link workflows, visibility rules apply to Person fields, not the host object
+  // Load portals for the per-portal entry stage config (people_link workflows only)
+  useEffect(() => {
+    if (wfType !== 'people_link' || !environment?.id) return;
+    api.get(`/portals?environment_id=${environment.id}`).then(d => {
+      const list = Array.isArray(d) ? d : (d?.portals || []);
+      setPortals(list.filter(p => !p.deleted_at));
+    }).catch(() => {});
+  }, [wfType, environment?.id]);
+
   useEffect(() => {
     if (wfType !== 'people_link' || !environment?.id) { setVisibilityFields(fields); return; }
     // Find the People object and load its fields
@@ -1316,9 +1327,10 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
     try {
       let wf;
       if (workflow?.id) {
-        wf = await api.patch(`/workflows/${workflow.id}`, { name, object_id: objectId, description: desc, workflow_type: wfType, flow_type: flowType, trigger_type: triggerType, trigger_config: triggerConfig, sharing });
+        wf = await api.patch(`/workflows/${workflow.id}`, { name, object_id: objectId, description: desc, workflow_type: wfType, flow_type: flowType, trigger_type: triggerType, trigger_config: triggerConfig, sharing, portal_entry_stages: portalEntryStages });
+
       } else {
-        wf = await api.post("/workflows", { name, object_id: objectId, description: desc, environment_id: environment.id, workflow_type: wfType, flow_type: flowType, trigger_type: triggerType, trigger_config: triggerConfig, sharing });
+        wf = await api.post("/workflows", { name, object_id: objectId, description: desc, environment_id: environment.id, workflow_type: wfType, flow_type: flowType, trigger_type: triggerType, trigger_config: triggerConfig, sharing, portal_entry_stages: portalEntryStages });
       }
       if (!wf?.id) throw new Error("Server did not return a workflow ID");
       await api.put(`/workflows/${wf.id}/steps`, { steps: steps.map(migrateStep) });
@@ -1601,6 +1613,51 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
             onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text3;e.currentTarget.style.background="transparent";}}>
             <Ic n="plus" s={15}/> Add Stage
           </button>
+
+          {/* ── Portal Entry Stages — people_link workflows only ── */}
+          {wfType === "people_link" && steps.length > 0 && (
+            <div style={{ background:C.surface, border:`1.5px solid ${C.border}`, borderRadius:12, overflow:"hidden" }}>
+              <div style={{ padding:"12px 16px", borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", gap:8, background:C.surface2 }}>
+                <Ic n="layers" s={14} c={C.accent}/>
+                <div>
+                  <div style={{ fontSize:12, fontWeight:700, color:C.text1 }}>Portal Entry Stages</div>
+                  <div style={{ fontSize:11, color:C.text3, marginTop:1 }}>Choose which stage applicants start in, per portal. Defaults to the first stage.</div>
+                </div>
+              </div>
+              <div style={{ padding:"12px 16px", display:"flex", flexDirection:"column", gap:8 }}>
+                {portals.length === 0 ? (
+                  <div style={{ fontSize:12, color:C.text3, padding:"8px 0" }}>No portals found for this environment.</div>
+                ) : portals.map(portal => {
+                  const entry = portalEntryStages.find(e => e.portal_id === portal.id);
+                  const selectedStageId = entry?.stage_id || "";
+                  return (
+                    <div key={portal.id} style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      <div style={{ flex:1, fontSize:12, fontWeight:600, color:C.text1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        {portal.name || portal.id}
+                      </div>
+                      <select
+                        value={selectedStageId}
+                        onChange={e => {
+                          const stageId = e.target.value;
+                          const step = steps.find(s => s.id === stageId);
+                          setPortalEntryStages(prev => {
+                            const without = prev.filter(x => x.portal_id !== portal.id);
+                            if (!stageId) return without;
+                            return [...without, { portal_id: portal.id, portal_name: portal.name, stage_id: stageId, stage_name: step?.name || "" }];
+                          });
+                        }}
+                        style={{ padding:"5px 8px", borderRadius:8, border:`1.5px solid ${C.border}`, fontFamily:F, fontSize:12, color:C.text1, background:C.surface, outline:"none", minWidth:160 }}>
+                        <option value="">First stage (default)</option>
+                        {steps.map(s => (
+                          <option key={s.id} value={s.id}>{s.name || "Untitled stage"}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

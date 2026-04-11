@@ -434,10 +434,14 @@ router.post('/:id/wizard/submit', async (req, res) => {
           ? (store.workflow_steps||[]).filter(s => s.workflow_id === wf.id).sort((a,b)=>(a.order||0)-(b.order||0))
           : [];
 
-        // Portal-level default stage: match by name (case-insensitive), fall back to first step
-        const portalDefaultStageName = portal.wizard?.default_application_stage;
-        const matchedStep = portalDefaultStageName
-          ? wfSteps.find(s => s.name?.toLowerCase() === portalDefaultStageName.toLowerCase())
+        // Check if this workflow has a portal-specific entry stage configured
+        const portalEntryStages = wf?.portal_entry_stages || [];
+        const portalEntry = portalEntryStages.find(e => e.portal_id === req.params.id);
+        const portalDefaultStageName = portalEntry?.stage_name || null;
+
+        // Priority: portal-specific stage → first workflow step → 'New' fallback
+        const matchedStep = portalEntry
+          ? wfSteps.find(s => s.id === portalEntry.stage_id) || wfSteps.find(s => s.name?.toLowerCase() === portalEntry.stage_name?.toLowerCase())
           : null;
         const firstStep = wfSteps[0] || null;
         const chosenStep = matchedStep || firstStep;

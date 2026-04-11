@@ -352,7 +352,7 @@ router.post('/', (req, res) => {
   if (_checkGA(req, res, 'manage_workflows') === false) return;
   ensureTables();
   const { name, object_id, environment_id, description, workflow_type } = req.body;
-  const wf = insert('workflows', { id: uuidv4(), name, object_id, environment_id, description: description||'', workflow_type: workflow_type||'automation', active: true, sharing: req.body.sharing || { visibility: 'private', user_ids: [], group_ids: [] }, created_by: req.body.created_by || null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+  const wf = insert('workflows', { id: uuidv4(), name, object_id, environment_id, description: description||'', workflow_type: workflow_type||'automation', active: true, sharing: req.body.sharing || { visibility: 'private', user_ids: [], group_ids: [] }, portal_entry_stages: req.body.portal_entry_stages || [], created_by: req.body.created_by || null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
   res.json({ ...wf, steps: [] });
 });
 

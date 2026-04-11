@@ -877,11 +877,18 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
 
           {/* Navigation footer — not shown on entry_method pages (those navigate via block clicks) */}
           {!isEntryPage&&(
-            <div style={{display:'flex',justifyContent:'flex-end',marginTop:32}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:32}}>
+              {!isFirstPage ? (
+                <button onClick={handleBack}
+                  style={{padding:'12px 24px',borderRadius:10,background:'transparent',color:'#6B7280',fontSize:15,fontWeight:600,border:'1.5px solid #E5E7EB',
+                    cursor:'pointer',fontFamily:c.font,display:'flex',alignItems:'center',gap:6}}>
+                  ← Previous
+                </button>
+              ) : <div/>}
               <button onClick={handleNext} disabled={submitting}
                 style={{padding:'12px 28px',borderRadius:10,background:color,color:'white',fontSize:15,fontWeight:700,border:'none',
                   cursor:submitting?'not-allowed':'pointer',opacity:submitting?0.7:1,fontFamily:c.font,display:'flex',alignItems:'center',gap:8}}>
-                {submitting?'Submitting…':isLastPage?'Submit →':'Continue →'}
+                {submitting?'Submitting…':isLastPage?'Submit':'Next →'}
               </button>
             </div>
           )}

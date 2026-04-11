@@ -13,17 +13,19 @@ function ensureTable() {
 router.get('/', (req, res) => {
   ensureTable();
   const { object_id, environment_id, user_id } = req.query;
-  if (!object_id || !environment_id) return res.status(400).json({ error: 'object_id and environment_id required' });
+  if (!environment_id) return res.status(400).json({ error: 'environment_id required' });
   const views = query('saved_views', v => {
-    if (v.object_id !== object_id || v.environment_id !== environment_id) return false;
+    if (v.environment_id !== environment_id) return false;
+    // If object_id is supplied, filter to that object only
+    if (object_id && v.object_id !== object_id) return false;
     if (user_id === 'system') return true; // widget config bypass — show all lists
+    if (!user_id) return true; // no user filter — return all
     if (v.created_by === user_id) return true;
     const sh = v.sharing;
     if (!sh) return !!v.is_shared; // legacy
     if (sh.visibility === 'everyone') return true;
     if (sh.visibility === 'specific') {
       if ((sh.user_ids || []).includes(user_id)) return true;
-      // group check done client-side for simplicity
     }
     return false;
   }).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));

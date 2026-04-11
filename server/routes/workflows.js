@@ -699,13 +699,13 @@ router.get('/people-links', (req, res) => {
   ensureTables();
   const { target_record_id, person_record_id, environment_id } = req.query;
   let links = query('people_links', () => true);
-  if (target_record_id)  links = links.filter(l => l.target_record_id === target_record_id);
-  if (person_record_id)  links = links.filter(l => l.person_record_id === person_record_id);
+  if (target_record_id)  links = links.filter(l => l.target_record_id === target_record_id || l.record_id === target_record_id);
+  if (person_record_id)  links = links.filter(l => l.person_record_id === person_record_id || l.person_id === person_record_id);
   if (environment_id)    links = links.filter(l => l.environment_id === environment_id);
   // Hydrate with person record data AND target record/object data
   const result = links.map(l => {
-    const person = findOne('records', r => r.id === l.person_record_id);
-    const target = findOne('records', r => r.id === l.target_record_id);
+    const person = findOne('records', r => r.id === (l.person_record_id || l.person_id));
+    const target = findOne('records', r => r.id === (l.target_record_id || l.record_id));
     const targetObj = target ? findOne('objects', o => o.id === target.object_id) : null;
     // Build a display title for the target record
     const td = target?.data || {};

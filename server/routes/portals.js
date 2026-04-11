@@ -418,11 +418,22 @@ router.post('/:id/wizard/submit', async (req, res) => {
     // Link to a job record if requested
     if (link_to_job && job_id && target_object==='people') {
       if (!store.people_links) store.people_links=[];
-      const alreadyLinked = store.people_links.find(l=>l.person_id===record.id && l.record_id===job_id);
+      // Use person_record_id + target_record_id to match the workflows/people-links schema
+      const alreadyLinked = store.people_links.find(l =>
+        (l.person_record_id === record.id || l.person_id === record.id) &&
+        (l.target_record_id === job_id || l.record_id === job_id)
+      );
       if (!alreadyLinked) {
         store.people_links.push({
-          id:uid(), person_id:record.id, record_id:job_id,
-          stage_id:null, workflow_id:null, added_by:'portal', added_at:new Date().toISOString(),
+          id: uid(),
+          person_record_id: record.id,   // canonical field name used by workflows routes
+          target_record_id: job_id,       // canonical field name used by workflows routes
+          target_object_id: null,
+          stage_id: null,
+          stage_name: null,
+          environment_id: portal.environment_id,
+          added_by: 'portal',
+          added_at: new Date().toISOString(),
         });
       }
     }

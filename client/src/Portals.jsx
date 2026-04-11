@@ -1859,7 +1859,7 @@ const HMWidgetConfig = ({ cfg, set, setMany, environmentId }) => {
 };
 
 // ─── HTML Embed Config ─────────────────────────────────────────────────────────
-const HtmlEmbedConfig = ({ cfg, set, inp, lbl }) => {
+const HtmlEmbedConfig = ({ cfg, set, setMany, inp, lbl }) => {
   const [tab,       setTab]      = useState(cfg.html ? 'html' : 'ai');
   const [prompt,    setPrompt]   = useState('');
   const [styleMode, setStyleMode]= useState(cfg.styleMode || 'portal');
@@ -1893,9 +1893,10 @@ Output ONLY valid HTML — no markdown fences, no explanation.`;
       });
       const data = await res.json();
       const raw  = (data?.content || data?.content?.[0]?.text || data?.reply || '').trim();
-      const html = raw.replace(/^```html?\n?/i,'').replace(/```$/,'').trim();
-      set('html', html);
-      set('styleMode', styleMode);
+      const html = raw.replace(/^```html?\n?/i,'').replace(/```$/m,'').trim();
+      // Single atomic update — avoids stale-ref race between two set() calls
+      if (setMany) setMany({ html, styleMode });
+      else { set('html', html); set('styleMode', styleMode); }
       setTab('html');
     } catch(e) { setErr('Generation failed — check API key / connection'); }
     finally     { setLoading(false); }
@@ -1948,7 +1949,22 @@ Output ONLY valid HTML — no markdown fences, no explanation.`;
             style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'10px',borderRadius:8,border:'none',
               background:loading||!prompt.trim()?C.border:C.accent,color:'white',fontFamily:F,fontSize:13,fontWeight:700,
               cursor:loading||!prompt.trim()?'not-allowed':'pointer'}}>
-            {loading ? <>Generating…</> : <><Ic n="sparkles" s={13} c="white"/> Generate HTML</>}
+            {loading ? (
+              <>
+                <span style={{
+                  width:14,height:14,borderRadius:'50%',
+                  border:'2px solid rgba(255,255,255,0.3)',
+                  borderTopColor:'white',
+                  display:'inline-block',
+                  animation:'html-spin 0.7s linear infinite',
+                  flexShrink:0,
+                }}/>
+                Generating…
+                <style>{`@keyframes html-spin{to{transform:rotate(360deg)}}`}</style>
+              </>
+            ) : (
+              <><Ic n="sparkles" s={13} c="white"/> Generate HTML</>
+            )}
           </button>
           {cfg.html && <div style={{fontSize:11,color:C.green,display:'flex',alignItems:'center',gap:4}}><Ic n="check" s={11} c={C.green}/> HTML generated — check the HTML or Preview tab</div>}
         </div>
@@ -2531,7 +2547,7 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
           </div>
         </div>
       );
-      case "html_embed":     return <HtmlEmbedConfig cfg={cfg} set={set} inp={inp} lbl={lbl} cell={cell} onUpdate={onUpdate}/>;
+      case "html_embed":     return <HtmlEmbedConfig cfg={cfg} set={set} setMany={setMany} inp={inp} lbl={lbl} cell={cell} onUpdate={onUpdate}/>;
       default: return <p style={{ fontSize:12, color:C.text3, margin:0 }}>No settings for this widget.</p>;
     }
   };

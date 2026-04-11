@@ -1615,7 +1615,7 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
           </button>
 
           {/* ── Portal Entry Stages — people_link workflows only ── */}
-          {wfType === "people_link" && steps.length > 0 && (
+          {wfType === "people_link" && (
             <div style={{ background:C.surface, border:`1.5px solid ${C.border}`, borderRadius:12, overflow:"hidden" }}>
               <div style={{ padding:"12px 16px", borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", gap:8, background:C.surface2 }}>
                 <Ic n="layers" s={14} c={C.accent}/>
@@ -1625,7 +1625,9 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
                 </div>
               </div>
               <div style={{ padding:"12px 16px", display:"flex", flexDirection:"column", gap:8 }}>
-                {portals.length === 0 ? (
+                {steps.length === 0 ? (
+                  <div style={{ fontSize:12, color:C.text3, padding:"4px 0" }}>Add at least one stage above before configuring portal entry points.</div>
+                ) : portals.length === 0 ? (
                   <div style={{ fontSize:12, color:C.text3, padding:"8px 0" }}>No portals found for this environment.</div>
                 ) : portals.map(portal => {
                   const entry = portalEntryStages.find(e => e.portal_id === portal.id);

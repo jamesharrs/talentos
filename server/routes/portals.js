@@ -369,9 +369,17 @@ router.post('/:id/wizard/submit', async (req, res) => {
     // don't pollute the candidate record's profile fields
     const screeningAnswers = {};
     const cleanFormData = {};
+    const uploadedFileIds = {}; // __file_* → attachment ID
     for (const [k, v] of Object.entries(form_data)) {
-      if (k.startsWith('sq_')) screeningAnswers[k.replace('sq_', '')] = v;
-      else cleanFormData[k] = v;
+      if (k.startsWith('sq_')) {
+        screeningAnswers[k.replace('sq_', '')] = v;
+      } else if (k.startsWith('__file_') && v) {
+        // These are attachment IDs uploaded by the client before submit
+        uploadedFileIds[k] = v;
+      } else if (!k.startsWith('__')) {
+        // Exclude all other internal keys (__consent, __otp_verified, __draft_token, etc.)
+        cleanFormData[k] = v;
+      }
     }
 
     // Find the target object for this environment
@@ -461,6 +469,18 @@ router.post('/:id/wizard/submit', async (req, res) => {
       }
     } else {
       console.log(`[portal-submit] SKIP link: link_to_job=${link_to_job} job_id=${job_id} target=${target_object}`);
+    }
+
+    // ── Link uploaded file attachments to the record ──────────────────────────
+    if (Object.keys(uploadedFileIds).length > 0 && store.attachments) {
+      for (const [fileKey, attachmentId] of Object.entries(uploadedFileIds)) {
+        const att = store.attachments.find(a => a.id === attachmentId);
+        if (att && !att.record_id) {
+          att.record_id = record.id;
+          att.object_id = targetObj.id;
+          att.environment_id = portal.environment_id;
+        }
+      }
     }
 
     // Save activity log entry

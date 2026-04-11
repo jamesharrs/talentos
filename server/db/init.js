@@ -301,8 +301,9 @@ async function seedEnvironmentAndObjects() {
       { name:'Skills', ak:'skills', type:'skills', list:0, o:12, opts:[] },
       { name:'Years Experience', ak:'years_experience', type:'number', list:1, o:13 },
       { name:'Rating', ak:'rating', type:'rating', list:1, o:14 },
-      { name:'Job Title', ak:'job_title', type:'text', list:1, o:15, cond_field:'person_type', cond_val:'Employee' },
-      { name:'Department', ak:'department', type:'select', list:1, o:16, opts:['Engineering','Product','Design','Sales','Marketing','HR','Finance','Operations','Legal','Other'], cond_field:'person_type', cond_val:'Employee' },
+      { name:'Cover Letter / Notes', ak:'cover_letter', type:'rich_text', list:0, o:15 },
+      { name:'Job Title', ak:'job_title', type:'text', list:1, o:16, cond_field:'person_type', cond_val:'Employee' },
+      { name:'Department', ak:'department', type:'select', list:1, o:17, opts:['Engineering','Product','Design','Sales','Marketing','HR','Finance','Operations','Legal','Other'], cond_field:'person_type', cond_val:'Employee' },
     ],
     jobs: [
       { name:'Job Title', ak:'job_title', type:'text', req:1, list:1, o:1 },
@@ -444,6 +445,32 @@ function migrateSkillsFieldType() {
   if (changed > 0) console.log(`✅ Migrated ${changed} skills field(s) from multi_select → skills`);
 }
 migrateSkillsFieldType();
+
+// ── Add cover_letter field to existing People objects ────────────────────────
+function migrateCoverLetterField() {
+  let added = 0;
+  for (const [key, store] of Object.entries(storeCache)) {
+    const peopleObjs = (store.objects || []).filter(o => o.slug === 'people' && !o.deleted_at);
+    for (const obj of peopleObjs) {
+      const existing = (store.fields || []).find(f => f.object_id === obj.id && f.api_key === 'cover_letter');
+      if (!existing) {
+        const { v4: uid } = require('uuid');
+        const maxOrder = (store.fields || []).filter(f => f.object_id === obj.id).reduce((m,f) => Math.max(m, f.sort_order||0), 0);
+        if (!store.fields) store.fields = [];
+        store.fields.push({
+          id: uid(), object_id: obj.id, environment_id: obj.environment_id,
+          name: 'Cover Letter / Notes', api_key: 'cover_letter', field_type: 'rich_text',
+          is_required: false, is_unique: false, show_in_list: false, is_system: true,
+          sort_order: maxOrder + 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        });
+        added++;
+      }
+    }
+    if (added > 0) saveStore(key);
+  }
+  if (added > 0) console.log(`✅ Added cover_letter field to ${added} People object(s)`);
+}
+migrateCoverLetterField();
 
 // ── Prune orphaned people_links on startup ───────────────────────────────────
 // Removes any people_link where the person_record or target_record no longer exists.

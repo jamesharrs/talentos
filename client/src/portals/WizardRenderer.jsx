@@ -814,7 +814,7 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
   }
 
   const isFirstPage = pageHistory.length <= 1;
-  const isLastPage  = currentPage?.navigation?.submit || !currentPage?.navigation?.next ||
+  const isLastPage  = currentPage?.navigation?.submit === true ||
     currentPageIdx >= pages.length - 1;
   const isEntryPage = currentPage?.blocks?.some(b => b.type === 'entry_method');
   const blockCtx = { formData, set, color, emailCheck, checkingEmail, onEmailBlur:handleEmailBlur,

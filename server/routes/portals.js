@@ -424,7 +424,7 @@ router.post('/:id/wizard/submit', async (req, res) => {
       );
       console.log(`[portal-submit] linking: person=${record.id.slice(0,8)} job=${job_id.slice(0,8)} already=${!!alreadyLinked}`);
       if (!alreadyLinked) {
-        // Try to find the first stage of the job's Linked Person workflow
+        // Try to find the right stage from the job's Linked Person workflow
         const wfAssignment = (store.record_workflow_assignments||[])
           .find(a => a.record_id === job_id && a.type === 'people_link');
         const wf = wfAssignment
@@ -433,20 +433,27 @@ router.post('/:id/wizard/submit', async (req, res) => {
         const wfSteps = wf
           ? (store.workflow_steps||[]).filter(s => s.workflow_id === wf.id).sort((a,b)=>(a.order||0)-(b.order||0))
           : [];
+
+        // Portal-level default stage: match by name (case-insensitive), fall back to first step
+        const portalDefaultStageName = portal.wizard?.default_application_stage;
+        const matchedStep = portalDefaultStageName
+          ? wfSteps.find(s => s.name?.toLowerCase() === portalDefaultStageName.toLowerCase())
+          : null;
         const firstStep = wfSteps[0] || null;
+        const chosenStep = matchedStep || firstStep;
 
         store.people_links.push({
           id: uid(),
           person_record_id: record.id,
           target_record_id: job_id,
           target_object_id: null,
-          stage_id:   firstStep?.id   || null,
-          stage_name: firstStep?.name || 'New',
+          stage_id:   chosenStep?.id   || null,
+          stage_name: chosenStep?.name || portalDefaultStageName || 'New',
           environment_id: portal.environment_id,
           added_by: 'portal',
           added_at: new Date().toISOString(),
         });
-        console.log(`[portal-submit] link created: stage=${firstStep?.name||'New'} people_links total=${store.people_links.length}`);
+        console.log(`[portal-submit] link created: stage="${chosenStep?.name || portalDefaultStageName || 'New'}" (portal default="${portalDefaultStageName||'none'}", workflow="${wf?.name||'none'}")`);
       }
     } else {
       console.log(`[portal-submit] SKIP link: link_to_job=${link_to_job} job_id=${job_id} target=${target_object}`);

@@ -1,6 +1,6 @@
 // WizardBuilder.jsx — admin UI for building configurable portal wizards
 // Embedded in the Portal Settings drawer as a "Wizard" tab
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 const F = "'Plus Jakarta Sans',-apple-system,sans-serif";
 const C = {
@@ -324,6 +324,28 @@ export default function WizardBuilder({ portal, onChange }) {
   const setW = (k,v) => setWizard({ ...wizard, [k]:v });
 
   const [selectedPageIdx, setSelectedPageIdx] = useState(0);
+  const [wfStages, setWfStages] = useState([]); // all unique stage names from people_link workflows
+
+  // Load people_link workflow stages for this environment
+  useEffect(() => {
+    if (!portal.environment_id) return;
+    Promise.all([
+      fetch(`/api/workflows?environment_id=${portal.environment_id}`).then(r=>r.json()),
+      fetch(`/api/workflow-steps?environment_id=${portal.environment_id}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
+    ]).then(([wfs, steps]) => {
+      const plWfs = (Array.isArray(wfs)?wfs:[]).filter(w=>w.type==='people_link'||!w.type);
+      const plIds = new Set(plWfs.map(w=>w.id));
+      const stageNames = (Array.isArray(steps)?steps:[])
+        .filter(s=>plIds.has(s.workflow_id) && s.name)
+        .map(s=>s.name);
+      // Also pull stages from all workflows if step endpoint unavailable
+      if (!stageNames.length) {
+        plWfs.forEach(w=>(w.steps||[]).forEach(s=>{ if(s.name) stageNames.push(s.name); }));
+      }
+      const unique = [...new Set(stageNames)];
+      setWfStages(unique);
+    }).catch(()=>{});
+  }, [portal.environment_id]);
 
   const pages = wizard.pages || [];
   const currentPage = pages[selectedPageIdx] || pages[0];
@@ -475,6 +497,49 @@ export default function WizardBuilder({ portal, onChange }) {
           <Toggle label="Show progress bar" checked={wizard.show_progress!==false} onChange={v=>setW('show_progress',v)} hint="Show step indicators at the top of each page"/>
           <Toggle label="Allow save & continue later" checked={wizard.allow_save_draft!==false} onChange={v=>setW('allow_save_draft',v)} hint="Sends a resume link to the applicant's email"/>
         </div>
+        {/* Default application stage — only relevant for people-type wizards */}
+        {(wizard.target_object==='people'||!wizard.target_object) && (
+          <div>
+            <label style={{fontSize:11,fontWeight:700,color:'#374151',display:'block',marginBottom:5}}>
+              DEFAULT APPLICATION STAGE
+            </label>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              {wfStages.length > 0 ? (
+                <select
+                  value={wizard.default_application_stage||''}
+                  onChange={e=>setW('default_application_stage', e.target.value||null)}
+                  style={{flex:1,padding:'7px 10px',borderRadius:8,border:'1.5px solid #E5E7EB',
+                    fontFamily:F,fontSize:12,color:'#0f1729',background:'white',outline:'none'}}>
+                  <option value="">First stage in workflow (default)</option>
+                  {wfStages.map(s=>(
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={wizard.default_application_stage||''}
+                  onChange={e=>setW('default_application_stage', e.target.value||null)}
+                  placeholder="e.g. Applied (leave blank for first stage)"
+                  style={{flex:1,padding:'7px 10px',borderRadius:8,border:'1.5px solid #E5E7EB',
+                    fontFamily:F,fontSize:12,color:'#0f1729',outline:'none'}}/>
+              )}
+              {wizard.default_application_stage && (
+                <button onClick={()=>setW('default_application_stage',null)}
+                  style={{padding:'6px 10px',borderRadius:7,border:'1px solid #E5E7EB',
+                    background:'white',color:'#6B7280',fontSize:11,cursor:'pointer',fontFamily:F,whiteSpace:'nowrap'}}>
+                  Reset
+                </button>
+              )}
+            </div>
+            <p style={{fontSize:11,color:'#6B7280',margin:'5px 0 0',lineHeight:1.5}}>
+              The workflow stage applicants are placed into when they submit through this portal.
+              {wizard.default_application_stage
+                ? <> Applicants will start in <strong style={{color:'#4361EE'}}>{wizard.default_application_stage}</strong>.</>
+                : <> Defaults to the first stage in the job's linked workflow.</>}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Page list + page editor */}

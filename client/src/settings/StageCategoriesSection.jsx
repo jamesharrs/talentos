@@ -80,29 +80,44 @@ export default function StageCategoriesSection({ environment }) {
   const load = useCallback(async () => {
     if (!envId) return;
     setLoading(true);
-    const data = await api.get(`/stage-categories?environment_id=${envId}`);
-    setCats(Array.isArray(data) ? data : []);
-    setLoading(false);
+    try {
+      const data = await api.get(`/stage-categories?environment_id=${envId}`);
+      setCats(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.warn('[StageCats] load error:', err?.message || err);
+      setCats([]);
+    } finally {
+      setLoading(false);
+    }
   }, [envId]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleSave = async (form) => {
     setSaving(true);
-    if (editing === 'new') {
-      await api.post('/stage-categories', { ...form, environment_id: envId });
-    } else {
-      await api.patch(`/stage-categories/${editing.id}`, form);
+    try {
+      if (editing === 'new') {
+        await api.post('/stage-categories', { ...form, environment_id: envId });
+      } else {
+        await api.patch(`/stage-categories/${editing.id}`, form);
+      }
+      await load();
+      setEditing(null);
+    } catch (err) {
+      console.error('[StageCats] save error:', err?.message);
+    } finally {
+      setSaving(false);
     }
-    await load();
-    setEditing(null);
-    setSaving(false);
   };
 
   const handleDelete = async (cat) => {
     if (!confirm(`Delete "${cat.name}"? This cannot be undone.`)) return;
-    await api.delete(`/stage-categories/${cat.id}`);
-    await load();
+    try {
+      await api.delete(`/stage-categories/${cat.id}`);
+      await load();
+    } catch (err) {
+      console.error('[StageCats] delete error:', err?.message);
+    }
   };
 
   const handleMoveUp = async (cat, idx) => {

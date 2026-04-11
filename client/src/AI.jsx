@@ -1676,7 +1676,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     }
     // Inject linked jobs — use ref so we always get latest value even if state is stale
     const _lj = linkedJobsRef.current || [];
-    if(process.env.NODE_ENV !== 'production') console.log('[CP] linked jobs for context:', _lj.length, _lj.map(j=>j.title));
+    // debug: console.log('[CP] linked jobs for context:', _lj.length);
     if(_lj.length>0 && currentObject?.slug==='people'){
       parts.push('');
       parts.push(`PERSON LINKED TO ${_lj.length} JOB(S) — MANDATORY: When scheduling an interview or any job-related action, you MUST immediately show this numbered list and ask the user to pick one. Do NOT ask "which role?" as a blank question — always show the options.`);

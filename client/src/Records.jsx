@@ -7981,13 +7981,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
               </div>
             )}
 
-            {/* Collapsed summary pill */}
-            {isCollapsed && (
-              <div style={{ fontSize:11, color:C.text3, padding:"2px 4px 10px",
-                fontStyle:"italic" }}>
-                {section.fs.length} field{section.fs.length!==1?"s":""} hidden
-              </div>
-            )}
+            {/* Collapsed summary — nothing shown, count is in the header badge */}
           </div>
         );
       })}

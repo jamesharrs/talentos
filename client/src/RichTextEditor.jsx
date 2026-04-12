@@ -234,48 +234,48 @@ export default function RichTextEditor({ value, onChange, placeholder, autoFocus
   return (
     <div style={{ position:"relative", fontFamily:"'Geist',-apple-system,sans-serif" }}>
       {/* Toolbar */}
-      <div style={{ display:"flex", alignItems:"center", gap:2, flexWrap:"wrap",
+      <div style={{ display:"flex", alignItems:"center", gap:2, flexWrap:"nowrap", overflowX:"auto",
         padding:"6px 8px", borderRadius:"10px 10px 0 0",
         border:"1.5px solid #d1d5db", borderBottom:"1px solid #e5e7eb",
         background:"#f9fafb" }}>
         {FORMATS.map((fmt, i) =>
           fmt === null
-            ? <div key={i} style={{ width:1, height:18, background:"#e5e7eb", margin:"0 2px" }}/>
+            ? <div key={i} style={{ width:1, height:18, background:"#e5e7eb", margin:"0 2px", flexShrink:0 }}/>
             : <Btn key={fmt.cmd} fmt={fmt} active={!!activeFormats[fmt.cmd]}
                 onAction={execCmd}/>
         )}
       </div>
 
-      {/* Editable area */}
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={handleInput}
-        onKeyDown={handleKeyDown}
-        onKeyUp={updateActiveFormats}
-        onMouseUp={updateActiveFormats}
-        onPaste={handlePaste}
-        onSelect={updateActiveFormats}
-        style={{
-          minHeight, padding:"10px 12px",
-          border:"1.5px solid #d1d5db", borderTop:"none",
-          borderRadius:"0 0 10px 10px",
-          outline:"none", fontSize:13, lineHeight:1.7,
-          color:"#111827", background:"white",
-          overflowY:"auto",
-          fontFamily:"'Geist',-apple-system,sans-serif",
-          /* Style headings, links, lists rendered inside */
-        }}
-      />
-
-      {/* Placeholder */}
-      {isEmpty && (
-        <div style={{ position:"absolute", top:46, left:14,
-          fontSize:13, color:"#9ca3af", pointerEvents:"none", userSelect:"none" }}>
-          {placeholder || "Add rich text…"}
-        </div>
-      )}
+      {/* Editable area — wrapper is position:relative so placeholder is scoped here */}
+      <div style={{ position:"relative" }}>
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          onInput={handleInput}
+          onKeyDown={handleKeyDown}
+          onKeyUp={updateActiveFormats}
+          onMouseUp={updateActiveFormats}
+          onPaste={handlePaste}
+          onSelect={updateActiveFormats}
+          style={{
+            minHeight, padding:"10px 12px",
+            border:"1.5px solid #d1d5db", borderTop:"none",
+            borderRadius:"0 0 10px 10px",
+            outline:"none", fontSize:13, lineHeight:1.7,
+            color:"#111827", background:"white",
+            overflowY:"auto",
+            fontFamily:"'Geist',-apple-system,sans-serif",
+          }}
+        />
+        {/* Placeholder — scoped to editable wrapper, not entire component */}
+        {isEmpty && (
+          <div style={{ position:"absolute", top:10, left:14,
+            fontSize:13, color:"#9ca3af", pointerEvents:"none", userSelect:"none" }}>
+            {placeholder || "Add rich text…"}
+          </div>
+        )}
+      </div>
 
       {/* Inline styles for rendered content */}
       <style>{`

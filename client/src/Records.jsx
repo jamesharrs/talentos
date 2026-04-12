@@ -7886,16 +7886,25 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                   marginTop:4,
                 }}
               >
-                <div style={{ flex:1, borderTop:`2px solid ${C.border}`, marginTop:1 }}/>
-                <span style={{ fontSize:11, fontWeight:800, color:C.text2,
+                <div style={{ flex:1, borderTop:`1.5px solid ${C.border}`, marginTop:1 }}/>
+                <span style={{ fontSize:11, fontWeight:800, color: isCollapsed ? C.text2 : C.accent,
                   textTransform:"uppercase", letterSpacing:"0.08em",
                   whiteSpace:"nowrap", padding:"0 8px",
-                  background: "white" /* lifts label off the rule */ }}>
+                  background: "white" }}>
                   {section.label}
                 </span>
-                <div style={{ flex:1, borderTop:`2px solid ${C.border}`, marginTop:1 }}/>
+                {isCollapsed && section.fs.length > 0 && (
+                  <span style={{
+                    fontSize:10, fontWeight:700, color:"white",
+                    background: C.accent, borderRadius:20,
+                    padding:"1px 7px", lineHeight:"16px", flexShrink:0,
+                  }}>
+                    {section.fs.length}
+                  </span>
+                )}
+                <div style={{ flex:1, borderTop:`1.5px solid ${C.border}`, marginTop:1 }}/>
                 <span style={{
-                  fontSize:10, color:C.text3, marginLeft:4,
+                  fontSize:9, color: isCollapsed ? C.text3 : C.accent, marginLeft:2,
                   transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
                   transition:"transform .2s", display:"inline-block", flexShrink:0
                 }}>▼</span>

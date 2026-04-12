@@ -198,7 +198,8 @@ const SkillsSection = ({ data }) => {
 };
 
 const DocumentsSection = ({ attachments }) => {
-  const [expanded, setExpanded] = useState(null); // attachment index expanded for preview
+  const [expanded, setExpanded] = useState(null);
+  const [blobUrls, setBlobUrls] = useState({}); // index → objectURL
 
   const getPreviewType = (a) => {
     const ext = (a.ext || a.name?.split('.').pop() || '').toLowerCase();
@@ -206,6 +207,24 @@ const DocumentsSection = ({ attachments }) => {
     if (ext === 'pdf') return 'pdf';
     if (['docx','doc'].includes(ext)) return 'docx';
     return null;
+  };
+
+  // Fetch blob for PDF/image when expanding so auth headers are sent
+  const handleExpand = async (i, a, previewType) => {
+    if (expanded === i) { setExpanded(null); return; }
+    setExpanded(i);
+    if ((previewType === 'pdf' || previewType === 'image') && !blobUrls[i] && a.url && a.url !== '#') {
+      try {
+        const { authHeaders } = await import('./apiClient.js');
+        const r = await fetch(a.url, { headers: authHeaders(), credentials: 'include' });
+        if (r.ok) {
+          const buf = await r.arrayBuffer();
+          const mime = previewType === 'pdf' ? 'application/pdf' : 'image/' + (a.name?.split('.').pop() || 'jpeg');
+          const blob = new Blob([buf], { type: mime });
+          setBlobUrls(prev => ({ ...prev, [i]: URL.createObjectURL(blob) }));
+        }
+      } catch(e) { console.warn('blob fetch failed', e); }
+    }
   };
 
   return (
@@ -225,7 +244,7 @@ const DocumentsSection = ({ attachments }) => {
                   {/* File row */}
                   <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px',
                     background: isExpanded ? PURPLE+'08' : '#f9f7ff', cursor: previewType ? 'pointer' : 'default' }}
-                    onClick={() => previewType && setExpanded(isExpanded ? null : i)}>
+                    onClick={() => previewType && handleExpand(i, a, previewType)}>
                     <Ic n="paperclip" s={14} c={PURPLE}/>
                     <span style={{ flex:1, fontSize:13, color:'#374151', fontWeight:500 }}>{a.name||a.file_name||'File'}</span>
                     {a.file_type_name && <span style={{ fontSize:10, color:PURPLE, background:PURPLE+'12', padding:'2px 6px', borderRadius:4, fontWeight:600 }}>{a.file_type_name}</span>}
@@ -245,7 +264,9 @@ const DocumentsSection = ({ attachments }) => {
                   {/* Inline preview */}
                   {isExpanded && previewType === 'image' && (
                     <div style={{ padding:12, background:'#f3f4f6', display:'flex', justifyContent:'center' }}>
-                      <img src={previewUrl} alt={a.name} style={{ maxWidth:'100%', maxHeight:400, objectFit:'contain', borderRadius:6, boxShadow:'0 2px 12px rgba(0,0,0,.1)' }}/>
+                      {blobUrls[i]
+                        ? <img src={blobUrls[i]} alt={a.name} style={{ maxWidth:'100%', maxHeight:400, objectFit:'contain', borderRadius:6, boxShadow:'0 2px 12px rgba(0,0,0,.1)' }}/>
+                        : <div style={{ padding:24, color:'#9ca3af', fontSize:13 }}>Loading…</div>}
                     </div>
                   )}
                   {isExpanded && previewType === 'docx' && (
@@ -253,9 +274,16 @@ const DocumentsSection = ({ attachments }) => {
                       style={{ width:'100%', height:440, border:'none', background:'white', display:'block' }}/>
                   )}
                   {isExpanded && previewType === 'pdf' && (
-                    <div style={{ padding:8, background:'#f3f4f6' }}>
-                      <iframe src={previewUrl} title={a.name}
-                        style={{ width:'100%', height:440, border:'none', borderRadius:6, display:'block', background:'white' }}/>
+                    <div style={{ background:'#f3f4f6', padding:8 }}>
+                      {blobUrls[i]
+                        ? <object data={blobUrls[i] + '#toolbar=0&navpanes=0&scrollbar=0'} type="application/pdf"
+                            style={{ width:'100%', height:520, border:'none', borderRadius:6, display:'block' }}>
+                            <div style={{ padding:24, textAlign:'center', color:'#6b7280', fontSize:13 }}>
+                              PDF preview not available.{' '}
+                              <a href={rawUrl} download={a.name} style={{ color:PURPLE, fontWeight:600 }}>Download to view</a>
+                            </div>
+                          </object>
+                        : <div style={{ height:100, display:'flex', alignItems:'center', justifyContent:'center', color:'#9ca3af', fontSize:13 }}>Loading PDF…</div>}
                     </div>
                   )}
                 </div>

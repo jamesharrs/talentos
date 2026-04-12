@@ -94,8 +94,9 @@ const EmptyMsg = ({ msg='No data available.' }) => (
 
 const ApplicationSection = ({ link, stageHistory }) => {
   const current = stageHistory?.[0];
+  const hasData = link?.created_at || link?.stage_name || current?.target_name || current?.workflow_name;
   return (
-    <SectionShell icon="briefcase" label="Application Details">
+    <SectionShell icon="briefcase" label="Application Details" defaultOpen={!!hasData}>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(160px, 1fr))', gap:'10px 16px', fontSize:13 }}>
         {link?.created_at && <div><span style={{ color:'#9ca3af', fontSize:11 }}>Applied</span><br/><b>{new Date(link.created_at).toLocaleDateString()}</b></div>}
         {link?.stage_name && <div><span style={{ color:'#9ca3af', fontSize:11 }}>Current stage</span><br/><b style={{ color:PURPLE }}>{link.stage_name}</b></div>}
@@ -124,7 +125,7 @@ const ApplicationSection = ({ link, stageHistory }) => {
 const SummarySection = ({ data }) => {
   const text = data.summary || data.bio || data.about || data.profile_summary || '';
   return (
-    <SectionShell icon="align" label="Summary / Bio">
+    <SectionShell icon="align" label="Summary / Bio" defaultOpen={!!text}>
       {text ? <p style={{ fontSize:13, lineHeight:1.7, color:'#374151', margin:0, whiteSpace:'pre-wrap' }}>{text}</p> : <EmptyMsg msg="No summary added."/>}
     </SectionShell>
   );
@@ -136,8 +137,9 @@ const ExperienceSection = ({ data }) => {
   if (data.work_experience && Array.isArray(data.work_experience)) items = data.work_experience;
   else if (data.cv_work_history) try { items = JSON.parse(data.cv_work_history); } catch {}
   const text = data.experience || data.work_history || '';
+  const hasData = (items?.length > 0) || !!text;
   return (
-    <SectionShell icon="award" label="Work Experience">
+    <SectionShell icon="award" label="Work Experience" defaultOpen={hasData}>
       {items?.length > 0 ? (
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           {items.map((exp, i) => (
@@ -160,8 +162,9 @@ const EducationSection = ({ data }) => {
   if (data.education && Array.isArray(data.education)) items = data.education;
   else if (data.cv_education) try { items = JSON.parse(data.cv_education); } catch {}
   const text = data.education_text || (typeof data.education==='string'?data.education:'');
+  const hasData = (items?.length > 0) || !!text;
   return (
-    <SectionShell icon="book" label="Education">
+    <SectionShell icon="book" label="Education" defaultOpen={hasData}>
       {items?.length > 0 ? (
         <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
           {items.map((ed, i) => (
@@ -184,7 +187,7 @@ const SkillsSection = ({ data }) => {
   else if (typeof data.skills === 'string') skills = data.skills.split(/[,;|]+/).map(s=>s.trim()).filter(Boolean);
   else if (Array.isArray(data.skill_tags)) skills = data.skill_tags;
   return (
-    <SectionShell icon="zap" label="Skills">
+    <SectionShell icon="zap" label="Skills" defaultOpen={skills.length > 0}>
       {skills.length > 0
         ? <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
             {skills.map((s,i) => <span key={i} style={{ padding:'3px 10px', borderRadius:99, background:`${PURPLE}12`, color:PURPLE, fontSize:12, fontWeight:600 }}>{s}</span>)}
@@ -195,7 +198,7 @@ const SkillsSection = ({ data }) => {
 };
 
 const DocumentsSection = ({ attachments }) => (
-  <SectionShell icon="paperclip" label="Documents & CV">
+  <SectionShell icon="paperclip" label="Documents & CV" defaultOpen={attachments?.length > 0}>
     {attachments?.length > 0
       ? <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
           {attachments.map((a,i) => (
@@ -213,7 +216,7 @@ const DocumentsSection = ({ attachments }) => (
 );
 
 const NotesSection = ({ notes }) => (
-  <SectionShell icon="edit" label="Notes">
+  <SectionShell icon="edit" label="Notes" defaultOpen={notes?.length > 0}>
     {notes?.length > 0
       ? <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
           {notes.slice(0,5).map((n,i) => (
@@ -230,7 +233,7 @@ const NotesSection = ({ notes }) => (
 const ActivitySection = ({ activity, stageHistory }) => {
   const items = [...(activity||[])].slice(0,10);
   return (
-    <SectionShell icon="activity" label="Stage History & Activity">
+    <SectionShell icon="activity" label="Stage History & Activity" defaultOpen={items.length > 0}>
       {items.length > 0
         ? <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
             {items.map((a,i) => (
@@ -250,7 +253,7 @@ const ActivitySection = ({ activity, stageHistory }) => {
 };
 
 const FormsSection = ({ formResponses }) => (
-  <SectionShell icon="form" label="Form Responses">
+  <SectionShell icon="form" label="Form Responses" defaultOpen={formResponses?.length > 0}>
     {formResponses?.length > 0
       ? <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
           {formResponses.map((resp, i) => (

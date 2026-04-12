@@ -8189,7 +8189,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
           <DocExtractModal result={docExtractResult} mappings={docExtractMappings} record={record}
             onApply={handleApplyDocFields} onClose={()=>{ setDocExtractResult(null); setDocExtractAtt(null); }}/>
         )}
-        {tableModalField && (
+        {tableModalField && ReactDOM.createPortal(
           <TableModal
             field={tableModalField.field}
             value={tableModalField.value}
@@ -8198,7 +8198,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
               setTableModalField(null);
             }}
             onClose={()=>setTableModalField(null)}
-          />
+          />,
+          document.body
         )}
       </div>
     );

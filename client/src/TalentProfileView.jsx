@@ -429,7 +429,7 @@ export default function TalentProfileView({ link, allLinks, onNavigateProfile, m
     if (!profileData) return null;
     const { record, fields, attachments, notes, activity, formResponses, link: linkData, stageHistory } = profileData;
     switch(s.id) {
-      case 'application':   return <ApplicationSection key={s.id} link={{...link, stage_name: steps?.find(st=>st.id===link.stage_id)?.name}} stageHistory={stageHistory}/>;
+      case 'application':   return null; // job name + stage shown in left header panel
       case 'summary':       return <SummarySection     key={s.id} data={d}/>;
       case 'experience':    return <ExperienceSection  key={s.id} data={d}/>;
       case 'education':     return <EducationSection   key={s.id} data={d}/>;
@@ -496,6 +496,13 @@ export default function TalentProfileView({ link, allLinks, onNavigateProfile, m
           {/* Name + title */}
           <div style={{ fontSize:18, fontWeight:800, lineHeight:1.2, marginBottom:4 }}>{name}</div>
           {d.current_title && <div style={{ fontSize:13, opacity:.85, marginBottom:8 }}>{d.current_title}</div>}
+          {/* Job / Role being applied to */}
+          {stageHistory?.[0]?.target_name && (
+            <div style={{ background:'rgba(255,255,255,.12)', borderRadius:8, padding:'7px 12px', marginBottom:10, textAlign:'center' }}>
+              <div style={{ fontSize:10, opacity:.6, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:2 }}>Applying for</div>
+              <div style={{ fontSize:13, fontWeight:700, lineHeight:1.3 }}>{stageHistory[0].target_name}</div>
+            </div>
+          )}
           {/* Match score */}
           {score !== null && (
             <div style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,.12)', borderRadius:10, padding:'8px 12px', marginBottom:16 }}>

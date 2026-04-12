@@ -559,6 +559,120 @@ function migrateEducationField() {
 }
 migrateEducationField();
 
+// ── Standardise People object field schema ────────────────────────────────────
+// Adds missing standard fields, renames/reorders existing ones, adds section
+// separators to match the agreed candidate profile field schema.
+function migrateStandardCandidateFields() {
+  const { v4: uid } = require('uuid');
+  const now = new Date().toISOString();
+  let changed = 0;
+
+  // Full ordered schema: [sort_order, api_key, name, field_type, options?, condition_field?, condition_value?]
+  const SCHEMA = [
+    // ── IDENTITY ─────────────────────────────────────────────────────────────
+    [1,  'section_identity',   'Identity',            'section_separator', null, null, null],
+    [2,  'person_type',        'Person Type',         'select',            ['Candidate','Employee','Contractor','Consultant','Contact'], null, null],
+    [3,  'first_name',         'First Name',          'text',              null, null, null],
+    [4,  'last_name',          'Last Name',           'text',              null, null, null],
+    [5,  'current_title',      'Current Title',       'text',              null, null, null],
+    [6,  'current_company',    'Current Company',     'text',              null, null, null],
+    [7,  'summary',            'Summary / Bio',       'textarea',          null, null, null],
+    // ── CONTACT ──────────────────────────────────────────────────────────────
+    [10, 'section_contact',    'Contact',             'section_separator', null, null, null],
+    [11, 'email',              'Email',               'email',             null, null, null],
+    [12, 'phone',              'Phone',               'phone',             null, null, null],
+    [13, 'location',           'Location',            'text',              null, null, null],
+    [14, 'country',            'Country',             'country',           null, null, null],
+    // ── PROFESSIONAL ─────────────────────────────────────────────────────────
+    [20, 'section_professional','Professional',       'section_separator', null, null, null],
+    [21, 'work_history',       'Work History',        'table',             null, null, null],
+    [22, 'education',          'Education',           'table',             null, null, null],
+    [23, 'years_experience',   'Years Experience',    'number',            null, null, null],
+    [24, 'skills',             'Skills',              'skills',            null, null, null],
+    [25, 'languages',          'Languages',           'multi_select',      ['English','Arabic','French','German','Spanish','Mandarin','Portuguese','Hindi','Japanese','Other'], null, null],
+    [26, 'linkedin_url',       'LinkedIn URL',        'url',               null, null, null],
+    // ── AVAILABILITY ─────────────────────────────────────────────────────────
+    [30, 'section_availability','Availability',       'section_separator', null, null, null],
+    [31, 'notice_period',      'Notice Period',       'select',            ['Immediate','2 weeks','1 month','2 months','3 months','Negotiable'], null, null],
+    [32, 'availability_date',  'Available From',      'date',              null, null, null],
+    [33, 'salary_expectation', 'Salary Expectation',  'currency',          null, null, null],
+    [34, 'work_type_preference','Work Type Preference','multi_select',     ['On-site','Hybrid','Remote'], null, null],
+    [35, 'work_authorisation', 'Work Authorisation',  'select',            ['Citizen','Permanent Resident','Work Visa','Requires Sponsorship'], null, null],
+    // ── EMPLOYMENT (conditional) ──────────────────────────────────────────────
+    [40, 'section_employment', 'Employment',          'section_separator', null, null, null],
+    [41, 'job_title',          'Job Title',           'text',              null, 'person_type', 'Employee'],
+    [42, 'department',         'Department',          'select',            ['Engineering','Product','Sales','Marketing','Finance','HR','Operations','Legal','Customer Success','Other'], 'person_type', 'Employee'],
+    [43, 'entity',             'Entity / Company',    'text',              null, 'person_type', 'Employee'],
+    [44, 'employment_type',    'Employment Type',     'select',            ['Full-time','Part-time','Contract','Casual'], 'person_type', 'Employee'],
+    [45, 'start_date',         'Start Date',          'date',              null, 'person_type', 'Employee'],
+    [46, 'end_date',           'End Date',            'date',              null, 'person_type', 'Employee'],
+    // ── RECRUITMENT ───────────────────────────────────────────────────────────
+    [50, 'section_recruitment','Recruitment',         'section_separator', null, null, null],
+    [51, 'status',             'Status',              'select',            ['Active','Passive','Placed','On Hold','Blacklisted','Archived'], null, null],
+    [52, 'source',             'Source',              'select',            ['LinkedIn','Referral','Agency','Job Board','Direct','Portal','Event','Other'], null, null],
+    [53, 'source_detail',      'Source Detail',       'text',              null, null, null],
+    [54, 'rating',             'Rating',              'rating',            null, null, null],
+    [55, 'do_not_contact',     'Do Not Contact',      'boolean',           null, null, null],
+    [56, 'gdpr_consent',       'GDPR Consent',        'boolean',           null, null, null],
+    [57, 'gdpr_consent_date',  'GDPR Consent Date',   'date',              null, null, null],
+    // ── DEI (deliberately last / optional) ───────────────────────────────────
+    [60, 'section_dei',        'Diversity & Inclusion','section_separator',null, null, null],
+    [61, 'gender',             'Gender',              'select',            ['Male','Female','Non-binary','Prefer not to say'], null, null],
+    [62, 'date_of_birth',      'Date of Birth',       'date',              null, null, null],
+    [63, 'nationality',        'Nationality',         'country',           null, null, null],
+    // cover_letter stays at end — already seeded
+    [70, 'cover_letter',       'Cover Letter',        'rich_text',         null, null, null],
+  ];
+
+  for (const [key, store] of Object.entries(storeCache)) {
+    const peopleObjs = (store.objects || []).filter(o => o.slug === 'people' && !o.deleted_at);
+    for (const obj of peopleObjs) {
+      if (!store.fields) store.fields = [];
+      const existing = store.fields.filter(f => f.object_id === obj.id && !f.deleted_at);
+      const byKey = {};
+      existing.forEach(f => { byKey[f.api_key] = f; });
+
+      for (const [sort_order, api_key, name, field_type, options, cond_field, cond_value] of SCHEMA) {
+        if (byKey[api_key]) {
+          // Update sort_order, name, options, condition on existing fields
+          const f = byKey[api_key];
+          let dirty = false;
+          if (f.sort_order !== sort_order)           { f.sort_order = sort_order; dirty = true; }
+          if (f.name !== name)                        { f.name = name; dirty = true; }
+          if (options && JSON.stringify(f.options) !== JSON.stringify(options)) { f.options = options; dirty = true; }
+          if (cond_field !== undefined && f.condition_field !== cond_field)     { f.condition_field = cond_field; dirty = true; }
+          if (cond_value !== undefined && f.condition_value !== cond_value)     { f.condition_value = cond_value; dirty = true; }
+          if (dirty) { f.updated_at = now; changed++; }
+        } else {
+          // Add new field
+          const newField = {
+            id: uid(), object_id: obj.id, environment_id: obj.environment_id,
+            name, api_key, field_type,
+            sort_order, is_required: false, is_unique: false,
+            show_in_list: ['first_name','last_name','current_title','status','email'].includes(api_key),
+            show_in_form: true, is_system: true,
+            options: options || null,
+            condition_field: cond_field || null,
+            condition_value: cond_value || null,
+            created_at: now, updated_at: now,
+          };
+          // Preserve table_columns for table fields
+          if (field_type === 'table') continue; // tables already migrated separately
+          store.fields.push(newField);
+          changed++;
+        }
+      }
+      // Remove the old 'main' section separator (replaced by section_identity)
+      store.fields = store.fields.filter(f =>
+        !(f.object_id === obj.id && f.api_key === 'main' && f.field_type === 'section_separator')
+      );
+    }
+    if (changed > 0) saveStoreNow(key);
+  }
+  if (changed > 0) console.log(`✅ Standard candidate fields migrated (${changed} changes)`);
+}
+migrateStandardCandidateFields();
+
 // ── Prune orphaned people_links on startup ───────────────────────────────────
 // Removes any people_link where the person_record or target_record no longer exists.
 function pruneOrphanedPeopleLinks() {

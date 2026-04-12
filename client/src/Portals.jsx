@@ -213,10 +213,7 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     code:"M10 20l4-16M4 15l4-4-4-4M20 15l-4-4 4-4",
     chevU:"M18 15l-6-6-6 6",
     library:"M4 19V5h16v14M4 9h16M9 5v14",
-    award:"M12 15a7 7 0 100-14 7 7 0 000 14zM8.21 13.89L7 23l5-3 5 3-1.21-9.12",
-    photos:"M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zM9 3v18M15 3v18M3 9h18M3 15h18",
-    layers:"M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
-    help:"M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01",
+
   };
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">

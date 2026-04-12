@@ -477,7 +477,17 @@ async function executeAction(action, record_id, environment_id, aiOutput, modifi
     case 'update_field': {
       if (!record_id || !action.field_key) break;
       const idx = s.records.findIndex(r => r.id === record_id);
-      if (idx !== -1) { s.records[idx].data = { ...s.records[idx].data, [action.field_key]: action.field_value || aiOutput || '' }; s.records[idx].updated_at = new Date().toISOString(); saveStore(); }
+      if (idx !== -1) {
+        const value = action.field_value || aiOutput || '';
+        s.records[idx].data = {
+          ...s.records[idx].data,
+          [action.field_key]: value,
+          // Mark the field as AI-generated so the UI can show the AI card style
+          [`${action.field_key}__ai_meta`]: { generated_at: new Date().toISOString(), generated_by: 'Agent' },
+        };
+        s.records[idx].updated_at = new Date().toISOString();
+        saveStore();
+      }
       break;
     }
     case 'send_email': case 'ai_draft_email': {

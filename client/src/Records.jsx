@@ -7925,6 +7925,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                   const isEditing = editing.hasOwnProperty(field.api_key);
                   const originalVal = record.data?.[field.api_key];
                   const val = isEditing ? editing[field.api_key] : originalVal;
+                  const aiMeta = record.data?.[field.api_key + '__ai_meta'];
                   const READONLY_KEYS = ["id","created_at","updated_at"];
                   const isReadonly = READONLY_KEYS.includes(field.api_key);
                   const isPickerField = ["multi_lookup","lookup","people"].includes(field.field_type);
@@ -7950,6 +7951,24 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                           ? <PeoplePicker field={field} value={originalVal} onChange={v=>handleFieldEdit(field.api_key, v, field.field_type)}/>
                           : isEditing
                           ? <FieldEditor field={field} value={val} onChange={v=>handleFieldEdit(field.api_key, v, field.field_type)} autoFocus={!isClickSave} environment={environment} recordData={record?.data}/>
+                          : aiMeta
+                          ? (
+                            <div style={{ background:"#F5F3FF", borderRadius:10, padding:"10px 12px",
+                              border:"1px solid #7048E830", marginTop:2, cursor:"text" }}
+                              onClick={()=>!isReadonly&&setEditing(e=>({...e,[field.api_key]:originalVal}))}>
+                              <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+                                <Avatar name="Agent" size={18} color="#7048E8"/>
+                                <span style={{ fontSize:11, fontWeight:600, color:"#6b7280" }}>Agent</span>
+                                <AiBadge/>
+                                <span style={{ fontSize:11, color:"#9ca3af", marginLeft:"auto" }}>
+                                  {new Date(aiMeta.generated_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <div style={{ fontSize:13, color:"#111827", lineHeight:1.6, whiteSpace:"pre-wrap" }}>
+                                {val}
+                              </div>
+                            </div>
+                          )
                           : <div onClick={()=>!isReadonly&&setEditing(e=>({...e,[field.api_key]:originalVal}))} style={{ cursor:isReadonly?"default":"text", minHeight:22 }}>
                               <FieldValue field={field} value={val} allFieldValues={record?.data}/>
                             </div>

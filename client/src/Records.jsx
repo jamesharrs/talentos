@@ -4440,17 +4440,21 @@ const FilePreviewModal = ({ att, onClose }) => {
 
   useEffect(() => {
     let url = null;
-    if (rawUrl && rawUrl !== '#') {
-      fetch(rawUrl, { headers: authHeaders() })
-        .then(r => { if (!r.ok) throw new Error('auth'); return r.arrayBuffer(); })
-        .then(buf => {
-          const blob = new Blob([buf], { type: isPdf ? 'application/pdf' : 'application/octet-stream' });
-          url = URL.createObjectURL(blob);
-          setBlobUrl(url);
-          if (isPdf) setBlobData(buf);
-        })
-        .catch(() => setLoadErr(true));
-    }
+    if (!rawUrl || rawUrl === '#') { setLoadErr(true); return; }
+    fetch(rawUrl, { headers: authHeaders(), credentials: 'include' })
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.arrayBuffer();
+      })
+      .then(buf => {
+        const mimeMap = { pdf:'application/pdf', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif', webp:'image/webp', svg:'image/svg+xml' };
+        const mime = mimeMap[ext] || 'application/octet-stream';
+        const blob = new Blob([buf], { type: mime });
+        url = URL.createObjectURL(blob);
+        setBlobUrl(url);
+        if (isPdf) setBlobData(buf);
+      })
+      .catch(err => { console.warn('[FilePreview] fetch failed:', err); setLoadErr(true); });
     return () => { if (url) URL.revokeObjectURL(url); };
   }, [rawUrl]);
 
@@ -4539,6 +4543,7 @@ const PdfViewer = ({ data }) => {
   const [totalPages, setTotalPages] = useState(0);
   const [scale,      setScale]      = useState(1.4);
   const [pdfDoc,     setPdfDoc]     = useState(null);
+  const [renderErr,  setRenderErr]  = useState(false);
   const canvasRefs = useRef({});
 
   useEffect(() => {
@@ -4546,15 +4551,20 @@ const PdfViewer = ({ data }) => {
     (async () => {
       try {
         const pdfjsLib = await import('pdfjs-dist');
-        // Point worker to the bundled worker via CDN to avoid Vite worker complexities
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+        // Use versioned CDN worker — try .js fallback if .mjs fails
+        const ver = pdfjsLib.version;
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${ver}/pdf.worker.min.js`;
         const loadingTask = pdfjsLib.getDocument({ data: data.slice(0) });
         const pdf = await loadingTask.promise;
         if (cancelled) return;
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
         setPages(Array.from({ length: pdf.numPages }, (_, i) => i + 1));
-      } catch(e) { console.error('PDF.js load error:', e); }
+      } catch(e) {
+        console.error('PDF.js load error:', e);
+        if (!cancelled) setRenderErr(true);
+      }
     })();
     return () => { cancelled = true; };
   }, [data]);
@@ -4578,6 +4588,14 @@ const PdfViewer = ({ data }) => {
   const zoomIdx    = ZOOM_STEPS.findIndex(s => s >= scale - 0.01);
   const zoomOut    = () => { const i = ZOOM_STEPS.findIndex(s => s >= scale - 0.01); if (i > 0) setScale(ZOOM_STEPS[i-1]); };
   const zoomIn     = () => { const i = ZOOM_STEPS.findIndex(s => s >= scale - 0.01); if (i < ZOOM_STEPS.length-1) setScale(ZOOM_STEPS[i+1]); };
+
+  if (renderErr) return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', flex:1, gap:10, padding:48 }}>
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span style={{ fontSize:13, fontWeight:600, color:'#374151' }}>Could not render PDF</span>
+      <span style={{ fontSize:12, color:'#9ca3af' }}>Use the Download button to view this file</span>
+    </div>
+  );
 
   if (!pdfDoc) return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', flex:1, gap:10, padding:48 }}>

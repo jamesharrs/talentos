@@ -493,6 +493,34 @@ function migrateRecordNumbers() {
 }
 migrateRecordNumbers();
 
+// ── Remove 🧪 test fields and known junk fields ──────────────────────────────
+function removeTestFields() {
+  const TEST_API_KEYS = new Set([
+    'test_text','test_textarea','test_rich_text','test_number','test_currency',
+    'test_percent','test_date','test_datetime','test_date_range','test_select',
+    'test_multi_select','test_status','test_boolean','test_rating','test_progress',
+    'test_email','test_url','test_phone','test_phone_intl','test_country',
+    'test_address','test_social','test_duration','test_people','test_auto_number',
+    'slills', // typo for "skills"
+    'test_field', 'auth_test_field', // misc test fields
+  ]);
+  let removed = 0;
+  for (const [key, store] of Object.entries(storeCache)) {
+    if (!store.fields) continue;
+    const before = store.fields.length;
+    store.fields = store.fields.filter(f => {
+      // Remove by api_key match OR by 🧪 in name
+      if (TEST_API_KEYS.has(f.api_key)) return false;
+      if (f.name && f.name.includes('🧪')) return false;
+      return true;
+    });
+    removed += before - store.fields.length;
+    if (before !== store.fields.length) saveStoreNow(key);
+  }
+  if (removed > 0) console.log(`✅ Removed ${removed} test/junk field(s)`);
+}
+removeTestFields();
+
 // ── Prune orphaned people_links on startup ───────────────────────────────────
 // Removes any people_link where the person_record or target_record no longer exists.
 function pruneOrphanedPeopleLinks() {

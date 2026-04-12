@@ -84,14 +84,16 @@ router.get('/person', async (req, res) => {
   // Pipeline link data (stage history etc.) if link_id provided
   const link = link_id ? (store.people_links || []).find(l => l.id === link_id) : null;
 
-  // Stage history for this person across all links
-  const stageHistory = (store.people_links || [])
-    .filter(l => l.person_record_id === person_record_id)
-    .map(l => {
-      const wf = (store.workflows || []).find(w => w.id === l.workflow_id);
-      const target = records.find(r => r.id === l.target_record_id);
-      return { ...l, workflow_name: wf?.name || '—', target_name: target?.data?.job_title || target?.data?.name || l.target_record_id?.slice(0,8) };
-    });
+  // Stage history: scoped to the specific link_id when provided
+  const stageHistory = link_id
+    ? (store.people_links || [])
+        .filter(l => l.id === link_id)
+        .map(l => {
+          const wf     = (store.workflows || []).find(w => w.id === l.workflow_id);
+          const target = records.find(r => r.id === l.target_record_id);
+          return { ...l, workflow_name: wf?.name || '—', target_name: target?.data?.job_title || target?.data?.name || l.target_record_id?.slice(0,8) };
+        })
+    : [];
 
   // Communications
   const comms = (store.communications || []).filter(c => c.record_id === person_record_id && !c.deleted_at)

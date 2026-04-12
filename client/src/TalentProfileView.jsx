@@ -93,26 +93,34 @@ const EmptyMsg = ({ msg='No data available.' }) => (
 );
 
 const ApplicationSection = ({ link, stageHistory }) => {
-  const current = stageHistory?.[0];
-  const hasData = link?.created_at || link?.stage_name || current?.target_name || current?.workflow_name;
+  // stageHistory[0] is the current link (scoped to this application)
+  const linkData    = stageHistory?.[0] || {};
+  const targetName  = linkData.target_name  || link?.target_name;
+  const workflowName= linkData.workflow_name || link?.workflow_name || '—';
+  const stageName   = link?.stage_name;
+  // Internal stage change log (stored as array on the link, if tracked)
+  const history     = Array.isArray(linkData.stage_history) ? linkData.stage_history : [];
+  const hasData     = link?.created_at || stageName || targetName;
+
   return (
     <SectionShell icon="briefcase" label="Application Details" defaultOpen={!!hasData}>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(160px, 1fr))', gap:'14px 20px', fontSize:13 }}>
         {link?.created_at && <div><span style={{ color:'#9ca3af', fontSize:11 }}>Applied</span><br/><b>{new Date(link.created_at).toLocaleDateString()}</b></div>}
-        {link?.stage_name && <div><span style={{ color:'#9ca3af', fontSize:11 }}>Current stage</span><br/><b style={{ color:PURPLE }}>{link.stage_name}</b></div>}
-        {current?.target_name && <div><span style={{ color:'#9ca3af', fontSize:11 }}>Role</span><br/><b>{current.target_name}</b></div>}
-        {current?.workflow_name && <div><span style={{ color:'#9ca3af', fontSize:11 }}>Workflow</span><br/><b>{current.workflow_name}</b></div>}
+        {stageName  && <div><span style={{ color:'#9ca3af', fontSize:11 }}>Current stage</span><br/><b style={{ color:PURPLE }}>{stageName}</b></div>}
+        {targetName && <div><span style={{ color:'#9ca3af', fontSize:11 }}>Role</span><br/><b>{targetName}</b></div>}
+        {workflowName !== '—' && <div><span style={{ color:'#9ca3af', fontSize:11 }}>Workflow</span><br/><b>{workflowName}</b></div>}
       </div>
-      {stageHistory?.length > 1 && (
+      {history.length > 0 && (
         <div style={{ marginTop:12, borderTop:'1px solid #f3f0ff', paddingTop:10 }}>
           <p style={{ fontSize:11, fontWeight:700, color:'#9ca3af', margin:'0 0 8px' }}>STAGE HISTORY</p>
           <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-            {stageHistory.slice(0,5).map((h,i) => (
+            {history.slice(0,8).map((h,i) => (
               <div key={i} style={{ display:'flex', alignItems:'center', gap:8, fontSize:12 }}>
                 <div style={{ width:6, height:6, borderRadius:'50%', background:PURPLE, flexShrink:0 }}/>
-                <span style={{ color:'#374151', fontWeight:600 }}>{h.workflow_name}</span>
-                <span style={{ color:'#6b7280' }}>→ {h.stage_name || 'stage ' + h.stage_id?.slice(0,6)}</span>
-                <span style={{ color:'#9ca3af', marginLeft:'auto', fontSize:11 }}>{relTime(h.updated_at||h.created_at)}</span>
+                <span style={{ color:'#9ca3af' }}>{h.from_stage || '—'}</span>
+                <span style={{ color:'#374151' }}>→</span>
+                <span style={{ color:'#374151', fontWeight:600 }}>{h.to_stage || h.stage_name}</span>
+                <span style={{ color:'#9ca3af', marginLeft:'auto', fontSize:11 }}>{relTime(h.changed_at || h.created_at)}</span>
               </div>
             ))}
           </div>

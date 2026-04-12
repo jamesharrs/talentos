@@ -472,6 +472,27 @@ function migrateCoverLetterField() {
 }
 migrateCoverLetterField();
 
+// ── Backfill record_number for portal-created records that missed assignment ─
+function migrateRecordNumbers() {
+  for (const key of Object.keys(storeCache)) {
+    const store = storeCache[key];
+    if (!store.records) continue;
+    const byObj = {};
+    // first pass: find the current max per object
+    store.records.filter(r => !r.deleted_at && typeof r.record_number === 'number').forEach(r => {
+      byObj[r.object_id] = Math.max(byObj[r.object_id] || 0, r.record_number);
+    });
+    let changed = 0;
+    store.records.filter(r => !r.deleted_at && !r.record_number).forEach(r => {
+      byObj[r.object_id] = (byObj[r.object_id] || 0) + 1;
+      r.record_number = byObj[r.object_id];
+      changed++;
+    });
+    if (changed > 0) { saveStore(key); console.log(`✅ Backfilled record_number for ${changed} records (tenant: ${key})`); }
+  }
+}
+migrateRecordNumbers();
+
 // ── Prune orphaned people_links on startup ───────────────────────────────────
 // Removes any people_link where the person_record or target_record no longer exists.
 function pruneOrphanedPeopleLinks() {

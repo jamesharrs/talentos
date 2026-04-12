@@ -15,6 +15,13 @@ const { getStore, saveStore } = require('../db/init');
 
 const uid = () => crypto.randomUUID();
 
+// Assign sequential record_number (same logic as records route)
+function nextRecordNumber(store, objectId) {
+  const nums = (store.records || []).filter(r => r.object_id === objectId && !r.deleted_at)
+    .map(r => r.record_number || 0).filter(n => typeof n === 'number' && !isNaN(n));
+  return nums.length > 0 ? Math.max(...nums) + 1 : 1;
+}
+
 function ensure() {
   const s = getStore();
   if (!s.portals) { s.portals = []; saveStore(); }
@@ -406,6 +413,7 @@ router.post('/:id/wizard/submit', async (req, res) => {
       } else {
         record = {
           id:uid(), object_id:targetObj.id, environment_id:portal.environment_id,
+          record_number: nextRecordNumber(store, targetObj.id),
           data:{ status:'Active', source:'Portal', person_type:'Candidate', ...cleanFormData },
           created_by:'portal', created_at:new Date().toISOString(), updated_at:new Date().toISOString(),
         };
@@ -416,6 +424,7 @@ router.post('/:id/wizard/submit', async (req, res) => {
       // For other objects (jobs, etc.) always create new
       record = {
         id:uid(), object_id:targetObj.id, environment_id:portal.environment_id,
+        record_number: nextRecordNumber(store, targetObj.id),
         data:{ status:'Draft', source:'Portal', ...cleanFormData },
         created_by:'portal', created_at:new Date().toISOString(), updated_at:new Date().toISOString(),
       };
@@ -753,6 +762,7 @@ router.post('/:id/apply', async (req, res) => {
     } else {
       personRecord = {
         id: uid(), object_id: peopleObj.id, environment_id: portal.environment_id,
+        record_number: nextRecordNumber(store, peopleObj.id),
         data: { first_name, last_name: last_name || '', email, phone: phone || '',
                 status: 'Active', source: 'Career Site', person_type: 'Candidate' },
         created_by: 'portal', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),

@@ -1867,13 +1867,14 @@ function App() {
   const [activeRecordObj, setActiveRecordObj] = useState(null);
   const [listContext,     setListContext]     = useState(null); // current list summary for copilot
 
-  const openRecord = (recordId, objectId) => {
+  const openRecord = (recordId, objectId, recordNumber) => {
     const nav = `record_${recordId}_${objectId}`;
     setActiveNav(nav);
-    // Push URL: /people/abc123
+    // Push clean numeric URL e.g. /people/42 — fall back to UUID if number not available yet
     const obj = navObjects?.find(o => o.id === objectId);
     const slug = obj?.slug || objectId;
-    const url = `/${slug}/${recordId}`;
+    const urlToken = recordNumber || recordId;
+    const url = `/${slug}/${urlToken}`;
     if (window.location.pathname !== url) window.history.pushState({ nav }, '', url);
     // Push placeholder to history — label updated by RecordPage once loaded
     if (recordId && obj) {

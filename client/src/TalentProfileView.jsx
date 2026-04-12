@@ -69,15 +69,24 @@ const ScoreRing = ({ score }) => {
 };
 
 // ── Section renderers ────────────────────────────────────────────────────────
-const SectionShell = ({ icon, label, children, accent='#7c3aed' }) => (
-  <div style={{ marginBottom:20, background:'white', borderRadius:12, border:'1px solid #f0edff', overflow:'hidden' }}>
-    <div style={{ padding:'10px 16px', background:`${accent}08`, borderBottom:'1px solid #f0edff', display:'flex', alignItems:'center', gap:8 }}>
-      <Ic n={icon} s={14} c={accent}/>
-      <span style={{ fontSize:12, fontWeight:800, color:accent, textTransform:'uppercase', letterSpacing:'0.06em' }}>{label}</span>
+const SectionShell = ({ icon, label, children, accent='#7c3aed', defaultOpen=true }) => {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ marginBottom:12, background:'white', borderRadius:12, border:'1px solid #f0edff', overflow:'hidden' }}>
+      <button onClick={()=>setOpen(o=>!o)}
+        style={{ width:'100%', display:'flex', alignItems:'center', gap:8, padding:'10px 16px',
+          background:`${accent}08`, borderBottom: open ? '1px solid #f0edff' : 'none',
+          border:'none', cursor:'pointer', fontFamily:F, textAlign:'left' }}>
+        <Ic n={icon} s={14} c={accent}/>
+        <span style={{ fontSize:12, fontWeight:800, color:accent, textTransform:'uppercase', letterSpacing:'0.06em', flex:1 }}>{label}</span>
+        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth={2.5} strokeLinecap="round">
+          <path d={open ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'}/>
+        </svg>
+      </button>
+      {open && <div style={{ padding:'12px 16px' }}>{children}</div>}
     </div>
-    <div style={{ padding:'14px 16px' }}>{children}</div>
-  </div>
-);
+  );
+};
 
 const EmptyMsg = ({ msg='No data available.' }) => (
   <p style={{ fontSize:12, color:'#9ca3af', margin:0, fontStyle:'italic' }}>{msg}</p>
@@ -87,7 +96,7 @@ const ApplicationSection = ({ link, stageHistory }) => {
   const current = stageHistory?.[0];
   return (
     <SectionShell icon="briefcase" label="Application Details">
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px 16px', fontSize:13 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(160px, 1fr))', gap:'10px 16px', fontSize:13 }}>
         {link?.created_at && <div><span style={{ color:'#9ca3af', fontSize:11 }}>Applied</span><br/><b>{new Date(link.created_at).toLocaleDateString()}</b></div>}
         {link?.stage_name && <div><span style={{ color:'#9ca3af', fontSize:11 }}>Current stage</span><br/><b style={{ color:PURPLE }}>{link.stage_name}</b></div>}
         {current?.target_name && <div><span style={{ color:'#9ca3af', fontSize:11 }}>Role</span><br/><b>{current.target_name}</b></div>}
@@ -247,11 +256,11 @@ const FormsSection = ({ formResponses }) => (
           {formResponses.map((resp, i) => (
             <div key={i} style={{ borderRadius:8, border:'1px solid #e9d5ff', overflow:'hidden' }}>
               <div style={{ padding:'6px 12px', background:PURPLE+'10', fontSize:12, fontWeight:700, color:PURPLE }}>{resp.form_name}</div>
-              <div style={{ padding:'10px 12px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px 16px' }}>
+              <div style={{ padding:'10px 12px', display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))', gap:'8px 16px' }}>
                 {(resp.responses||[]).map((r, j) => (
-                  <div key={j}>
+                  <div key={i}>
                     <div style={{ fontSize:10, color:'#9ca3af', fontWeight:600, textTransform:'uppercase' }}>{r.label||r.field_id}</div>
-                    <div style={{ fontSize:12, color:'#374151', fontWeight:500, marginTop:1 }}>{Array.isArray(r.value)?r.value.join(', '):String(r.value||'—')}</div>
+                    <div style={{ fontSize:12, color:'#374151', fontWeight:500, marginTop:1, wordBreak:'break-word' }}>{Array.isArray(r.value)?r.value.join(', '):String(r.value||'—')}</div>
                   </div>
                 ))}
               </div>
@@ -267,15 +276,15 @@ const CustomFieldsSection = ({ fields, data, fieldIds }) => {
   return (
     <SectionShell icon="list" label="Profile Fields">
       {visible.length > 0
-        ? <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px 16px' }}>
+        ? <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(160px, 1fr))', gap:'10px 16px' }}>
             {visible.map(f => {
               const val = data[f.api_key];
               if (val === null || val === undefined || val === '') return null;
               const display = Array.isArray(val) ? val.join(', ') : String(val);
               return (
                 <div key={f.id}>
-                  <div style={{ fontSize:10, color:'#9ca3af', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>{f.name}</div>
-                  <div style={{ fontSize:13, color:'#374151', fontWeight:500, marginTop:1 }}>{display}</div>
+                  <div style={{ fontSize:11, color:'#9ca3af', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>{f.name}</div>
+                  <div style={{ fontSize:13, color:'#374151', fontWeight:500, marginTop:1, wordBreak:'break-word', lineHeight:1.5 }}>{display}</div>
                 </div>
               );
             })}

@@ -702,13 +702,25 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
     }
     setSubmitting(true); setError('');
     try {
-      // Upload any pending files
+      // Upload any pending files (file_upload blocks + CV/resume)
       const fileKeys = Object.keys(formData).filter(k => k.startsWith('__file_') && formData[k] instanceof File);
       const uploadedIds = {};
       for (const k of fileKeys) {
         const fd2 = new FormData(); fd2.append('file', formData[k]);
         fd2.append('file_type_name', k.replace('__file_','').replace(/_/g,' '));
         try { const r=await fetch('/api/attachments/upload',{method:'POST',body:fd2}); if(r.ok){const a=await r.json();uploadedIds[k]=a.id;} } catch {}
+      }
+
+      // CV / Resume — upload as a typed attachment so it appears on the profile
+      if (formData.__cv_file instanceof File) {
+        const fd3 = new FormData();
+        fd3.append('file', formData.__cv_file);
+        fd3.append('file_type_name', 'CV / Resume');
+        fd3.append('file_type_id', 'cv_resume');
+        try {
+          const r = await fetch('/api/attachments/upload', { method:'POST', body:fd3, credentials:'include' });
+          if (r.ok) { const a = await r.json(); uploadedIds['__file_cv_resume'] = a.id; }
+        } catch {}
       }
 
       // Collect form responses from form_response blocks

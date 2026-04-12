@@ -488,6 +488,11 @@ router.post('/:id/wizard/submit', async (req, res) => {
           att.record_id = record.id;
           att.object_id = targetObj.id;
           att.environment_id = portal.environment_id;
+          // Tag CV/resume uploads with the job they were submitted for
+          if (fileKey === '__file_cv_resume' && job_id) {
+            att.linked_job_id = job_id;
+            att.file_type_name = 'CV / Resume';
+          }
         }
       }
     }

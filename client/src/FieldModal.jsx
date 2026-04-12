@@ -851,6 +851,8 @@ export default function FieldModal({ field, selEnv, selObj, onSaved, onClose }) 
   const [datasets, setDatasets] = useState([]);
   const [objects, setObjects] = useState([]);
   const [objectFields, setObjectFields] = useState([]);
+  const [roles, setRoles] = useState([]);             // all roles
+  const [roleVisibility, setRoleVisibility] = useState({}); // role_id → true=hidden
 
   // ── Form state with all type-specific extras ────────────────────────────
   const [form, setForm] = useState(() => {
@@ -893,8 +895,23 @@ export default function FieldModal({ field, selEnv, selObj, onSaved, onClose }) 
     if (selEnv?.id) {
       tFetch(`/api/datasets?environment_id=${selEnv.id}`).then(r=>r.json()).then(d=>setDatasets(Array.isArray(d)?d:[])).catch(()=>{});
       tFetch(`/api/objects?environment_id=${selEnv.id}`).then(r=>r.json()).then(d=>setObjects(Array.isArray(d)?d:[])).catch(()=>{});
+      tFetch(`/api/roles`).then(r=>r.json()).then(d=>setRoles(Array.isArray(d)?d:[])).catch(()=>{});
     }
   }, [selEnv?.id]);
+
+  // Load existing visibility rules when editing an existing field
+  useEffect(() => {
+    if (!isEdit || !field?.id || !selObj?.id) return;
+    tFetch(`/api/field-visibility?object_id=${selObj.id}`)
+      .then(r=>r.json())
+      .then(rules => {
+        const vis = {};
+        (Array.isArray(rules) ? rules : []).forEach(r => {
+          if (r.field_id === field.id && r.hidden) vis[r.role_id] = true;
+        });
+        setRoleVisibility(vis);
+      }).catch(()=>{});
+  }, [field?.id, selObj?.id]);
 
   useEffect(() => {
     if (selObj?.id) {
@@ -947,6 +964,22 @@ export default function FieldModal({ field, selEnv, selObj, onSaved, onClose }) 
         ? await api.patch(`/fields/${field.id}`, payload)
         : await api.post("/fields", payload);
       if (result?.error) { alert(`Could not save field: ${result.error}`); setSaving(false); return; }
+
+      // Save role visibility — use saved field id (new field = result.id, edit = field.id)
+      const savedFieldId = result?.id || field?.id;
+      if (savedFieldId && selObj?.id && roles.length > 0) {
+        // Build rules array: hidden only for roles where roleVisibility[role_id] is true
+        const visRules = roles.map(r => ({ field_id: savedFieldId, hidden: !!roleVisibility[r.id] }));
+        // Group by role and save each role's rule
+        await Promise.all(roles.map(r =>
+          api.put('/field-visibility', {
+            role_id: r.id,
+            object_id: selObj.id,
+            rules: [{ field_id: savedFieldId, hidden: !!roleVisibility[r.id] }],
+          })
+        ));
+      }
+
       onSaved();
       onClose();
     } catch (e) { alert(`Could not save field: ${e.message}`); }
@@ -1035,10 +1068,46 @@ export default function FieldModal({ field, selEnv, selObj, onSaved, onClose }) 
                     <Tog label="Required" checked={!!form.is_required} onChange={v=>set("is_required",v)}/>
                     <Tog label="Show in list view" checked={form.show_in_list!==false} onChange={v=>set("show_in_list",v)}/>
                   </div>
-                  {/* Visibility conditions — hide section_separator and table fields don't need conditions */}
+                  {/* Visibility conditions */}
                   {!["section_separator","table"].includes(form.field_type) && (
                     <div style={{borderTop:`1px solid ${C.border}`,paddingTop:12}}>
                       <ConditionsConfig form={form} set={set} objectFields={objectFields}/>
+                    </div>
+                  )}
+                  {/* ── Role Visibility ── */}
+                  {roles.length > 0 && (
+                    <div style={{borderTop:`1px solid ${C.border}`,paddingTop:12}}>
+                      <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:4}}>Role Visibility</div>
+                      <div style={{fontSize:11,color:C.text3,marginBottom:10}}>
+                        Hidden roles cannot see this field in records or API responses. By default all roles can see all fields.
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                        {roles.map(r => {
+                          const isHidden = !!roleVisibility[r.id];
+                          return (
+                            <div key={r.id} onClick={()=>setRoleVisibility(v=>({...v,[r.id]:!v[r.id]}))}
+                              style={{display:"flex",alignItems:"center",gap:10,padding:"7px 12px",
+                                borderRadius:8,border:`1px solid ${isHidden?"#fecaca":C.border}`,
+                                background:isHidden?"#fff5f5":"white",cursor:"pointer",transition:"all .1s"}}>
+                              <div style={{width:16,height:16,borderRadius:4,flexShrink:0,
+                                border:`2px solid ${isHidden?"#ef4444":C.accent}`,
+                                background:isHidden?"#ef4444":`${C.accent}15`,
+                                display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                {isHidden
+                                  ? <svg width={9} height={9} viewBox='0 0 24 24' fill='none' stroke='white' strokeWidth={3}><path d='M18 6L6 18M6 6l12 12'/></svg>
+                                  : <svg width={9} height={9} viewBox='0 0 24 24' fill='none' stroke={C.accent} strokeWidth={3}><path d='M20 6L9 17l-5-5'/></svg>
+                                }
+                              </div>
+                              <span style={{flex:1,fontSize:13,fontWeight:500,color:isHidden?"#ef4444":C.text1}}>{r.name}</span>
+                              <span style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:10,
+                                color:isHidden?"#ef4444":C.accent,
+                                background:isHidden?"#fee2e2":`${C.accent}10`}}>
+                                {isHidden?"HIDDEN":"visible"}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>

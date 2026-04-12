@@ -488,7 +488,7 @@ function migrateRecordNumbers() {
       r.record_number = byObj[r.object_id];
       changed++;
     });
-    if (changed > 0) { saveStore(key); console.log(`✅ Backfilled record_number for ${changed} records (tenant: ${key})`); }
+    if (changed > 0) { saveStoreNow(key); console.log(`✅ Backfilled record_number for ${changed} records (tenant: ${key})`); }
   }
 }
 migrateRecordNumbers();

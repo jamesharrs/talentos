@@ -2212,12 +2212,17 @@ function CardStageDropdown({ steps, currentId, onMove, onRemove }) {
   const [open, setOpen]     = useState(false);
   const [pos,  setPos]      = useState({ top:0, left:0, flipX:false, flipY:false });
   const [hov,  setHov]      = useState(null);
-  const btnRef = useRef(null);
+  const btnRef     = useRef(null);
+  const dropdownRef = useRef(null);
   const current = steps.find(s => s.id === currentId) || steps[0];
 
   useEffect(() => {
     if (!open) return;
-    const h = e => { if (btnRef.current && !btnRef.current.contains(e.target)) setOpen(false); };
+    const h = e => {
+      if (btnRef.current?.contains(e.target)) return;
+      if (dropdownRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [open]);
@@ -2244,7 +2249,7 @@ function CardStageDropdown({ steps, currentId, onMove, onRemove }) {
   };
 
   const dropdown = open && createPortal(
-    <div style={{ position:'fixed',
+    <div ref={dropdownRef} style={{ position:'fixed',
       top: pos.showAbove ? undefined : pos.top,
       bottom: pos.showAbove ? window.innerHeight - pos.top : undefined,
       left:pos.left,
@@ -2312,11 +2317,16 @@ function BulkStageDropdown({ steps, onMove }) {
   const [open, setOpen] = useState(false);
   const [pos,  setPos]  = useState({ top:0, left:0 });
   const [hov,  setHov]  = useState(null);
-  const btnRef = useRef(null);
+  const btnRef      = useRef(null);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     if (!open) return;
-    const h = e => { if (btnRef.current && !btnRef.current.contains(e.target)) setOpen(false); };
+    const h = e => {
+      if (btnRef.current?.contains(e.target)) return;
+      if (dropdownRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [open]);
@@ -2339,7 +2349,7 @@ function BulkStageDropdown({ steps, onMove }) {
   };
 
   const dropdown = open && createPortal(
-    <div style={{ position:'fixed',
+    <div ref={dropdownRef} style={{ position:'fixed',
       top: pos.showAbove ? undefined : pos.top,
       bottom: pos.showAbove ? window.innerHeight - pos.top : undefined,
       left:pos.left, transform:'translateX(-50%)',
@@ -3366,6 +3376,7 @@ function PipelinePersonRow({ link, steps, label, subtitle, initial, matchScore, 
     : steps;
   const [showStageMenu, setShowStageMenu] = useState(false);
   const [stageMenuPos, setStageMenuPos] = useState({ top:0, left:0, flipX:false });
+  const stageDropdownRef = useRef(null);
   const stageRef = useRef(null);
 
   const score = matchScore?.score ?? null;
@@ -3374,7 +3385,11 @@ function PipelinePersonRow({ link, steps, label, subtitle, initial, matchScore, 
   // Close stage menu on outside click
   useEffect(() => {
     if (!showStageMenu) return;
-    const h = e => { if (stageRef.current && !stageRef.current.contains(e.target)) setShowStageMenu(false); };
+    const h = e => {
+      if (stageRef.current?.contains(e.target)) return;
+      if (stageDropdownRef.current?.contains(e.target)) return;
+      setShowStageMenu(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [showStageMenu]);
@@ -3501,7 +3516,7 @@ function PipelinePersonRow({ link, steps, label, subtitle, initial, matchScore, 
               </svg>
             </button>
             {showStageMenu && createPortal(
-              <div style={{ position:"fixed", top:stageMenuPos.top, left:stageMenuPos.left,
+              <div ref={stageDropdownRef} style={{ position:"fixed", top:stageMenuPos.top, left:stageMenuPos.left,
                 transform: stageMenuPos.flipX ? "translateX(-90%)" : "translateX(-50%)",
                 background:"white", border:`1px solid ${C.border}`, borderRadius:14,
                 boxShadow:"0 12px 32px rgba(0,0,0,.13), 0 2px 8px rgba(0,0,0,.06)",
@@ -3596,9 +3611,15 @@ function LinkedStageDropdown({ link, steps, onMove }) {
   const [hovered, setHovered] = useState(null);
   const btnRef = useRef(null);
 
+  const dropdownRef = useRef(null);
+
   useEffect(() => {
     if (!open) return;
-    const h = e => { if (btnRef.current && !btnRef.current.contains(e.target)) setOpen(false); };
+    const h = e => {
+      if (btnRef.current?.contains(e.target)) return;
+      if (dropdownRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [open]);
@@ -3626,7 +3647,7 @@ function LinkedStageDropdown({ link, steps, onMove }) {
   const currentStep = steps.find(s => s.id === link.stage_id) || steps[0];
 
   const dropdown = open && createPortal(
-    <div style={{
+    <div ref={dropdownRef} style={{
       position:'fixed',
       top: pos.showAbove ? undefined : pos.top,
       bottom: pos.showAbove ? window.innerHeight - pos.top : undefined,

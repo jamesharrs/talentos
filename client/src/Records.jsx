@@ -3687,12 +3687,17 @@ function StagePill({ linkInfo, onStageChange }) {
   const [pos,  setPos]      = useState({ top:0, left:0 });
   const [saving, setSaving] = useState(false);
   const [hovered, setHovered] = useState(null);
-  const btnRef = useRef(null);
+  const btnRef      = useRef(null);
+  const dropdownRef = useRef(null);
 
   // Close on outside click
   useEffect(() => {
     if (!open) return;
-    const h = e => { if (btnRef.current && !btnRef.current.contains(e.target)) setOpen(false); };
+    const h = e => {
+      if (btnRef.current?.contains(e.target)) return;
+      if (dropdownRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [open]);
@@ -3739,7 +3744,7 @@ function StagePill({ linkInfo, onStageChange }) {
   };
 
   const dropdown = open && ReactDOM.createPortal(
-    <div style={{
+    <div ref={dropdownRef} style={{
       position:'fixed',
       top: pos.showAbove ? undefined : pos.top,
       bottom: pos.showAbove ? window.innerHeight - pos.top : undefined,

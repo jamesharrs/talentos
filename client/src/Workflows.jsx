@@ -2231,17 +2231,6 @@ function CardStageDropdown({ steps, currentId, onMove, onRemove }) {
   const dropdownRef = useRef(null);
   const current = steps.find(s => s.id === currentId) || steps[0];
 
-  useEffect(() => {
-    if (!open) return;
-    const h = e => {
-      if (btnRef.current?.contains(e.target)) return;
-      if (dropdownRef.current?.contains(e.target)) return;
-      setOpen(false);
-    };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, [open]);
-
   const handleOpen = e => {
     e.stopPropagation();
     if (!open && btnRef.current) {
@@ -2264,14 +2253,17 @@ function CardStageDropdown({ steps, currentId, onMove, onRemove }) {
   };
 
   const dropdown = open && createPortal(
-    <div ref={dropdownRef} style={{ position:'fixed',
-      top: pos.showAbove ? undefined : pos.top,
-      bottom: pos.showAbove ? window.innerHeight - pos.top : undefined,
-      left:pos.left,
-      transform: pos.flipX ? 'translateX(-90%)' : 'translateX(-50%)',
-      background:'white', border:`1px solid ${C.border}`, borderRadius:14,
-      boxShadow:'0 12px 32px rgba(0,0,0,.13), 0 2px 8px rgba(0,0,0,.06)',
-      zIndex:9999, minWidth:180, maxHeight: pos.maxH || 320, overflowY:'auto', fontFamily:F }}>
+    <>
+      {/* Backdrop — closes dropdown when clicking outside */}
+      <div style={{ position:'fixed', inset:0, zIndex:9990 }} onMouseDown={e=>{e.stopPropagation();setOpen(false);}}/>
+      <div ref={dropdownRef} style={{ position:'fixed',
+        top: pos.showAbove ? undefined : pos.top,
+        bottom: pos.showAbove ? window.innerHeight - pos.top : undefined,
+        left:pos.left,
+        transform: pos.flipX ? 'translateX(-90%)' : 'translateX(-50%)',
+        background:'white', border:`1px solid ${C.border}`, borderRadius:14,
+        boxShadow:'0 12px 32px rgba(0,0,0,.13), 0 2px 8px rgba(0,0,0,.06)',
+        zIndex:9999, minWidth:180, maxHeight: pos.maxH || 320, overflowY:'auto', fontFamily:F }}>
       <div style={{ padding:'8px 12px 6px', borderBottom:`1px solid ${C.border}`,
         fontSize:10, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.07em' }}>
         Move to stage
@@ -2305,7 +2297,8 @@ function CardStageDropdown({ steps, currentId, onMove, onRemove }) {
         <Ic n="x" s={13} c="#dc2626"/>
         <span style={{ fontSize:13, fontWeight:500, color:'#dc2626' }}>Remove</span>
       </button>
-    </div>,
+    </div>
+    </>,
     document.body
   );
 
@@ -2364,6 +2357,8 @@ function BulkStageDropdown({ steps, onMove }) {
   };
 
   const dropdown = open && createPortal(
+    <>
+    <div style={{ position:'fixed', inset:0, zIndex:9990 }} onMouseDown={e=>{e.stopPropagation();setOpen(false);}}/>
     <div ref={dropdownRef} style={{ position:'fixed',
       top: pos.showAbove ? undefined : pos.top,
       bottom: pos.showAbove ? window.innerHeight - pos.top : undefined,
@@ -2391,7 +2386,8 @@ function BulkStageDropdown({ steps, onMove }) {
           </button>
         );
       })}
-    </div>,
+    </div>
+    </>,
     document.body
   );
 
@@ -3398,16 +3394,7 @@ function PipelinePersonRow({ link, steps, label, subtitle, initial, matchScore, 
   const location = personData?.location || null;
 
   // Close stage menu on outside click
-  useEffect(() => {
-    if (!showStageMenu) return;
-    const h = e => {
-      if (stageRef.current?.contains(e.target)) return;
-      if (stageDropdownRef.current?.contains(e.target)) return;
-      setShowStageMenu(false);
-    };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, [showStageMenu]);
+  // No document listener needed — backdrop handles close
 
   // Score colour
   const scoreColor = score === null ? "#9ca3af"
@@ -3531,6 +3518,8 @@ function PipelinePersonRow({ link, steps, label, subtitle, initial, matchScore, 
               </svg>
             </button>
             {showStageMenu && createPortal(
+              <>
+              <div style={{ position:"fixed", inset:0, zIndex:9990 }} onMouseDown={e=>{e.stopPropagation();setShowStageMenu(false);}}/>
               <div ref={stageDropdownRef} style={{ position:"fixed", top:stageMenuPos.top, left:stageMenuPos.left,
                 transform: stageMenuPos.flipX ? "translateX(-90%)" : "translateX(-50%)",
                 background:"white", border:`1px solid ${C.border}`, borderRadius:14,
@@ -3585,7 +3574,8 @@ function PipelinePersonRow({ link, steps, label, subtitle, initial, matchScore, 
                   <Ic n="x" s={13} c="#dc2626"/>
                   <span style={{ fontSize:13, fontWeight:500, color:"#dc2626" }}>Remove</span>
                 </button>
-              </div>,
+              </div>
+              </>,
               document.body
             )}
           </div>
@@ -3628,17 +3618,6 @@ function LinkedStageDropdown({ link, steps, onMove }) {
 
   const dropdownRef = useRef(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const h = e => {
-      if (btnRef.current?.contains(e.target)) return;
-      if (dropdownRef.current?.contains(e.target)) return;
-      setOpen(false);
-    };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, [open]);
-
   const handleOpen = (e) => {
     e.stopPropagation();
     if (!open && btnRef.current) {
@@ -3662,6 +3641,8 @@ function LinkedStageDropdown({ link, steps, onMove }) {
   const currentStep = steps.find(s => s.id === link.stage_id) || steps[0];
 
   const dropdown = open && createPortal(
+    <>
+    <div style={{ position:'fixed', inset:0, zIndex:9990 }} onMouseDown={e=>{e.stopPropagation();setOpen(false);}}/>
     <div ref={dropdownRef} style={{
       position:'fixed',
       top: pos.showAbove ? undefined : pos.top,
@@ -3703,7 +3684,8 @@ function LinkedStageDropdown({ link, steps, onMove }) {
           </button>
         );
       })}
-    </div>,
+    </div>
+    </>,
     document.body
   );
 

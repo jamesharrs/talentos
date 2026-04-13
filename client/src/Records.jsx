@@ -3690,17 +3690,7 @@ function StagePill({ linkInfo, onStageChange }) {
   const btnRef      = useRef(null);
   const dropdownRef = useRef(null);
 
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    const h = e => {
-      if (btnRef.current?.contains(e.target)) return;
-      if (dropdownRef.current?.contains(e.target)) return;
-      setOpen(false);
-    };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, [open]);
+  // Backdrop handles close — no document listener needed
 
   if (!linkInfo?.stage) return <span style={{ fontSize:12, color:'#9ca3af' }}>—</span>;
 
@@ -3744,6 +3734,8 @@ function StagePill({ linkInfo, onStageChange }) {
   };
 
   const dropdown = open && ReactDOM.createPortal(
+    <>
+    <div style={{ position:'fixed', inset:0, zIndex:9990 }} onMouseDown={e=>{e.stopPropagation();setOpen(false);}}/>
     <div ref={dropdownRef} style={{
       position:'fixed',
       top: pos.showAbove ? undefined : pos.top,
@@ -3787,7 +3779,8 @@ function StagePill({ linkInfo, onStageChange }) {
           </button>
         );
       })}
-    </div>,
+    </div>
+    </>,
     document.body
   );
 

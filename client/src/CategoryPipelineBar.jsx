@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import ReactDOM from "react-dom";
 
 const C = { accent: '#4361EE', text1: '#111827', text2: '#374151', text3: '#6B7280', bg: '#EEF2FF', white: 'white', border: '#E5E7EB' };
 const F = "'Space Grotesk', 'DM Sans', system-ui, sans-serif";
@@ -9,6 +10,84 @@ const api = {
   patch: async (path, body) => { const r = await fetch(path, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return r.json(); },
   delete: async (path) => { const r = await fetch(path, { method: 'DELETE' }); return r.json(); },
 };
+
+function StageDropdown({ steps, currentStepId, linkId, onMove, disabled }) {
+  const [open, setOpen]     = useState(false);
+  const [pos,  setPos]      = useState({ top:0, left:0 });
+  const btnRef = useRef(null);
+  const current = steps.find(s => (s.id||s.name) === currentStepId) || steps[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const h = e => { if (btnRef.current && !btnRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
+
+  const handleOpen = e => {
+    e.stopPropagation();
+    if (disabled) return;
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + window.scrollY + 4, left: r.right + window.scrollX });
+    }
+    setOpen(v => !v);
+  };
+
+  const dropdown = open && ReactDOM.createPortal(
+    <div style={{ position:'absolute', top:pos.top, left:pos.left, transform:'translateX(-100%)',
+      background:'white', border:`1px solid ${C.border}`, borderRadius:14,
+      boxShadow:'0 12px 32px rgba(0,0,0,.13), 0 2px 8px rgba(0,0,0,.06)',
+      zIndex:9999, minWidth:172, overflow:'hidden', fontFamily:F }}>
+      <div style={{ padding:'8px 12px 6px', borderBottom:`1px solid ${C.border}`,
+        fontSize:10, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.07em' }}>
+        Move to stage
+      </div>
+      {steps.map(s => {
+        const isCurrent = (s.id||s.name) === currentStepId;
+        return (
+          <button key={s.id||s.name}
+            onClick={e => { e.stopPropagation(); onMove(linkId, s.id||s.name); setOpen(false); }}
+            style={{ width:'100%', display:'flex', alignItems:'center', gap:9,
+              padding:'9px 13px', border:'none',
+              background: isCurrent ? '#4361EE0e' : 'transparent',
+              cursor:'pointer', fontFamily:F, textAlign:'left', transition:'background .1s' }}
+            onMouseEnter={e => !isCurrent && (e.currentTarget.style.background='#f8f7ff')}
+            onMouseLeave={e => !isCurrent && (e.currentTarget.style.background='transparent')}>
+            <div style={{ width:16, height:16, borderRadius:'50%', flexShrink:0,
+              background: isCurrent ? C.accent : C.border,
+              border:`2px solid ${isCurrent ? C.accent : C.border}`,
+              display:'flex', alignItems:'center', justifyContent:'center' }}>
+              {isCurrent && <div style={{ width:6, height:6, borderRadius:'50%', background:'white' }}/>}
+            </div>
+            <span style={{ fontSize:13, fontWeight: isCurrent ? 600 : 400,
+              color: isCurrent ? C.accent : C.text1, flex:1 }}>{s.name}</span>
+          </button>
+        );
+      })}
+    </div>,
+    document.body
+  );
+
+  return (
+    <>
+      <button ref={btnRef} onClick={handleOpen} disabled={disabled}
+        style={{ display:'inline-flex', alignItems:'center', gap:4,
+          padding:'3px 9px 3px 10px', borderRadius:20, fontSize:10, fontWeight:700,
+          border:`1.5px solid ${open ? C.accent : '#c4b5fd'}`,
+          background: open ? '#ede9fe' : '#f5f3ff',
+          color:'#6d28d9', cursor: disabled ? 'default' : 'pointer',
+          fontFamily:F, whiteSpace:'nowrap', maxWidth:100, transition:'all .12s',
+          opacity: disabled ? 0.6 : 1 }}>
+        <span style={{ overflow:'hidden', textOverflow:'ellipsis' }}>{current?.name || 'Stage'}</span>
+        <svg width="9" height="9" viewBox="0 0 10 10" style={{ flexShrink:0, opacity:.6 }}>
+          <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+        </svg>
+      </button>
+      {dropdown}
+    </>
+  );
+}
 
 export default function CategoryPipelineBar({ record, environment, workflow, links, allPeople, onLinksChange, onNavigate }) {
   const [categories, setCategories] = useState([]);
@@ -152,12 +231,13 @@ export default function CategoryPipelineBar({ record, environment, workflow, lin
                                 onClick={() => onNavigate && onNavigate(p.id)}>{name}</div>
                               <div style={{ fontSize: 11, color: C.text3 }}>{p.data?.current_title || p.data?.email || ''}</div>
                             </div>
-                            <select value={step.id || step.name} disabled={moving === link.id}
-                              onChange={e => handleMoveToStep(link.id, e.target.value)}
-                              style={{ fontSize: 10, border: `1px solid ${C.border}`, borderRadius: 4,
-                                padding: '2px 4px', color: C.text2, background: C.white, cursor: 'pointer', maxWidth: 90 }}>
-                              {steps.map(s => <option key={s.id || s.name} value={s.id || s.name}>{s.name}</option>)}
-                            </select>
+                            <StageDropdown
+                              steps={steps}
+                              currentStepId={step.id || step.name}
+                              linkId={link.id}
+                              onMove={handleMoveToStep}
+                              disabled={moving === link.id}
+                            />
                             <button onClick={() => handleRemovePerson(link)}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.text3,
                                 fontSize: 14, padding: '0 2px', lineHeight: 1 }}>×</button>

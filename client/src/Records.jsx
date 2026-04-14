@@ -8178,40 +8178,52 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       {fieldSections.map(section => {
         const isCollapsed = section.collapsible && !!collapsedSections[section.separatorId];
         return (
-          <div key={section.separatorId || section.label} style={{ marginBottom: section.collapsible ? 0 : 20 }}>
-            {/* Section header — plain label for implicit first section, collapsible divider for named sections */}
+          <div key={section.separatorId || section.label} style={{ marginBottom: section.collapsible ? 6 : 20 }}>
+            {/* Section header */}
             {section.collapsible ? (
               <button
                 onClick={() => toggleSection(section.separatorId)}
                 style={{
-                  width:"100%", display:"flex", alignItems:"center", gap:8,
-                  background:"transparent", border:"none", cursor:"pointer",
-                  padding:"14px 2px 8px", textAlign:"left", fontFamily:F,
-                  marginTop:4,
+                  width:"100%", display:"flex", alignItems:"center", gap:10,
+                  background: isCollapsed ? "white" : `${C.accent}08`,
+                  border: `1.5px solid ${isCollapsed ? C.border : C.accent}22`,
+                  borderRadius: isCollapsed ? 10 : "10px 10px 0 0",
+                  cursor:"pointer", padding:"10px 14px",
+                  textAlign:"left", fontFamily:F,
+                  transition:"all .15s",
+                  marginTop: 2,
                 }}
               >
-                <div style={{ flex:1, borderTop:`1.5px solid ${C.border}`, marginTop:1 }}/>
-                <span style={{ fontSize:11, fontWeight:800, color: isCollapsed ? C.text2 : C.accent,
-                  textTransform:"uppercase", letterSpacing:"0.08em",
-                  whiteSpace:"nowrap", padding:"0 8px",
-                  background: "white" }}>
+                {/* Icon dot */}
+                <div style={{
+                  width:7, height:7, borderRadius:"50%", flexShrink:0,
+                  background: isCollapsed ? C.text3 : C.accent,
+                  transition:"background .15s",
+                }}/>
+                <span style={{
+                  fontSize:11, fontWeight:700,
+                  color: isCollapsed ? C.text2 : C.accent,
+                  textTransform:"uppercase", letterSpacing:"0.07em",
+                  flex:1, whiteSpace:"nowrap",
+                }}>
                   {section.label}
                 </span>
                 {isCollapsed && section.fs.length > 0 && (
                   <span style={{
                     fontSize:10, fontWeight:700, color:"white",
                     background: C.accent, borderRadius:20,
-                    padding:"1px 7px", lineHeight:"16px", flexShrink:0,
+                    padding:"1px 8px", lineHeight:"17px", flexShrink:0,
                   }}>
                     {section.fs.length}
                   </span>
                 )}
-                <div style={{ flex:1, borderTop:`1.5px solid ${C.border}`, marginTop:1 }}/>
-                <span style={{
-                  fontSize:9, color: isCollapsed ? C.text3 : C.accent, marginLeft:2,
+                <svg width="12" height="12" viewBox="0 0 12 12" style={{
+                  flexShrink:0, opacity:.5,
                   transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
-                  transition:"transform .2s", display:"inline-block", flexShrink:0
-                }}>▼</span>
+                  transition:"transform .2s",
+                }}>
+                  <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </button>
             ) : (
               <div style={{ fontSize:11, fontWeight:700, color:C.text3,
@@ -8222,8 +8234,9 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
             {/* Fields — hidden when collapsed */}
             {!isCollapsed && (
-              <div style={{ background:"#f8f9fc", borderRadius:12, border:`1px solid ${C.border}`,
-                marginBottom: section.collapsible ? 8 : 0,
+              <div style={{ background:"#f8f9fc", borderRadius:"0 0 10px 10px", border:`1.5px solid ${C.accent}22`,
+                borderTop:"none",
+                marginBottom: section.collapsible ? 6 : 0,
                 overflow:"hidden" }}>
                 {section.fs.map((field, i) => {
                   const isEditing = editing.hasOwnProperty(field.api_key);

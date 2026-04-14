@@ -22,6 +22,7 @@ const lazyWithRetry = (factory) => lazy(() =>
 
 // Route-only lazy imports (not needed until that route loads)
 const ReschedulePage      = lazyWithRetry(() => import('./ReschedulePage.jsx'));
+const SignupPage          = lazyWithRetry(() => import('./SignupPage.jsx'));
 const PortalApp           = lazyWithRetry(() => import('./PortalApp.jsx'));
 const InterviewSession    = lazyWithRetry(() => import('./InterviewSession.jsx'));
 const LoginPage           = lazyWithRetry(() => import('./LoginPage.jsx'));
@@ -2633,6 +2634,7 @@ export default function AppRoot() {
 
   // ── Public / standalone routes (no auth, no hooks) ───────────────────────
   if (_path.startsWith('/reschedule/'))   return <ReschedulePage />;
+  if (_path === '/signup')               return <SignupPage />;
   if (_path.startsWith('/interview/'))    return <InterviewSession />;
   if (_path.startsWith('/hub'))           return <CandidateHub />;
   if (_path === '/support' || _path.startsWith('/support/')) return <SupportPortalPage />;

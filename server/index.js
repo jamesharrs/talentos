@@ -147,6 +147,7 @@ const AUTH_EXEMPT = [
   '/question-bank/jobs', // wizard fetches screening questions for a job — no user session in portal
   '/screening/job',      // wizard fetches screening rules for portal screening block
   '/tenant-reset', '/cleanup-seeds', '/seed-dashboards',
+  '/signup',        // public self-serve signup — no auth needed
   '/error-logs', '/ai', '/translate', '/linkedin-search',
   '/chrome-import',
   '/hub/request-link', '/hub/verify', '/hub/portal-branding',
@@ -327,6 +328,7 @@ app.use('/api/superadmin',        require('./routes/superadmin'));
 app.use('/api/superadmin/clients', require('./routes/superadmin_clients'));
 app.use('/api/superadmin/demo',   require('./routes/demo_seed'));
 app.use('/api/tenant-reset',      require('./routes/admin_reset'));
+app.use('/api/signup',            require('./routes/signup'));
 app.use('/api/chrome-import',     require('./routes/chrome_import'));
 
 // Run post-load migrations

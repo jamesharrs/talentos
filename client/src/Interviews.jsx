@@ -293,12 +293,12 @@ const SimplePeoplePicker = ({ value, onChange, envId, multi=true, placeholder="S
 
 // ── Video platform options ─────────────────────────────────────────────────────
 const VIDEO_PLATFORMS = [
-  { value:"zoom",       label:"Zoom",              icon:"🎥" },
-  { value:"teams",      label:"Microsoft Teams",   icon:"💼" },
-  { value:"meet",       label:"Google Meet",       icon:"🎯" },
-  { value:"webex",      label:"Webex",             icon:"📡" },
-  { value:"custom",     label:"Custom Link",       icon:"🔗" },
-  { value:"in_person",  label:"In Person",         icon:"🏢" },
+  { value:"zoom",       label:"Zoom",              icon:"video" },
+  { value:"teams",      label:"Microsoft Teams",   icon:"users" },
+  { value:"meet",       label:"Google Meet",       icon:"video" },
+  { value:"webex",      label:"Webex",             icon:"phone" },
+  { value:"custom",     label:"Custom Link",       icon:"link" },
+  { value:"in_person",  label:"In Person",         icon:"building" },
 ];
 
 // ── AI Agent selector (interview-capable agents only) ─────────────────────────
@@ -579,7 +579,7 @@ const TypeFormModal = ({ type, envId, onSave, onClose }) => {
                 <div>
                   <label style={labelSt}>Video / Meeting Platform</label>
                   <select value={form.video_platform} onChange={e=>set("video_platform",e.target.value)} style={inpSt}>
-                    {VIDEO_PLATFORMS.map(p=><option key={p.value} value={p.value}>{p.icon} {p.label}</option>)}
+                    {VIDEO_PLATFORMS.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}
                   </select>
                 </div>
               </div>

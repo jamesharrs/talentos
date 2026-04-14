@@ -15,20 +15,20 @@ const C = {
 
 
 const FIELD_TYPES = [
-  {type:'text',        label:'Short Text',   icon:'T'},
-  {type:'textarea',    label:'Long Text',    icon:'¶'},
-  {type:'number',      label:'Number',       icon:'#'},
-  {type:'email',       label:'Email',        icon:'@'},
-  {type:'phone',       label:'Phone',        icon:'☎'},
-  {type:'url',         label:'URL',          icon:'🔗'},
-  {type:'date',        label:'Date',         icon:'📅'},
-  {type:'select',      label:'Single Select',icon:'◉'},
-  {type:'multi_select',label:'Multi Select', icon:'☑'},
-  {type:'rating',      label:'Rating',       icon:'★'},
-  {type:'boolean',     label:'Yes / No',     icon:'⊙'},
-  {type:'currency',    label:'Currency',     icon:'$'},
-  {type:'people',      label:'People',       icon:'👤'},
-  {type:'section',     label:'Section Break',icon:'—'},
+  {type:'text',        label:'Short Text',   icon:'text'},
+  {type:'textarea',    label:'Long Text',    icon:'alignLeft'},
+  {type:'number',      label:'Number',       icon:'hash'},
+  {type:'email',       label:'Email',        icon:'atSign'},
+  {type:'phone',       label:'Phone',        icon:'phone'},
+  {type:'url',         label:'URL',          icon:'link'},
+  {type:'date',        label:'Date',         icon:'calendar'},
+  {type:'select',      label:'Single Select',icon:'list'},
+  {type:'multi_select',label:'Multi Select', icon:'listCheck'},
+  {type:'rating',      label:'Rating',       icon:'star'},
+  {type:'boolean',     label:'Yes / No',     icon:'toggle'},
+  {type:'currency',    label:'Currency',     icon:'dollar'},
+  {type:'people',      label:'People',       icon:'users'},
+  {type:'section',     label:'Section Break',icon:'minus'},
 ];
 
 const CATEGORIES = [
@@ -56,6 +56,23 @@ const PATHS = {
   form:"M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 0 2-2h2a2 2 0 0 0 2 2M9 12h6M9 16h4",
   share:"M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13",
   lock:"M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4",
+  // Field type icons
+  text:       "M4 6h16M4 12h10M4 18h6",
+  alignLeft:  "M21 10H3M21 6H3M15 14H3M21 18H3",
+  hash:       "M4 9h16M4 15h16M10 3L8 21M16 3l-2 18",
+  atSign:     "M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 019-9",
+  phone:      "M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z",
+  link:       "M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71",
+  calendar:   "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z",
+  list:       "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
+  listCheck:  "M10 6H21M10 12H21M10 18H21M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2",
+  star:       "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
+  toggle:     "M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8zM6 1v3M10 1v3M14 1v3",
+  dollar:     "M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6",
+  users:      "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75",
+  star:       "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
+  mapPin:     "M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0zM12 7a3 3 0 110 6 3 3 0 010-6z",
+  minus:      "M5 12h14",
 };
 const Ic = ({n,s=14,c='currentColor'}) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -96,7 +113,7 @@ const FieldEditor = ({ field, index, total, onChange, onRemove, onMove }) => {
       {/* Header row */}
       <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 12px',cursor:'pointer',background:open?C.accentLight:C.surface}} onClick={()=>setOpen(o=>!o)}>
         <span style={{color:C.text3,fontSize:11,cursor:'grab'}}><Ic n="grip" s={14}/></span>
-        <span style={{width:26,height:26,borderRadius:6,background:C.accentLight,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:C.accent,flexShrink:0}}>{ft.icon}</span>
+        <span style={{width:26,height:26,borderRadius:6,background:C.accentLight,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Ic n={ft.icon} s={13} c={C.accent}/></span>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:13,fontWeight:600,color:C.text1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{field.label||<span style={{color:C.text3,fontStyle:'italic'}}>Untitled {ft.label}</span>}</div>
           <div style={{fontSize:10,color:C.text3}}>{ft.label}{field.required?' · Required':''}{field.confidential?' · Confidential':''}</div>
@@ -280,7 +297,7 @@ const FormBuilderModal = ({ form, environment, onSave, onClose }) => {
                       style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,cursor:'pointer',fontFamily:F,fontSize:12,color:C.text2,textAlign:'left',transition:'all .1s'}}
                       onMouseEnter={e=>{e.currentTarget.style.background=C.accentLight;e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
                       onMouseLeave={e=>{e.currentTarget.style.background=C.surface;e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.text2;}}>
-                      <span style={{width:22,height:22,borderRadius:5,background:C.accentLight,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:C.accent,flexShrink:0}}>{ft.icon}</span>
+                      <span style={{width:22,height:22,borderRadius:5,background:C.accentLight,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Ic n={ft.icon} s={12} c={C.accent}/></span>
                       {ft.label}
                     </button>
                   ))}
@@ -463,7 +480,7 @@ export function FormsList({ environment }) {
                   <span style={{fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:99,background:`${cat.color}15`,color:cat.color}}>{cat.label}</span>
                   {form.confidential&&<span style={{fontSize:10,padding:'2px 6px',borderRadius:4,background:'#FEF2F2',color:C.red,fontWeight:700}}>Confidential</span>}
                   {form.sharing==='link'&&<span style={{fontSize:10,padding:'2px 6px',borderRadius:4,background:'#F0F4FF',color:C.accent,fontWeight:700}}>Link sharing</span>}
-                  {form.context_trigger&&<span style={{fontSize:10,padding:'2px 6px',borderRadius:4,background:`${C.purple}12`,color:C.purple,fontWeight:700}}>📍 {form.context_trigger}</span>}
+                  {form.context_trigger&&<span style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:10,padding:'2px 6px',borderRadius:4,background:`${C.purple}12`,color:C.purple,fontWeight:700}}><Ic n="mapPin" s={9} c={C.purple}/>{form.context_trigger}</span>}
                 </div>
                 <div style={{fontSize:11,color:C.text3}}>
                   {form.fields?.filter(f=>f.field_type!=='section').length||0} fields · 
@@ -524,8 +541,8 @@ const FormField = ({ field, value, onChange }) => {
         <div style={{display:'flex',gap:4}}>
           {[1,2,3,4,5].map(n=>(
             <button key={n} onClick={()=>onChange(n)}
-              style={{background:'none',border:'none',cursor:'pointer',fontSize:22,color:n<=(value||0)?C.amber:'#D1D5DB',padding:'0 2px'}}>
-              ★
+              style={{background:'none',border:'none',cursor:'pointer',padding:'0 2px',display:'flex'}}>
+              <Ic n="star" s={22} c={n<=(value||0)?C.amber:'#D1D5DB'}/>
             </button>
           ))}
         </div>

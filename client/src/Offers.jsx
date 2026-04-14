@@ -40,6 +40,8 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     edit:"M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
     trash:"M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6",
     send:"M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z",
+    zap:"M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+    clipboard:"M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
     user:"M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z",
     users:"M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M9 11a4 4 0 100-8 4 4 0 000 8z",
     briefcase:"M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2",
@@ -131,7 +133,7 @@ function OfferCard({ offer, onClick, selected }) {
                 display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,
                 color: a.status==="approved"?C.green : a.status==="rejected"?C.red : i===offer.current_approver_index?C.amber:C.text3,
               }}>
-                {a.status==="approved"?"✓": a.status==="rejected"?"✗": i+1}
+                {a.status==="approved"?<Ic n="check" s={11} c="white"/>: a.status==="rejected"?<Ic n="x" s={11} c="white"/>: i+1}
               </div>
               {i < offer.approval_chain.length-1 && (
                 <div style={{width:12,height:1,background:a.status==="approved"?C.green:C.border}}/>
@@ -308,7 +310,7 @@ function NewOfferModal({ environment, onClose, onCreated, prefillCandidate, pref
                     <div style={{width:18,height:18,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
                       fontSize:10,fontWeight:800,background:i===step?"rgba(255,255,255,.3)":i<step?C.green:C.border,
                       color:i===step?"white":i<step?"white":C.text3}}>
-                      {i<step ? "✓" : i+1}
+                      {i<step ? <Ic n="check" s={11} c="white"/> : i+1}
                     </div>
                     <span style={{fontSize:11,fontWeight:700,color:i===step?"white":i<step?C.green:C.text3}}>{s}</span>
                   </div>
@@ -480,7 +482,7 @@ function NewOfferModal({ environment, onClose, onCreated, prefillCandidate, pref
                 style={{padding:"9px 24px",borderRadius:8,border:"none",background:C.accent,color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:F}}>Next →</button>
             : <button onClick={submit} disabled={saving}
                 style={{padding:"9px 24px",borderRadius:8,border:"none",background:saving?C.border:C.green,color:"white",fontSize:13,fontWeight:700,cursor:saving?"not-allowed":"pointer",fontFamily:F,display:"flex",alignItems:"center",gap:8}}>
-                {saving ? <><Ic n="loader" s={14}/> Creating…</> : <>⚡ Create Offer</>}
+                {saving ? <><Ic n="loader" s={14}/> Creating…</> : <><Ic n="zap" s={14}/>Create Offer</>}
               </button>
           }
         </div>
@@ -717,7 +719,7 @@ function OfferDetail({ offer: initialOffer, onClose, onUpdated, onDeleted }) {
                 style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.text2,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:F}}>Cancel</button>
               <button onClick={()=>doApprove(approveModal)} disabled={working}
                 style={{padding:"8px 18px",borderRadius:8,border:"none",background:approveModal==="approved"?C.green:C.red,color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:F}}>
-                {approveModal==="approved" ? "✓ Approve" : "✗ Reject"}
+                {approveModal==="approved" ? <><Ic n="check" s={13}/>Approve</> : <><Ic n="x" s={13}/>Reject</>}
               </button>
             </div>
           </div>
@@ -805,7 +807,7 @@ export default function OffersModule({ environment }) {
             <div style={{textAlign:"center",padding:"60px 0",color:C.text3,fontSize:13}}>Loading offers…</div>
           ) : filtered.length===0 ? (
             <div style={{textAlign:"center",padding:"60px 0"}}>
-              <div style={{fontSize:32,marginBottom:12}}>📋</div>
+              <div style={{marginBottom:12,display:"flex",justifyContent:"center"}}><Ic n="clipboard" s={32} c="#9ca3af"/></div>
               <div style={{fontSize:15,fontWeight:700,color:C.text1,marginBottom:4}}>{search||statusFilter!=="all"?"No offers match":"No offers yet"}</div>
               <div style={{fontSize:13,color:C.text3,marginBottom:20}}>{search||statusFilter!=="all"?"Try adjusting your filters":"Create your first offer to get started"}</div>
               {!search && statusFilter==="all" && (

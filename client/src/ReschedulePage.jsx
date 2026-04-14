@@ -1,5 +1,20 @@
 import React, { useState, useEffect, useCallback } from "react";
 
+// ── Icon system ───────────────────────────────────────────────────────────────
+const IC = {
+  calendar:  "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z",
+  mail:      "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6",
+  check:     "M20 6L9 17l-5-5",
+  alertTri:  "M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01",
+  ban:       "M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636",
+  x:         "M18 6L6 18M6 6l12 12",
+};
+const Ic = ({n,s=24,c="currentColor"}) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <path d={IC[n]||IC.calendar}/>
+  </svg>
+);
+
 const F = "'Plus Jakarta Sans', -apple-system, sans-serif";
 const C = {
   accent: "#4361EE", accentLight: "#EEF2FF", border: "#E8EAED",
@@ -112,7 +127,7 @@ const SlotCalendar = ({ selectedSlots, onToggleSlot }) => {
               Add slot
             </button>
             <button onClick={()=>setPickerDate(null)}
-              style={{background:"none",border:"none",cursor:"pointer",color:C.text3,fontSize:18,padding:"4px"}}>✕</button>
+              style={{background:"none",border:"none",cursor:"pointer",color:C.text3,padding:"4px",display:"flex"}}><Ic n="x" s={18} c={C.text3}/></button>
           </div>
           <p style={{fontSize:11,color:C.accent,margin:"8px 0 0"}}>
             Tip: Add 2–3 options to give the other person flexibility
@@ -137,7 +152,7 @@ const SlotCalendar = ({ selectedSlots, onToggleSlot }) => {
                   <div style={{fontSize:12,color:C.text3}}>{fmtTime(s.time)}</div>
                 </div>
                 <button onClick={()=>removeSlot(s)}
-                  style={{background:"none",border:"none",cursor:"pointer",color:C.text3,fontSize:16,padding:4}}>✕</button>
+                  style={{background:"none",border:"none",cursor:"pointer",color:C.text3,padding:4,display:"flex"}}><Ic n="x" s={16} c={C.text3}/></button>
               </div>
             );
           })}
@@ -179,7 +194,7 @@ const ProposePhase = ({ interview, id, token, role, onDone }) => {
   return (
     <div>
       <div style={{background:C.amberLight,border:`1px solid #fde68a`,borderRadius:12,padding:"14px 16px",marginBottom:24,display:"flex",gap:12,alignItems:"flex-start"}}>
-        <span style={{fontSize:20}}>📅</span>
+        <span style={{display:"inline-flex",alignItems:"center"}}><Ic n="calendar" s={20} c={C.accent}/></span>
         <div>
           <div style={{fontSize:14,fontWeight:700,color:"#92400e",marginBottom:4}}>Request to reschedule</div>
           <div style={{fontSize:13,color:"#78350f"}}>
@@ -289,7 +304,7 @@ const ConfirmPhase = ({ interview, id, token, role, pickIndex, onDone }) => {
 // ── Success ───────────────────────────────────────────────────────────────────
 const SuccessScreen = ({ type, slots, newTime }) => (
   <div style={{textAlign:"center",padding:"32px 0"}}>
-    <div style={{fontSize:48,marginBottom:16}}>{type==="proposed" ? "📨" : "✅"}</div>
+    <div style={{marginBottom:16,display:"flex",justifyContent:"center"}}>{type==="proposed" ? <Ic n="mail" s={48} c={C.accent}/> : <Ic n="check" s={48} c={C.green}/>}</div>
     <div style={{fontSize:20,fontWeight:800,color:C.text1,marginBottom:8}}>
       {type==="proposed" ? "Reschedule request sent!" : "Interview rescheduled!"}
     </div>
@@ -381,7 +396,7 @@ export default function ReschedulePage() {
             {loading && <div style={{textAlign:"center",padding:"40px 0",color:C.text3}}>Loading…</div>}
             {!loading && error && (
               <div style={{textAlign:"center",padding:"40px 0"}}>
-                <div style={{fontSize:32,marginBottom:12}}>⚠️</div>
+                <div style={{marginBottom:12,display:"flex",justifyContent:"center"}}><Ic n="alertTri" s={32} c={C.amber}/></div>
                 <div style={{fontSize:15,fontWeight:700,color:"#dc2626",marginBottom:8}}>Invalid link</div>
                 <div style={{fontSize:13,color:C.text2}}>{error}</div>
               </div>
@@ -392,7 +407,7 @@ export default function ReschedulePage() {
             {!loading && !error && !done && interview && (
               interview.status === "cancelled" ? (
                 <div style={{textAlign:"center",padding:"32px 0"}}>
-                  <div style={{fontSize:32,marginBottom:12}}>🚫</div>
+                  <div style={{marginBottom:12,display:"flex",justifyContent:"center"}}><Ic n="ban" s={32} c={C.text3}/></div>
                   <div style={{fontSize:15,fontWeight:700,color:C.text1,marginBottom:8}}>Interview cancelled</div>
                   <div style={{fontSize:13,color:C.text2}}>This interview has already been cancelled or rescheduled.</div>
                 </div>

@@ -43,6 +43,8 @@ const PATHS = {
   workflow:   "M22 12h-4l-3 9L9 3l-3 9H2",
   chevD:      "M6 9l6 6 6-6",
   user:       "M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z",
+  users:      "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75",
+  mapPin:     "M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0zM12 7a3 3 0 110 6 3 3 0 010-6z",
   briefcase:  "M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2",
   settings:   "M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z",
 };
@@ -160,7 +162,8 @@ function AutoTooltip({ step, children }) {
         transform:"translateX(-50%) rotate(45deg)",
         width:10, height:10, background:"#1a1a2e" }}/>
       <div style={{ fontSize:10, fontWeight:700, color:"#9ca3af", textTransform:"uppercase",
-        letterSpacing:"0.07em", marginBottom:7 }}>⚡ When moved to this stage</div>
+        letterSpacing:"0.07em", marginBottom:7, display:"flex", alignItems:"center", gap:4 }}>
+        <Ic n="zap" s={10} c="#9ca3af"/> When moved to this stage</div>
       {summary.map((a, i) => (
         <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:8, marginBottom: i<summary.length-1?6:0 }}>
           <div style={{ width:18, height:18, borderRadius:5, background:a.color+"22",
@@ -600,7 +603,7 @@ const NextStepsConfig = ({ currentStep, allSteps, onChange }) => {
                       <input type="checkbox" checked={sel} onChange={()=>toggle(s.id)}
                         style={{ accentColor:C.accent, width:14, height:14, cursor:'pointer' }}/>
                       <span style={{ fontSize:13, fontWeight:sel?700:400, color:sel?C.accent:C.text1, flex:1 }}>{s.name||'Unnamed stage'}</span>
-                      {hasAuto && <span style={{ fontSize:9, background:'#fef3c7', color:'#92400e', padding:'1px 5px', borderRadius:99, fontWeight:700 }}>⚡</span>}
+                      {hasAuto && <span style={{ display:"inline-flex", alignItems:"center", gap:2, fontSize:9, background:'#fef3c7', color:'#92400e', padding:'1px 5px', borderRadius:99, fontWeight:700 }}><Ic n="zap" s={8} c="#92400e"/>auto</span>}
                     </label>
                   );
                 })}
@@ -1451,15 +1454,17 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
               <div style={{ fontSize: 11, fontWeight: 600, color: C.text2, marginBottom: 8 }}>Workflow Type</div>
               <div style={{ display:"flex", gap:8 }}>
                 {[
-                  { value:"automation",  label:"⚡ Automation",    desc:"Run automated steps on records" },
-                  { value:"pipeline",    label:"📋 Record Workflow", desc:"Drive a record's status/stage" },
-                  { value:"people_link", label:"👥 Linked Person", desc:"Define stages for people linked to this record" },
+                  { value:"automation",  label:"Automation",     icon:"zap",       desc:"Run automated steps on records" },
+                  { value:"pipeline",    label:"Record Workflow", icon:"workflow",  desc:"Drive a record's status/stage" },
+                  { value:"people_link", label:"Linked Person",  icon:"users",     desc:"Define stages for people linked to this record" },
                 ].map(t => (
                   <button key={t.value} onClick={()=>setWfType(t.value)}
                     style={{ flex:1, padding:"10px 12px", borderRadius:10, border:`2px solid ${wfType===t.value?C.accent:C.border}`,
                       background: wfType===t.value ? C.accentLight : "white",
                       cursor:"pointer", fontFamily:F, textAlign:"left" }}>
-                    <div style={{ fontSize:12, fontWeight:700, color:wfType===t.value?C.accent:C.text1, marginBottom:3 }}>{t.label}</div>
+                    <div style={{ fontSize:12, fontWeight:700, color:wfType===t.value?C.accent:C.text1, marginBottom:3, display:"flex", alignItems:"center", gap:5 }}>
+                      <Ic n={t.icon} s={13} c={wfType===t.value?C.accent:C.text1}/>{t.label}
+                    </div>
                     <div style={{ fontSize:11, color:C.text3, lineHeight:1.4 }}>{t.desc}</div>
                   </button>
                 ))}
@@ -1892,13 +1897,15 @@ function CanvasNewModal({ objects, environment, onClose, onCreated }) {
             <div style={{ fontSize: 11, fontWeight: 600, color: C.text2, marginBottom: 8 }}>Workflow type</div>
             <div style={{ display: "flex", gap: 8 }}>
               {[
-                { value: "automation",  label: "⚡ Automation",     desc: "Automated steps" },
-                { value: "pipeline",    label: "📋 Record Workflow", desc: "Drive a record's stage" },
-                { value: "people_link", label: "👥 Linked Person",   desc: "Stages for linked people" },
+                { value: "automation",  label: "Automation",     icon:"zap",      desc: "Automated steps" },
+                { value: "pipeline",    label: "Record Workflow", icon:"workflow", desc: "Drive a record's stage" },
+                { value: "people_link", label: "Linked Person",  icon:"users",    desc: "Stages for linked people" },
               ].map(t => (
                 <button key={t.value} onClick={() => setWfType(t.value)}
                   style={{ flex: 1, padding: "8px 10px", borderRadius: 9, border: `2px solid ${wfType===t.value?C.accent:C.border}`, background: wfType===t.value?C.accentLight:"white", cursor: "pointer", fontFamily: F, textAlign: "left" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: wfType===t.value?C.accent:C.text1 }}>{t.label}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: wfType===t.value?C.accent:C.text1, display:"flex", alignItems:"center", gap:4 }}>
+                    <Ic n={t.icon} s={11} c={wfType===t.value?C.accent:C.text1}/>{t.label}
+                  </div>
                   <div style={{ fontSize: 10, color: C.text3, marginTop: 2 }}>{t.desc}</div>
                 </button>
               ))}
@@ -2043,8 +2050,8 @@ export default function WorkflowsPage({ environment }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
                     <span style={{ fontSize: 15, fontWeight: 700, color: C.text1 }}>{wf.name}</span>
                     <span style={{ fontSize: 11, fontWeight: 600, color, background: `${color}15`, padding: "2px 8px", borderRadius: 99 }}>{objName(wf.object_id)}</span>
-                    {wf.workflow_type === "pipeline"    && <span style={{ fontSize:11, color:"#0ca678", background:"#ecfdf5", padding:"2px 8px", borderRadius:99, fontWeight:600 }}>📋 Record Workflow</span>}
-                    {wf.workflow_type === "people_link" && <span style={{ fontSize:11, color:"#7c3aed", background:"#f5f3ff", padding:"2px 8px", borderRadius:99, fontWeight:600 }}>👥 Linked Person</span>}
+                    {wf.workflow_type === "pipeline"    && <span style={{ fontSize:11, color:"#0ca678", background:"#ecfdf5", padding:"2px 8px", borderRadius:99, fontWeight:600, display:"inline-flex", alignItems:"center", gap:4 }}><Ic n="workflow" s={10} c="#0ca678"/>Record Workflow</span>}
+                    {wf.workflow_type === "people_link" && <span style={{ fontSize:11, color:"#7c3aed", background:"#f5f3ff", padding:"2px 8px", borderRadius:99, fontWeight:600, display:"inline-flex", alignItems:"center", gap:4 }}><Ic n="users" s={10} c="#7c3aed"/>Linked Person</span>}
                     {!wf.active && <span style={{ fontSize: 11, color: C.text3, background: "#f3f4f6", padding: "2px 8px", borderRadius: 99 }}>Inactive</span>}
                   </div>
                   {wf.description && <div style={{ fontSize: 12, color: C.text3, marginBottom: 6 }}>{wf.description}</div>}
@@ -2286,7 +2293,7 @@ function CardStageDropdown({ steps, currentId, onMove, onRemove }) {
             <span style={{ fontSize:13, fontWeight: isCurrent?600:400, color: isCurrent?C.accent:C.text1, flex:1 }}>{s.name}</span>
             {hasAuto && (
               <AutoTooltip step={s}>
-                <span style={{ fontSize:9, background:'#fef3c7', color:'#92400e', padding:'2px 6px', borderRadius:99, fontWeight:700, border:'1px solid #fde68a', cursor:'help' }}>⚡</span>
+                <span style={{ display:"inline-flex", alignItems:"center", gap:2, fontSize:9, background:'#fef3c7', color:'#92400e', padding:'2px 6px', borderRadius:99, fontWeight:700, border:'1px solid #fde68a', cursor:'help' }}><Ic n="zap" s={8} c="#92400e"/>auto</span>
               </AutoTooltip>
             )}
           </button>
@@ -2388,7 +2395,7 @@ function BulkStageDropdown({ steps, onMove }) {
             <span style={{ fontSize:13, color:C.text1, flex:1 }}>{s.name}</span>
             {hasAuto && (
               <AutoTooltip step={s}>
-                <span style={{ fontSize:9, background:'#fef3c7', color:'#92400e', padding:'2px 6px', borderRadius:99, fontWeight:700, border:'1px solid #fde68a', cursor:'help' }}>⚡</span>
+                <span style={{ display:"inline-flex", alignItems:"center", gap:2, fontSize:9, background:'#fef3c7', color:'#92400e', padding:'2px 6px', borderRadius:99, fontWeight:700, border:'1px solid #fde68a', cursor:'help' }}><Ic n="zap" s={8} c="#92400e"/>auto</span>
               </AutoTooltip>
             )}
           </button>
@@ -3149,7 +3156,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                       <select onChange={e => { if(!e.target.value) return; bulkRunStepActions(e.target.value); e.target.value=""; }}
                         style={{ padding:"3px 8px", borderRadius:8, fontSize:11, fontWeight:700, border:`1.5px solid #fde68a`, background:"#fffbeb", color:"#92400e", cursor:"pointer", fontFamily:F, outline:"none" }}>
                         <option value="">Run actions…</option>
-                        {plSteps.filter(s=>(s.actions||[]).some(a=>a.type)).map(s=><option key={s.id} value={s.id}>⚡ {s.name}</option>)}
+                        {plSteps.filter(s=>(s.actions||[]).some(a=>a.type)).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
                       </select>
                     )}
                     <button onClick={bulkRemove}
@@ -3275,7 +3282,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                               {name}
                             </div>
                             {title && <div style={{ fontSize:11, color:"#6b7280", lineHeight:1.3 }}>{title}</div>}
-                            {loc   && <div style={{ fontSize:10, color:"#9ca3af", marginTop:2 }}>📍 {loc}</div>}
+                            {loc   && <div style={{ fontSize:10, color:"#9ca3af", marginTop:2, display:"flex", alignItems:"center", gap:3 }}><Ic n="mapPin" s={9} c="#9ca3af"/>{loc}</div>}
                           </div>
                           </div>{/* end clickable header */}
                           {/* Stage pill + prev/next */}
@@ -3371,7 +3378,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                           <td style={{ padding:"7px 8px" }}>
                             <select value={link.stage_id||""} onChange={e=>{const s=plSteps.find(st=>st.id===e.target.value);if(s)moveStage(link.id,s);}}
                               style={{ padding:"3px 7px", borderRadius:20, fontSize:11, fontWeight:700, border:`1.5px solid #c4b5fd`, background:"#ede9fe", color:"#6d28d9", cursor:"pointer", fontFamily:F, outline:"none" }}>
-                              {plSteps.map(s=>{ const ha=(s.actions||[]).some(a=>a.type); return <option key={s.id} value={s.id}>{ha?"⚡ "+s.name:s.name}</option>; })}
+                              {plSteps.map(s=>{ const ha=(s.actions||[]).some(a=>a.type); return <option key={s.id} value={s.id}>{s.name}</option>; })}
                             </select>
                           </td>
                           <td style={{ padding:"7px 4px" }}>
@@ -3661,9 +3668,9 @@ function PipelinePersonRow({ link, steps, label, subtitle, initial, matchScore, 
                         color: isCurrent ? C.accent : C.text1, flex:1 }}>{step.name}</span>
                       {hasAuto && (
                         <AutoTooltip step={step}>
-                          <span style={{ fontSize:9, background:"#fef3c7", color:"#92400e",
+                          <span style={{ display:"inline-flex", alignItems:"center", gap:2, fontSize:9, background:"#fef3c7", color:"#92400e",
                             padding:"2px 6px", borderRadius:99, fontWeight:700,
-                            whiteSpace:"nowrap", cursor:"help", border:"1px solid #fde68a" }}>⚡</span>
+                            whiteSpace:"nowrap", cursor:"help", border:"1px solid #fde68a" }}><Ic n="zap" s={8} c="#92400e"/>auto</span>
                         </AutoTooltip>
                       )}
                     </button>
@@ -4091,7 +4098,7 @@ export function LinkedRecordsPanel({ record, environment, onNavigate, activeJobC
             </div>
             <div style={{ padding:"10px 16px", background:"#fffbeb", borderBottom:`1px solid #fde68a`,
               display:"flex", alignItems:"flex-start", gap:8 }}>
-              <span style={{ fontSize:16, flexShrink:0 }}>💡</span>
+              <span style={{ flexShrink:0, display:"inline-flex" }}><Ic n="zap" s={16} c="#f59e0b"/></span>
               <span style={{ fontSize:12, color:"#92400e", lineHeight:1.5 }}>
                 Only records with a <strong>Linked Person Workflow</strong> assigned are shown.
                 If you can't find a job or record, open it and assign a workflow in its Pipeline panel first.

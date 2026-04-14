@@ -7,6 +7,22 @@ import { useState, useEffect, useCallback } from "react";
 import api from "./apiClient.js";
 import { ScorecardPanel } from "./Scorecards.jsx";
 
+// ── Icon system ───────────────────────────────────────────────────────────────
+const IC = {
+  check:     "M20 6L9 17l-5-5",
+  x:         "M18 6L6 18M6 6l12 12",
+  alertTri:  "M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01",
+  ban:       "M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636",
+  bot:       "M12 8V4H8M4 8h16a1 1 0 011 1v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9a1 1 0 011-1M9 12h.01M15 12h.01",
+  clipboard: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
+  link:      "M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71",
+};
+const Ic = ({n,s=14,c="currentColor"}) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <path d={IC[n]||IC.check}/>
+  </svg>
+);
+
 const F = "var(--t-font,'Plus Jakarta Sans',sans-serif)";
 const C = {
   accent:"var(--t-accent,#3b5bdb)", accentLight:"var(--t-accentLight,#eef2ff)",
@@ -132,7 +148,7 @@ Rules:
                 letterSpacing:"0.07em", marginBottom:3 }}>Strengths</div>
               {analysis.strengths.map((s, i) => (
                 <div key={i} style={{ display:"flex", gap:6, fontSize:12, color:C.text2, marginBottom:2 }}>
-                  <span style={{ color:C.green, flexShrink:0 }}>✓</span>{s}
+                  <span style={{ color:C.green, flexShrink:0, display:"inline-flex" }}><Ic n="check" s={12} c={C.green}/></span>{s}
                 </div>
               ))}
             </div>
@@ -144,7 +160,7 @@ Rules:
                 letterSpacing:"0.07em", marginBottom:3 }}>Concerns</div>
               {analysis.concerns.map((c, i) => (
                 <div key={i} style={{ display:"flex", gap:6, fontSize:12, color:C.text2, marginBottom:2 }}>
-                  <span style={{ color:C.amber, flexShrink:0 }}>⚠</span>{c}
+                  <span style={{ color:C.amber, flexShrink:0, display:"inline-flex" }}><Ic n="alertTri" s={12} c={C.amber}/></span>{c}
                 </div>
               ))}
             </div>
@@ -153,7 +169,7 @@ Rules:
           {analysis.ai_signals && (
             <div style={{ display:"flex", gap:6, padding:"6px 8px", borderRadius:6,
               background:"#fef3c7", border:"1px solid #fde68a" }}>
-              <span style={{ fontSize:12, flexShrink:0 }}>🤖</span>
+              <span style={{ flexShrink:0, display:"inline-flex" }}><Ic n="bot" s={12} c="#6366f1"/></span>
               <div>
                 <span style={{ fontSize:10, fontWeight:700, color:"#92400e",
                   textTransform:"uppercase", letterSpacing:"0.06em" }}>Possible AI usage — </span>
@@ -210,7 +226,7 @@ function ScreeningTab({ recordId, jobId }) {
   if (loading) return <div style={{ padding:24, textAlign:"center", color:C.text3, fontFamily:F }}>Loading…</div>;
   if (!data || !data.questions?.length) return (
     <div style={{ border:`1.5px dashed ${C.border}`, borderRadius:12, padding:"28px 20px", textAlign:"center" }}>
-      <div style={{ fontSize:24, marginBottom:8 }}>📋</div>
+      <div style={{ marginBottom:8, display:"flex", justifyContent:"center" }}><Ic n="clipboard" s={24} c="#9ca3af"/></div>
       <div style={{ fontSize:13, fontWeight:600, color:C.text1, marginBottom:4 }}>No screening questions</div>
       <div style={{ fontSize:12, color:C.text3 }}>This job has no screening questions configured, or the candidate applied without answering them.</div>
     </div>
@@ -222,7 +238,7 @@ function ScreeningTab({ recordId, jobId }) {
   const hasAnswers = answered.length > 0;
 
   const statusColor = knockedOut ? C.red : score >= 70 ? C.green : score >= 40 ? C.amber : C.text3;
-  const statusLabel = knockedOut ? "⛔ Knocked out" : score >= 70 ? "✓ Passed" : score !== null ? "⚠ Review" : "Not evaluated";
+  const statusLabel = knockedOut ? "Knocked out" : score >= 70 ? "Passed" : score !== null ? "Review" : "Not evaluated";
 
   return (
     <div style={{ fontFamily:F }}>
@@ -249,7 +265,7 @@ function ScreeningTab({ recordId, jobId }) {
         </div>
         {knockedOut && (
           <div style={{ fontSize:11, fontWeight:700, color:C.red, background:"#fef2f2",
-            padding:"4px 10px", borderRadius:99, border:"1px solid #fecaca" }}>⛔ Knockout triggered</div>
+            padding:"4px 10px", borderRadius:99, border:"1px solid #fecaca" }}><span style={{display:"inline-flex",alignItems:"center",gap:4}}><Ic n="ban" s={11} c="#dc2626"/>Knockout triggered</span></div>
         )}
       </div>
 
@@ -263,7 +279,7 @@ function ScreeningTab({ recordId, jobId }) {
           const passed      = q.passed;
           const hasAnswer   = q.answer !== null && q.answer !== undefined;
           const passColor   = passed === true ? C.green : passed === false ? C.red : C.text3;
-          const passLabel   = passed === true ? "✓ Pass" : passed === false ? "✗ Fail" : "—";
+          const passLabel   = passed === true ? "Pass" : passed === false ? "Fail" : "—";
           const answerStr   = Array.isArray(q.answer) ? q.answer.join(", ") : String(q.answer ?? "No answer");
 
           return (
@@ -370,7 +386,7 @@ export default function AssessmentsPanel({ record, environment, session, activeJ
       {/* Tab content */}
       {!selectedLinkId && !loadingLinks && (
         <div style={{ border:`1.5px dashed ${C.border}`, borderRadius:12, padding:"28px 20px", textAlign:"center" }}>
-          <div style={{ fontSize:24, marginBottom:8 }}>🔗</div>
+          <div style={{ marginBottom:8, display:"flex", justifyContent:"center" }}><Ic n="link" s={24} c="#9ca3af"/></div>
           <div style={{ fontSize:13, fontWeight:600, color:C.text1, marginBottom:4 }}>Select a job application above</div>
           <div style={{ fontSize:12, color:C.text3 }}>Assessments are always linked to a specific job application.</div>
         </div>

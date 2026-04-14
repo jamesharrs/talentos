@@ -31,10 +31,10 @@ const api = {
 
 // ── Group metadata ────────────────────────────────────────────────────────────
 const GROUP_META = {
-  "Twilio (SMS + WhatsApp)": { color: C.red,    icon: "📱", desc: "SMS and WhatsApp messaging" },
-  "SendGrid (Email)":         { color: C.blue,   icon: "📧", desc: "Transactional email" },
-  "Webhooks (inbound messages)":{ color:C.amber, icon: "🔗", desc: "Inbound webhook endpoints" },
-  "General":                  { color: C.purple, icon: "⚙️", desc: "Core configuration" },
+  "Twilio (SMS + WhatsApp)": { color: C.red,    icon: "phone",    desc: "SMS and WhatsApp messaging" },
+  "SendGrid (Email)":         { color: C.accent, icon: "mail",     desc: "Transactional email" },
+  "Webhooks (inbound messages)":{ color:C.amber, icon: "link",     desc: "Inbound webhook endpoints" },
+  "General":                  { color: C.purple, icon: "settings2",desc: "Core configuration" },
 };
 const GROUP_ORDER = ["General","Twilio (SMS + WhatsApp)","SendGrid (Email)","Webhooks (inbound messages)"];
 
@@ -129,8 +129,8 @@ function EnvRow({ variable, onSave }) {
       <div style={{ display:'flex', gap:4, flexShrink:0 }}>
         {secret && !editing && (
           <button onClick={()=>setRevealed(r=>!r)} title={revealed?'Hide':'Reveal'}
-            style={{ padding:'4px 8px', borderRadius:6, border:`1px solid ${C.border}`, background:'transparent', color:C.text3, fontSize:11, cursor:'pointer', fontFamily:F }}>
-            {revealed ? '🙈' : '👁'}
+            style={{ padding:'4px 8px', borderRadius:6, border:`1px solid ${C.border}`, background:'transparent', color:C.text3, fontSize:11, cursor:'pointer', fontFamily:F, display:'flex', alignItems:'center' }}>
+            <NavIcon id={revealed ? 'eyeOff' : 'eye'} size={12} color={C.text3}/>
           </button>
         )}
         {!editing ? (
@@ -213,8 +213,8 @@ function EnvSection() {
             </div>
           ))}
           {unsetCount > 0 && (
-            <div style={{ marginLeft:'auto', padding:'6px 12px', borderRadius:7, background:`${C.amber}15`, border:`1px solid ${C.amber}30`, fontSize:12, color:C.amber, fontWeight:700 }}>
-              ⚠ {unsetCount} unset variable{unsetCount>1?'s':''}
+            <div style={{ marginLeft:'auto', padding:'6px 12px', borderRadius:7, background:`${C.amber}15`, border:`1px solid ${C.amber}30`, fontSize:12, color:C.amber, fontWeight:700, display:'flex', alignItems:'center', gap:5 }}>
+              <NavIcon id="errors" size={12} color={C.amber}/>{unsetCount} unset variable{unsetCount>1?'s':''}
             </div>
           )}
         </div>
@@ -226,7 +226,7 @@ function EnvSection() {
       {groups.map(group => (
         <div key={group.name} style={{ marginBottom:20, background:C.surface, borderRadius:12, border:`1px solid ${C.border}`, overflow:'hidden' }}>
           <div style={{ padding:'12px 18px', borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:10, background:`${group.meta.color}08` }}>
-            <span style={{ fontSize:16 }}>{group.meta.icon}</span>
+            <span style={{ display:'flex', alignItems:'center' }}><NavIcon id={group.meta.icon} size={16} color={group.meta.color}/></span>
             <div>
               <div style={{ fontSize:13, fontWeight:700, color:C.text1 }}>{group.name}</div>
               {group.meta.desc && <div style={{ fontSize:11, color:C.text3 }}>{group.meta.desc}</div>}
@@ -273,6 +273,13 @@ const NAV_ICONS = {
   cases:    "M3 18v-6a9 9 0 0 1 18 0v6M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z",
   cpu:      "M18 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2zM9 9h6v6H9z",
   activity: "M22 12h-4l-3 9L9 3l-3 9H2",
+  // Group icons for env variable sections
+  phone:    "M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z",
+  mail:     "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6",
+  link:     "M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71",
+  settings2:"M12 15a3 3 0 100-6 3 3 0 000 6zM2 12h2M20 12h2M12 2v2M12 20v2",
+  eye:      "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 100 6 3 3 0 000-6z",
+  eyeOff:   "M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22",
 };
 
 const NavIcon = ({ id, size=14, color="currentColor" }) => {

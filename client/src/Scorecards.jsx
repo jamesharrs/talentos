@@ -1,6 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "./apiClient";
 
+// ── Minimal icon system ───────────────────────────────────────────────────────
+const IC = {
+  check:     "M20 6L9 17l-5-5",
+  alertTri:  "M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01",
+  clipboard: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
+  star:      "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
+  zap:       "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+};
+const Ic = ({n,s=16,c="currentColor"}) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <path d={IC[n]||IC.check}/>
+  </svg>
+);
+
 const F = "var(--t-font,'Plus Jakarta Sans',sans-serif)";
 const C = {
   accent:"var(--t-accent,#3b5bdb)", accentLight:"var(--t-accentLight,#eef2ff)",
@@ -91,7 +105,7 @@ export function ScorecardForm({interviewId,candidateRecordId,jobRecordId,intervi
   if(!template)return<div style={{padding:32,textAlign:"center",color:C.text3,fontFamily:F}}>No scorecard template found. Create one in Settings → Scorecards.</div>;
   if(submitted)return(
     <div style={{padding:40,textAlign:"center",fontFamily:F}}>
-      <div style={{fontSize:40,marginBottom:12}}>✅</div>
+      <div style={{marginBottom:12,display:"flex",justifyContent:"center"}}><Ic n="check" s={40} c="#059669"/></div>
       <div style={{fontWeight:800,fontSize:18,color:C.text1,marginBottom:6}}>Scorecard submitted</div>
       <div style={{fontSize:13,color:C.text3,marginBottom:20}}>Your feedback has been recorded.</div>
       {onClose&&<button onClick={onClose} style={{padding:"9px 20px",borderRadius:9,border:`1px solid ${C.border}`,background:C.surface,fontFamily:F,fontSize:13,cursor:"pointer"}}>Close</button>}
@@ -144,12 +158,12 @@ export function ScorecardForm({interviewId,candidateRecordId,jobRecordId,intervi
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <div>
-            <label style={{fontSize:12,fontWeight:600,color:C.green,display:"block",marginBottom:6}}>✓ Highlights</label>
+            <label style={{fontSize:12,fontWeight:600,color:C.green,display:"flex",alignItems:"center",gap:4,marginBottom:6}}><Ic n="check" s={11} c={C.green}/>Highlights</label>
             <textarea value={highlights} onChange={e=>setHighlights(e.target.value)} rows={2} placeholder="What stood out positively…"
               style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontFamily:F,fontSize:12,resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
           </div>
           <div>
-            <label style={{fontSize:12,fontWeight:600,color:C.red,display:"block",marginBottom:6}}>⚠ Red Flags</label>
+            <label style={{fontSize:12,fontWeight:600,color:C.red,display:"flex",alignItems:"center",gap:4,marginBottom:6}}><Ic n="alertTri" s={11} c={C.red}/>Red Flags</label>
             <textarea value={redFlags} onChange={e=>setRedFlags(e.target.value)} rows={2} placeholder="Any concerns…"
               style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontFamily:F,fontSize:12,resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
           </div>
@@ -201,7 +215,7 @@ export function ScorecardPanel({record,environment,session,jobRecordId}){
 
       {(!summary||summary.total_submissions===0)?(
         <div style={{border:`1.5px dashed ${C.border}`,borderRadius:12,padding:"28px 20px",textAlign:"center"}}>
-          <div style={{fontSize:24,marginBottom:8}}>📋</div>
+          <div style={{marginBottom:8,display:"flex",justifyContent:"center"}}><Ic n="clipboard" s={24} c="#9ca3af"/></div>
           <div style={{fontSize:13,fontWeight:600,color:C.text1,marginBottom:4}}>No scorecards submitted yet</div>
           <div style={{fontSize:12,color:C.text3,marginBottom:16}}>Interviewers can submit feedback after each interview</div>
           {templates.length>0?<button onClick={()=>setShowForm(true)} style={{padding:"7px 16px",borderRadius:8,border:`1px solid ${C.accent}`,background:C.accentLight,color:C.accent,fontFamily:F,fontSize:12,fontWeight:600,cursor:"pointer"}}>Add Scorecard</button>
@@ -211,7 +225,7 @@ export function ScorecardPanel({record,environment,session,jobRecordId}){
         <>
           {summary.ai_summary&&(
             <div style={{background:"linear-gradient(135deg,#f5f3ff,#eff6ff)",border:`1px solid #c4b5fd`,borderRadius:12,padding:"12px 16px",marginBottom:16}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#7c3aed",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.06em"}}>✦ AI Summary</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#7c3aed",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.06em",display:"flex",alignItems:"center",gap:4}}><Ic n="zap" s={10} c="#7c3aed"/>AI Summary</div>
               <div style={{fontSize:13,color:C.text1,lineHeight:1.6}}>{summary.ai_summary}</div>
             </div>
           )}
@@ -256,8 +270,8 @@ export function ScorecardPanel({record,environment,session,jobRecordId}){
                 </div>
                 {isOpen&&(<div style={{padding:"12px 14px",borderTop:`1px solid ${C.border}`,background:"#fafbfc"}}>
                   {sub.overall_comments&&<p style={{fontSize:13,color:C.text2,margin:"0 0 10px",lineHeight:1.6}}>{sub.overall_comments}</p>}
-                  {sub.highlights&&<div style={{marginBottom:8}}><span style={{fontSize:11,fontWeight:700,color:C.green}}>✓ Highlights: </span><span style={{fontSize:12,color:C.text2}}>{sub.highlights}</span></div>}
-                  {sub.red_flags&&<div><span style={{fontSize:11,fontWeight:700,color:C.red}}>⚠ Red flags: </span><span style={{fontSize:12,color:C.text2}}>{sub.red_flags}</span></div>}
+                  {sub.highlights&&<div style={{marginBottom:8}}><span style={{fontSize:11,fontWeight:700,color:C.green,display:"inline-flex",alignItems:"center",gap:3}}><Ic n="check" s={10} c={C.green}/>Highlights: </span><span style={{fontSize:12,color:C.text2}}>{sub.highlights}</span></div>}
+                  {sub.red_flags&&<div><span style={{fontSize:11,fontWeight:700,color:C.red,display:"inline-flex",alignItems:"center",gap:3}}><Ic n="alertTri" s={10} c={C.red}/>Red flags: </span><span style={{fontSize:12,color:C.text2}}>{sub.red_flags}</span></div>}
                 </div>)}
               </div>);
             })}

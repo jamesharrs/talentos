@@ -1,6 +1,52 @@
 import React, { useState, useEffect } from "react";
 import { tFetch } from "./apiClient.js";
 
+// ─── Icon system ──────────────────────────────────────────────────────────────
+const ICON_PATHS = {
+  text:       "M4 6h16M4 12h10M4 18h6",
+  alignLeft:  "M21 10H3M21 6H3M15 14H3M21 18H3",
+  bold:       "M6 4h8a4 4 0 010 8H6zM6 12h9a4 4 0 010 8H6z",
+  hash:       "M4 9h16M4 15h16M10 3L8 21M16 3l-2 18",
+  dollarSign: "M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6",
+  percent:    "M19 5L5 19M6.5 6.5a1 1 0 100-2 1 1 0 000 2zM17.5 17.5a1 1 0 100-2 1 1 0 000 2z",
+  function:   "M15.5 3H5a2 2 0 00-2 2v14c0 1.1.9 2 2 2h14a2 2 0 002-2V8.5L15.5 3zM15 3v6h6M10 13l-2 4 2 4M14 13l2 4-2 4",
+  barChart:   "M18 20V10M12 20V4M6 20v-6",
+  calendar:   "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z",
+  clock:      "M12 22a10 10 0 100-20 10 10 0 000 20zM12 6v6l4 2",
+  calRange:   "M3 6h18M3 10h18M3 14h18M8 2v4M16 2v4M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z",
+  timer:      "M12 22a10 10 0 100-20 10 10 0 000 20zM12 6v6l4 2M12 2v2",
+  list:       "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
+  listCheck:  "M10 6H21M10 12H21M10 18H21M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2",
+  circleDot:  "M12 22a10 10 0 100-20 10 10 0 000 20zM12 12a1 1 0 100-2 1 1 0 000 2z",
+  toggleLeft: "M22 12h-4l-3 9L9 3l-3 9H2",
+  star:       "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
+  atSign:     "M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 019-9",
+  phone:      "M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z",
+  phoneCall:  "M15.05 5A5 5 0 0119 8.95M15.05 1A9 9 0 0123 8.94M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z",
+  link:       "M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71",
+  globe:      "M12 22a10 10 0 100-20 10 10 0 000 20zM2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20",
+  mapPin:     "M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0zM12 7a3 3 0 110 6 3 3 0 010-6z",
+  users:      "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75",
+  link2:      "M15 7h3a5 5 0 010 10h-3m-6 0H6A5 5 0 010 12h3M8 12h8",
+  sigma:      "M18 7H6l6 5-6 5h12",
+  flag:       "M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7",
+  table:      "M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18",
+  fingerprint:"M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10M5.243 17.5A8 8 0 0112 4a8 8 0 016.757 3.5M12 20v-8m-4 4V8a4 4 0 018 0v8",
+  database:   "M12 2C6.477 2 2 4.477 2 7s4.477 5 10 5 10-2.477 10-5S17.523 2 12 2zM2 7v5c0 2.761 4.477 5 10 5s10-2.239 10-5V7M2 12v5c0 2.761 4.477 5 10 5s10-2.239 10-5v-5",
+  zap:        "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+  minus:      "M5 12h14",
+  search:     "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
+  check:      "M20 6L9 17l-5-5",
+  x:          "M18 6L6 18M6 6l12 12",
+  eyeOff:     "M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22",
+  eye:        "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 100 6 3 3 0 000-6z",
+};
+const Ic = ({n,s=16,c="currentColor"}) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <path d={ICON_PATHS[n]||ICON_PATHS.text}/>
+  </svg>
+);
+
 const F = "'Plus Jakarta Sans', -apple-system, sans-serif";
 const C = { bg:"#f8f9fc", surface:"#ffffff", surface2:"#f9fafb", border:"#e8eaed",
   text1:"#111827", text2:"#4b5563", text3:"#9ca3af", text4:"#d1d5db",
@@ -18,53 +64,53 @@ const api = {
 // ─── Field Type Registry ──────────────────────────────────────────────────────
 const FIELD_TYPE_GROUPS = [
   { key:"text", label:"Text", types:[
-    {value:"text",      label:"Text",      icon:"T",  desc:"Short single-line text input"},
-    {value:"textarea",  label:"Long Text",  icon:"¶",  desc:"Multi-line paragraph text"},
-    {value:"rich_text", label:"Rich Text",  icon:"✦",  desc:"Formatted text with bold, lists, links"},
+    {value:"text",      label:"Text",      icon:"text",      desc:"Short single-line text input"},
+    {value:"textarea",  label:"Long Text",  icon:"alignLeft", desc:"Multi-line paragraph text"},
+    {value:"rich_text", label:"Rich Text",  icon:"bold",      desc:"Formatted text with bold, lists, links"},
   ]},
   { key:"number", label:"Numbers", types:[
-    {value:"number",   label:"Number",   icon:"#",  desc:"Whole or decimal numbers"},
-    {value:"currency", label:"Currency", icon:"$",  desc:"Money values with currency symbol"},
-    {value:"percent",  label:"Percent",  icon:"%",  desc:"Percentage with % display"},
-    {value:"formula",  label:"Formula",  icon:"ƒ",  desc:"Calculated from other numeric fields"},
-    {value:"progress", label:"Progress", icon:"▰",  desc:"Visual progress bar 0–100%"},
+    {value:"number",   label:"Number",   icon:"hash",       desc:"Whole or decimal numbers"},
+    {value:"currency", label:"Currency", icon:"dollarSign", desc:"Money values with currency symbol"},
+    {value:"percent",  label:"Percent",  icon:"percent",    desc:"Percentage with % display"},
+    {value:"formula",  label:"Formula",  icon:"function",   desc:"Calculated from other numeric fields"},
+    {value:"progress", label:"Progress", icon:"barChart",   desc:"Visual progress bar 0–100%"},
   ]},
   { key:"date", label:"Date & Time", types:[
-    {value:"date",       label:"Date",       icon:"📅", desc:"Calendar date picker"},
-    {value:"datetime",   label:"Date & Time", icon:"🕐", desc:"Date with time selection"},
-    {value:"date_range", label:"Date Range",  icon:"↔",  desc:"Start and end date pair"},
-    {value:"duration",   label:"Duration",    icon:"⏱",  desc:"Time span in hours, days, or weeks"},
+    {value:"date",       label:"Date",       icon:"calendar",  desc:"Calendar date picker"},
+    {value:"datetime",   label:"Date & Time", icon:"clock",    desc:"Date with time selection"},
+    {value:"date_range", label:"Date Range",  icon:"calRange", desc:"Start and end date pair"},
+    {value:"duration",   label:"Duration",    icon:"timer",    desc:"Time span in hours, days, or weeks"},
   ]},
   { key:"choice", label:"Selection", types:[
-    {value:"select",       label:"Select",       icon:"⊙",  desc:"Pick one option from a dropdown"},
-    {value:"multi_select", label:"Multi Select",  icon:"⊛",  desc:"Pick multiple options as tags"},
-    {value:"status",       label:"Status",        icon:"◈",  desc:"Coloured status indicator with pipeline support"},
-    {value:"boolean",      label:"Boolean",       icon:"✓",  desc:"Yes / No toggle switch"},
-    {value:"rating",       label:"Rating",        icon:"★",  desc:"Star rating from 1 to 5"},
+    {value:"select",       label:"Select",       icon:"list",       desc:"Pick one option from a dropdown"},
+    {value:"multi_select", label:"Multi Select",  icon:"listCheck",  desc:"Pick multiple options as tags"},
+    {value:"status",       label:"Status",        icon:"circleDot",  desc:"Coloured status indicator with pipeline support"},
+    {value:"boolean",      label:"Boolean",       icon:"toggleLeft", desc:"Yes / No toggle switch"},
+    {value:"rating",       label:"Rating",        icon:"star",       desc:"Star rating from 1 to 5"},
   ]},
   { key:"contact", label:"Contact", types:[
-    {value:"email",      label:"Email",      icon:"@",  desc:"Validated email address"},
-    {value:"phone",      label:"Phone",       icon:"☎",  desc:"Local phone number"},
-    {value:"phone_intl", label:"Phone (Intl)", icon:"☏", desc:"International phone with country code"},
-    {value:"url",        label:"URL",          icon:"🔗", desc:"Web link, opens in new tab"},
-    {value:"social",     label:"Social Link",  icon:"⬡",  desc:"LinkedIn, Twitter/X, GitHub profile"},
-    {value:"address",    label:"Address",       icon:"📍", desc:"Structured address with country"},
+    {value:"email",      label:"Email",      icon:"atSign",    desc:"Validated email address"},
+    {value:"phone",      label:"Phone",       icon:"phone",    desc:"Local phone number"},
+    {value:"phone_intl", label:"Phone (Intl)", icon:"phoneCall", desc:"International phone with country code"},
+    {value:"url",        label:"URL",          icon:"link",     desc:"Web link, opens in new tab"},
+    {value:"social",     label:"Social Link",  icon:"globe",    desc:"LinkedIn, Twitter/X, GitHub profile"},
+    {value:"address",    label:"Address",       icon:"mapPin",  desc:"Structured address with country"},
   ]},
   { key:"reference", label:"References", types:[
-    {value:"people",  label:"People",  icon:"👤", desc:"Link to person records with search"},
-    {value:"lookup",  label:"Lookup",  icon:"⤷",  desc:"Pull a value from a related record"},
-    {value:"rollup",  label:"Rollup",  icon:"∑",  desc:"Aggregate data across related records"},
-    {value:"country", label:"Country", icon:"🌍", desc:"Country picker with flag display"},
+    {value:"people",  label:"People",  icon:"users",   desc:"Link to person records with search"},
+    {value:"lookup",  label:"Lookup",  icon:"link2",   desc:"Pull a value from a related record"},
+    {value:"rollup",  label:"Rollup",  icon:"sigma",   desc:"Aggregate data across related records"},
+    {value:"country", label:"Country", icon:"flag",    desc:"Country picker with flag display"},
   ]},
   { key:"advanced", label:"Advanced", types:[
-    {value:"table",       label:"Table",       icon:"⊞",  desc:"Multi-row table with configurable columns — work history, education, languages"},
-    {value:"auto_number", label:"Auto Number", icon:"№",  desc:"Auto-incrementing sequence (e.g. CAN-001)"},
-    {value:"unique_id",   label:"Unique ID",   icon:"⌗",  desc:"Auto-generated unique identifier"},
-    {value:"dataset",     label:"Data Set",    icon:"≡",  desc:"Options from a shared, reusable data set"},
-    {value:"skills",      label:"Skills",      icon:"⚡", desc:"Skill tags with optional proficiency levels"},
+    {value:"table",       label:"Table",       icon:"table",       desc:"Multi-row table with configurable columns — work history, education, languages"},
+    {value:"auto_number", label:"Auto Number", icon:"hash",        desc:"Auto-incrementing sequence (e.g. CAN-001)"},
+    {value:"unique_id",   label:"Unique ID",   icon:"fingerprint", desc:"Auto-generated unique identifier"},
+    {value:"dataset",     label:"Data Set",    icon:"database",    desc:"Options from a shared, reusable data set"},
+    {value:"skills",      label:"Skills",      icon:"zap",         desc:"Skill tags with optional proficiency levels"},
   ]},
   { key:"layout", label:"Layout", types:[
-    {value:"section_separator", label:"Section", icon:"━", desc:"Visual divider to group fields together"},
+    {value:"section_separator", label:"Section", icon:"minus", desc:"Visual divider to group fields together"},
   ]},
 ];
 
@@ -161,7 +207,7 @@ function TypePicker({ selected, onSelect }) {
       <div style={{position:"relative",marginBottom:16}}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search field types…" autoFocus
           style={{width:"100%",padding:"10px 14px 10px 36px",borderRadius:10,border:`1.5px solid ${C.border}`,fontSize:13,fontFamily:F,color:C.text1,boxSizing:"border-box",background:C.surface2}}/>
-        <span style={{position:"absolute",left:12,top:11,color:C.text4,fontSize:14}}>🔍</span>
+        <span style={{position:"absolute",left:12,top:11,color:C.text4,display:"flex"}}><Ic n="search" s={14} c={C.text4}/></span>
       </div>
       <div style={{maxHeight:480,overflowY:"auto",paddingRight:4}}>
         {filtered.map(group => (
@@ -179,12 +225,14 @@ function TypePicker({ selected, onSelect }) {
                     onMouseLeave={e=>{if(!active)e.currentTarget.style.background=C.surface}}>
                     <div style={{width:36,height:36,borderRadius:9,background:active?C.accent:`${C.accent}12`,
                       display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
-                      fontSize:16,color:active?"white":C.accent,fontWeight:700}}>{t.icon}</div>
+                      color:active?"white":C.accent}}>
+                      <Ic n={t.icon} s={16} c={active?"white":C.accent}/>
+                    </div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:700,color:active?C.accent:C.text1,lineHeight:1.2}}>{t.label}</div>
                       <div style={{fontSize:11,color:C.text3,lineHeight:1.4,marginTop:1}}>{t.desc}</div>
                     </div>
-                    {active && <div style={{width:20,height:20,borderRadius:"50%",background:C.accent,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><span style={{color:"white",fontSize:12,fontWeight:700}}>✓</span></div>}
+                    {active && <div style={{width:20,height:20,borderRadius:"50%",background:C.accent,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Ic n="check" s={11} c="white"/></div>}
                   </button>
                 );
               })}

@@ -72,7 +72,7 @@ function ScreeningGeneratePreview({ items, onConfirm, onClose }) {
         <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${C.border}`,background:"linear-gradient(135deg,#1e1b4b,#312e81)"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <div>
-              <div style={{fontFamily:F,fontWeight:700,fontSize:15,color:"#fff"}}>✦ AI-Generated Screening Questions</div>
+              <div style={{fontFamily:F,fontWeight:700,fontSize:15,color:"#fff",display:"flex",alignItems:"center",gap:6}}><Ic n="sparkles" s={14} c="#fff"/>AI-Generated Screening Questions</div>
               <div style={{fontFamily:F,fontSize:12,color:"rgba(255,255,255,.65)",marginTop:2}}>Configure each question before adding to screening rules</div>
             </div>
             <button onClick={onClose} style={{background:"rgba(255,255,255,.15)",border:"none",cursor:"pointer",color:"#fff",fontSize:18,lineHeight:1,borderRadius:6,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
@@ -397,14 +397,14 @@ export default function ScreeningRulesPanel({ record, environment, jobId: jobIdP
 
           {/* AI Generate strip */}
           <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:10,background:"linear-gradient(135deg,#1e1b4b,#312e81)",marginBottom:12}}>
-            <span style={{fontFamily:F,fontSize:12,color:"rgba(255,255,255,.8)",flex:1}}>✦ AI-generate role-specific screening questions</span>
+            <span style={{fontFamily:F,fontSize:12,color:"rgba(255,255,255,.8)",flex:1,display:"flex",alignItems:"center",gap:4}}><Ic n="sparkles" s={11} c="rgba(255,255,255,.8)"/>AI-generate role-specific screening questions</span>
             <select value={genCount} onChange={e=>setGenCount(Number(e.target.value))}
               style={{padding:"5px 8px",borderRadius:7,border:"none",fontFamily:F,fontSize:12,background:"rgba(255,255,255,.15)",color:"#fff",outline:"none",cursor:"pointer"}}>
               {[3,5,8,10].map(n=><option key={n} value={n} style={{background:"#1e1b4b"}}>{n} questions</option>)}
             </select>
             <button onClick={handleGenerate} disabled={generating}
               style={{padding:"6px 14px",borderRadius:7,border:"none",background:generating?"rgba(255,255,255,.1)":"rgba(255,255,255,.2)",color:"#fff",fontFamily:F,fontSize:12,fontWeight:600,cursor:generating?"wait":"pointer",whiteSpace:"nowrap"}}>
-              {generating?"Generating…":"✦ Generate"}
+              {generating?"Generating…":<><Ic n="sparkles" s={12} c="currentColor"/>Generate</>}
             </button>
           </div>
 
@@ -418,7 +418,7 @@ export default function ScreeningRulesPanel({ record, environment, jobId: jobIdP
               </button>}
               <button onClick={handleSave} disabled={saving}
                 style={{padding:"6px 14px",borderRadius:8,border:"none",background:saved?"#059669":C.accent,color:"#fff",fontFamily:F,fontSize:12,fontWeight:600,cursor:"pointer",transition:"background .2s"}}>
-                {saving?"Saving…":saved?"✓ Saved":"Save Rules"}
+                {saving?"Saving…":saved?<><Ic n="check" s={12} c="currentColor"/>Saved</>:"Save Rules"}
               </button>
             </div>
           </div>
@@ -485,7 +485,7 @@ export default function ScreeningRulesPanel({ record, environment, jobId: jobIdP
                         </div>
                       </div>
                       {alreadyAdded ? (
-                        <span style={{fontSize:11,fontWeight:700,color:Q_COLORS[q.type],alignSelf:"center",whiteSpace:"nowrap",padding:"4px 10px",borderRadius:99,background:Q_COLORS[q.type]+"18"}}>✓ Added</span>
+                        <span style={{fontSize:11,fontWeight:700,color:Q_COLORS[q.type],alignSelf:"center",whiteSpace:"nowrap",padding:"4px 10px",borderRadius:99,background:Q_COLORS[q.type]+"18"}}><span style={{display:"inline-flex",alignItems:"center",gap:3}}><Ic n="check" s={10} c={Q_COLORS[q.type]}/>Added</span></span>
                       ) : (
                         <button onClick={()=>addFromBank(q)}
                           style={{padding:"5px 12px",borderRadius:8,border:`1.5px solid ${C.accent}`,background:C.accentLight,color:C.accent,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:F,whiteSpace:"nowrap",alignSelf:"center"}}>

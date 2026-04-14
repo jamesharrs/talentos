@@ -193,6 +193,9 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     anchor:"M12 2a3 3 0 100 6 3 3 0 000-6zM12 8v14M5 10a7 7 0 0014 0",
     fileText:"M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8",
     quote:"M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1zM15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z",
+    mapPin:"M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0zM12 7a3 3 0 110 6 3 3 0 010-6z",
+    alertTri:"M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01",
+    lightbulb:"M9 21h6M12 3a6 6 0 016 6c0 2.22-1.21 4.16-3 5.2V17H9v-2.8C7.21 13.16 6 11.22 6 9a6 6 0 016-6z",
     map:"M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16",
     megaphone:"M3 11l19-9-9 19-2-8-8-2zM11 13l1.5 5.5",
     userCheck:"M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 7a4 4 0 100 8 4 4 0 000-8zM22 11l2 2 4-4",
@@ -471,7 +474,7 @@ const EqualOppsTab = ({ portal, onChange }) => {
       </label>
       {portal.eo_enabled!==false && (<>
         <div style={{ background:C.accentLight, border:`1px solid ${C.accent}28`, borderRadius:10, padding:"10px 14px", marginBottom:4 }}>
-          <div style={{ fontSize:12, fontWeight:700, color:C.accent, marginBottom:4 }}>📍 Location-driven templates</div>
+          <div style={{ fontSize:12, fontWeight:700, color:C.accent, marginBottom:4, display:"flex", alignItems:"center", gap:4 }}><Ic n="mapPin" s={11} c={C.accent}/>Location-driven templates</div>
           <p style={{ fontSize:11, color:C.text2, margin:0, lineHeight:1.6 }}>The EO template is <strong>automatically selected from the job's location</strong> when a candidate applies. UK / EU → full UK EO form. US → EEO form. UAE / Gulf → gender + age. The setting below is the <em>fallback</em> for ambiguous locations.</p>
         </div>
         <div style={{ marginTop:10 }}>
@@ -1676,7 +1679,7 @@ const AISummaryWidgetConfig = ({ cfg, set, environmentId }) => {
         </div>
       </div>
       <div style={{ padding:10, borderRadius:9, background:'#EEF1FF', border:'1px solid #C7D2FE', fontSize:12, color:'#4338CA' }}>
-        💡 Claude reads live data and generates a personalised briefing — oldest/most urgent items highlighted first.
+        <span style={{display:"inline-flex",alignItems:"center",gap:5}}><Ic n="lightbulb" s={13} c="#d97706"/>Claude reads live data and generates a personalised briefing — oldest/most urgent items highlighted first.</span>
       </div>
     </div>
   );
@@ -1964,7 +1967,7 @@ Output ONLY valid HTML — no markdown fences, no explanation.`;
     finally     { setLoading(false); }
   };
 
-  const TABS = [{id:'html',label:'HTML'},{id:'ai',label:'✨ AI Generate'},{id:'css',label:'CSS'},{id:'preview',label:'Preview'}];
+  const TABS = [{id:'html',label:'HTML'},{id:'ai',label:'AI Generate',iconName:'zap'},{id:'css',label:'CSS'},{id:'preview',label:'Preview'}];
 
   return (
     <div style={{display:'flex',flexDirection:'column',gap:14}}>
@@ -2359,7 +2362,7 @@ const WidgetConfigPanel = ({ cell, onUpdate, onClose, environmentId }) => {
                   <textarea value={item.text||""} onChange={e=>{const it=[...(cfg.items||[])];it[i]={...it[i],text:e.target.value};set("items",it);}} placeholder="Short description…" rows={2} style={{...inp,fontSize:11,padding:"5px 8px",resize:"vertical"}}/>
                 </div>
               ))}
-              <button onClick={()=>set("items",[...(cfg.items||[]),{icon:"✨",title:"",text:""}])} style={{padding:"6px",borderRadius:8,border:`1.5px dashed ${C.border}`,background:"transparent",cursor:"pointer",fontSize:12,color:C.text3,fontFamily:F}}>+ Add benefit</button>
+              <button onClick={()=>set("items",[...(cfg.items||[]),{icon:"star",title:"",text:""}])} style={{padding:"6px",borderRadius:8,border:`1.5px dashed ${C.border}`,background:"transparent",cursor:"pointer",fontSize:12,color:C.text3,fontFamily:F}}>+ Add benefit</button>
             </div>
           </div>
         </div>
@@ -3693,17 +3696,35 @@ const DomainWizard = ({ portal, onSave, onClose }) => {
 
 // ─── Brand Kit AI Agent ───────────────────────────────────────────────────────
 const BrandKitAgent = ({ environmentId, onApply, onClose }) => {
-  const [url,     setUrl]     = useState("");
-  const [loading, setLoading] = useState(false);
-  const [result,  setResult]  = useState(null);
+  const [url,          setUrl]          = useState("");
+  const [loading,      setLoading]      = useState(false);
+  const [result,       setResult]       = useState(null);
+  const [logoIndex,    setLogoIndex]    = useState(0);
+  const [urlError,     setUrlError]     = useState("");
   const [error,   setError]   = useState("");
   const [kits,    setKits]    = useState([]);
   const [tab,     setTab]     = useState("extract");
+
   useEffect(()=>{ api.get(`/brand-kits?environment_id=${environmentId}`).then(d=>setKits(Array.isArray(d)?d:[])).catch(()=>{}); },[environmentId]);
+
   const inp = {padding:"9px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:13,fontFamily:F,outline:"none",color:C.text1,background:C.surface,width:"100%",boxSizing:"border-box"};
+
+  // Validate URL before calling API
+  const validateUrl = (raw) => {
+    const v = raw.trim();
+    if (!v) return "Please enter a URL";
+    const withProto = v.startsWith('http') ? v : 'https://' + v;
+    try {
+      const parsed = new URL(withProto);
+      if (!parsed.hostname.includes('.')) return `Did you mean ${v}.com? A full domain is required.`;
+    } catch { return "Invalid URL — try something like vodafone.com"; }
+    return "";
+  };
+
   const analyse = async () => {
-    if (!url.trim()) return;
-    setLoading(true); setError(""); setResult(null);
+    const err = validateUrl(url);
+    if (err) { setUrlError(err); return; }
+    setUrlError(""); setLoading(true); setError(""); setResult(null); setLogoIndex(0);
     try {
       const d = await api.post("/brand-kits/analyse",{url:url.trim(),environment_id:environmentId});
       if(d.error) throw new Error(d.error);
@@ -3712,11 +3733,26 @@ const BrandKitAgent = ({ environmentId, onApply, onClose }) => {
     } catch(e){ setError(e.message||"Failed to analyse site"); }
     setLoading(false);
   };
+
+  // Logo candidate helpers
+  const getActiveLogo = () => {
+    if (!result) return null;
+    const cands = result.logo_candidates || (result.logo ? [result.logo] : []);
+    return cands.length ? cands[logoIndex % cands.length] : result.logo || null;
+  };
+  const cycleLogoForward = () => {
+    const total = (result?.logo_candidates || []).length;
+    if (total > 1) setLogoIndex(i => (i + 1) % total);
+  };
+  const activeLogo   = getActiveLogo();
+  const totalLogos   = (result?.logo_candidates || []).length;
+
   const saveKit = async () => {
     if(!result) return;
-    const s = await api.post("/brand-kits",{name:result.title||result.source_url,source_url:result.source_url,logo:result.logo,colors:result.colors,fonts:result.fonts,theme:result.theme,environment_id:environmentId});
+    const s = await api.post("/brand-kits",{name:result.title||result.source_url,source_url:result.source_url,logo:activeLogo,colors:result.colors,fonts:result.fonts,theme:result.theme,environment_id:environmentId});
     setKits(k=>[s,...k]); setTab("saved");
   };
+
   const Swatch = ({color}) => <div title={color} onClick={()=>navigator.clipboard?.writeText(color)} style={{width:26,height:26,borderRadius:6,background:color,border:"1px solid rgba(0,0,0,.1)",cursor:"pointer",flexShrink:0}}/>;
   return (
     <div style={{position:"fixed",inset:0,zIndex:700,background:"rgba(15,23,41,.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}
@@ -3737,7 +3773,7 @@ const BrandKitAgent = ({ environmentId, onApply, onClose }) => {
             <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:C.text3}}><Ic n="x" s={16}/></button>
           </div>
           <div style={{display:"flex",borderRadius:8,overflow:"hidden",border:`1px solid ${C.border}`}}>
-            {[["extract","✨ Extract"],["saved","Saved Kits"]].map(([id,lbl])=>(
+            {[["extract","Extract"],["saved","Saved Kits"]].map(([id,lbl])=>(
               <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"7px 0",border:"none",background:tab===id?C.accentLight:"transparent",color:tab===id?C.accent:C.text3,fontSize:12,fontWeight:tab===id?700:500,cursor:"pointer",fontFamily:F}}>
                 {lbl}{id==="saved"&&kits.length>0&&<span style={{marginLeft:5,background:C.accent,color:"white",fontSize:10,fontWeight:700,borderRadius:99,padding:"1px 5px"}}>{kits.length}</span>}
               </button>
@@ -3747,13 +3783,16 @@ const BrandKitAgent = ({ environmentId, onApply, onClose }) => {
         {/* Body */}
         <div style={{flex:1,overflowY:"auto",padding:"18px 22px"}}>
           {tab==="extract"&&<>
-            <div style={{display:"flex",gap:8,marginBottom:16}}>
-              <input value={url} onChange={e=>setUrl(e.target.value)} onKeyDown={e=>e.key==="Enter"&&analyse()}
-                placeholder="https://acme.com" style={{...inp,flex:1}}/>
-              <button onClick={analyse} disabled={loading||!url.trim()}
-                style={{padding:"9px 18px",borderRadius:8,background:C.accent,border:"none",color:"white",fontSize:13,fontWeight:700,cursor:loading?"wait":"pointer",fontFamily:F,flexShrink:0,opacity:loading?0.7:1}}>
-                {loading?"Analysing…":"Analyse"}
-              </button>
+            <div style={{marginBottom: urlError ? 4 : 16}}>
+              <div style={{display:"flex",gap:8}}>
+                <input value={url} onChange={e=>{setUrl(e.target.value);setUrlError("");}} onKeyDown={e=>e.key==="Enter"&&analyse()}
+                  placeholder="e.g. vodafone.com or https://acme.com" style={{...inp,flex:1,borderColor:urlError?"#ef4444":C.border}}/>
+                <button onClick={analyse} disabled={loading||!url.trim()}
+                  style={{padding:"9px 18px",borderRadius:8,background:C.accent,border:"none",color:"white",fontSize:13,fontWeight:700,cursor:loading?"wait":"pointer",fontFamily:F,flexShrink:0,opacity:loading?0.7:1}}>
+                  {loading?"Analysing…":"Analyse"}
+                </button>
+              </div>
+              {urlError&&<div style={{fontSize:11,color:"#ef4444",marginTop:4}}>{urlError}</div>}
             </div>
             {loading&&<div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"32px 0",gap:10}}>
               <div style={{width:40,height:40,borderRadius:"50%",border:`3px solid ${C.accentLight}`,borderTopColor:C.accent,animation:"spin 1s linear infinite"}}/>
@@ -3762,13 +3801,28 @@ const BrandKitAgent = ({ environmentId, onApply, onClose }) => {
             </div>}
             {error && error!=="__blocked__" && <div style={{padding:"10px 14px",borderRadius:8,background:C.redLight,border:`1px solid ${C.red}40`,fontSize:13,color:C.red,marginBottom:12}}>{error}</div>}
             {error==="__blocked__"&&result&&<div style={{padding:"10px 14px",borderRadius:8,background:"#FFFBEB",border:"1px solid #FCD34D",fontSize:12,color:"#92400E",marginBottom:12}}>
-              <strong>⚠ Site blocked automated scraping</strong> — Vercentic generated a theme from the brand name instead. Apply it or tweak colours below.
+              <strong style={{display:"inline-flex",alignItems:"center",gap:4}}><Ic n="alertTri" s={12} c={C.amber}/>Site blocked automated scraping</strong> — Vercentic generated a theme from the brand name instead. Apply it or tweak colours below.
             </div>}
             {result&&!loading&&<div style={{display:"flex",flexDirection:"column",gap:16}}>
-              <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderRadius:12,border:`1px solid ${C.border}`,background:C.surface2}}>
-                {result.logo?<img src={result.logo} alt="logo" style={{height:36,maxWidth:120,objectFit:"contain"}} onError={e=>e.target.style.display="none"}/>
-                  :<div style={{width:36,height:36,borderRadius:8,background:result.theme?.primaryColor||C.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"white"}}>{(result.title||"?")[0]}</div>}
-                <div><div style={{fontSize:13,fontWeight:700,color:C.text1}}>{result.title||result.source_url}</div><div style={{fontSize:11,color:C.text3}}>{result.source_url}</div></div>
+              {/* Logo with candidate cycling */}
+              <div style={{padding:"12px 16px",borderRadius:12,border:`1px solid ${C.border}`,background:C.surface2}}>
+                <div style={{display:"flex",alignItems:"center",gap:12}}>
+                  {activeLogo
+                    ?<div style={{width:100,height:48,borderRadius:8,background:"white",border:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",padding:8,flexShrink:0}}>
+                        <img src={activeLogo} alt="logo" style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain"}} onError={e=>e.target.style.display="none"}/>
+                      </div>
+                    :<div style={{width:48,height:48,borderRadius:8,background:result.theme?.primaryColor||C.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"white",flexShrink:0}}>{(result.title||"?")[0]}</div>}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:700,color:C.text1,marginBottom:2}}>{result.title||result.source_url}</div>
+                    <div style={{fontSize:11,color:C.text3,marginBottom:4}}>{result.source_url}</div>
+                    {totalLogos>1&&<button onClick={cycleLogoForward} style={{fontSize:11,color:C.accent,background:"none",border:"none",cursor:"pointer",fontFamily:F,padding:0,fontWeight:600}}>
+                      Not right? Try next ({logoIndex+1}/{totalLogos}) →
+                    </button>}
+                    {totalLogos<=1&&activeLogo&&<div style={{fontSize:11,color:C.text3}}>AI-validated logo</div>}
+                  </div>
+                </div>
+                <input placeholder="Or paste a logo URL to override…" style={{...inp,fontSize:11,padding:"6px 10px",marginTop:10}}
+                  onBlur={e=>{if(e.target.value.trim()){setResult(r=>({...r,logo:e.target.value.trim(),logo_candidates:[e.target.value.trim(),...(r.logo_candidates||[])]}));setLogoIndex(0);}}}/>
               </div>
               {result.colors?.length>0&&<div>
                 <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Extracted colours</div>
@@ -3797,7 +3851,7 @@ const BrandKitAgent = ({ environmentId, onApply, onClose }) => {
               </div>}
               <div style={{display:"flex",gap:8,paddingTop:4}}>
                 <button onClick={saveKit} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 16px",borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,cursor:"pointer",fontSize:12,fontWeight:600,color:C.text2,fontFamily:F}}><Ic n="bookmark" s={13} c={C.text2}/>Save kit</button>
-                <button onClick={()=>{onApply(result.theme,result.logo);onClose();}} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"8px 20px",borderRadius:8,background:C.accent,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,color:"white",fontFamily:F}}><Ic n="check" s={13} c="white"/>Apply to portal</button>
+                <button onClick={()=>{onApply(result.theme,activeLogo);onClose();}} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"8px 20px",borderRadius:8,background:C.accent,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,color:"white",fontFamily:F}}><Ic n="check" s={13} c="white"/>Apply to portal</button>
               </div>
             </div>}
             {!result&&!loading&&!error&&<div style={{textAlign:"center",padding:"32px 0",color:C.text3}}>
@@ -4647,7 +4701,7 @@ export default function PortalsPage({ environment, onFullScreen }) {
         <div style={{textAlign:"center",padding:"60px 0",color:C.text3}}>Loading portals…</div>
       ):portals.length===0?(
         <div style={{textAlign:"center",padding:"80px 0"}}>
-          <div style={{fontSize:40,marginBottom:16}}>🌐</div>
+          <div style={{marginBottom:16,display:"flex",justifyContent:"center"}}><Ic n="globe" s={40} c={C.accent}/></div>
           <div style={{fontSize:18,fontWeight:700,color:C.text1,marginBottom:6}}>No portals yet</div>
           <div style={{fontSize:13,color:C.text3,marginBottom:24}}>Build your first candidate-facing portal with the drag-and-drop canvas</div>
           <Btn icon="plus" onClick={()=>setCreating(true)}>Create your first portal</Btn>

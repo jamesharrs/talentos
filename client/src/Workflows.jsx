@@ -149,7 +149,7 @@ function AutoTooltip({ step, children }) {
       position:"fixed", top: pos.top, left: pos.left,
       transform: pos.showBelow ? "translateX(-50%)" : "translate(-50%, -100%)",
       background:"#1a1a2e", borderRadius:10, padding:"10px 12px",
-      zIndex:9999, minWidth:210, maxWidth:290,
+      zIndex:10000, minWidth:210, maxWidth:290,
       boxShadow:"0 8px 28px rgba(0,0,0,.3)", pointerEvents:"none",
     }}>
       {/* Arrow — positioned relative to actual trigger, not tooltip center */}
@@ -2284,7 +2284,11 @@ function CardStageDropdown({ steps, currentId, onMove, onRemove }) {
               {isCurrent && <div style={{ width:6, height:6, borderRadius:'50%', background:'white' }}/>}
             </div>
             <span style={{ fontSize:13, fontWeight: isCurrent?600:400, color: isCurrent?C.accent:C.text1, flex:1 }}>{s.name}</span>
-            {hasAuto && <span style={{ fontSize:9, background:'#fef3c7', color:'#92400e', padding:'2px 6px', borderRadius:99, fontWeight:700, border:'1px solid #fde68a' }}>⚡</span>}
+            {hasAuto && (
+              <AutoTooltip step={s}>
+                <span style={{ fontSize:9, background:'#fef3c7', color:'#92400e', padding:'2px 6px', borderRadius:99, fontWeight:700, border:'1px solid #fde68a', cursor:'help' }}>⚡</span>
+              </AutoTooltip>
+            )}
           </button>
         );
       })}
@@ -2382,7 +2386,11 @@ function BulkStageDropdown({ steps, onMove }) {
             <div style={{ width:16, height:16, borderRadius:'50%', flexShrink:0,
               background:C.border, border:`2px solid ${C.border}` }}/>
             <span style={{ fontSize:13, color:C.text1, flex:1 }}>{s.name}</span>
-            {hasAuto && <span style={{ fontSize:9, background:'#fef3c7', color:'#92400e', padding:'2px 6px', borderRadius:99, fontWeight:700, border:'1px solid #fde68a' }}>⚡</span>}
+            {hasAuto && (
+              <AutoTooltip step={s}>
+                <span style={{ fontSize:9, background:'#fef3c7', color:'#92400e', padding:'2px 6px', borderRadius:99, fontWeight:700, border:'1px solid #fde68a', cursor:'help' }}>⚡</span>
+              </AutoTooltip>
+            )}
           </button>
         );
       })}
@@ -3678,8 +3686,10 @@ function LinkedStageDropdown({ link, steps, onMove }) {
             <span style={{ fontSize:13, fontWeight: isCurrent ? 600 : 400,
               color: isCurrent ? C.accent : C.text1, flex:1 }}>{step.name}</span>
             {(step.actions||[]).some(a=>a.type) && (
-              <span style={{ fontSize:9, background:'#fef3c7', color:'#92400e',
-                padding:'2px 6px', borderRadius:99, fontWeight:700, border:'1px solid #fde68a' }}>⚡</span>
+              <AutoTooltip step={step}>
+                <span style={{ fontSize:9, background:'#fef3c7', color:'#92400e',
+                  padding:'2px 6px', borderRadius:99, fontWeight:700, border:'1px solid #fde68a', cursor:'help' }}>⚡</span>
+              </AutoTooltip>
             )}
           </button>
         );

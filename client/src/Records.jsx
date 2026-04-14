@@ -7834,21 +7834,42 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     draggingRef.current     = id;
     overSlotRef.current     = null;
     overZoneRef.current     = null;
-    fullWidthDropRef.current = null;  // reset any stale zone hover
+    fullWidthDropRef.current = null;
     setDraggingPanel(id);
     setOverSlot(null);
     setOverZone(null);
     setFullWidthZone(null);
 
-    // Global mousemove using elementFromPoint — reliably tracks cursor across ALL zones
-    // including when dragging FROM top/bottom full-width rows INTO the 2-col area
+    // Auto-scroll vars
+    let scrollRaf = null;
+    const SCROLL_ZONE = 80;  // px from edge triggers scroll
+    const SCROLL_SPEED = 12; // px per frame
+
+    const doAutoScroll = (clientY) => {
+      const scrollEl = document.querySelector('[data-record-detail-scroll]') || document.scrollingElement;
+      if (!scrollEl) return;
+      const rect = scrollEl.getBoundingClientRect ? scrollEl.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+      const top = rect?.top ?? 0;
+      const bot = rect?.bottom ?? window.innerHeight;
+      if (clientY < top + SCROLL_ZONE) scrollEl.scrollTop -= SCROLL_SPEED;
+      else if (clientY > bot - SCROLL_ZONE) scrollEl.scrollTop += SCROLL_SPEED;
+    };
+
+    // rAF throttle — prevents state thrash / flicker
+    let rafId = null;
     const onMove = (e) => {
       if (!draggingRef.current) return;
-      const clientX = e.clientX ?? e.touches?.[0]?.clientX;
-      const clientY = e.clientY ?? e.touches?.[0]?.clientY;
-      if (clientX == null) return;
+      if (rafId) return; // already scheduled — skip
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        if (!draggingRef.current) return;
+        const clientX = e.clientX ?? e.touches?.[0]?.clientX;
+        const clientY = e.clientY ?? e.touches?.[0]?.clientY;
+        if (clientX == null) return;
 
-      const target = document.elementFromPoint(clientX, clientY);
+        doAutoScroll(clientY);
+
+        const target = document.elementFromPoint(clientX, clientY);
 
       // 1. Check full-width drop zones (data-drop-zone attribute)
       const dropZoneEl = target?.closest('[data-drop-zone]');
@@ -7906,7 +7927,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
       // 4. Over nothing useful — clear card hover
       if (overSlotRef.current) { overSlotRef.current = null; overZoneRef.current = null; setOverSlot(null); setOverZone(null); }
-    };
+      }); // end rAF
+    }; // end onMove
 
     window.addEventListener("mousemove", onMove, { passive: true });
     window.addEventListener("touchmove", onMove, { passive: true });
@@ -7941,6 +7963,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         if (droppedInFullWidthZone === 'top')    newTop    = [...newTop,    fromId];
         else                                     newBottom = [...newBottom, fromId];
         saveAllZones(newTop, newLeft, newRight, newBottom);
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
         window.removeEventListener("mousemove", onMove);
         window.removeEventListener("touchmove",  onMove);
         window.removeEventListener("mouseup",  onUp);
@@ -7950,6 +7973,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
       if (!fromId || !slot) {
         // dropped outside any card — no change
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
         window.removeEventListener("mousemove", onMove);
         window.removeEventListener("touchmove",  onMove);
         window.removeEventListener("mouseup",  onUp);
@@ -7998,6 +8022,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
       saveAllZones(newTop, newLeft, newRight, newBottom);
       fullWidthDropRef.current = null;
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("touchmove",  onMove);
       window.removeEventListener("mouseup",  onUp);
@@ -9051,7 +9076,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         </div>
 
         {/* RIGHT COL — Panel cards (standalone or grouped) */}
-        <div ref={rightColRef} style={{ flex:1, overflowX:"hidden", padding:"16px 20px 24px", background:"#F4F6FB",
+        <div ref={rightColRef} data-record-detail-scroll style={{ flex:1, overflowX:"hidden", padding:"16px 20px 24px", background:"#F4F6FB",
           userSelect: draggingPanel ? "none" : "auto" }}>
           {panelOrder.map((slot, idx) => {
             const slots  = panelOrder.filter(s => Array.isArray(s) ? s.some(id => PANEL_META[id]) : PANEL_META[s]);
@@ -9114,11 +9139,12 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         onMouseLeave={leaveFullWidthZone}
         style={{ margin:"4px 20px 12px", borderRadius:10,
           border:`2px dashed ${fullWidthZone==='bottom' ? C.accent : draggingPanel ? C.border : 'transparent'}`,
-          padding: fullWidthZone==='bottom' ? "18px 16px" : "6px 16px",
+          padding: fullWidthZone==='bottom' ? "18px 16px" : draggingPanel ? "10px 16px" : "0",
           background: fullWidthZone==='bottom' ? `${C.accent}08` : "transparent",
           display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-          transition:"all .25s", cursor: draggingPanel ? "copy" : "default",
-          minHeight: fullWidthZone==='bottom' ? 60 : draggingPanel ? 28 : 8 }}>
+          transition:"all .2s", cursor: draggingPanel ? "copy" : "default",
+          minHeight: fullWidthZone==='bottom' ? 60 : draggingPanel ? 44 : 0,
+          overflow:"hidden" }}>
         {draggingPanel && (
           <>
             <Ic n="layout" s={fullWidthZone==='bottom'?16:12} c={fullWidthZone==='bottom'?C.accent:C.text3}/>

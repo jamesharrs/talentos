@@ -8177,6 +8177,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
       {fieldSections.map(section => {
         const isCollapsed = section.collapsible && !!collapsedSections[section.separatorId];
+        // Skip empty non-collapsible sections entirely (e.g. implicit "Details" with no pre-separator fields)
+        if (!section.collapsible && section.fs.length === 0) return null;
         return (
           <div key={section.separatorId || section.label} style={{ marginBottom: section.collapsible ? 6 : 20 }}>
             {/* Section header */}
@@ -8503,7 +8505,6 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
           <DocExtractModal result={docExtractResult} mappings={docExtractMappings} record={record}
             onApply={handleApplyDocFields} onClose={()=>{ setDocExtractResult(null); setDocExtractAtt(null); }}/>,
           document.body
-        )}
         )}
         {tableModalField && ReactDOM.createPortal(
           <TableModal

@@ -11,6 +11,8 @@ const api = {
   get:  u => tFetch(`/api${u}`).then(r=>r.json()),
   post: (u,b) => tFetch(`/api${u}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>r.json()),
   patch:(u,b) => tFetch(`/api${u}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>r.json()),
+  put:  (u,b) => tFetch(`/api${u}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>r.json()),
+  del:  (u)   => tFetch(`/api${u}`,{method:"DELETE"}).then(r=>r.json()),
 };
 
 // ─── Field Type Registry ──────────────────────────────────────────────────────
@@ -843,6 +845,113 @@ const ConditionsConfig = ({ form, set, objectFields }) => {
   );
 };
 
+// ─── VisibilityPanel ───────────────────────────────────────────────────────────
+function VisibilityPanel({ roles, roleVisibility, setRoleVisibility }) {
+  const [tab, setTab] = React.useState("roles"); // "roles" | "users" | "groups"
+  const allHidden  = roles.every(r => !!roleVisibility[r.id]);
+  const someHidden = roles.some(r => !!roleVisibility[r.id]);
+
+  const toggleAll = () => {
+    if (allHidden) {
+      // clear all → everyone visible
+      setRoleVisibility({});
+    } else {
+      // hide all
+      const all = {};
+      roles.forEach(r => { all[r.id] = true; });
+      setRoleVisibility(all);
+    }
+  };
+
+  const RoleRow = ({ r }) => {
+    const isHidden = !!roleVisibility[r.id];
+    return (
+      <div onClick={()=>setRoleVisibility(v=>({...v,[r.id]:!v[r.id]}))}
+        style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",
+          borderRadius:8,border:`1px solid ${isHidden?"#fecaca":C.border}`,
+          background:isHidden?"#fff5f5":"white",cursor:"pointer",transition:"all .12s",marginBottom:4}}>
+        <div style={{width:16,height:16,borderRadius:4,flexShrink:0,
+          border:`2px solid ${isHidden?"#ef4444":C.accent}`,
+          background:isHidden?"#ef4444":`${C.accent}15`,
+          display:"flex",alignItems:"center",justifyContent:"center"}}>
+          {isHidden
+            ? <svg width={9} height={9} viewBox='0 0 24 24' fill='none' stroke='white' strokeWidth={3}><path d='M18 6L6 18M6 6l12 12'/></svg>
+            : <svg width={9} height={9} viewBox='0 0 24 24' fill='none' stroke={C.accent} strokeWidth={3}><path d='M20 6L9 17l-5-5'/></svg>
+          }
+        </div>
+        <span style={{flex:1,fontSize:13,fontWeight:500,color:isHidden?"#ef4444":C.text1}}>{r.name}</span>
+        <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:10,
+          color:isHidden?"#ef4444":C.accent,
+          background:isHidden?"#fee2e2":`${C.accent}10`}}>
+          {isHidden?"HIDDEN":"visible"}
+        </span>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{borderTop:`1px solid ${C.border}`,paddingTop:14}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+        <div>
+          <div style={{fontSize:13,fontWeight:700,color:C.text1}}>Visibility</div>
+          <div style={{fontSize:11,color:C.text3,marginTop:1}}>
+            Hidden roles/users cannot see this field in records or API responses.
+          </div>
+        </div>
+        {/* Select all / none */}
+        <button onClick={toggleAll}
+          style={{fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:7,
+            border:`1px solid ${C.border}`,background:"white",cursor:"pointer",
+            color:allHidden?"#ef4444":C.accent,fontFamily:"inherit",whiteSpace:"nowrap"}}>
+          {allHidden ? "Show all" : someHidden ? "Hide all" : "Hide all"}
+        </button>
+      </div>
+
+      {/* Tab bar */}
+      <div style={{display:"flex",gap:2,background:"#f3f4f6",borderRadius:8,padding:3,marginBottom:12}}>
+        {[{id:"roles",label:"Roles"},{id:"users",label:"Specific Users"},{id:"groups",label:"Groups"}].map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)}
+            style={{flex:1,padding:"5px 0",borderRadius:6,border:"none",cursor:"pointer",
+              fontFamily:"inherit",fontSize:11,fontWeight:600,transition:"all .12s",
+              background:tab===t.id?"white":"transparent",
+              color:tab===t.id?C.accent:"#6b7280",
+              boxShadow:tab===t.id?"0 1px 3px rgba(0,0,0,.1)":"none"}}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Roles tab */}
+      {tab==="roles" && (
+        <div>
+          {roles.map(r => <RoleRow key={r.id} r={r}/>)}
+        </div>
+      )}
+
+      {/* Users tab */}
+      {tab==="users" && (
+        <div style={{padding:"12px",background:"#f8f9fc",borderRadius:8,border:`1px solid ${C.border}`,textAlign:"center"}}>
+          <div style={{fontSize:12,color:C.text3,marginBottom:6}}>User-specific overrides</div>
+          <div style={{fontSize:11,color:C.text3}}>
+            Coming soon — per-user visibility overrides will let you show or hide this field for individual users regardless of their role.
+          </div>
+        </div>
+      )}
+
+      {/* Groups tab */}
+      {tab==="groups" && (
+        <div style={{padding:"12px",background:"#f8f9fc",borderRadius:8,border:`1px solid ${C.border}`,textAlign:"center"}}>
+          <div style={{fontSize:12,color:C.text3,marginBottom:6}}>Group-based visibility</div>
+          <div style={{fontSize:11,color:C.text3}}>
+            Coming soon — org unit / team-based visibility will allow field access to be restricted by department or team group.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function FieldModal({ field, selEnv, selObj, onSaved, onClose }) {
   const isEdit = !!field?.id;
   const [step, setStep] = useState(isEdit ? 2 : 1);
@@ -1076,39 +1185,11 @@ export default function FieldModal({ field, selEnv, selObj, onSaved, onClose }) 
                   )}
                   {/* ── Role Visibility ── */}
                   {roles.length > 0 && (
-                    <div style={{borderTop:`1px solid ${C.border}`,paddingTop:12}}>
-                      <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:4}}>Role Visibility</div>
-                      <div style={{fontSize:11,color:C.text3,marginBottom:10}}>
-                        Hidden roles cannot see this field in records or API responses. By default all roles can see all fields.
-                      </div>
-                      <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                        {roles.map(r => {
-                          const isHidden = !!roleVisibility[r.id];
-                          return (
-                            <div key={r.id} onClick={()=>setRoleVisibility(v=>({...v,[r.id]:!v[r.id]}))}
-                              style={{display:"flex",alignItems:"center",gap:10,padding:"7px 12px",
-                                borderRadius:8,border:`1px solid ${isHidden?"#fecaca":C.border}`,
-                                background:isHidden?"#fff5f5":"white",cursor:"pointer",transition:"all .1s"}}>
-                              <div style={{width:16,height:16,borderRadius:4,flexShrink:0,
-                                border:`2px solid ${isHidden?"#ef4444":C.accent}`,
-                                background:isHidden?"#ef4444":`${C.accent}15`,
-                                display:"flex",alignItems:"center",justifyContent:"center"}}>
-                                {isHidden
-                                  ? <svg width={9} height={9} viewBox='0 0 24 24' fill='none' stroke='white' strokeWidth={3}><path d='M18 6L6 18M6 6l12 12'/></svg>
-                                  : <svg width={9} height={9} viewBox='0 0 24 24' fill='none' stroke={C.accent} strokeWidth={3}><path d='M20 6L9 17l-5-5'/></svg>
-                                }
-                              </div>
-                              <span style={{flex:1,fontSize:13,fontWeight:500,color:isHidden?"#ef4444":C.text1}}>{r.name}</span>
-                              <span style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:10,
-                                color:isHidden?"#ef4444":C.accent,
-                                background:isHidden?"#fee2e2":`${C.accent}10`}}>
-                                {isHidden?"HIDDEN":"visible"}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    <VisibilityPanel
+                      roles={roles}
+                      roleVisibility={roleVisibility}
+                      setRoleVisibility={setRoleVisibility}
+                    />
                   )}
                 </div>
               </details>

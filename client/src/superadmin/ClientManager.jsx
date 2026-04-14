@@ -114,8 +114,22 @@ export function ClientList({ onProvision, onSelectClient }) {
                   onMouseEnter={e=>e.currentTarget.style.background=C.surface2}
                   onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                   <td style={{padding:'12px 14px'}}>
-                    <div style={{fontWeight:700,color:C.text1,cursor:'pointer'}} onClick={()=>onSelectClient(c)}>{c.name}</div>
-                    <div style={{fontSize:11,color:C.text3,marginTop:2}}>{c.industry||'—'} · {c.region||'—'}</div>
+                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                      <div style={{fontWeight:700,color:C.text1,cursor:'pointer'}} onClick={()=>onSelectClient(c)}>{c.name}</div>
+                      {c.source==='self_serve' && (
+                        <span style={{fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:99,background:'#dbeafe',color:'#1d4ed8',textTransform:'uppercase',letterSpacing:'0.05em',flexShrink:0}}>
+                          Self-serve
+                        </span>
+                      )}
+                    </div>
+                    <div style={{fontSize:11,color:C.text3,marginTop:2}}>
+                      {c.primary_email||c.industry||'—'}
+                      {c.trial_ends_at && new Date(c.trial_ends_at) > new Date() && (
+                        <span style={{marginLeft:6,color:'#f59e0b',fontWeight:600}}>
+                          · Trial: {Math.ceil((new Date(c.trial_ends_at)-new Date())/86400000)}d left
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td style={{padding:'12px 14px'}}><PlanBadge plan={c.plan}/></td>
                   <td style={{padding:'12px 14px'}}><StatusBadge status={c.status}/></td>
@@ -698,7 +712,7 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
           <div style={cardSt}>
             <div style={{padding:'12px 18px',borderBottom:`1px solid ${C.border}`,fontSize:11,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em'}}>Details</div>
-            {[['Industry',client.industry],['Region',client.region],['Size',client.size],['Plan',client.plan],['Website',client.website],['Created',client.created_at?.slice(0,10)]].filter(([,v])=>v).map(([k,v])=>(
+            {[['Industry',client.industry],['Region',client.region],['Size',client.size],['Plan',client.plan_label||client.plan],['Source',client.source==='self_serve'?'Self-serve signup':'Manually provisioned'],['Primary Email',client.primary_email],['Trial Ends',client.trial_ends_at?new Date(client.trial_ends_at).toLocaleDateString():null],['Stripe Customer',client.stripe_customer_id],['Created',client.created_at?.slice(0,10)]].filter(([,v])=>v).map(([k,v])=>(
               <div key={k} style={{display:'flex',padding:'9px 18px',borderBottom:`1px solid ${C.border}`,fontSize:13}}>
                 <span style={{color:C.text3,width:120,flexShrink:0}}>{k}</span>
                 <span style={{color:C.text1}}>{v}</span>

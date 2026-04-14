@@ -101,6 +101,7 @@ router.post('/', async (req, res) => {
       s.clients.push({
         id: clientId, name: company, slug: tenantSlug, tenant_slug: tenantSlug,
         status: 'active', plan, plan_label: PLAN_LIMITS[plan].label,
+        source: 'self_serve',
         stripe_customer_id: stripeCustomerId, stripe_subscription_id: stripeSubscriptionId,
         primary_email: email.toLowerCase(),
         primary_contact: [firstName, lastName].filter(Boolean).join(' ') || email,

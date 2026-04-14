@@ -8225,12 +8225,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                   <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
-            ) : (
-              <div style={{ fontSize:11, fontWeight:700, color:C.text3,
-                textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>
-                {section.label}
-              </div>
-            )}
+            ) : null}
 
             {/* Fields — hidden when collapsed */}
             {!isCollapsed && (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense, startTransition } from "react";
 import ReportingErrorBoundary from "./ErrorBoundary.jsx";
 import { ThemeProvider, useTheme, SCHEMES, FONTS, DENSITIES } from "./Theme.jsx";
 import { useI18n } from "./i18n/I18nContext.jsx";
@@ -1199,9 +1199,9 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
                       const NOTIF_ACTIONS = {
                         interview_today:  { label:"View interview",  fn:(n)=>{ setBellOpen(false); window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:n.record_id,objectId:n.object_id}})); } },
                         application_new:  { label:"View candidate",  fn:(n)=>{ setBellOpen(false); window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:n.record_id,objectId:n.object_id}})); } },
-                        offer_action:     { label:"View offer",      fn:(n)=>{ setBellOpen(false); setActiveNav("offers"); } },
-                        workflow_blocked: { label:"Review workflow",  fn:(n)=>{ setBellOpen(false); setActiveNav("workflows"); } },
-                        agent_review:     { label:"Review agent",     fn:(n)=>{ setBellOpen(false); setActiveNav("agents"); } },
+                        offer_action:     { label:"View offer",      fn:(n)=>{ setBellOpen(false); startTransition(()=>setActiveNav("offers")); } },
+                        workflow_blocked: { label:"Review workflow",  fn:(n)=>{ setBellOpen(false); startTransition(()=>setActiveNav("workflows")); } },
+                        agent_review:     { label:"Review agent",     fn:(n)=>{ setBellOpen(false); startTransition(()=>setActiveNav("agents")); } },
                         stage_change:     { label:"View candidate",  fn:(n)=>{ setBellOpen(false); window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:n.record_id,objectId:n.object_id}})); } },
                         scorecard_submitted:{ label:"View scorecard",fn:(n)=>{ setBellOpen(false); window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:n.record_id,objectId:n.object_id}})); } },
                       };
@@ -1827,11 +1827,10 @@ function App() {
     // Reset dashboard builder mode when navigating away from dashboard
     if (!id.startsWith("dashboard_")) setDashBuilderMode(false);
     if (id.startsWith("obj_") && (activeNav === id || activeNav.startsWith("record_"))) {
-      setActiveNav("__reset__");
-      setTimeout(() => { setActiveNav(id); setSelectedObject(null); }, 0);
+      startTransition(() => { setActiveNav("__reset__"); });
+      setTimeout(() => startTransition(() => { setActiveNav(id); setSelectedObject(null); }), 0);
     } else {
-      setActiveNav(id);
-      setSelectedObject(null);
+      startTransition(() => { setActiveNav(id); setSelectedObject(null); });
     }
   };
 
@@ -2208,17 +2207,16 @@ function App() {
                switchNav(navId);
              }}
              onNavigateToSearch={(q) => {
-            setActiveNav("search");
+            startTransition(() => setActiveNav("search"));
             if (q) {
               sessionStorage.setItem("talentos_search_query", q);
               sessionStorage.setItem("talentos_autosearch", "1");
             }
           }} onNavigateToRecord={(recordId, objectId) => openRecord(recordId, objectId)}
              onCreateRecord={(obj) => {
-               setActiveNav(`obj_${obj.id}`);
-               setCreateTarget(obj);
+               startTransition(() => { setActiveNav(`obj_${obj.id}`); setCreateTarget(obj); });
              }}
-             onNavigateToCalendar={() => setActiveNav("calendar")}
+             onNavigateToCalendar={() => startTransition(() => setActiveNav("calendar"))}
              historySlot={
                <HistoryDropdown
                  history={navHistory}
@@ -2251,7 +2249,7 @@ function App() {
           <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}>
             <DashboardHub
               tab={activeNav === "dashboard" ? "overview" : activeNav.replace("dashboard_", "")}
-              onTabChange={(tab) => { setActiveNav(tab === "overview" ? "dashboard" : `dashboard_${tab}`); setDashBuilderMode(false); }}
+              onTabChange={(tab) => { startTransition(() => setActiveNav(tab === "overview" ? "dashboard" : `dashboard_${tab}`)); setDashBuilderMode(false); }}
               environment={selectedEnv} session={session}
               onOpenRecord={openRecord}
               builderMode={dashBuilderMode}

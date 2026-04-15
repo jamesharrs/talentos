@@ -42,6 +42,7 @@ const RecordsView         = lazyWithRetry(() => import('./Records.jsx').then(m =
 const RecordDetail        = lazyWithRetry(() => import('./Records.jsx').then(m => ({ default: m.RecordDetail })));
 const AICopilot           = lazyWithRetry(() => import('./AI.jsx').then(m => ({ default: m.AICopilot })));
 const InboxModule         = lazyWithRetry(() => import('./Inbox.jsx').then(m => ({ default: m.default })));
+const CommandPalette      = lazyWithRetry(() => import('./CommandPalette.jsx'));
 const HistoryDropdown     = lazyWithRetry(() => import('./RecentHistory.jsx').then(m => ({ default: m.HistoryDropdown })));
 const CalendarModule      = lazyWithRetry(() => import('./Calendar.jsx'));
 
@@ -996,7 +997,7 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
           onChange={handleChange}
           onFocus={() => query && setOpen(true)}
           placeholder="Search candidates, jobs, talent pools…"
-          style={{ width: "100%", padding: "8px 12px 8px 36px", borderRadius: 10, border: `1.5px solid ${open ? "var(--t-accent)" : "var(--t-border)"}`, fontSize: 13, fontFamily: "var(--t-font, 'Geist', sans-serif)", outline: "none", background: "var(--t-surface2)", color: "var(--t-text1)", boxSizing: "border-box", transition: "border-color .15s" }}
+          style={{ width: "100%", padding: "8px 36px 8px 36px", borderRadius: 10, border: `1.5px solid ${open ? "var(--t-accent)" : "var(--t-border)"}`, fontSize: 13, fontFamily: "var(--t-font, 'Geist', sans-serif)", outline: "none", background: "var(--t-surface2)", color: "var(--t-text1)", boxSizing: "border-box", transition: "border-color .15s" }}
         />
         <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: open ? "var(--t-accent)" : "var(--t-text3)", display: "flex", pointerEvents: "none", transition: "color .15s" }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/></svg>
@@ -1660,6 +1661,7 @@ function App() {
   const { history: navHistory, pinned, push: pushHistory, clear: clearHistory, togglePin, isPinned } = useHistory();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [copilotDocked, setCopilotDocked] = useState(false);
+  const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const [dashBuilderMode, setDashBuilderMode] = useState(false);
   const [navObjects, setNavObjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1918,6 +1920,18 @@ function App() {
     window.addEventListener("talentos:openRecord", handler);
     return () => window.removeEventListener("talentos:openRecord", handler);
   }, []); // safe — uses ref, not stale closure
+
+  // Cmd+K / Ctrl+K → open command palette
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCmdPaletteOpen(o => !o);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const reportNavRef = useRef(null);
   reportNavRef.current = { navObjects, activeNav, setReportPreset, setActiveNav };
@@ -2415,6 +2429,18 @@ function App() {
       )}
     </div>
       {TourPortal}
+      {cmdPaletteOpen && (
+        <Suspense fallback={null}>
+          <CommandPalette
+            open={cmdPaletteOpen}
+            onClose={() => setCmdPaletteOpen(false)}
+            navObjects={navObjects}
+            environment={selectedEnv}
+            onNavigate={(nav) => { setCmdPaletteOpen(false); switchNav(nav); }}
+            onCreateRecord={openRecord}
+          />
+        </Suspense>
+      )}
     </PermissionProvider>
   );
 }

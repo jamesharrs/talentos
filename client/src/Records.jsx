@@ -4161,16 +4161,6 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                 </th>
               );
             })}
-            {showEngagement && isPeopleObj && (
-              <th onClick={() => onSort("__engagement")}
-                style={{ padding:"10px 14px", textAlign:"left", fontSize:11, fontWeight:700,
-                  textTransform:"uppercase", letterSpacing:"0.06em", whiteSpace:"nowrap",
-                  cursor:"pointer", userSelect:"none",
-                  background: sortBy==="__engagement" ? "#0ca67810" : "transparent",
-                  color: sortBy==="__engagement" ? "#0ca678" : C.text3 }}>
-                Engagement {sortBy==="__engagement" ? (sortDir==="asc" ? "↑" : "↓") : ""}
-              </th>
-            )}
             <th style={{ padding:"10px 14px", textAlign:"right", fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.06em", whiteSpace:"nowrap" }}>Actions</th>
           </tr>
         </thead>
@@ -4260,6 +4250,23 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                                 </div>
                               );
                             })()
+                          : f.apiKey === '__engagement'
+                          ? (() => {
+                              const es = engagementScores?.[record.id];
+                              if (!es) return <span style={{ fontSize:11, color:C.text3 }}>—</span>;
+                              return (
+                                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                                  <svg width={14} height={14} style={{ transform:"rotate(-90deg)", flexShrink:0 }} viewBox="0 0 14 14">
+                                    <circle cx={7} cy={7} r={5} fill="none" stroke="#e5e7eb" strokeWidth={2.5}/>
+                                    <circle cx={7} cy={7} r={5} fill="none" stroke={es.color} strokeWidth={2.5}
+                                      strokeDasharray={2*Math.PI*5}
+                                      strokeDashoffset={2*Math.PI*5*(1-es.score/100)} strokeLinecap="round"/>
+                                  </svg>
+                                  <span style={{ fontSize:12, fontWeight:700, color:es.color }}>{es.score}</span>
+                                  <span style={{ fontSize:10, color:C.text3 }}>{es.grade}</span>
+                                </div>
+                              );
+                            })()
                           : f.isSystem
                             ? <span style={{ fontSize:13, color: val === '—' ? C.text3 : C.text1 }}>{val}</span>
                             : <FieldValue field={f} value={val} allFieldValues={record?.data}/>
@@ -4267,24 +4274,6 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                     </td>
                   );
                 })}
-                {showEngagement && isPeopleObj && (
-                  <td style={{ padding:"8px 12px", verticalAlign:"middle" }}>
-                    {engagementScores?.[record.id] ? (
-                      <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                        <svg width={14} height={14} style={{ transform:"rotate(-90deg)", flexShrink:0 }} viewBox="0 0 14 14">
-                          <circle cx={7} cy={7} r={5} fill="none" stroke="#e5e7eb" strokeWidth={2.5}/>
-                          <circle cx={7} cy={7} r={5} fill="none"
-                            stroke={engagementScores[record.id].color} strokeWidth={2.5}
-                            strokeDasharray={2*Math.PI*5}
-                            strokeDashoffset={2*Math.PI*5*(1-engagementScores[record.id].score/100)}
-                            strokeLinecap="round"/>
-                        </svg>
-                        <span style={{ fontSize:12, fontWeight:700, color:engagementScores[record.id].color }}>{engagementScores[record.id].score}</span>
-                        <span style={{ fontSize:10, color:C.text3 }}>{engagementScores[record.id].grade}</span>
-                      </div>
-                    ) : <span style={{ fontSize:11, color:C.text3 }}>—</span>}
-                  </td>
-                )}
                 <td style={{ padding:"12px 14px", textAlign:"right" }}>
                   <div style={{ display:"flex", gap:4, justifyContent:"flex-end", alignItems:"center" }}>
                     <Btn v="ghost" sz="sm" icon="expand" onClick={()=>onSelect(record)}/>

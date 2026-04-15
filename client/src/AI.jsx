@@ -2569,7 +2569,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         reply = d2.content || reply;
       }
 
-      // Handle document search — copilot wants to reference company knowledge base      const docSearchMatch = reply.match(/<DOC_SEARCH>([\s\S]*?)<\/DOC_SEARCH>/);
+      // Handle document search — copilot wants to reference company knowledge base
+      const docSearchMatch = reply.match(/<DOC_SEARCH>([\s\S]*?)<\/DOC_SEARCH>/);
       if (docSearchMatch && environment?.id) {
         setLoadingLabel("Searching company documents…");
         const docQ = docSearchMatch[1].trim();

@@ -854,6 +854,9 @@ To clear all filters:
 
 RULES:
 - Use field api_key values exactly as they appear in CURRENT LIST STATE (e.g. "first_name", "department", "status", not display names)
+- FIELDS line lists ALL available fields on this object — use these to answer questions even if a field isn't currently visible in the column picker
+- Numeric fields appear as {api_key}_stats lines with min/max/avg/count/below_20/below_50 — use these to answer range questions like "how many have score less than 20"
+- If a field exists in FIELDS but has no breakdown data, it means all values are empty/null for the loaded records
 - After applying, briefly confirm what you did ("I've filtered the list to show Active candidates in Engineering.")
 - If the user's intent is ambiguous about a field value, apply it and offer to refine
 - NEVER say "I can't apply filters" — you CAN, use <APPLY_FILTER>

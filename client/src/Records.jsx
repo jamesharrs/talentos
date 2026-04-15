@@ -9417,17 +9417,21 @@ function buildListContext(object, records, total, fields) {
   lines.push("OBJECT: " + (object.plural_name || object.name) + " (slug: " + (object.slug||"") + ")");
   lines.push("TOTAL_VISIBLE: " + records.length + (records.length < total ? " (of " + total + " total — use APPLY_FILTER to narrow further)" : " records"));
 
-  // Field map: api_key → field_type
+  // Field map: api_key → field_type — send ALL fields, not just first 25
   const fieldMap = {};
   if (fields && fields.length) {
     fields.forEach(f => { fieldMap[f.api_key] = f.field_type; });
-    lines.push("FIELDS: " + fields.slice(0,25).map(f => f.api_key + " (" + f.field_type + ")").join(", "));
+    lines.push("FIELDS: " + fields.map(f => f.api_key + " (" + f.field_type + ")").join(", "));
   }
 
-  // Auto-generate breakdowns for every groupable field that has values
-  // Include select/status/boolean fields AND text fields with ≤20 distinct values
+  // Auto-generate breakdowns for groupable fields
   const breakdownFields = fields
     ? fields.filter(f => ['select','multi_select','status','boolean','rating','text','textarea'].includes(f.field_type))
+    : [];
+
+  // Numeric fields — output min/max/avg so copilot can answer range questions
+  const numericFields = fields
+    ? fields.filter(f => ['number','currency','rating'].includes(f.field_type))
     : [];
 
   // Always include these common fields even without schema
@@ -9452,6 +9456,22 @@ function buildListContext(object, records, total, fields) {
     if (entries.length > 0 && entries.length <= 30) {
       lines.push(key + ": " + entries.map(([k,v]) => k + "=" + v).join(", "));
     }
+  }
+
+  // Numeric field stats — min/max/avg/count so copilot can answer "less than X" questions
+  for (const f of numericFields) {
+    const vals = records.map(r => {
+      const v = r.data?.[f.api_key];
+      return v !== null && v !== undefined && v !== '' ? Number(v) : NaN;
+    }).filter(v => !isNaN(v));
+    if (vals.length === 0) continue;
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const avg = Math.round(vals.reduce((s,v)=>s+v,0) / vals.length);
+    // Also count how many are below common thresholds for context
+    const below20 = vals.filter(v => v < 20).length;
+    const below50 = vals.filter(v => v < 50).length;
+    lines.push(`${f.api_key}_stats: min=${min}, max=${max}, avg=${avg}, count=${vals.length}, below_20=${below20}, below_50=${below50}`);
   }
 
   // Sample record names for context

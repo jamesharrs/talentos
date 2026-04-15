@@ -5886,15 +5886,125 @@ const CoordinationPanel = ({ record, environment }) => {
   );
 };
 
+// ─── Agents Record Panel ─────────────────────────────────────────────────────
+const AgentsRecordPanel = ({ record, environment }) => {
+  const [agents,  setAgents]  = useState([]);
+  const [runs,    setRuns]    = useState([]);
+  const [running, setRunning] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    if (!environment?.id || !record?.id) return;
+    try {
+      const [a, r] = await Promise.all([
+        api.get(`/agents?environment_id=${environment.id}`),
+        api.get(`/agents/runs/by-record/${record.id}`),
+      ]);
+      setAgents(Array.isArray(a) ? a.filter(ag => ag.active !== false) : []);
+      setRuns(Array.isArray(r) ? r.slice(0, 10) : []);
+    } catch (_) {}
+    setLoading(false);
+  }, [record?.id, environment?.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const runAgent = async (agent) => {
+    setRunning(r => ({ ...r, [agent.id]: true }));
+    try {
+      await api.post(`/agents/${agent.id}/run`, {
+        record_id: record.id, environment_id: environment.id,
+      });
+      const r = await api.get(`/agents/runs/by-record/${record.id}`);
+      if (Array.isArray(r)) setRuns(r.slice(0, 10));
+    } catch (e) { console.error(e); }
+    setRunning(r => ({ ...r, [agent.id]: false }));
+  };
+
+  if (loading) return <div style={{ padding:16, color:C.text3, fontSize:13 }}>Loading…</div>;
+
+  if (agents.length === 0) return (
+    <div style={{ padding:20, textAlign:'center', color:C.text3, fontFamily:F }}>
+      <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={C.text3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ margin:'0 auto 8px', display:'block' }}>
+        <path d="M12 2l1.6 6.1a2 2 0 001.4 1.4L21 11.2a.5.5 0 010 1l-6 1.7a2 2 0 00-1.4 1.4L12 21.3a.5.5 0 01-1 0l-1.6-6a2 2 0 00-1.4-1.4L2 12.2a.5.5 0 010-1l6-1.7A2 2 0 009.4 8L12 2z"/>
+      </svg>
+      <div style={{ fontSize:13, marginBottom:4 }}>No active agents configured.</div>
+      <div style={{ fontSize:11 }}>Create agents in the Agents section to automate actions on records.</div>
+    </div>
+  );
+
+  const STATUS_COLORS = { success:'#10b981', error:'#ef4444', running:'#f59e0b', pending:'#6b7280' };
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+      {agents.map(agent => {
+        const lastRun = runs.filter(r => r.agent_id === agent.id)[0];
+        const isRunning = !!running[agent.id];
+        return (
+          <div key={agent.id} style={{
+            padding:'10px 12px', borderRadius:10, border:`1.5px solid ${C.border}`,
+            background: C.surface, display:'flex', alignItems:'center', gap:10,
+            transition:'border-color .15s',
+          }}>
+            <div style={{
+              width:32, height:32, borderRadius:8,
+              background: agent.color || C.accent,
+              display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+            }}>
+              <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2l1.6 6.1a2 2 0 001.4 1.4L21 11.2a.5.5 0 010 1l-6 1.7a2 2 0 00-1.4 1.4L12 21.3a.5.5 0 01-1 0l-1.6-6a2 2 0 00-1.4-1.4L2 12.2a.5.5 0 010-1l6-1.7A2 2 0 009.4 8L12 2z"/>
+              </svg>
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:13, fontWeight:600, color:C.text1 }}>{agent.name}</div>
+              {lastRun ? (
+                <div style={{ fontSize:11, color:C.text3, display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
+                  <span style={{ width:6, height:6, borderRadius:'50%', background:STATUS_COLORS[lastRun.status]||'#6b7280', flexShrink:0, display:'inline-block' }}/>
+                  {lastRun.status} · {new Date(lastRun.created_at).toLocaleDateString('en',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
+                </div>
+              ) : (
+                <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>Never run on this record</div>
+              )}
+            </div>
+            <button onClick={() => runAgent(agent)} disabled={isRunning}
+              style={{
+                padding:'5px 12px', borderRadius:8,
+                border:`1.5px solid ${isRunning ? C.border : C.accent}`,
+                background: isRunning ? C.surface2 : C.accentLight,
+                color: isRunning ? C.text3 : C.accent,
+                fontSize:11, fontWeight:700, cursor: isRunning ? 'default' : 'pointer',
+                fontFamily:F, flexShrink:0, transition:'all .15s',
+              }}>
+              {isRunning ? 'Running…' : 'Run'}
+            </button>
+          </div>
+        );
+      })}
+      {runs.length > 0 && (
+        <div style={{ marginTop:4, padding:'8px 0', borderTop:`1px solid ${C.border}` }}>
+          <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'.05em', marginBottom:6 }}>Recent runs on this record</div>
+          {runs.slice(0, 5).map(run => (
+            <div key={run.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0', fontSize:12 }}>
+              <span style={{ width:6, height:6, borderRadius:'50%', background:STATUS_COLORS[run.status]||'#6b7280', flexShrink:0, display:'inline-block' }}/>
+              <span style={{ color:C.text2, flex:1 }}>{run.agent_name || run.agent_id}</span>
+              <span style={{ color:C.text3 }}>{new Date(run.created_at).toLocaleDateString('en',{day:'numeric',month:'short'})}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const PANEL_META = {
   fields:       { icon:"edit",          label:"Profile Fields",      defaultOpen:true  },
+  tasks:        { icon:"checkSquare",   label:"Tasks & Reminders",   defaultOpen:true  },
   comms:        { icon:"mail",          label:"Communications",      defaultOpen:true  },
   coordination: { icon:"calendar",      label:"Interviews",             defaultOpen:true  },
   notes:        { icon:"messageSquare", label:"Notes",               defaultOpen:true  },
   attachments:  { icon:"paperclip",     label:"Files",               defaultOpen:true  },
   forms:        { icon:"clipboard",     label:"Forms",               defaultOpen:false },
   activity:     { icon:"activity",      label:"Activity",            defaultOpen:false },
-  // workflows panel removed
+  agents:       { icon:"sparkles",      label:"AI Agents",           defaultOpen:false },
   linked:       { icon:"link",          label:"Linked Records",      defaultOpen:true  },
   match:        { icon:"sparkles",      label:"Recommendations",     defaultOpen:false },
   reporting:    { icon:"gitBranch",     label:"Reporting",           defaultOpen:true  },
@@ -8525,6 +8635,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
     // Pipeline panel removed
     if (id==="tasks")     return <TasksEventsPanel record={record} environment={environment}/>;
+    if (id==="agents")    return <AgentsRecordPanel record={record} environment={environment}/>;
     if (id==="forms")     return <div>
           {/* Job filter tabs — same pattern as Notes */}
           {linkedJobRecords.length > 0 && (() => {

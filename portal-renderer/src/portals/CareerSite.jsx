@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { css, Badge, Btn, Section, STATUS_COLORS, recordTitle } from './shared.jsx'
 import WizardRenderer from './WizardRenderer.jsx'
+import FeedbackWidget from './FeedbackWidget.jsx'
 
 // ── Equal Opportunities templates ─────────────────────────────────────────────
 const EO_TEMPLATES = {
@@ -585,6 +586,13 @@ export default function CareerSite({ portal, objects, api }) {
           </div>
         }
       </Section>
+      {portal?.feedback?.enabled && (
+        <FeedbackWidget
+          portalId={portal.id}
+          pageSlug={selected ? `job-${selected}` : 'jobs-list'}
+          theme={portal.theme}
+        />
+      )}
     </div>
   )
 }

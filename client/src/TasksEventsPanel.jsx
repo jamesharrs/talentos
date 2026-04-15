@@ -1,5 +1,6 @@
 import { tFetch } from "./apiClient.js";
 import { useState, useEffect, useCallback } from "react";
+import ReactDOM from "react-dom";
 
 const PRIORITY = {
   urgent: { label:"Urgent", color:"#ef4444", bg:"#fef2f2" },
@@ -39,7 +40,7 @@ function QuickTaskModal({ task, defaultDate, envId, recId, recName, onDone }) {
     setSaving(true);
     const body={title,due_date:due||null,priority,status,environment_id:envId,record_id:recId,record_name:recName};
     if(task) await tFetch(`/api/calendar/tasks/${task.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-    else await fetch("/api/calendar/tasks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    else await tFetch("/api/calendar/tasks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     setSaving(false); onDone();
   };
   const handleDelete = async () => {
@@ -47,7 +48,7 @@ function QuickTaskModal({ task, defaultDate, envId, recId, recName, onDone }) {
     onDone();
   };
 
-  return (
+  return ReactDOM.createPortal(
     <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:1200,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }} onMouseDown={e=>e.target===e.currentTarget&&onDone()}>
       <div style={{ background:"white",borderRadius:16,width:"100%",maxWidth:400,padding:24,boxShadow:"0 16px 48px rgba(0,0,0,0.15)" }} onMouseDown={e=>e.stopPropagation()}>
         <h4 style={{ margin:"0 0 14px",fontSize:14,fontWeight:700,fontFamily:F }}>{task?"Edit Task":"New Task"}</h4>
@@ -70,7 +71,7 @@ function QuickTaskModal({ task, defaultDate, envId, recId, recName, onDone }) {
         </div>
       </div>
     </div>
-  );
+  , document.body);
 }
 
 export function TasksEventsPanel({ record, environment }) {

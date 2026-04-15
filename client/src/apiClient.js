@@ -28,6 +28,11 @@ function getTenantSlug() {
   return null;
 }
 
+function getCsrfToken() {
+  const match = document.cookie.match(/vercentic_csrf=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
 function authHeaders(extra = {}) {
   const sess   = getSession();
   const slug   = getTenantSlug();
@@ -39,16 +44,26 @@ function authHeaders(extra = {}) {
 }
 
 function jsonHeaders() {
-  return { 'Content-Type': 'application/json', ...authHeaders() };
+  const csrf = getCsrfToken();
+  const h = { 'Content-Type': 'application/json', ...authHeaders() };
+  if (csrf) h['X-CSRF-Token'] = csrf;
+  return h;
+}
+
+function mutationHeaders() {
+  const csrf = getCsrfToken();
+  const h = { ...authHeaders() };
+  if (csrf) h['X-CSRF-Token'] = csrf;
+  return h;
 }
 
 const api = {
-  get:    (path)       => fetch(`${API_ORIGIN}/api${path}`, { headers: authHeaders() }).then(r => r.json()),
-  post:   (path, body) => fetch(`${API_ORIGIN}/api${path}`, { method: 'POST',   headers: jsonHeaders(), body: JSON.stringify(body) }).then(r => r.json()),
-  patch:  (path, body) => fetch(`${API_ORIGIN}/api${path}`, { method: 'PATCH',  headers: jsonHeaders(), body: JSON.stringify(body) }).then(r => r.json()),
-  put:    (path, body) => fetch(`${API_ORIGIN}/api${path}`, { method: 'PUT',    headers: jsonHeaders(), body: JSON.stringify(body) }).then(r => r.json()),
-  del:    (path)       => fetch(`${API_ORIGIN}/api${path}`, { method: 'DELETE', headers: authHeaders() }).then(r => r.json()),
-  delete: (path)       => fetch(`${API_ORIGIN}/api${path}`, { method: 'DELETE', headers: authHeaders() }).then(r => r.json()),
+  get:    (path)       => fetch(`${API_ORIGIN}/api${path}`, { credentials:'include', headers: authHeaders() }).then(r => r.json()),
+  post:   (path, body) => fetch(`${API_ORIGIN}/api${path}`, { credentials:'include', method: 'POST',   headers: jsonHeaders(),     body: JSON.stringify(body) }).then(r => r.json()),
+  patch:  (path, body) => fetch(`${API_ORIGIN}/api${path}`, { credentials:'include', method: 'PATCH',  headers: jsonHeaders(),     body: JSON.stringify(body) }).then(r => r.json()),
+  put:    (path, body) => fetch(`${API_ORIGIN}/api${path}`, { credentials:'include', method: 'PUT',    headers: jsonHeaders(),     body: JSON.stringify(body) }).then(r => r.json()),
+  del:    (path)       => fetch(`${API_ORIGIN}/api${path}`, { credentials:'include', method: 'DELETE', headers: mutationHeaders() }).then(r => r.json()),
+  delete: (path)       => fetch(`${API_ORIGIN}/api${path}`, { credentials:'include', method: 'DELETE', headers: mutationHeaders() }).then(r => r.json()),
 };
 
 export default api;

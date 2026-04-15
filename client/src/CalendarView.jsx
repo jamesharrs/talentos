@@ -59,6 +59,9 @@ const ICON_PATHS = {
   trash:  "M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2",
   plus:   "M12 5v14M5 12h14",
   calendar:"M19 4H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zM16 2v4M8 2v4M3 10h18",
+  user:   "M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z",
+  zap:    "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+  check:  "M20 6L9 17l-5-5",
 };
 const Ic = ({ n, s = 16, c = "currentColor" }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -1120,7 +1123,7 @@ export default function CalendarView({ interviews: interviewsProp, interviewType
                       <label style={labelSt}>Interviewers</label>
                       {/* Toggle */}
                       <div style={{ display:'flex', gap:0, borderRadius:9, border:'1.5px solid #e5e7eb', overflow:'hidden', marginBottom:10 }}>
-                        {[['employee','👤 Employee'],['ai_agent','✦ AI Agent']].map(([val,lbl]) => (
+                        {[['employee',<><Ic n='user' s={13} c='currentColor'/>&nbsp;Employee</>],['ai_agent',<><Ic n='zap' s={13} c='currentColor'/>&nbsp;AI Agent</>]].map(([val,lbl]) => (
                           <button key={val} onClick={()=>setSchedInterviewerMode(val)} style={{
                             flex:1, padding:'8px 0', fontSize:12, fontWeight:600, cursor:'pointer',
                             border:'none', fontFamily:FONT,
@@ -1167,7 +1170,7 @@ export default function CalendarView({ interviews: interviewsProp, interviewType
                             </div>
                           )}
                           <div style={{ padding:'8px 12px', borderRadius:8, background:'#f5f3ff', border:'1px solid #ddd6fe', fontSize:12, color:'#6d28d9' }}>
-                            ✦ The AI agent will conduct this interview autonomously.
+                            <Ic n='zap' s={12} c='#6d28d9'/> The AI agent will conduct this interview autonomously.
                             {schedAiTrigger==='now' ? ' Triggered immediately on save.' : ' Triggered at the scheduled time.'}
                           </div>
                         </div>
@@ -1312,7 +1315,7 @@ export default function CalendarView({ interviews: interviewsProp, interviewType
                           color:'#fff', fontSize:13, fontWeight:700,
                           cursor: schedSaving||(scheduleInterviewees.length===0)||(!scheduleForm.date&&schedInterviewerMode!=='ai_agent') ? 'not-allowed' : 'pointer',
                           fontFamily:FONT }}>
-                        {schedSaving ? 'Scheduling…' : schedInterviewerMode==='ai_agent' ? '✦ Send AI Interview' : '✓ Schedule Interview'}
+                        {schedSaving ? 'Scheduling…' : schedInterviewerMode==='ai_agent' ? <><Ic n='zap' s={13} c='white'/>&nbsp;Send AI Interview</> : <><Ic n='check' s={13} c='white'/>&nbsp;Schedule Interview</>}
                       </button>
                     </div>
                   </>

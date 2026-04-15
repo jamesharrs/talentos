@@ -57,6 +57,9 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     "help-circle":"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01",
     list:"M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
     refresh:"M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15",
+    user:"M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+    zap:"M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+    bot:"M12 8V4H8M6 8h12a2 2 0 0 1 2 2v8a2 2 0 0 0-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2zM12 12h.01M8 12h.01M16 12h.01",
   };
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d={P[n]||""}/></svg>;
 };
@@ -537,7 +540,7 @@ const TypeFormModal = ({ type, envId, onSave, onClose }) => {
           <div style={{display:"flex",gap:2,background:"#f1f5f9",borderRadius:10,padding:3,overflowX:"auto"}}>
             {TABS.map(([id,label])=>(
               <button key={id} onClick={()=>setTab(id)} style={TAB_ST(tab===id)}>
-                {id==="ai_agent"&&form.use_ai_agent ? <span style={{color:C.purple}}>✦ </span>:null}
+                {id==="ai_agent"&&form.use_ai_agent ? <span style={{color:C.purple,display:"inline-flex",alignItems:"center",marginRight:3}}><Ic n="zap" s={11} c={C.purple}/></span>:null}
                 {label}
                 {id==="questions"&&form.questions.length>0 ? <span style={{marginLeft:4,background:C.accent,color:"white",borderRadius:10,fontSize:9,padding:"1px 5px"}}>{form.questions.length}</span>:null}
               </button>
@@ -665,7 +668,7 @@ const TypeFormModal = ({ type, envId, onSave, onClose }) => {
               )}
               {!form.use_ai_agent && (
                 <div style={{padding:"20px",textAlign:"center",borderRadius:14,border:`1.5px dashed ${C.border}`,background:"#fafbff"}}>
-                  <div style={{fontSize:32,marginBottom:8}}>🤖</div>
+                  <div style={{fontSize:32,marginBottom:8,display:"flex",justifyContent:"center"}}><Ic n="bot" s={36} c="#9ca3af"/></div>
                   <div style={{fontSize:14,fontWeight:700,color:C.text2,marginBottom:4}}>Enable AI Agent mode</div>
                   <div style={{fontSize:12,color:C.text3}}>Toggle on above to let an AI agent conduct this interview autonomously using your configured questions and criteria.</div>
                 </div>
@@ -811,8 +814,8 @@ const TypeFormModal = ({ type, envId, onSave, onClose }) => {
         {/* Footer */}
         <div style={{padding:"16px 24px",borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
           <div style={{fontSize:11,color:C.text3}}>
-            {form.use_ai_agent && <span style={{color:C.purple,fontWeight:600}}>✦ AI Agent active</span>}
-            {form.collect_availability && <span style={{color:C.green,fontWeight:600,marginLeft:form.use_ai_agent?8:0}}>⚡ Auto-scheduling on</span>}
+            {form.use_ai_agent && <span style={{color:C.purple,fontWeight:600,display:"flex",alignItems:"center",gap:4}}><Ic n="zap" s={13} c={C.purple}/>AI Agent active</span>}
+            {form.collect_availability && <span style={{color:C.green,fontWeight:600,marginLeft:form.use_ai_agent?8:0,display:"flex",alignItems:"center",gap:4}}><Ic n="zap" s={13} c={C.green}/>Auto-scheduling on</span>}
           </div>
           <div style={{display:"flex",gap:8}}>
             <Btn v="ghost" onClick={onClose}>Cancel</Btn>
@@ -980,7 +983,7 @@ const ScheduleModal = ({ interviewType, envId, onSave, onClose, initialValues })
               {/* ── Employee / AI Agent toggle ─────────────────────────────── */}
               <label style={labelSt}>Interviewers</label>
               <div style={{display:"flex",gap:0,borderRadius:9,border:`1.5px solid ${C.border}`,overflow:"hidden",marginBottom:12}}>
-                {[["employee","👤 Employee"],["ai_agent","✦ AI Agent"]].map(([val,lbl])=>(
+                {[["employee",<><Ic n="user" s={13} c="currentColor"/>&nbsp;Employee</>],["ai_agent",<><Ic n="zap" s={13} c="currentColor"/>&nbsp;AI Agent</>]].map(([val,lbl])=>(
                   <button key={val} onClick={()=>set("interviewer_mode",val)} style={{
                     flex:1, padding:"8px 0", fontSize:12, fontWeight:600, cursor:"pointer",
                     border:"none", fontFamily:F,
@@ -1026,7 +1029,7 @@ const ScheduleModal = ({ interviewType, envId, onSave, onClose, initialValues })
                     </div>
                   )}
                   <div style={{padding:"8px 12px",borderRadius:8,background:"#f5f3ff",border:"1px solid #ddd6fe",fontSize:12,color:"#6d28d9"}}>
-                    ✦ The AI agent will conduct this interview autonomously.
+                    <Ic n="zap" s={12} c="#6d28d9"/> The AI agent will conduct this interview autonomously.
                     {form.ai_trigger==="now" ? " Triggered immediately on save." : " Triggered at the scheduled time."}
                   </div>
                 </div>

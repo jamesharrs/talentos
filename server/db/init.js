@@ -696,6 +696,11 @@ pruneOrphanedPeopleLinks();
 // ── Backfill missing IDs on calendar tasks/events ────────────────────────────
 function migrateCalendarIds() {
   const { v4: uuid } = require('uuid');
+  // Ensure all tenant stores are loaded before scanning
+  try {
+    const slugs = listTenants();
+    slugs.forEach(slug => { if (!storeCache[slug]) loadTenantStore(slug); });
+  } catch(_) {}
   let fixed = 0;
   for (const [key, store] of Object.entries(storeCache)) {
     let dirty = false;

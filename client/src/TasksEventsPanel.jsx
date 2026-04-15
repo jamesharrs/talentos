@@ -162,11 +162,11 @@ export function TasksEventsPanel({ record, environment }) {
               {tasksDue.length===0&&activeTab==="tasks"&&(
                 <div style={{ textAlign:"center",color:"#9ca3af",fontSize:13,padding:"16px 0" }}>No open tasks — click "+ Task" to add one</div>
               )}
-              {tasksDue.map(t=><TaskRow key={t.id} task={t}/>)}
+              {tasksDue.map((t,i)=><TaskRow key={t.id||`due-${i}`} task={t}/>)}
               {tasksDone.length>0&&(
                 <details style={{ marginTop:8 }}>
                   <summary style={{ fontSize:11,fontWeight:600,color:"#9ca3af",cursor:"pointer",userSelect:"none",padding:"4px 0" }}>✓ Completed ({tasksDone.length})</summary>
-                  {tasksDone.map(t=><TaskRow key={t.id} task={t}/>)}
+                  {tasksDone.map((t,i)=><TaskRow key={t.id||`done-${i}`} task={t}/>)}
                 </details>
               )}
             </>
@@ -177,7 +177,7 @@ export function TasksEventsPanel({ record, environment }) {
               {events.length===0&&activeTab==="events"&&(
                 <div style={{ textAlign:"center",color:"#9ca3af",fontSize:13,padding:"16px 0" }}>No events for this record</div>
               )}
-              {events.map(e=><EventRow key={e.id} event={e}/>)}
+              {events.map((e,i)=><EventRow key={e.id||`ev-${i}`} event={e}/>)}
             </>
           )}
         </div>

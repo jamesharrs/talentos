@@ -500,6 +500,65 @@ initDB().then(() => {
     const { startScheduler } = require('./agent-engine');
     startScheduler();
     initScheduler();
+
+    // ── AI Interview scheduled-send poller ────────────────────────────────────
+    // Checks every 60s for AI interviews with ai_trigger='scheduled' and
+    // ai_trigger_at in the past that haven't been sent yet.
+    setInterval(async () => {
+      try {
+        const { query, update } = require('./db/init');
+        const now = new Date();
+        const pending = query('interviews', i =>
+          i.interviewer_mode === 'ai_agent' &&
+          i.ai_trigger === 'scheduled' &&
+          i.ai_trigger_at &&
+          !i.ai_sent_at &&
+          !i.deleted_at &&
+          new Date(i.ai_trigger_at) <= now
+        );
+        for (const interview of pending) {
+          if (!interview.ai_agent_id || !interview.candidate_id) continue;
+          console.log(`[AI Interview Scheduler] Triggering interview ${interview.id} for candidate ${interview.candidate_id}`);
+          const http = require('http');
+          const port = process.env.PORT || 3001;
+          const postData = JSON.stringify({
+            record_id: interview.candidate_id,
+            environment_id: interview.environment_id,
+            triggered_by: 'interview_scheduler',
+          });
+          const options = {
+            hostname: 'localhost', port,
+            path: `/api/agents/${interview.ai_agent_id}/run`,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(postData),
+              'x-internal': '1',
+            },
+          };
+          const req = http.request(options, r => {
+            let body = '';
+            r.on('data', c => body += c);
+            r.on('end', () => {
+              try {
+                const d = JSON.parse(body);
+                console.log(`[AI Interview Scheduler] Run started: ${d?.run_id}`);
+                update('interviews', i => i.id === interview.id, {
+                  ai_sent_at: new Date().toISOString(),
+                  status: 'ai_sent',
+                  updated_at: new Date().toISOString(),
+                });
+              } catch(e) { console.warn('[AI Interview Scheduler] Parse error:', e.message); }
+            });
+          });
+          req.on('error', e => console.warn('[AI Interview Scheduler] HTTP error:', e.message));
+          req.write(postData);
+          req.end();
+        }
+      } catch(e) { console.warn('[AI Interview Scheduler] Error:', e.message); }
+    }, 60_000);
+    // ── End AI Interview scheduler ────────────────────────────────────────────
+
     const { startDigestScheduler } = require('./services/digestScheduler');
     startDigestScheduler();
     // Email sequencer — detect milestones and send onboarding emails hourly

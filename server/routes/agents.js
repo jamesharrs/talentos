@@ -684,3 +684,30 @@ router.post('/:id/generate-token', (req, res) => {
 
 module.exports = router;
 
+// Exported for internal use (e.g. from interviews route to trigger AI interviews)
+module.exports._runHandler = async (req, res) => {
+  const agent = query('agents', a => a.id === req.params.id && !a.deleted_at)[0];
+  if (!agent) return res.status ? res.status(404).json({ error: 'Not found' }) : null;
+  const { record_id, environment_id } = req.body;
+  const run = insert('agent_runs', {
+    id: uuidv4(), agent_id: agent.id, agent_name: agent.name,
+    trigger: req.body.triggered_by || 'manual',
+    record_id: record_id || null,
+    environment_id: environment_id || agent.environment_id,
+    status: 'running', steps: [], ai_output: null, pending_actions: [],
+    created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+  });
+  executeAgent(agent, run, record_id).catch(err => {
+    console.error('[_runHandler] Agent run error:', err.message);
+    const s = getStore();
+    const idx = s.agent_runs.findIndex(r => r.id === run.id);
+    if (idx !== -1) {
+      s.agent_runs[idx].status = 'failed';
+      s.agent_runs[idx].error = err.message;
+      s.agent_runs[idx].updated_at = new Date().toISOString();
+      saveStore();
+    }
+  });
+  res.json({ run_id: run.id, status: 'running' });
+};
+

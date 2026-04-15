@@ -61,11 +61,10 @@ router.get('/', (req, res) => {
   const { environment_id, candidate_id, job_id } = req.query;
   if (!environment_id) return res.status(400).json({ error: 'environment_id required' });
   let rows = query('interviews', i => i.environment_id === environment_id && !i.deleted_at);
-  const { person_id } = req.query; // returns interviews where person is candidate OR interviewer
+  const { person_id } = req.query;
   if (person_id) {
     rows = rows.filter(i => {
       if (i.candidate_id === person_id) return true;
-      // Check if person appears in interviewers array (supports both string and object formats)
       const ivList = Array.isArray(i.interviewers) ? i.interviewers : [];
       return ivList.some(iv => (typeof iv === 'string' ? iv : iv?.id) === person_id);
     });
@@ -73,7 +72,6 @@ router.get('/', (req, res) => {
     if (candidate_id) rows = rows.filter(i => i.candidate_id === candidate_id);
   }
   if (job_id) rows = rows.filter(i => i.job_id === job_id);
-  // RBAC: filter interviews — user must be able to view people object
   const _user = req.currentUser;
   if (_user && !_isSA(_user) && !_hasPerm(_user, 'people', 'view')) rows = [];
   res.json(rows.sort((a,b) => {
@@ -88,8 +86,15 @@ router.post('/', async (req, res) => {
   ensure();
   const { environment_id, interview_type_id, interview_type_name, candidate_id, candidate_name,
           job_id, job_name, date, time, duration, format, interviewers, notes, status,
-          interviewer_emails } = req.body;
-  if (!environment_id || !date) return res.status(400).json({ error: 'environment_id and date required' });
+          interviewer_emails,
+          // AI Agent interview fields
+          interviewer_mode, ai_agent_id, ai_agent_name, ai_trigger, ai_trigger_at } = req.body;
+
+  const isAiInterview = interviewer_mode === 'ai_agent' && ai_agent_id;
+  // Date required for human interviews; optional for AI (on-demand)
+  if (!environment_id || (!isAiInterview && !date)) {
+    return res.status(400).json({ error: isAiInterview ? 'environment_id required' : 'environment_id and date required' });
+  }
 
   // Resolve candidate name if only ID provided
   let resolvedCandidateId = candidate_id || null;
@@ -112,16 +117,80 @@ router.post('/', async (req, res) => {
     candidate_id: resolvedCandidateId,
     candidate_name: resolvedCandidateName,
     job_id: job_id || null, job_name: job_name || '',
-    date, time: time || '09:00', duration: duration || 30,
-    format: format || 'Video Call',
+    date: date || null, time: time || '09:00', duration: duration || 30,
+    format: format || (isAiInterview ? 'AI Interview' : 'Video Call'),
     interviewers: interviewers || [], notes: notes || '',
-    status: status || 'pending',
+    status: isAiInterview ? 'ai_pending' : (status || 'pending'),
+    // AI agent fields
+    interviewer_mode: interviewer_mode || 'employee',
+    ai_agent_id: ai_agent_id || null,
+    ai_agent_name: ai_agent_name || null,
+    ai_trigger: ai_trigger || null,
+    ai_trigger_at: ai_trigger_at || null,
+    ai_sent_at: null,
     meeting_link: null, meeting_provider: null,
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(), deleted_at: null,
   });
 
-  // ── AUTO-CREATE MEETING LINK ──────────────────────────────────────────────
-  // Runs async — response returns immediately, meeting link is patched in
+  // ── AI INTERVIEW: trigger agent run immediately or store for scheduler ────
+  if (isAiInterview) {
+    if (ai_trigger === 'now' || !ai_trigger) {
+      setImmediate(async () => {
+        try {
+          const { query: q2, update: upd2 } = require('../db/init');
+          const agents = q2('agents', a => a.id === ai_agent_id);
+          const agent  = agents[0];
+          if (!agent) { console.warn(`[AI Interview] Agent ${ai_agent_id} not found`); return; }
+          if (!resolvedCandidateId) { console.warn('[AI Interview] No candidate record ID'); return; }
+
+          const agentsRouter = require('./agents');
+          const fakeReq = {
+            params: { id: ai_agent_id },
+            body: { record_id: resolvedCandidateId, environment_id, triggered_by: 'interview_scheduler' },
+            currentUser: req.currentUser,
+          };
+          const fakeRes = {
+            json: (data) => {
+              console.log(`[AI Interview] Agent run started: run_id=${data?.run_id}`);
+              upd2('interviews', i => i.id === rec.id, { ai_sent_at: new Date().toISOString(), status: 'ai_sent', updated_at: new Date().toISOString() });
+            },
+            status: (code) => ({ json: (d) => console.warn(`[AI Interview] Agent run error ${code}:`, d) }),
+          };
+
+          const runHandler = agentsRouter._runHandler;
+          if (typeof runHandler === 'function') {
+            await runHandler(fakeReq, fakeRes);
+          } else {
+            // Fallback: internal HTTP call
+            const http = require('http');
+            const port = process.env.PORT || 3001;
+            const postData = JSON.stringify({ record_id: resolvedCandidateId, environment_id, triggered_by: 'interview_scheduler' });
+            const options = { hostname: 'localhost', port, path: `/api/agents/${ai_agent_id}/run`, method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData), 'x-internal': '1' } };
+            const request = http.request(options, r => {
+              let body = '';
+              r.on('data', chunk => body += chunk);
+              r.on('end', () => {
+                try {
+                  const d = JSON.parse(body);
+                  console.log(`[AI Interview] Agent run started: run_id=${d?.run_id}`);
+                  upd2('interviews', i => i.id === rec.id, { ai_sent_at: new Date().toISOString(), status: 'ai_sent', updated_at: new Date().toISOString() });
+                } catch(e) { console.warn('[AI Interview] Parse error:', e.message); }
+              });
+            });
+            request.on('error', e => console.warn('[AI Interview] HTTP error:', e.message));
+            request.write(postData);
+            request.end();
+          }
+        } catch(e) { console.error('[AI Interview] Trigger error:', e.message); }
+      });
+    }
+    // For 'scheduled' trigger: ai_trigger_at is stored — scheduler polls for these
+    res.status(201).json({ ...rec, _ai_interview: true });
+    return;
+  }
+
+  // ── AUTO-CREATE MEETING LINK (human interviews only) ─────────────────────
   setImmediate(async () => {
     try {
       const startTime = `${date}T${time || '09:00'}`;
@@ -131,50 +200,36 @@ router.post('/', async (req, res) => {
       const meeting   = await createInterviewMeeting(environment_id, { topic, startTime, endTime, attendees: emails, agenda: notes || '' });
       if (meeting) {
         const link = meeting.join_url || meeting.teams_url || meeting.meet_link || null;
-        update('interviews', i => i.id === rec.id, {
-          meeting_link: link, meeting_provider: meeting.provider,
-          updated_at: new Date().toISOString(),
-        });
+        update('interviews', i => i.id === rec.id, { meeting_link: link, meeting_provider: meeting.provider, updated_at: new Date().toISOString() });
         console.log(`[Connectors] Meeting created via ${meeting.provider} for interview ${rec.id}`);
       }
     } catch (e) { console.warn('[Connectors] Meeting creation failed:', e.message); }
   });
 
-  // ── FIRE NOTIFICATIONS + SEND ICS EMAILS ────────────────────────────────
+  // ── FIRE NOTIFICATIONS + SEND ICS EMAILS ─────────────────────────────────
   setImmediate(async () => {
     try {
       await fireEvent(environment_id, 'interview_scheduled', {
-        candidateName: resolvedCandidateName,
-        jobTitle: job_name,
-        date, time: time || '09:00',
-        format: format || 'Video Call',
-        interviewers: interviewers || [],
+        candidateName: resolvedCandidateName, jobTitle: job_name,
+        date, time: time || '09:00', format: format || 'Video Call', interviewers: interviewers || [],
       });
     } catch (e) { console.warn('[Connectors] Notification failed:', e.message); }
 
-    // ── Send ICS calendar invite to all attendees ─────────────────────────
     try {
       const { getStore } = require('../db/init');
       const store = getStore();
-      const timeStr   = time || '09:00';
-      const startISO  = `${date}T${timeStr}:00.000Z`;
-      const endISO    = new Date(new Date(startISO).getTime() + (duration || 45) * 60_000).toISOString();
-      const fmt       = format || 'Video Call';
-
-      // Collect attendee emails — candidate + all interviewers
+      const timeStr  = time || '09:00';
+      const startISO = `${date}T${timeStr}:00.000Z`;
+      const endISO   = new Date(new Date(startISO).getTime() + (duration || 45) * 60_000).toISOString();
+      const fmt      = format || 'Video Call';
       const attendeeEmails = [];
 
-      // Candidate email (look up from record if not passed)
-      const candidateRec = resolvedCandidateId
-        ? (store.records || []).find(r => r.id === resolvedCandidateId)
-        : null;
+      const candidateRec = resolvedCandidateId ? (store.records || []).find(r => r.id === resolvedCandidateId) : null;
       const candidateEmail = candidateRec?.data?.email || null;
       if (candidateEmail) attendeeEmails.push(candidateEmail);
 
-      // Interviewer emails from their person records
       const ivList = Array.isArray(interviewers) ? interviewers : [];
       for (const iv of ivList) {
-        // iv may be { name, id, email } or just a string name
         const ivEmail = iv.email || null;
         const ivRec   = iv.id ? (store.records || []).find(r => r.id === iv.id) : null;
         const resolvedEmail = ivEmail || ivRec?.data?.email || null;
@@ -184,52 +239,33 @@ router.post('/', async (req, res) => {
       if (attendeeEmails.length === 0) {
         console.log('[Interview] No attendee emails found — skipping ICS send');
       } else {
-        // Build reschedule URL pointing to the interview record
-        // X-App-Origin from Vite proxy preserves real client origin for reschedule links
         const origin = req.headers['x-app-origin'] || req.headers['origin'] || req.headers['referer'] || '';
         const baseUrl = origin
           ? origin.replace(/\/+$/, '').split('/').slice(0, 3).join('/')
           : (process.env.APP_URL || 'https://client-gamma-ruddy-63.vercel.app');
-        // Generate unique tokens for each party so they see the right view
         const candToken = makeToken(rec.id, 'candidate');
         const ivToken   = makeToken(rec.id, 'interviewer');
         const rescheduleUrl = `${baseUrl}/reschedule/${rec.id}/${candToken}?role=candidate`;
         const ivRescheduleUrl = `${baseUrl}/reschedule/${rec.id}/${ivToken}?role=interviewer`;
-
-        // Company name for organiser
         const profile = (store.company_profiles || []).find(p => p.environment_id === environment_id);
         const companyName = profile?.name || process.env.SENDGRID_FROM_NAME || 'Vercentic';
         const fromEmail   = process.env.SENDGRID_FROM_EMAIL || 'noreply@vercentic.com';
-
-        const summary = job_name
-          ? `Interview: ${resolvedCandidateName} — ${job_name}`
-          : `Interview: ${resolvedCandidateName}`;
-
+        const summary = job_name ? `Interview: ${resolvedCandidateName} — ${job_name}` : `Interview: ${resolvedCandidateName}`;
         const descLines = [
           `Interview Type: ${interview_type_name || 'Interview'}`,
-          `Format: ${fmt}`,
-          `Duration: ${duration || 45} minutes`,
-          notes ? `Notes: ${notes}` : '',
-          `Reschedule: ${rescheduleUrl}`,
+          `Format: ${fmt}`, `Duration: ${duration || 45} minutes`,
+          notes ? `Notes: ${notes}` : '', `Reschedule: ${rescheduleUrl}`,
         ].filter(Boolean);
 
         const ics = buildICS({
-          uid:           rec.id,
-          summary,
-          description:   descLines.join('\n'),
-          location:      fmt === 'In Person' ? (notes || '') : fmt,
-          startISO,
-          endISO,
-          organiserEmail: fromEmail,
-          organiserName:  companyName,
-          attendeeEmails,
-          rescheduleUrl: rescheduleUrl,
+          uid: rec.id, summary, description: descLines.join('\n'),
+          location: fmt === 'In Person' ? (notes || '') : fmt,
+          startISO, endISO, organiserEmail: fromEmail, organiserName: companyName,
+          attendeeEmails, rescheduleUrl,
         });
 
-        // Email body
         const dateLabel = new Date(`${date}T${timeStr}`).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-        const htmlBody = `
-<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+        const htmlBody = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
   <div style="background:#4361EE;padding:24px 32px;border-radius:12px 12px 0 0">
     <h2 style="color:white;margin:0;font-size:20px">Interview Scheduled</h2>
   </div>
@@ -250,19 +286,10 @@ router.post('/', async (req, res) => {
   </div>
 </div>`;
 
-        // Send to each attendee
         for (const email of attendeeEmails) {
           await sendEmail({
-            to:      email,
-            subject: summary,
-            html:    htmlBody,
-            text:    descLines.join('\n'),
-            attachments: [{
-              content:     Buffer.from(ics).toString('base64'),
-              filename:    'interview.ics',
-              type:        'text/calendar',
-              disposition: 'attachment',
-            }],
+            to: email, subject: summary, html: htmlBody, text: descLines.join('\n'),
+            attachments: [{ content: Buffer.from(ics).toString('base64'), filename: 'interview.ics', type: 'text/calendar', disposition: 'attachment' }],
           }).catch(e => console.warn(`[Interview] Email to ${email} failed:`, e.message));
         }
         console.log(`[Interview] ICS sent to ${attendeeEmails.length} attendee(s):`, attendeeEmails.join(', '));
@@ -288,8 +315,6 @@ router.delete('/:id', async (req, res) => {
   ensure();
   const interview = query('interviews', i => i.id === req.params.id)?.[0];
   update('interviews', i => i.id === req.params.id, { deleted_at: new Date().toISOString() });
-
-  // Cancel the meeting if one was created
   if (interview?.meeting_link && interview?.meeting_provider === 'zoom') {
     const { getConnector } = require('../services/connectors');
     setImmediate(async () => {

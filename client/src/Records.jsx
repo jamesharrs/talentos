@@ -1190,14 +1190,20 @@ const SkillsPicker = ({ field, value, onChange, environment, recordData }) => {
   const [aiTooltip, setAiTooltip] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState(null);
   const ref = useRef(null);
+  const triggerRef = useRef(null);
+  const [dropdownRect, setDropdownRect] = useState(null);
   const debounceRef = useRef(null);
   const isMulti = field.skills_multi !== false && field.skills_multi !== "false";
   const selected = Array.isArray(value) ? value : (value ? [value] : []);
 
-  // Close on outside click
+  // Close on outside click — also catches clicks inside the portal
   useEffect(() => {
-    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const handler = e => {
+      if (ref.current && !ref.current.contains(e.target) &&
+          !e.target.closest('[data-skills-dropdown]')) setOpen(false);
+    };
     document.addEventListener("mousedown", handler);
+
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
@@ -1275,7 +1281,11 @@ const SkillsPicker = ({ field, value, onChange, environment, recordData }) => {
   return (
     <div ref={ref} style={{position:"relative"}}>
       {/* Selected pills + input trigger */}
-      <div onClick={()=>setOpen(o=>!o)} style={{display:"flex",flexWrap:"wrap",gap:4,padding:"6px 8px",borderRadius:8,border:`1.5px solid ${open?C.accent:C.border}`,background:"white",cursor:"pointer",minHeight:36,alignItems:"center"}}>
+      <div ref={triggerRef} onClick={()=>{
+          const r = triggerRef.current?.getBoundingClientRect();
+          setDropdownRect(r || null);
+          setOpen(o=>!o);
+        }} style={{display:"flex",flexWrap:"wrap",gap:4,padding:"6px 8px",borderRadius:8,border:`1.5px solid ${open?C.accent:C.border}`,background:"white",cursor:"pointer",minHeight:36,alignItems:"center"}}>
         {selected.map(s => (
           <span key={s} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"2px 8px",borderRadius:99,background:`${C.accent}12`,border:`1px solid ${C.accent}28`,fontSize:12,fontWeight:600,color:C.accent}}>
             ⚡ {s}
@@ -1293,7 +1303,7 @@ const SkillsPicker = ({ field, value, onChange, environment, recordData }) => {
               {extracting ? <span style={{fontSize:12,color:C.text3}}>…</span> : <span style={{fontSize:14,filter:"brightness(10)"}}>✨</span>}
             </button>
             {aiTooltip && !extracting && (
-              <div style={{position:"absolute",bottom:"calc(100% + 8px)",right:0,width:220,padding:"10px 12px",borderRadius:10,background:"#1a1a2e",color:"white",fontSize:11,lineHeight:1.5,zIndex:999,boxShadow:"0 8px 24px rgba(0,0,0,0.25)"}}>
+              <div style={{position:"absolute",bottom:"calc(100% + 8px)",right:0,width:220,padding:"10px 12px",borderRadius:10,background:"#1a1a2e",color:"white",fontSize:11,lineHeight:1.5,zIndex:9999,boxShadow:"0 8px 24px rgba(0,0,0,0.25)"}}>
                 <strong style={{fontSize:12}}>AI Skill Extraction</strong><br/>
                 Analyses the job to suggest matching skills from the full ESCO taxonomy ({categories.reduce((s,c)=>s+c.count,0).toLocaleString()} skills).
               </div>
@@ -1302,13 +1312,21 @@ const SkillsPicker = ({ field, value, onChange, environment, recordData }) => {
         )}
       </div>
 
-      {/* Dropdown */}
-      {open && (
-        <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,maxHeight:340,background:"white",borderRadius:12,border:`1.5px solid ${C.border}`,boxShadow:"0 12px 40px rgba(0,0,0,0.12)",zIndex:800,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+      {/* Dropdown — portalled to body so it escapes overflow:hidden panels */}
+      {open && dropdownRect && ReactDOM.createPortal(
+        <div data-skills-dropdown="1" style={{
+          position:"fixed",
+          top: dropdownRect.bottom + 4,
+          left: dropdownRect.left,
+          width: Math.max(dropdownRect.width, 320),
+          maxHeight:340, background:"white", borderRadius:12,
+          border:`1.5px solid ${C.border}`, boxShadow:"0 12px 40px rgba(0,0,0,0.14)",
+          zIndex:9900, overflow:"hidden", display:"flex", flexDirection:"column",
+        }}>
           {/* Search input */}
           <div style={{padding:"8px 10px",borderBottom:`1px solid ${C.border}`}}>
             <input value={search} onChange={e=>setSearch(e.target.value)} autoFocus
-              placeholder="Search 2,400+ skills…" style={{width:"100%",padding:"7px 10px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:13,fontFamily:F,outline:"none"}}/>
+              placeholder="Search 2,400+ skills…" style={{width:"100%",padding:"7px 10px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:13,fontFamily:F,outline:"none",boxSizing:"border-box"}}/>
           </div>
           {/* Category filter pills */}
           <div style={{display:"flex",gap:4,padding:"6px 10px",flexWrap:"wrap",borderBottom:`1px solid ${C.border}`,background:"#FAFBFC"}}>
@@ -1347,7 +1365,8 @@ const SkillsPicker = ({ field, value, onChange, environment, recordData }) => {
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* AI Suggestion modal */}

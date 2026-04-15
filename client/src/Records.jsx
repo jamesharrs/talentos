@@ -1314,15 +1314,29 @@ const SkillsPicker = ({ field, value, onChange, environment, recordData }) => {
 
       {/* Dropdown — portalled to body so it escapes overflow:hidden panels */}
       {open && dropdownRect && ReactDOM.createPortal(
-        <div data-skills-dropdown="1" style={{
-          position:"fixed",
-          top: dropdownRect.bottom + 4,
-          left: dropdownRect.left,
-          width: Math.max(dropdownRect.width, 320),
-          maxHeight:340, background:"white", borderRadius:12,
-          border:`1.5px solid ${C.border}`, boxShadow:"0 12px 40px rgba(0,0,0,0.14)",
-          zIndex:9900, overflow:"hidden", display:"flex", flexDirection:"column",
-        }}>
+        (() => {
+          const MARGIN = 8;
+          const dropW = Math.max(dropdownRect.width, 320);
+          const spaceBelow = window.innerHeight - dropdownRect.bottom - MARGIN;
+          const spaceAbove = dropdownRect.top - MARGIN;
+          const openUpward = spaceBelow < 200 && spaceAbove > spaceBelow;
+          const maxH = Math.min(340, openUpward ? spaceAbove : spaceBelow);
+          const topPos = openUpward
+            ? dropdownRect.top - maxH - MARGIN
+            : dropdownRect.bottom + MARGIN;
+          // Clamp left so it doesn't overflow right edge
+          const leftPos = Math.min(dropdownRect.left, window.innerWidth - dropW - MARGIN);
+          return (
+          <div data-skills-dropdown="1" style={{
+            position:"fixed",
+            top: topPos,
+            left: leftPos,
+            width: dropW,
+            maxHeight: maxH,
+            background:"white", borderRadius:12,
+            border:`1.5px solid ${C.border}`, boxShadow:"0 12px 40px rgba(0,0,0,0.14)",
+            zIndex:9900, overflow:"hidden", display:"flex", flexDirection:"column",
+          }}>
           {/* Search input */}
           <div style={{padding:"8px 10px",borderBottom:`1px solid ${C.border}`}}>
             <input value={search} onChange={e=>setSearch(e.target.value)} autoFocus
@@ -1365,7 +1379,9 @@ const SkillsPicker = ({ field, value, onChange, environment, recordData }) => {
               );
             })}
           </div>
-        </div>,
+        </div>
+          );
+        })(),
         document.body
       )}
 

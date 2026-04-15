@@ -386,8 +386,8 @@ export default function ScoreExplainer({
         )}
       </div>
 
-      {/* Click modal */}
-      {open && (
+      {/* Click modal — portalled to escape panel stacking context */}
+      {open && ReactDOM.createPortal(
         <ScoreModal
           score={score}
           reasons={reasons}
@@ -397,7 +397,8 @@ export default function ScoreExplainer({
           candidateName={candidateName}
           jobName={jobName}
           onClose={() => setOpen(false)}
-        />
+        />,
+        document.body
       )}
     </>
   );

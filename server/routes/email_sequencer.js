@@ -72,6 +72,7 @@ router.post('/templates/:id/test-send', async (req,res) => {
   } catch(e) { res.status(500).json({error:e.message}); }
 });
 
+
 // ── Sequences ────────────────────────────────────────────────────────────────
 router.get('/sequences', (req,res) => {
   const seqs=getCol('email_sequences').filter(s=>!s.deleted_at);
@@ -142,6 +143,7 @@ router.get('/sequences/:id/stats', (req,res) => {
   });
 });
 
+
 // ── Enrolments ───────────────────────────────────────────────────────────────
 router.get('/enrolments', (req,res) => {
   let e=getCol('email_enrolments');
@@ -180,7 +182,7 @@ router.post('/send-log/:id/opened', (req,res) => {
   res.json({ok:true});
 });
 
-// ── Unsubscribe (public) ─────────────────────────────────────────────────────
+// ── Unsubscribe (public — no auth) ───────────────────────────────────────────
 router.get('/unsubscribe', (req,res) => {
   const { token } = req.query;
   if(!token) return res.status(400).send('Invalid link');
@@ -188,7 +190,7 @@ router.get('/unsubscribe', (req,res) => {
     const enrId=Buffer.from(token,'base64').toString('utf8');
     const col=getCol('email_enrolments'); const idx=col.findIndex(e=>e.id===enrId);
     if(idx!==-1){col[idx].status='unsubscribed';col[idx].unsubscribed_at=now();saveCol('email_enrolments',col);}
-    res.send(`<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2>Unsubscribed</h2><p>You won't receive further onboarding emails.</p></body></html>`);
+    res.send(`<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2>Unsubscribed</h2><p>You won't receive further onboarding emails from Vercentic.</p></body></html>`);
   } catch(e) { res.status(400).send('Invalid token'); }
 });
 

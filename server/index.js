@@ -141,6 +141,7 @@ const AUTH_EXEMPT = [
   '/campaign-links',
     '/integrations',  
   '/superadmin', '/bot', '/analytics',
+  '/sequencer/unsubscribe',
   '/attachments/file',
   '/attachments/upload',
   '/attachments/preview',
@@ -338,6 +339,7 @@ app.use('/api/flows', flowsRouter);
 app.use('/api/admin',             require('./routes/admin_dashboard').router);
 app.use('/api/superadmin',        require('./routes/superadmin'));
 app.use('/api/superadmin/clients', require('./routes/superadmin_clients'));
+app.use('/api/sequencer',         require('./routes/email_sequencer').router);
 app.use('/api/superadmin/demo',   require('./routes/demo_seed'));
 app.use('/api/tenant-reset',      require('./routes/admin_reset'));
 app.use('/api/signup',            require('./routes/signup'));
@@ -500,6 +502,10 @@ initDB().then(() => {
     initScheduler();
     const { startDigestScheduler } = require('./services/digestScheduler');
     startDigestScheduler();
+    // Email sequencer — detect milestones and send onboarding emails hourly
+    const { runSequencerCycle } = require('./services/milestone_engine');
+    setInterval(async () => { try { await runSequencerCycle(); } catch(e) { console.error('[Sequencer] Cron error:', e.message); } }, 60 * 60 * 1000);
+    setTimeout(async () => { try { await runSequencerCycle(); } catch(e) { console.error('[Sequencer] Startup error:', e.message); } }, 15000);
     // Log server start event
     const { platformLog } = require('./services/platformLogger');
     platformLog('system', 'server_start', `Vercentic API started on port ${PORT}`,

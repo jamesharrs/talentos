@@ -6,6 +6,7 @@ import DemoDataManager from './superadmin/DemoDataManager';
 import ErrorLogViewer from './superadmin/ErrorLogViewer.jsx';
 import { ReleaseNotesAdmin } from './ReleaseNotes.jsx';
 import CaseManager from './superadmin/CaseManager.jsx';
+import EmailSequencer from './EmailSequencer.jsx';
 
 const F = "'Geist', -apple-system, sans-serif";
 const C = {
@@ -296,6 +297,7 @@ const NAV_ITEMS = [
   { id:'errors',   label:'Error Logs',   icon:'errors',    desc:'App errors across all environments' },
   { id:'release_notes', label:'Release Notes', icon:'bell', desc:'Manage platform release notes' },
   { id:'cases', label:'Support Cases', icon:'cases', desc:'Customer service case management' },
+  { id:'sequencer', label:'Email Sequencer', icon:'mail', desc:'Client onboarding email automation' },
   { id:'ai_usage', label:'AI Usage', icon:'cpu', desc:'Token usage, costs & quota management' },
   { id:'activity', label:'Activity Report', icon:'activity', desc:'Environment activity & usage analytics' },
   { id:'platform_events', label:'Platform Events', icon:'zap', desc:'Digest sends, scheduler runs, SSE connections & system events' },
@@ -531,6 +533,7 @@ export default function SuperAdminConsole() {
         {section === 'errors' && <ErrorLogViewer/>}
         {section === 'release_notes' && <ReleaseNotesAdmin />}
         {section === 'cases' && <CaseManager />}
+        {section === 'sequencer' && <EmailSequencer />}
       </div>
     </div>
   );

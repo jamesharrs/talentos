@@ -771,6 +771,8 @@ router.post('/purge-test-clients', (req, res) => {
   const keptSlugs = new Set(kept.map(c => c.tenant_slug));
   s.clients = kept;
   s.client_environments = (s.client_environments || []).filter(e => kept.find(c => c.id === e.client_id));
+  // Also purge orphaned environments stored directly in s.environments (have a client_id)
+  s.environments = (s.environments || []).filter(e => !e.client_id || kept.find(c => c.id === e.client_id));
   s.provision_log = (s.provision_log || []).filter(l => keptSlugs.has(l.tenant_slug) || !l.tenant_slug);
   invalidateTenantCache();
   saveStoreNow('master');

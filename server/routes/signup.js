@@ -8,6 +8,7 @@ const router   = express.Router();
 const crypto   = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const { getStore, saveStore, tenantStorage, storeCache, loadTenantStore, provisionTenant } = require('../db/init');
+const { applyStarterConfig } = require('../data/starter_config');
 
 const PLAN_LIMITS = {
   starter: { max_users: 5,  max_records: 500,   label: 'Starter', price: 49  },
@@ -157,6 +158,19 @@ router.post('/', async (req, res) => {
       ts.security_settings = { password_min_length:8, session_timeout_minutes:60, max_login_attempts:5, lockout_duration_minutes:30, mfa_enabled:0, updated_at:now };
       saveStore(tenantSlug);
     });
+
+    // Apply starter configuration — seeds workflows, email templates, career site, scorecard
+    try {
+      const envObj   = { id: envId, name: 'Production', slug: 'production' };
+      await tenantStorage.run(tenantSlug, async () => {
+        const ts = getStore();
+        await applyStarterConfig(tenantSlug, envObj, ts.objects || [], { name: company });
+      });
+      console.log(`[Signup] ✅ Starter config applied for ${tenantSlug}`);
+    } catch (cfgErr) {
+      // Non-fatal — tenant is usable, config can be re-applied via admin
+      console.error(`[Signup] ⚠️ Starter config failed for ${tenantSlug}:`, cfgErr.message);
+    }
 
     // Invalidate tenant cache so the new slug is recognised immediately
     try { require('../middleware/tenant').invalidateTenantCache(); } catch {}

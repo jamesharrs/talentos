@@ -275,3 +275,32 @@ test.describe.serial('Self-serve provisioning E2E', () => {
   });
 
 });
+
+// ── Cleanup — runs once after all provisioning tests ─────────────────────────
+// Purges all E2ETest* tenants so they don't accumulate in the local data store.
+test.afterAll(async () => {
+  try {
+    // Login as master admin
+    const loginRes = await fetch(`${BASE_API}/api/users/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'admin@talentos.io', password: 'Admin1234!' }),
+    });
+    const cookies = loginRes.headers.get('set-cookie') || '';
+    const csrfMatch = cookies.match(/vercentic_csrf=([^;]+)/);
+    const csrf = csrfMatch ? csrfMatch[1] : '';
+    const cookieHeader = cookies.split(',').map(c => c.split(';')[0].trim()).join('; ');
+
+    if (!csrf) { console.log('[Cleanup] No CSRF — skipping purge'); return; }
+
+    const purgeRes = await fetch(`${BASE_API}/api/superadmin/clients/purge-test-clients`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf, Cookie: cookieHeader },
+      body: JSON.stringify({ keep_slugs: [] }),
+    });
+    const result = await purgeRes.json().catch(() => ({}));
+    console.log(`[Cleanup] Purged ${result.removed_count ?? '?'} test client(s)`);
+  } catch (e) {
+    console.log('[Cleanup] Purge failed (non-fatal):', e.message);
+  }
+});

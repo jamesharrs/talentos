@@ -790,7 +790,10 @@ export default function CalendarView({ interviews: interviewsProp, interviewType
     // Load AI-interview-capable agents
     api.get(`/agents?environment_id=${environment.id}`).then(d => {
       const list = Array.isArray(d) ? d : (d.agents || []);
-      const filteredAgents = list.filter(a => !a.deleted_at);
+      const filteredAgents = list.filter(a => !a.deleted_at && (
+        (a.steps||[]).some(s => s.type === 'ai_interview') ||
+        a.type === 'interview' || a.type === 'ai_interview'
+      ));
       setSchedAvailableAgents(filteredAgents);
     }).catch(() => {});
     // Reset AI state when modal opens

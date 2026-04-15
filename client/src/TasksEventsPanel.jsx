@@ -1,6 +1,7 @@
 import { tFetch } from "./apiClient.js";
 import { useState, useEffect, useCallback } from "react";
 import ReactDOM from "react-dom";
+import { useRecordSync } from "./hooks/useRecordSync.js";
 
 const PRIORITY = {
   urgent: { label:"Urgent", color:"#ef4444", bg:"#fef2f2" },
@@ -99,6 +100,9 @@ export function TasksEventsPanel({ record, environment }) {
   }, [recId]);
 
   useEffect(()=>{load();}, [load]);
+
+  // Real-time push: reload when the server broadcasts a task/event change for this record
+  useRecordSync(recId, () => load());
 
   const handleToggle = async task => {
     await tFetch(`/api/calendar/tasks/${task.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:task.status==="done"?"todo":"done"})});

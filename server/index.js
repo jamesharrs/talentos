@@ -131,6 +131,7 @@ const AUTH_EXEMPT = [
   '/auth/login', '/auth/me',
   '/users/login', '/users/auth/login', '/users/logout',
   '/health', '/environments',
+  '/events/stream', '/events/status',
   '/portals/public', '/portals/by-slug', '/portals/slug',
   '/portals/job-alerts', '/portals/application-status', '/portals/public', '/portal-public', '/portal-auth/login', '/portal-auth/me', '/portal-auth/logout',
   '/portal-analytics', '/portal-feedback', '/portal-copilot',
@@ -269,6 +270,10 @@ app.use('/api/interview-coordinator', require('./routes/interview_coordinator'))
 app.use('/api/offers',            require('./routes/offers'));
 app.use('/api/sourcing',          require('./routes/sourcing'));
 app.use('/api/calendar',          require('./routes/calendar'));
+const { router: sseRouter, broadcast } = require('./routes/sse');
+app.use('/api/events',            sseRouter);
+// Expose broadcast globally so any route can push updates without circular deps
+global.sseBroadcast = broadcast;
 app.use('/api/task-triggers',     require('./routes/task_triggers').router);
 app.use('/api/onboarding',        require('./routes/onboarding'));
 app.use('/api/plan',              require('./middleware/plan_gates').router);

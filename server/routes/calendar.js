@@ -1,7 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { query, insert, update, remove, getStore, saveStore } = require('../db/init');
+const { query, insert, update, remove, getStore, saveStore, getCurrentTenant } = require('../db/init');
 const { v4: uuidv4 } = require('uuid');
+
+// Helper: push a real-time update to connected browser tabs for this tenant
+const push = (type, data = {}) => {
+  try { if (global.sseBroadcast) global.sseBroadcast(getCurrentTenant(), { type, ...data }); } catch (_) {}
+};
 
 // ── TASKS ──────────────────────────────────────────────────────────────────
 
@@ -49,6 +54,7 @@ router.post('/tasks', (req, res) => {
       completed_at: null,
     });
     res.json(task);
+    push('task_created', { record_id: task.record_id, task_id: task.id });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -70,6 +76,7 @@ router.patch('/tasks/:id', (req, res) => {
     task.updated_at = new Date().toISOString();
     saveStore(store);
     res.json(task);
+    push('task_updated', { record_id: task.record_id, task_id: task.id });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -81,6 +88,7 @@ router.delete('/tasks/:id', (req, res) => {
     task.deleted_at = new Date().toISOString();
     saveStore(store);
     res.json({ deleted: true });
+    push('task_deleted', { record_id: task.record_id, task_id: task.id });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -122,6 +130,7 @@ router.post('/events', (req, res) => {
       color: color || null,
     });
     res.json(event);
+    push('event_created', { record_id: event.record_id, event_id: event.id });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

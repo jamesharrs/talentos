@@ -1,6 +1,6 @@
 // IntegrationHub.jsx — unified Integrations page
 // Tabs: Library | Flows | Monitoring | Event Log
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import api from "./apiClient.js";
 import FlowBuilder from "./FlowBuilder.jsx";
 import { IntegrationMonitor } from "./IntegrationMonitor.jsx";
@@ -45,25 +45,73 @@ const Pill = ({active,onClick,children,color=C.accent}) =>
     background:active?`${color}10`:"transparent",color:active?color:C.text3,fontSize:12,fontWeight:active?700:500,
     cursor:"pointer",fontFamily:F,transition:"all .15s"}}>{children}</button>;
 
-function ProviderIcon({item,size=40}){
+// Inline SVGs for major providers — crisp at any size, zero network dependency
+const INLINE_LOGOS = {
+  slack:            <svg viewBox="0 0 54 54"><path d="M19.712 30.578a4.286 4.286 0 01-4.285 4.286 4.286 4.286 0 01-4.287-4.286 4.286 4.286 0 014.287-4.286h4.285v4.286zm2.144 0a4.286 4.286 0 014.286-4.286 4.286 4.286 0 014.286 4.286v10.714a4.286 4.286 0 01-4.286 4.286 4.286 4.286 0 01-4.286-4.286V30.578zM26.142 19.712a4.286 4.286 0 01-4.286-4.285 4.286 4.286 0 014.286-4.286 4.286 4.286 0 014.286 4.286v4.285H26.142zm0 2.144a4.286 4.286 0 014.286 4.286 4.286 4.286 0 01-4.286 4.286H15.428a4.286 4.286 0 01-4.286-4.286 4.286 4.286 0 014.286-4.286H26.142zm10.866 4.286a4.286 4.286 0 014.285-4.286 4.286 4.286 0 014.286 4.286 4.286 4.286 0 01-4.286 4.286H37.008V26.142zm-2.144 0a4.286 4.286 0 01-4.286 4.286 4.286 4.286 0 01-4.286-4.286V15.428a4.286 4.286 0 014.286-4.286 4.286 4.286 0 014.286 4.286V26.142zM30.578 37.008a4.286 4.286 0 014.286 4.285 4.286 4.286 0 01-4.286 4.286 4.286 4.286 0 01-4.286-4.286V37.008h4.286zm0-2.144a4.286 4.286 0 01-4.286-4.286 4.286 4.286 0 014.286-4.286h10.714a4.286 4.286 0 014.286 4.286 4.286 4.286 0 01-4.286 4.286H30.578z" fill="#E01E5A"/></svg>,
+  google_workspace: <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>,
+  google_calendar:  <svg viewBox="0 0 24 24"><path d="M17 3h-1V1h-2v2H7V1H5v2H4C2.9 3 2 3.9 2 5v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1zm2 18H4V8h16v13z" fill="#4285F4"/><path d="M9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z" fill="#4285F4"/></svg>,
+  microsoft_365:    <svg viewBox="0 0 23 23"><path fill="#f25022" d="M0 0h11v11H0z"/><path fill="#00a4ef" d="M12 0h11v11H12z"/><path fill="#7fba00" d="M0 12h11v11H0z"/><path fill="#ffb900" d="M12 12h11v11H12z"/></svg>,
+  microsoft_teams:  <svg viewBox="0 0 24 24"><path d="M20 5h-3V3.5a2.5 2.5 0 00-5 0V5H9a2 2 0 00-2 2v8a2 2 0 002 2h3v2a2 2 0 002 2h4a2 2 0 002-2v-2.17A4 4 0 0022 13V9a4 4 0 00-2-3.46V5zm0 8a2 2 0 01-2 2v-6h2v4z" fill="#6264A7"/></svg>,
+  azure_ad:         <svg viewBox="0 0 24 24"><path d="M0 0h11.5v11.5H0zm12.5 0H24v11.5H12.5zM0 12.5h11.5V24H0zm12.5 0H24V24H12.5z" fill="#0078D4"/></svg>,
+  zoom:             <svg viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#2D8CFF"/><path d="M12 22a4 4 0 014-4h20a4 4 0 014 4v12l8-5v10l-8-5v3a4 4 0 01-4 4H16a4 4 0 01-4-4V22z" fill="#fff"/></svg>,
+  linkedin_jobs:    <svg viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" fill="#0A66C2"/></svg>,
+  salesforce:       <svg viewBox="0 0 64 44"><path d="M26.4 4.8a11.9 11.9 0 018.9-4 12 12 0 0110.8 6.5A9 9 0 0158 16.6a9 9 0 01-9 9H10.7a7.7 7.7 0 01-.7-15.4 11.9 11.9 0 0116.4-5.4z" fill="#00A1E0"/></svg>,
+  hubspot:          <svg viewBox="0 0 24 24"><path d="M22.006 9.774a3.9 3.9 0 00-1.565-1.086V6.344a1.77 1.77 0 00.921-1.565 1.768 1.768 0 10-3.534 0 1.77 1.77 0 00.921 1.565v2.344a6.543 6.543 0 00-2.63.919L9.36 5.14a2.555 2.555 0 00.087-.643 2.567 2.567 0 10-2.567 2.567 2.56 2.56 0 001.338-.378l6.611 4.51a6.538 6.538 0 001.026 7.207L13.76 19.49a2.054 2.054 0 10.846.84l2.105-1.088a6.542 6.542 0 007.295-9.468z" fill="#FF7A59"/></svg>,
+  twilio:           <svg viewBox="0 0 24 24"><path d="M12 0C5.372 0 0 5.372 0 12s5.372 12 12 12 12-5.372 12-12S18.628 0 12 0zm3.218 15.215a2.004 2.004 0 110-4.008 2.004 2.004 0 010 4.008zm0-6.43a2.004 2.004 0 110-4.007 2.004 2.004 0 010 4.008zm-6.43 6.43a2.004 2.004 0 110-4.008 2.004 2.004 0 010 4.008zm0-6.43a2.004 2.004 0 110-4.007 2.004 2.004 0 010 4.008z" fill="#F22F46"/></svg>,
+  sendgrid:         <svg viewBox="0 0 24 24"><path d="M0 8h8v8H0zM8 0h8v8H8zM0 16h8v8H0zM16 8h8v8h-8z" fill="#1A82E2"/><path d="M8 8h8v8H8z" fill="#1A82E2" opacity=".4"/></svg>,
+  zapier:           <svg viewBox="0 0 24 24"><path d="M14.85 9.15L12 12l-2.85-2.85L6.3 12l2.85 2.85L12 12l2.85 2.85L17.7 12l-2.85-2.85zM12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0z" fill="#FF4A00"/></svg>,
+  docusign:         <svg viewBox="0 0 64 64"><rect width="64" height="64" rx="8" fill="#FFB600"/><path d="M20 32h24M32 20v24" stroke="#fff" strokeWidth="6" strokeLinecap="round"/></svg>,
+  okta:             <svg viewBox="0 0 24 24"><path d="M12 0C5.379 0 0 5.379 0 12s5.379 12 12 12 12-5.379 12-12S18.621 0 12 0zm0 17.143A5.143 5.143 0 1112 6.857a5.143 5.143 0 010 10.286z" fill="#007DC1"/></svg>,
+  workday:          <svg viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#0875E1"/><path d="M20 32l8 8 16-16" stroke="#fff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>,
+  bamboohr:         <svg viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#73C41D"/><path d="M20 44c0-6.627 5.373-12 12-12s12 5.373 12 12M32 20a8 8 0 110 16 8 8 0 010-16z" stroke="#fff" strokeWidth="3.5" fill="none" strokeLinecap="round"/></svg>,
+  rippling:         <svg viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#FF5B2D"/><path d="M20 20h14a10 10 0 010 20H20V20zm0 12h14a2 2 0 000-4H20v4z" fill="#fff"/></svg>,
+  checkr:           <svg viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#15803D"/><path d="M18 32l10 10 18-18" stroke="#fff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>,
+  make:             <svg viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#6D00CC"/><path d="M20 32h24M36 24l8 8-8 8" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>,
+  indeed:           <svg viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#003A9B"/><path d="M32 12C20.954 12 12 20.954 12 32s8.954 20 20 20 20-8.954 20-20S43.046 12 32 12zm0 8a8 8 0 110 16 8 8 0 010-16z" fill="#fff"/></svg>,
+  hirevue:          <svg viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="#1B1464"/><path d="M16 22l16 10-16 10V22zm16 0h16v20H32z" fill="#fff" opacity=".9"/></svg>,
+  codility:         <svg viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#FF4B4B"/><path d="M26 22l-8 10 8 10M38 22l8 10-8 10M35 18l-6 28" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>,
+};
+
+function ProviderIcon({item, size=40}) {
   const [imgFailed, setImgFailed] = useState(false);
-  const logoUrl = item.logo_url;
-  const bg = (item.color||C.accent)+'18';
-  const border = `1.5px solid ${(item.color||C.accent)}28`;
-  const style = {width:size,height:size,borderRadius:size*0.22,background:bg,border,
-    display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,overflow:'hidden'};
-  if (logoUrl && !imgFailed) {
+  const slug = item.slug;
+  const color = item.color || C.accent;
+  const boxStyle = {
+    width: size, height: size, borderRadius: size * 0.22,
+    background: `${color}14`, border: `1.5px solid ${color}28`,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0, overflow: 'hidden',
+  };
+
+  // 1. Use inline SVG if we have one — no network request, crisp at any size
+  const inlineSvg = INLINE_LOGOS[slug];
+  if (inlineSvg) {
     return (
-      <div style={style}>
-        <img src={logoUrl} alt={item.name}
-          style={{width:size*0.65,height:size*0.65,objectFit:'contain'}}
-          onError={()=>setImgFailed(true)}/>
+      <div style={boxStyle}>
+        <div style={{ width: size * 0.62, height: size * 0.62, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {React.cloneElement(inlineSvg, { width: size * 0.62, height: size * 0.62 })}
+        </div>
       </div>
     );
   }
+
+  // 2. Use Google favicon service URL from server catalog
+  if (item.logo_url && !imgFailed) {
+    return (
+      <div style={boxStyle}>
+        <img src={item.logo_url} alt={item.name}
+          style={{ width: size * 0.6, height: size * 0.6, objectFit: 'contain' }}
+          onError={() => setImgFailed(true)} />
+      </div>
+    );
+  }
+
+  // 3. Fallback — coloured abbreviation badge
   return (
-    <div style={style}>
-      <span style={{fontSize:Math.max(9,size*0.27),fontWeight:800,color:item.color||C.accent,letterSpacing:'-0.5px'}}>{item.icon}</span>
+    <div style={boxStyle}>
+      <span style={{ fontSize: Math.max(9, size * 0.27), fontWeight: 800, color, letterSpacing: '-0.5px' }}>
+        {item.icon}
+      </span>
     </div>
   );
 }

@@ -35,7 +35,7 @@ function mask(val) {
 }
 
 // ── Integration Catalog ───────────────────────────────────────────────────────
-// Clearbit logo domains — https://logo.clearbit.com/{domain}
+// Logo domains — served via Google's favicon service (reliable, no API key)
 const LOGO_DOMAINS = {
   okta:'okta.com', azure_ad:'microsoft.com', google_workspace:'google.com',
   microsoft_365:'microsoft.com', google_calendar:'google.com', zoom:'zoom.us',
@@ -50,6 +50,10 @@ const LOGO_DOMAINS = {
   zapier:'zapier.com', make:'make.com', xref:'xref.com',
   twilio:'twilio.com', sendgrid:'sendgrid.com',
   power_bi:'microsoft.com', adobe_analytics:'adobe.com',
+};
+const logoUrl = (slug) => {
+  const d = LOGO_DOMAINS[slug];
+  return d ? `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${d}&size=128` : null;
 };
 
 const CATALOG = [
@@ -157,8 +161,7 @@ router.get('/catalog', (req, res) => {
   const groups = {};
   for (const item of CATALOG) {
     if (!groups[item.category]) groups[item.category] = { slug: item.category, label: item.category_label, items: [] };
-    const domain = LOGO_DOMAINS[item.slug];
-    const entry = { ...item, fields: item.fields, logo_url: domain ? `https://logo.clearbit.com/${domain}` : null };
+    const entry = { ...item, fields: item.fields, logo_url: logoUrl(item.slug) };
     if (environment_id) {
       const list = getList();
       const conn = list.find(c => c.environment_id === environment_id && c.provider_slug === item.slug);

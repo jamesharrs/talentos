@@ -24,12 +24,12 @@ const TASK_PHASES = [
       {
         id: 'review_data_model', title: 'Review your data model',
         desc: 'Check the default People, Jobs, and Talent Pool fields — add or remove any to match your process.',
-        type: 'manual', navTarget: 'settings', navSection: 'data_model', icon: 'database',
+        type: 'manual', navTarget: 'settings', navSection: 'datamodel', icon: 'database',
       },
       {
         id: 'person_types', title: 'Set up person types',
         desc: 'Define types like Employee, Contractor, and Candidate to unlock conditional fields.',
-        type: 'auto', navTarget: 'settings', navSection: 'data_model', icon: 'users',
+        type: 'auto', navTarget: 'settings', navSection: 'datamodel', icon: 'users',
         check: (store, envId) => {
           const objs = (store.object_definitions || store.objects || [])
             .filter(o => o.environment_id === envId && (o.slug === 'people' || o.name === 'People'));

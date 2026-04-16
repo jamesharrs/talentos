@@ -97,8 +97,9 @@ function TaskRow({ task, last, phaseColor, navObjects, onNavigate, onTick, ticki
     }
     if (task.navTarget) {
       if (task.navSection) {
+        // Use the sessionStorage pattern Settings.jsx already listens to
+        sessionStorage.setItem("talentos_settings_section", task.navSection);
         onNavigate("settings");
-        setTimeout(() => window.dispatchEvent(new CustomEvent("vercentic:settings-section", { detail: { section: task.navSection } })), 100);
         return;
       }
       onNavigate(task.navTarget);

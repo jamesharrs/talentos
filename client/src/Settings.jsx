@@ -2612,8 +2612,7 @@ const NAV_GROUPS = [
     id: "system",
     label: "System",
     items: [
-      { id:"integrations",     icon:"zap",        label:"Integrations" },
-      { id:"integration_hub",  icon:"globe",      label:"Integration Hub" },
+      { id:"integration_hub",  icon:"zap",      label:"Integrations" },
       { id:"feature-flags",    icon:"flag",       label:"Feature Flags" },
       { id:"sandbox",          icon:"gitBranch",  label:"Sandbox Manager" },
       { id:"config",           icon:"refresh",    label:"Import / Export" },
@@ -2817,7 +2816,6 @@ export default function SettingsPage({ currentUser, environment, initialSection,
         {activeSection==="config"      && <ImportExportTabs environment={environment}/>}
         {activeSection==="datasets"    && <DatasetsSection environment={environment}/>}
         {activeSection==="enterprise"  && <EnterpriseSettings environment={environment}/>}
-        {activeSection==="integrations" && <IntegrationsSettings environment={environment}/>}
         {activeSection==="integration_hub" && <IntegrationHub environment={environment}/>}
         {activeSection==="setup_wizard" && (
           <CompanyProfilePanel environment={environment}/>

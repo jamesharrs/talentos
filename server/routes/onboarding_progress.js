@@ -126,7 +126,7 @@ const TASK_PHASES = [
       {
         id: 'configure_messaging', title: 'Set up email or SMS credentials',
         desc: 'Connect Twilio and SendGrid to send real messages from the platform.',
-        type: 'auto', navTarget: 'settings', navSection: 'integrations', icon: 'mail',
+        type: 'auto', navTarget: 'settings', navSection: 'integration_hub', icon: 'mail',
         check: () => {
           const sg = process.env.SENDGRID_API_KEY || '';
           const tw = process.env.TWILIO_ACCOUNT_SID || '';

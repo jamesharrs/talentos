@@ -96,8 +96,30 @@ app.use((req, res, next) => {
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cookieParser());
+
+// ── Persistent session store ──────────────────────────────────────────────────
+// On Railway (DATABASE_URL present): sessions stored in PostgreSQL → survive restarts/redeploys
+// Locally (no DATABASE_URL): falls back to MemoryStore (sessions reset on restart, fine for dev)
+let sessionStore;
+if (process.env.DATABASE_URL) {
+  try {
+    const pgSession = require('connect-pg-simple')(session);
+    sessionStore = new pgSession({
+      conString:             process.env.DATABASE_URL,
+      tableName:             'user_sessions',
+      createTableIfMissing:  true,
+      ssl: { rejectUnauthorized: false },
+      pruneSessionInterval:  60 * 60,  // clean up expired sessions every hour
+    });
+    console.log('[session] Using PostgreSQL session store');
+  } catch (e) {
+    console.warn('[session] connect-pg-simple failed, falling back to MemoryStore:', e.message);
+  }
+}
+
 app.use(session({
   name:   'vercentic_sid',
+  store:  sessionStore,   // undefined = MemoryStore in dev
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
   resave: false,
   saveUninitialized: false,

@@ -36,3 +36,6 @@ data/tenant-directtest*.json
 # Playwright output
 test-results/
 e2e/report/
+
+# One-off utility scripts
+push-to-railway.js

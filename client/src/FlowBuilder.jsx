@@ -1,5 +1,6 @@
 // client/src/FlowBuilder.jsx — Vercentic Flow Builder
 import { useState, useEffect, useCallback } from "react";
+import apiClient from "./apiClient.js";
 
 const F = "'DM Sans',-apple-system,sans-serif";
 const C = {
@@ -7,12 +8,7 @@ const C = {
   warning:"#F59E0B", text1:"#111827", text2:"#374151",
   text3:"#9CA3AF", border:"#E5E7EB", surface:"#ffffff",
 };
-const api = {
-  get:    (u)   => fetch(u).then(r=>r.json()),
-  post:   (u,b) => fetch(u,{method:'POST',  headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
-  patch:  (u,b) => fetch(u,{method:'PATCH', headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
-  delete: (u)   => fetch(u,{method:'DELETE'}).then(r=>r.json()),
-};
+const api = apiClient;
 
 const PATHS = {
   play:"M5 3l14 9-14 9V3z", clock:"M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm0-14v4l3 3",

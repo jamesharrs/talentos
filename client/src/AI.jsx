@@ -1671,6 +1671,9 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   const [pendingBulk,   setPendingBulk]     = useState(null);
   const [pendingStage,  setPendingStage]    = useState(null);
   const [bulkConfirmed, setBulkConfirmed]   = useState(false);
+  const [nextActions,   setNextActions]     = useState([]); // suggested follow-ups after an action
+  const [listening,     setListening]       = useState(false); // voice input active
+  const recognitionRef = useRef(null);
   const [companyDocs,    setCompanyDocs]    = useState([]);
   const [companyProfile, setCompanyProfile] = useState(null); // from Settings → Company Profile
   const [linkedJobs,     setLinkedJobs]     = useState([]);   // jobs/records this person is linked to
@@ -2090,43 +2093,73 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         if(!recs.length) return;
         const found = [];
         const now = Date.now();
-        const STALE_MS = 1 * 60 * 1000; // TEST: 1 min — change to 7*24*60*60*1000 for production
+        const DAY_MS  = 24 * 60 * 60 * 1000;
+        const WEEK_MS = 7  * DAY_MS;
+        const STALE_CANDIDATE_MS = 7  * DAY_MS;  // 7 days without update
+        const STALE_JOB_MS       = 30 * DAY_MS;  // 30 days open
 
         if(knownSlug === 'people') {
+          // Candidates not updated in 7+ days (not archived/placed)
           const uncontacted = recs.filter(rec => {
-            if(rec.data?.status === 'Archived' || rec.data?.status === 'Placed') return false;
+            if(['Archived','Placed','Hired'].includes(rec.data?.status)) return false;
             const t = rec.updated_at || rec.created_at;
-            return t && (now - new Date(t).getTime()) > STALE_MS;
+            return t && (now - new Date(t).getTime()) > STALE_CANDIDATE_MS;
           });
           if(uncontacted.length > 0)
             found.push({ icon:"mail", color:"#f59f00",
-              text:`${uncontacted.length} candidate${uncontacted.length>1?"s haven't":" hasn't"} been updated in 1+ min`,
-              action:"Show me candidates not updated recently" });
+              text:`${uncontacted.length} candidate${uncontacted.length>1?"s haven't":" hasn't"} been updated in 7+ days`,
+              action:"Show me candidates not updated in the last 7 days" });
 
+          // High-rated candidates who are passive/not looking
+          const dormantStars = recs.filter(rec => Number(rec.data?.rating||0) >= 4 && ['Passive','Not Looking'].includes(rec.data?.status));
+          if(dormantStars.length > 0)
+            found.push({ icon:"star", color:"#7c3aed",
+              text:`${dormantStars.length} highly-rated candidate${dormantStars.length>1?"s are":" is"} passive — worth a reach-out`,
+              action:"Show me high-rated passive candidates" });
+
+          // Candidates with no status
           const noStatus = recs.filter(rec => !rec.data?.status);
           if(noStatus.length > 0)
             found.push({ icon:"alert-triangle", color:"#e03131",
-              text:`${noStatus.length} candidate${noStatus.length>1?"s have":" has"} no status set`,
-              action:"Show me candidates with no status" });
+              text:`${noStatus.length} candidate${noStatus.length>1?"s have":" has"} no status — needs attention`,
+              action:"Show me candidates with no status set" });
 
-          const dormantStars = recs.filter(rec => Number(rec.data?.rating||0) >= 4 && (rec.data?.status === 'Passive' || rec.data?.status === 'Not Looking'));
-          if(dormantStars.length > 0)
-            found.push({ icon:"star", color:"#7c3aed",
-              text:`${dormantStars.length} highly-rated candidate${dormantStars.length>1?"s are":" is"} passive or not looking`,
-              action:"Show me high-rated passive candidates" });
+          // Candidates in Screening for 3+ days (may need follow-up)
+          const screeningStuck = recs.filter(rec => rec.data?.status === 'Screening' && (now - new Date(rec.updated_at||rec.created_at).getTime()) > 3*DAY_MS);
+          if(screeningStuck.length > 0)
+            found.push({ icon:"clock", color:"#0ca678",
+              text:`${screeningStuck.length} candidate${screeningStuck.length>1?"s have":" has"} been in Screening for 3+ days`,
+              action:"Show me candidates stuck in Screening" });
 
         } else if(knownSlug === 'jobs') {
-          const stale = recs.filter(rec => rec.data?.status === 'Open' && (now - new Date(rec.created_at).getTime()) > STALE_MS);
+          // Open jobs not filled in 30+ days
+          const stale = recs.filter(rec => rec.data?.status === 'Open' && (now - new Date(rec.created_at).getTime()) > STALE_JOB_MS);
           if(stale.length > 0)
             found.push({ icon:"alert-triangle", color:"#e03131",
-              text:`${stale.length} open job${stale.length>1?"s have":" has"} been open for 1+ min`,
+              text:`${stale.length} open job${stale.length>1?"s have":" has"} been open for 30+ days`,
               action:"Show me jobs that have been open a long time" });
 
+          // Open jobs with no department
           const noDept = recs.filter(rec => rec.data?.status === 'Open' && !rec.data?.department);
           if(noDept.length > 0)
             found.push({ icon:"edit", color:"#f59f00",
-              text:`${noDept.length} open job${noDept.length>1?"s have":" has"} no department set`,
+              text:`${noDept.length} open job${noDept.length>1?"s have":" has"} no department — incomplete data`,
               action:"Show me open jobs with no department" });
+
+          // Roles created this week
+          const newRoles = recs.filter(rec => (now - new Date(rec.created_at).getTime()) < WEEK_MS);
+          if(newRoles.length > 0)
+            found.push({ icon:"zap", color:"#4361EE",
+              text:`${newRoles.length} new role${newRoles.length>1?"s were":" was"} posted this week`,
+              action:`Show me jobs created this week` });
+
+        } else if(knownSlug === 'talent-pools') {
+          // Pools with no members
+          const emptyPools = recs.filter(rec => !rec.data?.member_count || Number(rec.data?.member_count) === 0);
+          if(emptyPools.length > 0)
+            found.push({ icon:"users", color:"#f59f00",
+              text:`${emptyPools.length} talent pool${emptyPools.length>1?"s have":" has"} no members yet`,
+              action:"Show me empty talent pools" });
         }
 
         if(found.length) setNudges(found.slice(0,3));
@@ -2726,6 +2759,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       const d = pendingRecord.data;
       const name = (d.first_name?`${d.first_name} ${d.last_name||""}`.trim():null)||d.job_title||d.pool_name||"Record";
       setMessages(m=>[...m,{role:"assistant",content:`✅ **${name}** created successfully!`,ts:new Date(),createdRecord:{id:created.id,name,objectName:obj.name,objectColor:obj.color,objectSlug:obj.slug,sub:d.email||d.department||d.category||""}}]);
+      const actionType = obj.slug==='people' ? 'person_created' : obj.slug==='jobs' ? 'job_created' : null;
+      if(actionType) showNextActions(actionType, { name });
       setPendingRecord(null);
     } catch(err){
       setMessages(m=>[...m,{role:"assistant",content:`Failed to create the record: ${err.message}`,ts:new Date(),error:true}]);
@@ -3049,6 +3084,77 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     setCreating(false);
   };
 
+  // ── Voice input (Web Speech API) ─────────────────────────────────────────
+  const toggleVoice = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert("Voice input isn't supported in this browser. Try Chrome or Edge."); return; }
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    const rec = new SR();
+    rec.lang = 'en-US';
+    rec.continuous = false;
+    rec.interimResults = true;
+    let finalTranscript = '';
+    rec.onstart  = () => setListening(true);
+    rec.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalTranscript += t;
+        else interim = t;
+      }
+      setInput(finalTranscript || interim);
+    };
+    rec.onend = () => {
+      setListening(false);
+      if (finalTranscript.trim()) setTimeout(() => sendMessage(finalTranscript.trim()), 150);
+    };
+    rec.onerror = (e) => { console.warn('Speech error:', e.error); setListening(false); };
+    recognitionRef.current = rec;
+    rec.start();
+  };
+
+  // ── Compute contextual next-action suggestions after a completion ─────────
+  const showNextActions = (type, meta = {}) => {
+    const suggestions = {
+      person_created: [
+        { label:"Schedule an interview",  prompt:`Schedule an interview for ${meta.name||'this person'}` },
+        { label:"Draft outreach email",   prompt:`Draft an outreach email to ${meta.name||'this person'}` },
+        { label:"Find matching jobs",     prompt:`What jobs would suit ${meta.name||'this person'}?` },
+      ],
+      job_created: [
+        { label:"Find matching candidates", prompt:`Who are the best candidates for ${meta.name||'this role'}?` },
+        { label:"Write job description",    prompt:`Write a full job description for ${meta.name||'this role'}` },
+        { label:"Set up a workflow",        prompt:`Create a hiring workflow for ${meta.name||'this role'}` },
+      ],
+      interview_scheduled: [
+        { label:"Send confirmation email",  prompt:`Write an interview confirmation email for ${meta.name||'this candidate'}` },
+        { label:"Create a scorecard",       prompt:`Create an interview scorecard form for this interview` },
+        { label:"Schedule follow-up",       prompt:`Schedule a follow-up call with ${meta.name||'this candidate'} for next week` },
+      ],
+      stage_moved: [
+        { label:"Send a message",           prompt:`Draft a message to ${meta.name||'this candidate'} about their application progress` },
+        { label:"Schedule next step",       prompt:`Schedule the next interview for ${meta.name||'this candidate'}` },
+        { label:"Check their match score",  prompt:`What is ${meta.name||'this candidate'}'s match score?` },
+      ],
+      record_updated: [
+        { label:"View their profile",       prompt:`Show me ${meta.name||'this record'}'s full profile` },
+        { label:"Send an update",           prompt:`Draft an email to ${meta.name||'this person'} with their status update` },
+      ],
+      bulk_updated: [
+        { label:"Review the changes",       prompt:`Show me all records that were just updated` },
+        { label:"Check for follow-ups",     prompt:`Are there any candidates in this group that need immediate attention?` },
+      ],
+    };
+    const acts = suggestions[type] || [];
+    setNextActions(acts.slice(0, 3));
+    // Auto-clear after 45s so they don't linger forever
+    setTimeout(() => setNextActions([]), 45000);
+  };
+
   const handleConfirmUpdate = async () => {
     if (!pendingUpdate) return;
     setCreating(true);
@@ -3058,6 +3164,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       await api.patch(`/records/${pendingUpdate.record_id}`, { data: { ...(existing.data || {}), ...pendingUpdate.field_updates } });
       const fl = Object.entries(pendingUpdate.field_updates).map(([k,v]) => `${k} → ${v}`).join(', ');
       setMessages(m => [...m, { role:'assistant', content:`✓ Updated ${pendingUpdate.record_name||'record'}: ${fl}` }]);
+      showNextActions('record_updated', { name: pendingUpdate.record_name });
       setPendingUpdate(null);
     } catch(e) { setMessages(m => [...m, { role:'assistant', content:`Failed to update: ${e.message}` }]); }
     setCreating(false);
@@ -3071,6 +3178,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       if (!ids.length) throw new Error('No record IDs — search for the records first so I can identify them.');
       const result = await api.post('/records/bulk-update', { record_ids: ids, field_updates: pendingBulk.field_updates, environment_id: environment?.id });
       setMessages(m => [...m, { role:'assistant', content:`✓ Done. ${result.updated} record${result.updated===1?'':'s'} updated.${result.failed > 0 ? ` ${result.failed} failed.` : ''}` }]);
+      showNextActions('bulk_updated');
       setPendingBulk(null); setBulkConfirmed(false);
     } catch(e) { setMessages(m => [...m, { role:'assistant', content:`Bulk update failed: ${e.message}` }]); }
     setCreating(false);
@@ -3083,6 +3191,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       const result = await api.post('/records/move-stage', { ...pendingStage, environment_id: environment?.id });
       if (result.error) throw new Error(result.error);
       setMessages(m => [...m, { role:'assistant', content:`✓ Moved ${pendingStage.person_name||'person'} to ${result.stage}${pendingStage.job_name ? ` on ${pendingStage.job_name}` : ''}.` }]);
+      showNextActions('stage_moved', { name: pendingStage.person_name });
       setPendingStage(null);
     } catch(e) { setMessages(m => [...m, { role:'assistant', content:`Move stage failed: ${e.message}` }]); }
     setCreating(false);
@@ -3135,6 +3244,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       const ivStr = ivNames.length ? ` with ${ivNames.join(' & ')}` : '';
       const reschedNote = `Calendar invites with a reschedule option have been sent to all attendees.`;
       setMessages(m=>[...m,{role:"assistant",content:`✅ **Interview scheduled!**\n\n**${candidateName}** has been booked for a **${fmt}** interview${ivStr} on **${dateStr}** (${dur} min).\n\n${reschedNote}`,ts:new Date()}]);
+      showNextActions('interview_scheduled', { name: candidateName });
       setPendingInterview(null);
     } catch(err) {
       setMessages(m=>[...m,{role:"assistant",content:`Failed to schedule interview: ${err.message}`,ts:new Date(),error:true}]);
@@ -3414,7 +3524,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
   return (
     <>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes popIn{from{opacity:0;transform:scale(.97) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}} @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}} @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}} .copilot-action-btn:hover{background:rgba(124,58,237,0.1)!important;border-color:rgba(124,58,237,0.4)!important;color:#7c3aed!important;transform:translateY(-1px);}`}</style>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes popIn{from{opacity:0;transform:scale(.97) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}} @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}} @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}} @keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(239,68,68,.3)}50%{box-shadow:0 0 0 6px rgba(239,68,68,.15)}} .copilot-action-btn:hover{background:rgba(124,58,237,0.1)!important;border-color:rgba(124,58,237,0.4)!important;color:#7c3aed!important;transform:translateY(-1px);}`}</style>
 
       {/* Floating button — hidden when docked */}
       {!docked&&(
@@ -3979,6 +4089,30 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                   </div>
                 )}
 
+                {/* ── Suggested Next Actions strip ── */}
+                {nextActions.length > 0 && (
+                  <div style={{margin:"4px 0 8px",padding:"10px 12px",borderRadius:12,background:"linear-gradient(135deg,rgba(67,97,238,.06),rgba(124,58,237,.06))",border:"1px solid rgba(67,97,238,.15)"}}>
+                    <div style={{fontSize:10,fontWeight:700,color:"#4361EE",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:7}}>Suggested next steps</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                      {nextActions.map((a,i) => (
+                        <button key={i} onClick={()=>{setNextActions([]); sendMessage(a.prompt);}}
+                          style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:8,
+                            border:"1px solid rgba(67,97,238,.2)",background:"rgba(67,97,238,.04)",
+                            cursor:"pointer",fontFamily:F,textAlign:"left",width:"100%",transition:"all .1s"}}
+                          onMouseEnter={e=>{e.currentTarget.style.background="rgba(67,97,238,.1)";e.currentTarget.style.borderColor="rgba(67,97,238,.4)";}}
+                          onMouseLeave={e=>{e.currentTarget.style.background="rgba(67,97,238,.04)";e.currentTarget.style.borderColor="rgba(67,97,238,.2)";}}>
+                          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#4361EE" strokeWidth={2.5}><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                          <span style={{fontSize:11,fontWeight:600,color:"#3730a3",flex:1}}>{a.label}</span>
+                        </button>
+                      ))}
+                      <button onClick={()=>setNextActions([])}
+                        style={{padding:"4px",background:"none",border:"none",cursor:"pointer",fontSize:10,color:"#9ca3af",fontFamily:F,textAlign:"right",marginTop:2}}>
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* ── Interview Scheduling Card ── */}
                 {msg.role==="assistant"&&msg.hasInterview&&msg.interviewData&&!msg.confirmed&&(()=>{
                   const iv = msg.interviewData;
@@ -4382,6 +4516,19 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
               rows={1} style={{flex:1,padding:"10px 14px",borderRadius:12,border:"1.5px solid #e5e7eb",fontSize:13,fontFamily:F,outline:"none",resize:"none",color:C.text1,lineHeight:1.4,maxHeight:80,overflowY:"auto",background:"#fafbff",transition:"border-color .15s"}}
               onFocus={e=>e.target.style.borderColor="rgba(124,58,237,.5)"}
               onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>
+            {/* Mic button */}
+            <button onClick={toggleVoice} title={listening ? "Stop recording" : "Voice input"}
+              style={{width:38,height:38,borderRadius:12,border:"none",flexShrink:0,
+                background:listening?"#ef4444":"#f3f4f6",
+                cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
+                transition:"all .15s",
+                boxShadow:listening?"0 0 0 3px rgba(239,68,68,.3)":"none",
+                animation:listening?"pulse 1.2s ease-in-out infinite":"none"}}>
+              {listening
+                ? <svg width={14} height={14} viewBox="0 0 24 24" fill="white"><rect x={6} y={4} width={12} height={16} rx={2}/></svg>
+                : <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth={2}><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8"/></svg>
+              }
+            </button>
             <button onClick={()=>sendMessage()} disabled={!input.trim()||loading}
               style={{width:38,height:38,borderRadius:12,border:"none",background:input.trim()&&!loading?"linear-gradient(135deg,#5b21b6,#4338ca)":"#f0f0f0",cursor:input.trim()&&!loading?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all .15s",boxShadow:input.trim()&&!loading?"0 2px 10px rgba(91,33,182,.35)":"none"}}>
               <Ic n="send" s={14} c={input.trim()&&!loading?"white":"#ccc"}/>

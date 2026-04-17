@@ -73,19 +73,17 @@ Return ONLY valid JSON — no markdown, no explanation:
   "pages":[{"id":"page_home","name":"Home","slug":"/","rows":[...your rows here...]}]
 }`;
 
-    // Stream from Claude — this keeps the connection alive and prevents proxy timeouts
-    let raw = '';
-    const stream = await client.messages.stream({
+    // Stream from Claude using the SDK's event-based API (sdk 0.x doesn't support for-await-of)
+    const stream = client.messages.stream({
       model: 'claude-sonnet-4-6',
       max_tokens: 3000,
       messages: [{ role: 'user', content: prompt }],
     });
 
-    for await (const chunk of stream) {
-      if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
-        raw += chunk.delta.text;
-      }
-    }
+    // Collect text chunks as they arrive, then await completion
+    let raw = '';
+    stream.on('text', (text) => { raw += text; });
+    await stream.finalMessage();   // waits for the full response without timing out
 
     const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     let generated;

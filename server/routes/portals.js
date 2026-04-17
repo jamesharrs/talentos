@@ -78,14 +78,18 @@ router.post('/', (req, res) => {
   if (!environment_id || !name) return res.status(400).json({ error: 'environment_id and name required' });
   const store = getStore();
   const now = new Date().toISOString();
-  const finalSlug = slug || `/${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
-  // Enforce unique slug within environment
-  const existing = (store.portals || []).find(p =>
+  // Auto-increment slug until unique within this environment
+  const baseSlug = (slug || `/${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`).replace(/\/$/, '') || '/portal';
+  let finalSlug = baseSlug;
+  let suffix = 1;
+  while ((store.portals || []).some(p =>
     p.environment_id === environment_id && !p.deleted_at &&
     (p.slug === finalSlug || p.slug === finalSlug.replace(/^\//, ''))
-  );
-  if (existing) return res.status(409).json({ error: `Slug "${finalSlug}" already exists in this environment`, existing_id: existing.id });
+  )) {
+    suffix++;
+    finalSlug = `${baseSlug}-${suffix}`;
+  }
 
   const rec = {
     id: uid(), environment_id, name,

@@ -76,7 +76,7 @@ Return ONLY valid JSON — no markdown, no explanation:
     // Stream from Claude using the SDK's event-based API (sdk 0.x doesn't support for-await-of)
     const stream = client.messages.stream({
       model: 'claude-sonnet-4-6',
-      max_tokens: 3000,
+      max_tokens: 6000,
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -89,10 +89,20 @@ Return ONLY valid JSON — no markdown, no explanation:
     let generated;
     try {
       generated = JSON.parse(cleaned);
-    } catch {
+    } catch (parseErr) {
+      // Try to salvage — extract the largest valid JSON object from the response
       const m = cleaned.match(/\{[\s\S]+\}/);
-      if (m) generated = JSON.parse(m[0]);
-      else throw new Error('Could not parse AI response as JSON');
+      if (m) {
+        try { generated = JSON.parse(m[0]); }
+        catch { /* still broken */ }
+      }
+      if (!generated) {
+        console.error('[portal-generate] JSON parse failed. raw length:', raw.length, 'error:', parseErr.message);
+        return res.status(500).json({
+          error: 'Generation produced invalid JSON — try fewer sections or a simpler company name.',
+          detail: parseErr.message,
+        });
+      }
     }
 
     // Ensure every node has an id

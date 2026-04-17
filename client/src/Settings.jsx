@@ -158,6 +158,7 @@ const PATHS = {
   "git-branch":"M6 3v12M18 9a3 3 0 100-6 3 3 0 000 6zM6 21a3 3 0 100-6 3 3 0 000 6zM18 9a9 9 0 01-9 9",
   "user":"M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z",
   "chevD":"M6 9l6 6 6-6",
+  "info":"M12 22c5.5 0 10-4.5 10-10S17.5 2 12 2 2 6.5 2 12s4.5 10 10 10zM12 8h.01M12 12v4",
   "chevR":"M9 18l6-6-6-6",
   "loader":"M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83",
   "file-text":"M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M16 13H8M16 17H8M10 9H8",
@@ -678,7 +679,7 @@ const RolesSection = ({ environment }) => {
               {roleTab==="admin_settings"
                 ? <AdminSettingsSection selectedRole={selectedRole}/>
                 : roleTab==="feature_access"
-                ? <FeatureAccessSection selectedRole={selectedRole}/>
+                ? <FeatureAccessSection selectedRole={selectedRole} environment={environment}/>
                 : roleTab==="field_visibility"
                 ? <FieldVisibilityPanel role={selectedRole} environment={environment}/>
                 : <>
@@ -3010,13 +3011,41 @@ const FEATURE_FLAGS_LIST = [
 ];
 const FEATURE_GROUPS_LIST = [...new Set(FEATURE_FLAGS_LIST.map(f => f.group))];
 
-const FeatureAccessSection = ({ selectedRole }) => {
+const FeatureAccessSection = ({ selectedRole, environment }) => {
   const [perms,   setPerms]   = useState({}); // flag → allowed bool
   const [orig,    setOrig]    = useState({}); // original state for dirty check
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
   const [saveErr, setSaveErr] = useState('');
+  const [globalFlags, setGlobalFlags] = useState({}); // global feature flag state
+
+  // Map role permission ids to global feature flag keys
+  const ROLE_TO_GLOBAL = {
+    'access_dashboard':'reports', 'access_org_chart':'org_chart',
+    'access_interviews':'interviews', 'access_offers':'offers',
+    'access_reports':'reports', 'access_calendar':'interviews',
+    'access_search':null, 'access_copilot':'ai_copilot',
+    'run_reports':'reports', 'export_data':null, 'bulk_actions':'bulk_actions',
+    'manage_workflows':'workflows', 'manage_portals':'portals', 'manage_forms':'forms',
+    'record_send_email':'communications_panel', 'record_send_sms':'communications_panel',
+    'record_log_call':'communications_panel', 'record_view_comms':'communications_panel',
+    'record_parse_cv':'cv_parsing', 'record_extract_doc':'document_extraction',
+    'record_schedule_interview':'interviews', 'record_create_offer':'offers',
+  };
+  const isGloballyDisabled = (flagId) => {
+    const gKey = ROLE_TO_GLOBAL[flagId];
+    if (!gKey) return false;
+    return globalFlags[gKey] === false;
+  };
+
+  useEffect(() => {
+    // Load global feature flags to show locked state for globally disabled features
+    if (!environment?.id) return;
+    api.get(`/feature-flags?environment_id=${environment.id}`).then(data => {
+      if (data && typeof data === 'object' && !Array.isArray(data)) setGlobalFlags(data);
+    }).catch(() => {});
+  }, [environment?.id]);
 
   useEffect(() => {
     if (!selectedRole) { setLoading(false); return; }
@@ -3139,26 +3168,32 @@ const FeatureAccessSection = ({ selectedRole }) => {
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px 12px' }}>
             {FEATURE_FLAGS_LIST.filter(f => f.group === group).map(feature => {
               const on = Boolean(perms[feature.id]);
+              const locked = isGloballyDisabled(feature.id);
               return (
                 <div key={feature.id}
-                  onClick={() => toggle(feature.id)}
-                  title={on ? 'Click to revoke access' : 'Click to grant access'}
+                  onClick={() => !locked && toggle(feature.id)}
+                  title={locked ? 'Disabled globally in Feature Flags' : on ? 'Click to revoke access' : 'Click to grant access'}
                   style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-                    padding:'6px 10px', borderRadius:8, cursor:'pointer',
-                    border:`1.5px solid ${on ? roleColor+'40' : C.border}`,
-                    background: on ? roleColor+'08' : 'transparent',
+                    padding:'6px 10px', borderRadius:8, cursor: locked ? 'not-allowed' : 'pointer',
+                    border:`1.5px solid ${locked ? '#f3f4f6' : on ? roleColor+'40' : C.border}`,
+                    background: locked ? '#f9fafb' : on ? roleColor+'08' : 'transparent',
+                    opacity: locked ? 0.55 : 1,
                     transition:'all .12s', userSelect:'none' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = on ? roleColor+'15' : '#f9fafb'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = on ? roleColor+'08' : 'transparent'; }}>
-                  <span style={{ fontSize:12, fontWeight: on ? 600 : 400,
-                    color: on ? C.text1 : C.text3 }}>
-                    {feature.label}
-                  </span>
+                  onMouseEnter={e => { if (!locked) e.currentTarget.style.background = on ? roleColor+'15' : '#f9fafb'; }}
+                  onMouseLeave={e => { if (!locked) e.currentTarget.style.background = on ? roleColor+'08' : 'transparent'; }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                    {locked && <Ic n="lock" s={11} c={C.text3}/>}
+                    <span style={{ fontSize:12, fontWeight: on && !locked ? 600 : 400,
+                      color: locked ? C.text3 : on ? C.text1 : C.text3 }}>
+                      {feature.label}
+                    </span>
+                    {locked && <span style={{ fontSize:10, color:'#ef4444', fontWeight:600 }}>GLOBAL OFF</span>}
+                  </div>
                   {/* Toggle pill */}
                   <div style={{ flexShrink:0, width:32, height:18, borderRadius:99,
-                    background: on ? roleColor : '#e5e7eb', position:'relative',
+                    background: locked ? '#e5e7eb' : on ? roleColor : '#e5e7eb', position:'relative',
                     transition:'background .15s' }}>
-                    <div style={{ position:'absolute', top:2, left: on ? 16 : 2,
+                    <div style={{ position:'absolute', top:2, left: (!locked && on) ? 16 : 2,
                       width:14, height:14, borderRadius:'50%', background:'white',
                       boxShadow:'0 1px 3px rgba(0,0,0,.2)', transition:'left .15s' }}/>
                   </div>

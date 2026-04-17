@@ -7552,17 +7552,26 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const ff = { bulk_actions:true, communications_panel:true, duplicate_detection:true,
     cv_parsing:true, linkedin_finder:true, ai_copilot:true, ai_matching:true, interviews:true,
     panel_notes:true, panel_files:true, panel_activity:true, panel_forms:true,
-    panel_recommendations:true, panel_linked_records:true, panel_pipeline:true,
+    panel_recommendations:true, panel_linked_records:true,
     ...featureFlags };
   // Map panel ids to the feature flag that gates them
   const PANEL_FLAGS = {
-    comms:'communications_panel', coordination:'interviews',
-    interview_plan:'interviews', scorecard:'interviews', match:'ai_matching',
-    notes:'panel_notes', attachments:'panel_files', activity:'panel_activity',
-    forms:'panel_forms', recommendations:'panel_recommendations',
-    linked:'panel_linked_records', workflows:'panel_pipeline',
+    comms:'communications_panel',
+    coordination:'interviews', interview_plan:'interviews', scorecard:'interviews',
+    match:'panel_recommendations',      // Recommendations panel — also needs ai_matching
+    notes:'panel_notes',
+    attachments:'panel_files',
+    activity:'panel_activity',
+    forms:'panel_forms',
+    linked:'panel_linked_records',
   };
-  const panelVisible = (id) => { const flag = PANEL_FLAGS[id]; return !flag || ff[flag]; };
+  // A panel is visible if its feature flag is on (and for match, also needs ai_matching)
+  const panelVisible = (id) => {
+    const flag = PANEL_FLAGS[id];
+    if (!flag) return true;
+    if (id === 'match') return ff[flag] && ff.ai_matching;
+    return ff[flag];
+  };
   const _permCtx = usePermCtx();
   const canRecord = (flag) => _permCtx ? _permCtx.canGlobal(flag) : true;
   // Ensure module-level env ID is always set — PeoplePicker depends on it

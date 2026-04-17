@@ -3203,8 +3203,8 @@ const InlineNav = ({ nav, theme, onChange, isEditing }) => {
           }
         </div>
         <div style={{display:"flex",gap:4,alignItems:"center"}}>
-          {(nav.links||[]).map(lnk=>(
-            <span key={lnk.id} style={{padding:"5px 12px",borderRadius:7,fontSize:13,fontWeight:500,color:fg,fontFamily:ff}}>{lnk.label}</span>
+          {(nav.links||[]).map((lnk,li)=>(
+            <span key={lnk.id||lnk.label||li} style={{padding:"5px 12px",borderRadius:7,fontSize:13,fontWeight:500,color:fg,fontFamily:ff}}>{lnk.label}</span>
           ))}
         </div>
         {isEditing&&<div style={{position:"absolute",top:6,right:8,fontSize:10,color:pr,fontWeight:700,background:`${pr}14`,padding:"2px 7px",borderRadius:5,pointerEvents:"none"}}>click to edit</div>}

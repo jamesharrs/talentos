@@ -12,6 +12,7 @@ const { auditResponseMiddleware } = require('./middleware/security-audit');
 const { attachCsrfCookie, verifyCsrf } = require('./middleware/csrf');
 
 const app = express();
+let storeReady = false;
 // Compress all responses — reduces API payload sizes by ~60-80%
 app.use(compression());
 
@@ -378,6 +379,7 @@ require('./routes/skills_intelligence').migrate();
 require('./routes/datasets').migrate();
 
 app.get('/api/health', (req, res) => {
+  if (!storeReady) return res.status(503).json({ status: 'starting' });
   const { stats } = require('./utils/cache');
   res.set('Cache-Control', 'no-store');
   res.json({
@@ -405,6 +407,7 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 initDB().then(() => {
+  storeReady = true;
   const store = getStore();
   const fs   = require('fs');
   const path = require('path');

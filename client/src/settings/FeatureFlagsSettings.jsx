@@ -130,13 +130,6 @@ export default function FeatureFlagsSettings({ environment }) {
                       color: enabled ? '#059669' : C.text3 }}>
                       {enabled ? 'ON' : 'OFF'}
                     </span>
-                    {overridden && (
-                      <button onClick={() => reset(key)} disabled={isSaving}
-                        style={{ fontSize:11, color:C.text3, background:'none', border:'none',
-                          cursor:'pointer', textDecoration:'underline', fontFamily:F }}>
-                        reset
-                      </button>
-                    )}
                   </div>
                 </div>
               );

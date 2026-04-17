@@ -7551,6 +7551,9 @@ const ActionBtn = ({ icon, label, onClick, accent, danger }) => (
 export const RecordDetail = ({ record, fields, allObjects, environment, objectName, objectColor, onClose, fullPage, onToggleFullPage, onUpdate, onDelete, onNavigate, featureFlags = {} }) => {
   const ff = { bulk_actions:true, communications_panel:true, duplicate_detection:true,
     cv_parsing:true, linkedin_finder:true, ai_copilot:true, ai_matching:true, interviews:true, ...featureFlags };
+  // Map panel ids to the feature flag that gates them
+  const PANEL_FLAGS = { comms:'communications_panel', coordination:'interviews', interview_plan:'interviews', scorecard:'interviews', match:'ai_matching' };
+  const panelVisible = (id) => { const flag = PANEL_FLAGS[id]; return !flag || ff[flag]; };
   const _permCtx = usePermCtx();
   const canRecord = (flag) => _permCtx ? _permCtx.canGlobal(flag) : true;
   // Ensure module-level env ID is always set — PeoplePicker depends on it
@@ -9203,12 +9206,12 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       {topRows.map((slot, idx) => {
         const prevRepId = idx > 0 ? repIdOf(topRows[idx-1]) : null;
         if (Array.isArray(slot)) {
-          const validIds = slot.filter(id => PANEL_META[id]);
+          const validIds = slot.filter(id => PANEL_META[id] && panelVisible(id));
           if (!validIds.length) return null;
           if (validIds.length === 1) { const id=validIds[0]; return <div key={id} style={{padding:"12px 20px 0"}}><PanelCard id={id} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} renderPanel={renderPanel} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/></div>; }
           const repId=validIds[0]; return <div key={repId} style={{padding:"12px 20px 0"}}><GroupCard ids={validIds} overSlot={overSlot} overZone={overZone} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} panelOrder={topRows} savePanelOrder={saveTopRows} removePanel={removePanel} renderPanel={renderPanel} startPanelDrag={startPanelDrag} clearZone={clearZone} reportZone={reportZone}/></div>;
         }
-        if (!PANEL_META[slot]) return null;
+        if (!PANEL_META[slot] || !panelVisible(slot)) return null;
         return <div key={slot} style={{padding:"12px 20px 0"}}><PanelCard id={slot} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} renderPanel={renderPanel} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/></div>;
       })}
 
@@ -9246,7 +9249,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
             const prevSlot   = idx > 0 ? leftPanelOrder[idx-1] : null;
             const prevRepId  = prevSlot ? repIdOf(prevSlot) : null;
             if (Array.isArray(slot)) {
-              const validIds = slot.filter(id => PANEL_META[id]);
+              const validIds = slot.filter(id => PANEL_META[id] && panelVisible(id));
               if (validIds.length === 0) return null;
               if (validIds.length === 1) {
                 const id = validIds[0];
@@ -9260,7 +9263,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                 </div>
               );
             }
-            if (!PANEL_META[slot]) return null;
+            if (!PANEL_META[slot] || !panelVisible(slot)) return null;
             return (
               <div key={slot}>
                 {DropIndicator({beforeRepId:slot,afterRepId:prevRepId})}
@@ -9301,7 +9304,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
             const prevRepId = prevSlot ? repIdOf(prevSlot) : null;
 
             if (Array.isArray(slot)) {
-              const validIds = slot.filter(id => PANEL_META[id]);
+              const validIds = slot.filter(id => PANEL_META[id] && panelVisible(id));
               if (validIds.length === 0) return null;
               if (validIds.length === 1) {
                 const id = validIds[0];
@@ -9315,7 +9318,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                 </div>
               );
             }
-            if (!PANEL_META[slot]) return null;
+            if (!PANEL_META[slot] || !panelVisible(slot)) return null;
             return (
               <div key={slot}>
                 {DropIndicator({beforeRepId:slot, afterRepId:prevRepId})}
@@ -9336,7 +9339,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       {bottomRows.map((slot, idx) => {
         const prevRepId = idx > 0 ? repIdOf(bottomRows[idx-1]) : null;
         if (Array.isArray(slot)) {
-          const validIds = slot.filter(id => PANEL_META[id]);
+          const validIds = slot.filter(id => PANEL_META[id] && panelVisible(id));
           if (!validIds.length) return null;
           if (validIds.length === 1) {
             const id = validIds[0];
@@ -9345,7 +9348,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
           const repId = validIds[0];
           return <div key={repId} style={{ padding:"0 20px 12px" }}>{DropIndicator({beforeRepId:repId,afterRepId:prevRepId})}<GroupCard ids={validIds} overSlot={overSlot} overZone={overZone} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} panelOrder={bottomRows} savePanelOrder={saveBottomRows} removePanel={removePanel} renderPanel={renderPanel} startPanelDrag={startPanelDrag} clearZone={clearZone} reportZone={reportZone}/></div>;
         }
-        if (!PANEL_META[slot]) return null;
+        if (!PANEL_META[slot] || !panelVisible(slot)) return null;
         return <div key={slot} style={{ padding:"0 20px 12px" }}>{DropIndicator({beforeRepId:slot,afterRepId:prevRepId})}<PanelCard id={slot} openPanels={openPanels} setOpenPanels={setOpenPanels} openPanelsKey={openPanelsKey} renderPanel={renderPanel} startPanelDrag={startPanelDrag} overSlot={overSlot} overZone={overZone} draggingPanel={draggingPanel} notes={notes} attachments={attachments} clearZone={clearZone} reportZone={reportZone}/></div>;
       })}
 

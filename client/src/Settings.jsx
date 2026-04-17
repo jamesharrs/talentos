@@ -3120,6 +3120,14 @@ const FeatureAccessSection = ({ selectedRole }) => {
         </div>
       </div>
 
+      {/* Global flags note */}
+      <div style={{marginBottom:14,padding:"10px 14px",borderRadius:8,background:"#f8f9fb",border:"1px solid #e5e7eb",display:"flex",alignItems:"flex-start",gap:8}}>
+        <Ic n="info" s={14} c="#6b7280" style={{marginTop:1,flexShrink:0}}/>
+        <p style={{margin:0,fontSize:12,color:"#6b7280",lineHeight:1.5}}>
+          These settings control what this role can access. Features disabled globally in <strong>Feature Flags</strong> are unavailable to all roles regardless of this setting.
+        </p>
+      </div>
+
       {/* Feature groups */}
       {FEATURE_GROUPS_LIST.map(group => (
         <div key={group} style={{ marginBottom:18 }}>

@@ -7550,9 +7550,18 @@ const ActionBtn = ({ icon, label, onClick, accent, danger }) => (
 
 export const RecordDetail = ({ record, fields, allObjects, environment, objectName, objectColor, onClose, fullPage, onToggleFullPage, onUpdate, onDelete, onNavigate, featureFlags = {} }) => {
   const ff = { bulk_actions:true, communications_panel:true, duplicate_detection:true,
-    cv_parsing:true, linkedin_finder:true, ai_copilot:true, ai_matching:true, interviews:true, ...featureFlags };
+    cv_parsing:true, linkedin_finder:true, ai_copilot:true, ai_matching:true, interviews:true,
+    panel_notes:true, panel_files:true, panel_activity:true, panel_forms:true,
+    panel_recommendations:true, panel_linked_records:true, panel_pipeline:true,
+    ...featureFlags };
   // Map panel ids to the feature flag that gates them
-  const PANEL_FLAGS = { comms:'communications_panel', coordination:'interviews', interview_plan:'interviews', scorecard:'interviews', match:'ai_matching' };
+  const PANEL_FLAGS = {
+    comms:'communications_panel', coordination:'interviews',
+    interview_plan:'interviews', scorecard:'interviews', match:'ai_matching',
+    notes:'panel_notes', attachments:'panel_files', activity:'panel_activity',
+    forms:'panel_forms', recommendations:'panel_recommendations',
+    linked:'panel_linked_records', workflows:'panel_pipeline',
+  };
   const panelVisible = (id) => { const flag = PANEL_FLAGS[id]; return !flag || ff[flag]; };
   const _permCtx = usePermCtx();
   const canRecord = (flag) => _permCtx ? _permCtx.canGlobal(flag) : true;

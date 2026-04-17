@@ -8,6 +8,7 @@ const C = { accent:'#4361EE', text1:'#1a1a2e', text2:'#4b5563', text3:'#9ca3af',
 
 const FLAG_GROUPS = {
   'Core Features':  ['ai_copilot','ai_matching','communications_panel','workflows','portals','reports','org_chart','interviews','offers','forms','bulk_actions','cv_parsing','duplicate_detection'],
+  'Record Panels':  ['panel_notes','panel_files','panel_activity','panel_forms','panel_recommendations','panel_linked_records','panel_pipeline'],
   'Beta Features':  ['linkedin_finder','document_extraction'],
   'Experimental':   ['voice_copilot','predictive_analytics','auto_screening'],
 };
@@ -17,6 +18,9 @@ const FLAG_LABELS = {
   workflows:'Workflows & Pipeline', portals:'Portal Builder', reports:'Reports', org_chart:'Org Chart',
   interviews:'Interview Scheduling', offers:'Offer Management', forms:'Forms Builder',
   bulk_actions:'Bulk Actions', cv_parsing:'CV Parsing', duplicate_detection:'Duplicate Detection',
+  panel_notes:'Notes Panel', panel_files:'Files Panel', panel_activity:'Activity Panel',
+  panel_forms:'Forms Panel', panel_recommendations:'Recommendations Panel',
+  panel_linked_records:'Linked Records Panel', panel_pipeline:'Pipeline Panel',
   linkedin_finder:'LinkedIn Finder', document_extraction:'Document AI Extraction',
   voice_copilot:'Voice Copilot', predictive_analytics:'Predictive Analytics', auto_screening:'Auto Screening',
 };
@@ -35,6 +39,13 @@ const FLAG_DESC = {
   bulk_actions:'Select multiple records for bulk operations',
   cv_parsing:'Extract candidate data from uploaded CVs',
   duplicate_detection:'Detect and merge duplicate records',
+  panel_notes:'Notes and comments panel on all records',
+  panel_files:'File attachments panel on all records',
+  panel_activity:'Activity log and audit history on records',
+  panel_forms:'Form responses panel on records',
+  panel_recommendations:'AI-powered recommendations panel on records',
+  panel_linked_records:'Linked records and relationships panel',
+  panel_pipeline:'Pipeline stages and linked people panel',
   linkedin_finder:'Auto-search LinkedIn profiles for new candidates',
   document_extraction:'AI extraction from ID and passport documents',
   voice_copilot:'Voice-activated copilot (experimental)',

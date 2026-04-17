@@ -13,6 +13,10 @@ const DEFAULT_FLAGS = {
   workflows: true, portals: true, reports: true, org_chart: true,
   interviews: true, offers: true, forms: true,
   bulk_actions: true, cv_parsing: true, duplicate_detection: true,
+  // Record panels — on by default
+  panel_notes: true, panel_files: true, panel_activity: true,
+  panel_forms: true, panel_recommendations: true,
+  panel_linked_records: true, panel_pipeline: true,
   // Beta — off by default, enable per client
   linkedin_finder: false, document_extraction: false,
   // Experimental — off everywhere

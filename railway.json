@@ -12,6 +12,6 @@
     "restartPolicyMaxRetries": 3
   },
   "watch": {
-    "pattern": "server/**"
+    "patterns": ["server/**", "package.json", "railway.json"]
   }
 }

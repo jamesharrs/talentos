@@ -31,7 +31,7 @@ export default [
         requestAnimationFrame: 'readonly', cancelAnimationFrame: 'readonly',
         HTMLElement: 'readonly', Element: 'readonly', Node: 'readonly',
         crypto: 'readonly', atob: 'readonly', btoa: 'readonly',
-        alert: 'readonly', confirm: 'readonly',
+        alert: 'readonly', confirm: 'readonly', prompt: 'readonly',
         process: 'readonly',  // Vite injects process.env
         React: 'readonly',    // JSX transform
         TextDecoder: 'readonly', TextEncoder: 'readonly',
@@ -75,8 +75,9 @@ export default [
       'require-await':  'warn',
 
       // ── Off: too noisy for the existing codebase ─────────────────────────
-      'no-empty':       'off',
-      'no-console':     'off',
+      'no-empty':              'off',
+      'no-console':            'off',
+      'no-prototype-builtins': 'off',  // obj.hasOwnProperty() is common pattern here
     },
   },
 ];

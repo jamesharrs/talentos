@@ -585,6 +585,7 @@ const FieldValue = ({ field, value, allFieldValues = {} }) => {
     case "duration": return <span style={{fontSize:13}}>{String(value)} {field.duration_unit||"days"}</span>;
     case "date_range": {
       const dr = (() => { try { return typeof value==="object"&&value ? value : JSON.parse(value); } catch { return {}; } })();
+      const s = dr.start?new Date(dr.start).toLocaleDateString():null;
       const e = dr.end?new Date(dr.end).toLocaleDateString():null;
       if(!s&&!e) return <span style={{color:C.text3,fontSize:12}}>—</span>;
       return <span style={{fontSize:13}}><span style={{color:"#6b7280",fontSize:11,marginRight:2}}>{field.date_range_start_label||"Start"}</span>{s||"—"}<span style={{margin:"0 6px",color:"#d1d5db"}}>→</span><span style={{color:"#6b7280",fontSize:11,marginRight:2}}>{field.date_range_end_label||"End"}</span>{e||"—"}</span>;
@@ -790,7 +791,6 @@ const FieldEditor = ({ field, value, onChange, autoFocus, environment, recordDat
       return <DatasetPicker field={field} value={value} onChange={onChange}/>;
     case "skills":
       return <SkillsPicker field={field} value={value} onChange={onChange} environment={environment} recordData={recordData}/>;
-      return <Inp type="url" value={value} onChange={onChange} placeholder="https://…" autoFocus={autoFocus}/>;
     case "phone":
       return <PhoneInput value={value} onChange={onChange} autoFocus={autoFocus}/>;
     case "phone_intl":
@@ -5114,6 +5114,45 @@ const RelRow = ({ rel, dir, personName, personTitle, onDelete }) => {
   );
 };
 
+// UserPanel — shows linked platform user account for a Person record
+const UserPanel = ({ record }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const email = record?.data?.email;
+    if (!email) { setLoading(false); return; }
+    api.get(`/users/by-email?email=${encodeURIComponent(email)}`)
+      .then(u => { setUser(u || null); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [record?.id]);
+  if (loading) return <div style={{padding:"16px 0",color:C.text3,fontSize:12}}>Loading…</div>;
+  if (!user) return (
+    <div style={{padding:"12px 0",color:C.text3,fontSize:12}}>
+      No platform user linked to this record's email address.
+    </div>
+  );
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <div style={{width:36,height:36,borderRadius:"50%",background:C.accent,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:14}}>
+          {(user.first_name?.[0]||"?")}
+        </div>
+        <div>
+          <div style={{fontWeight:600,fontSize:13,color:C.text1}}>{user.first_name} {user.last_name}</div>
+          <div style={{fontSize:11,color:C.text3}}>{user.email}</div>
+        </div>
+        <div style={{marginLeft:"auto",padding:"2px 8px",borderRadius:99,fontSize:10,fontWeight:700,
+          background: user.status==="active"?"#ecfdf5":"#f9fafb",
+          color: user.status==="active"?"#059669":C.text3}}>
+          {user.status||"unknown"}
+        </div>
+      </div>
+      {user.role && <div style={{fontSize:11,color:C.text3}}>Role: <span style={{color:C.text1,fontWeight:600}}>{user.role.name}</span></div>}
+    </div>
+  );
+};
+
 function ReportingPanel({ record, environment }) {
   const [rels, setRels]         = useState([]);
   const [allPeople, setAllPeople] = useState([]);
@@ -6954,6 +6993,9 @@ const StableMatchPanel = memo(({ recordId, objectName, environment, record, onNa
 // ── PanelCard — defined at module level (uses useRef, can't be nested) ──
 const PanelCard = ({ id, compact, openPanels, setOpenPanels, openPanelsKey, renderPanel, startPanelDrag, overSlot, overZone,
   draggingPanel, notes, attachments, clearZone, reportZone }) => {
+  // Hooks must be before any early returns (rules-of-hooks)
+  const cardRef = useRef(null);
+
   const meta = PANEL_META[id];
   if (!meta) return null;
   const isOpen     = compact ? true : openPanels[id];
@@ -6962,8 +7004,6 @@ const PanelCard = ({ id, compact, openPanels, setOpenPanels, openPanelsKey, rend
   const isOver     = overSlot === myRepId && !isDragging;
   const zone       = isOver ? overZone : null;
   const badge      = id==="notes" ? (notes?.length ?? 0) : id==="attachments" ? (attachments?.length ?? 0) : 0;
-
-  const cardRef = useRef(null);
 
   if (compact) return <div style={{ padding:"16px" }}>{renderPanel({id})}</div>;
 
@@ -8858,6 +8898,33 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     ...( ["Person","Job"].includes(objectName) && ff.ai_matching ? [{ id:"match", icon:"sparkles", label:"Recommendations" }] : [] ),
   ];
 
+  // ── Hooks that must be before any early return (rules-of-hooks) ──────────
+  // Resizable column split (full-page only, but hooks must be unconditional)
+  const colStorageKey = `talentos_colwidth_${objectName}`;
+  const [leftPct, setLeftPct] = useState(() => {
+    try { return parseFloat(localStorage.getItem(colStorageKey)) || 38; } catch { return 38; }
+  });
+  const containerRef = useRef(null);
+  const draggingCol  = useRef(false);
+  const leftPctRef   = useRef(leftPct);
+  useEffect(() => { leftPctRef.current = leftPct; }, [leftPct]);
+
+  // Keyboard shortcuts (full-page only, but hook must be unconditional)
+  useEffect(() => {
+    if (!fullPage) return; // guard inside effect — safe pattern
+    const handler = (e) => {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      if (e.key === "Escape") onClose?.();
+      if (e.key === "c" || e.key === "C") setShowCommMenu(v => !v);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [fullPage]);
+
+  // Photo upload (full-page only, but hooks must be unconditional)
+  const photoInputRef = useRef(null);
+  const [photoUrl, setPhotoUrl] = useState(record?.data?.photo_url || record?.data?.profile_photo || null);
+
   if (!fullPage) return (
     <>
       <style>{`@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
@@ -8883,13 +8950,6 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
   // ── FULL PAGE — 2-col layout ──
   // ── Resizable column split ──
-  const colStorageKey = `talentos_colwidth_${objectName}`;
-  const [leftPct, setLeftPct] = useState(() => {
-    try { return parseFloat(localStorage.getItem(colStorageKey)) || 38; } catch { return 38; }
-  });
-  const containerRef = useRef(null);
-  const draggingCol  = useRef(false);
-
   const onDividerMouseDown = (e) => {
     e.preventDefault();
     draggingCol.current = true;
@@ -8909,30 +8969,13 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     window.addEventListener("mouseup", onUp);
   };
 
-  // Persist on release — capture latest via ref
-  const leftPctRef = useRef(leftPct);
-  useEffect(() => { leftPctRef.current = leftPct; }, [leftPct]);
-
   // Tinted identity card background from objectColor
   const hex = objectColor?.replace("#","") || "4361EE";
   const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
   const cardBg = `rgba(${r},${g},${b},0.07)`;
   const cardBorder = `rgba(${r},${g},${b},0.18)`;
 
-  // ── Keyboard shortcuts ──
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-      if (e.key === "Escape") onClose?.();
-      if (e.key === "c" || e.key === "C") setShowCommMenu(v => !v);
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
-
   // ── Photo upload ──
-  const photoInputRef = useRef(null);
-  const [photoUrl, setPhotoUrl] = useState(record?.data?.photo_url || record?.data?.profile_photo || null);
   const handlePhotoUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;

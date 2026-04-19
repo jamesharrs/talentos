@@ -359,6 +359,10 @@ export default function WizardBuilder({ portal, onChange }) {
     setSelectedPageIdx(0);
   };
 
+  // Hooks must be before any early return (rules-of-hooks)
+  const [triggerOpen, setTriggerOpen] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   if (!wizard.enabled) {
     return (
       <div style={{padding:'20px 0',display:'flex',flexDirection:'column',gap:16}}>
@@ -392,9 +396,6 @@ export default function WizardBuilder({ portal, onChange }) {
       </div>
     );
   }
-
-  const [triggerOpen, setTriggerOpen] = useState(true);
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <div style={{display:'flex',flexDirection:'column',gap:14,paddingBottom:12}}>

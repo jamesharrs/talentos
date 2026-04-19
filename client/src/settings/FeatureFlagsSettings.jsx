@@ -71,17 +71,22 @@ export default function FeatureFlagsSettings({ environment }) {
   const [loading, setLoading] = useState(true);
   const { refresh: refreshFeatureCtx } = useFeatures(); // live context refresh
 
-  const load = async () => {
+  const load = async (silent = false) => {
     if (!environment?.id) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const res = await fetch(`/api/feature-flags/all?environment_id=${environment.id}`, { headers: authHeaders() });
       if (res.ok) setFlags((await res.json()).flags || []);
-    } finally { setLoading(false); }
+    } finally { if (!silent) setLoading(false); }
   };
   useEffect(() => { load(); }, [environment?.id]);
 
   const toggle = async (key, currentlyEnabled) => {
+    // Optimistic update — flip immediately so the toggle feels instant and scroll doesn't jump
+    setFlags(prev => prev.map(f => f.key === key
+      ? { ...f, enabled: !currentlyEnabled, overridden: true }
+      : f
+    ));
     setSaving(key);
     try {
       const res = await fetch(`/api/feature-flags/${key}`, {
@@ -92,14 +97,22 @@ export default function FeatureFlagsSettings({ environment }) {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         console.error('Feature flag toggle failed:', err);
+        // Revert optimistic update on failure
+        setFlags(prev => prev.map(f => f.key === key
+          ? { ...f, enabled: currentlyEnabled }
+          : f
+        ));
         setSaving(null);
         return;
       }
       invalidateFlagCache();
-      await load();
+      // Silent background refresh to sync server state — no loading flash, no scroll reset
+      load(true);
       try { await refreshFeatureCtx(); } catch {}
     } catch (e) {
       console.error('Feature flag toggle error:', e);
+      // Revert on error
+      setFlags(prev => prev.map(f => f.key === key ? { ...f, enabled: currentlyEnabled } : f));
     }
     setSaving(null);
   };

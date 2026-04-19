@@ -6,6 +6,12 @@ const DEFAULT_FEATURES = new Set([
   'core','ai_copilot','ai_matching','communications_panel','workflows',
   'portals','reports','org_chart','interviews','offers','forms',
   'bulk_actions','cv_parsing','duplicate_detection',
+  // Record panels — on by default
+  'panel_notes','panel_files','panel_activity','panel_forms',
+  'panel_recommendations','panel_linked_records',
+  'panel_tasks','panel_assessments','panel_engagement',
+  'panel_reporting','panel_agents','panel_user',
+  'panel_insights','panel_questions',
 ]);
 
 const FeatureContext = createContext({ features: DEFAULT_FEATURES, loading: false, refresh: () => {} });

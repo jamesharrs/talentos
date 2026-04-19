@@ -17,6 +17,9 @@ const DEFAULT_FLAGS = {
   panel_notes: true, panel_files: true, panel_activity: true,
   panel_forms: true, panel_recommendations: true,
   panel_linked_records: true,
+  panel_tasks: true, panel_assessments: true, panel_engagement: true,
+  panel_reporting: true, panel_agents: true, panel_user: true,
+  panel_insights: true, panel_questions: true,
   // Beta — off by default, enable per client
   linkedin_finder: false, document_extraction: false,
   // Experimental — off everywhere

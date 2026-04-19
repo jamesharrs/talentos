@@ -7593,6 +7593,9 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     cv_parsing:true, linkedin_finder:true, ai_copilot:true, ai_matching:true, interviews:true,
     panel_notes:true, panel_files:true, panel_activity:true, panel_forms:true,
     panel_recommendations:true, panel_linked_records:true,
+    panel_tasks:true, panel_assessments:true, panel_engagement:true,
+    panel_reporting:true, panel_agents:true, panel_user:true,
+    panel_insights:true, panel_questions:true,
     ...featureFlags };
   // Map panel ids to the feature flag that gates them
   const PANEL_FLAGS = {
@@ -7604,6 +7607,14 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     activity:'panel_activity',
     forms:'panel_forms',
     linked:'panel_linked_records',
+    tasks:'panel_tasks',
+    assessments:'panel_assessments',
+    engagement:'panel_engagement',
+    reporting:'panel_reporting',
+    agents:'panel_agents',
+    user:'panel_user',
+    insights:'panel_insights',
+    questions:'panel_questions',
   };
   // A panel is visible if its feature flag is on (and for match, also needs ai_matching)
   const panelVisible = (id) => {

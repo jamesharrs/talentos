@@ -1541,6 +1541,14 @@ function App({ onEnvReady }) {
   const featPanelForms       = useFeature('panel_forms');
   const featPanelRecommend   = useFeature('panel_recommendations');
   const featPanelLinked      = useFeature('panel_linked_records');
+  const featPanelTasks       = useFeature('panel_tasks');
+  const featPanelAssessments = useFeature('panel_assessments');
+  const featPanelEngagement  = useFeature('panel_engagement');
+  const featPanelReporting   = useFeature('panel_reporting');
+  const featPanelAgents      = useFeature('panel_agents');
+  const featPanelUser        = useFeature('panel_user');
+  const featPanelInsights    = useFeature('panel_insights');
+  const featPanelQuestions   = useFeature('panel_questions');
 
   // ── Route detection (non-hook, safe before returns) ──────────────────────────
   // ── App function — all hooks must be called unconditionally ─────────────────
@@ -2364,7 +2372,10 @@ function App({ onEnvReady }) {
               duplicate_detection: featDupDetect, cv_parsing: featCvParse,
               linkedin_finder: featLinkedIn, ai_copilot: featCopilot, ai_matching: featAiMatching, interviews: featInterviews,
               panel_notes: featPanelNotes, panel_files: featPanelFiles, panel_activity: featPanelActivity,
-              panel_forms: featPanelForms, panel_recommendations: featPanelRecommend, panel_linked_records: featPanelLinked }}
+              panel_forms: featPanelForms, panel_recommendations: featPanelRecommend, panel_linked_records: featPanelLinked,
+              panel_tasks: featPanelTasks, panel_assessments: featPanelAssessments, panel_engagement: featPanelEngagement,
+              panel_reporting: featPanelReporting, panel_agents: featPanelAgents, panel_user: featPanelUser,
+              panel_insights: featPanelInsights, panel_questions: featPanelQuestions }}
           />
           );
         })()
@@ -2374,7 +2385,10 @@ function App({ onEnvReady }) {
           return <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"visible"}}><RecordPage recordId={recordId} objectId={objectId} environment={selectedEnv} allObjects={navObjects} onBack={() => { setActiveRecord(null); setActiveRecordObj(null); setActiveNav(obj ? `obj_${obj.id}` : "dashboard"); }} onNavigate={openRecord} onHistoryUpdate={pushHistory}
             featureFlags={{ bulk_actions: featBulk, communications_panel: featComms, duplicate_detection: featDupDetect, cv_parsing: featCvParse, linkedin_finder: featLinkedIn, ai_copilot: featCopilot, ai_matching: featAiMatching, interviews: featInterviews,
               panel_notes: featPanelNotes, panel_files: featPanelFiles, panel_activity: featPanelActivity,
-              panel_forms: featPanelForms, panel_recommendations: featPanelRecommend, panel_linked_records: featPanelLinked }}
+              panel_forms: featPanelForms, panel_recommendations: featPanelRecommend, panel_linked_records: featPanelLinked,
+              panel_tasks: featPanelTasks, panel_assessments: featPanelAssessments, panel_engagement: featPanelEngagement,
+              panel_reporting: featPanelReporting, panel_agents: featPanelAgents, panel_user: featPanelUser,
+              panel_insights: featPanelInsights, panel_questions: featPanelQuestions }}
             onRecordLoad={(rec, recObj) => {
             setActiveRecord(rec); setActiveRecordObj(recObj);
             // Swap UUID URL for clean numeric URL once record is loaded

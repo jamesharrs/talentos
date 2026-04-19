@@ -14,12 +14,21 @@
     "recharts": "^3.8.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.0",
+    "@babel/eslint-parser": "^7.28.6",
+    "@babel/preset-react": "^7.28.5",
+    "@eslint/js": "^10.0.1",
     "@vitejs/plugin-react": "^4.2.1",
+    "eslint": "^10.2.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "vite": "^5.0.12",
     "vite-plugin-compression": "^0.5.1"
   },
   "scripts": {
     "dev": "vite --port 3000",
-    "build": "vite build"
+    "build": "vite build",
+    "lint": "eslint src --max-warnings 0",
+    "lint:fix": "eslint src --fix"
   }
 }

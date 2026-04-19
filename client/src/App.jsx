@@ -1746,7 +1746,17 @@ function App({ onEnvReady }) {
         const def = (userEnvId && envs.find(e => e.id === userEnvId))
                  || envs.find(e => e.is_default)
                  || envs[0];
-        if (def) { setSelectedEnv(def); onEnvReady?.(def.id); }
+        // Only update selectedEnv if the ID actually changed — prevents spurious
+        // re-renders that clear navObjects when environments are re-fetched
+        if (def) {
+          setSelectedEnv(prev => {
+            if (prev?.id === def.id) return prev; // same env — keep reference stable
+            onEnvReady?.(def.id);
+            return def;
+          });
+          // Call onEnvReady only when setting for the first time
+          if (!selectedEnv) onEnvReady?.(def.id);
+        }
         setLoading(false);
       }).catch(() => {
         if (retries > 0) setTimeout(() => fetchEnvs(retries - 1, Math.min(delay * 2, 4000)), delay);
@@ -1764,9 +1774,11 @@ function App({ onEnvReady }) {
     const attempt = (retries, delay) => {
       api.get(`/objects?environment_id=${envId}`).then(d => {
         const objs = Array.isArray(d) ? d : [];
-        setNavObjects(objs);
-        const resolved = navFromPath(window.location.pathname, objs);
-        if (resolved !== activeNavRef.current) setActiveNav(resolved);
+        // Never replace a loaded list with an empty one — prevents nav blinking
+        // during re-fetches while already showing objects
+        setNavObjects(prev => (objs.length === 0 && prev.length > 0) ? prev : objs);
+        const resolved = navFromPath(window.location.pathname, objs.length > 0 ? objs : []);
+        if (objs.length > 0 && resolved !== activeNavRef.current) setActiveNav(resolved);
         // If still empty and we have retries left, try again
         if (objs.length === 0 && retries > 0) {
           setTimeout(() => attempt(retries - 1, Math.min(delay * 2, 5000)), delay);

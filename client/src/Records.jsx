@@ -6128,7 +6128,7 @@ export const PANEL_META = {
 };
 
 export const getDefaultPanelOrder = (objectName) => {
-  const base = ["tasks","comms","notes","attachments","forms","activity"];
+  const base = ["tasks","comms","notes","attachments","forms","activity","agents"];
   if (objectName === "Person") base.splice(1, 0, "linked", "coordination", "reporting");
   if (["Person","Job"].includes(objectName)) base.push("match");
   if (objectName === "Person") base.push("assessments");
@@ -7699,7 +7699,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const leftStorageKey   = `talentos_panels_left_${objectName}`;
   const topStorageKey    = `talentos_panels_top_${objectName}`;
   const bottomStorageKey = `talentos_panels_bottom_${objectName}`;
-  const PANEL_VERSION    = "v15"; // scorecard panel merged into assessments panel
+  const PANEL_VERSION    = "v16"; // agents panel added to default order
   const versionKey       = `talentos_panels_version_${objectName}`;
 
   // ── Single atomic layout load — deduplicates all 4 zones together ───────
@@ -7744,9 +7744,12 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     bottom = dedup(bottom);
 
     // Add any new panel IDs (added since last save) to right column
+    // Use PANEL_META as source of truth — not just getDefaultPanelOrder —
+    // so any newly added panel auto-appears even if it wasn't in the saved layout
     const allSaved = new Set([...flatPanelIds(top), ...flatPanelIds(left), ...flatPanelIds(right), ...flatPanelIds(bottom)]);
     const newPanels = getDefaultPanelOrder(objectName).filter(id => !allSaved.has(id));
-    if (newPanels.length) right = [...right, ...newPanels];
+    const allNewFromMeta = Object.keys(PANEL_META).filter(id => !allSaved.has(id) && !newPanels.includes(id));
+    if (newPanels.length || allNewFromMeta.length) right = [...right, ...newPanels, ...allNewFromMeta];
 
     return { top, left, right, bottom };
   });

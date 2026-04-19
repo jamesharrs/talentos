@@ -6050,8 +6050,9 @@ const AgentsRecordPanel = ({ record, environment }) => {
   const [runs,     setRuns]     = useState([]);
   const [running,  setRunning]  = useState({});
   const [loading,  setLoading]  = useState(true);
-  const [confirm,  setConfirm]  = useState(null);  // { agent } — the agent pending confirmation
-  const [inputs,   setInputs]   = useState({});    // runtime inputs keyed by field key
+  const [confirm,  setConfirm]  = useState(null);
+  const [inputs,   setInputs]   = useState({});
+  const [expanded, setExpanded] = useState({}); // run.id → bool, shows error detail
 
   const load = useCallback(async () => {
     if (!environment?.id || !record?.id) return;
@@ -6236,9 +6237,22 @@ const AgentsRecordPanel = ({ record, environment }) => {
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontSize:13, fontWeight:600, color:C.text1 }}>{agent.name}</div>
               {lastRun ? (
-                <div style={{ fontSize:11, color:C.text3, display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
-                  <span style={{ width:6, height:6, borderRadius:'50%', background:STATUS_COLORS[lastRun.status]||'#6b7280', flexShrink:0, display:'inline-block' }}/>
-                  {lastRun.status} · {new Date(lastRun.created_at).toLocaleDateString('en',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
+                <div style={{ marginTop:2 }}>
+                  <div style={{ fontSize:11, color: lastRun.status === 'failed' ? '#ef4444' : C.text3, display:'flex', alignItems:'center', gap:4 }}>
+                    <span style={{ width:6, height:6, borderRadius:'50%', background:STATUS_COLORS[lastRun.status]||'#6b7280', flexShrink:0, display:'inline-block' }}/>
+                    {lastRun.status} · {new Date(lastRun.created_at).toLocaleDateString('en',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
+                    {lastRun.status === 'failed' && lastRun.error && (
+                      <button type="button" onClick={e => { e.stopPropagation(); setExpanded(p => ({ ...p, [lastRun.id]: !p[lastRun.id] })); }}
+                        style={{ marginLeft:4, background:'none', border:'none', cursor:'pointer', color:'#ef4444', fontSize:11, fontWeight:700, padding:0, textDecoration:'underline', fontFamily:F }}>
+                        {expanded[lastRun.id] ? 'hide' : 'why?'}
+                      </button>
+                    )}
+                  </div>
+                  {lastRun.status === 'failed' && lastRun.error && expanded[lastRun.id] && (
+                    <div style={{ marginTop:5, padding:'7px 10px', borderRadius:7, background:'#fef2f2', border:'1px solid #fecaca', fontSize:11, color:'#b91c1c', lineHeight:1.5, wordBreak:'break-word' }}>
+                      <strong>Error:</strong> {lastRun.error}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>Never run on this record</div>
@@ -6267,10 +6281,26 @@ const AgentsRecordPanel = ({ record, environment }) => {
         <div style={{ marginTop:4, padding:'8px 0', borderTop:`1px solid ${C.border}` }}>
           <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'.05em', marginBottom:6 }}>Recent runs</div>
           {runs.slice(0, 5).map(run => (
-            <div key={run.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0', fontSize:12 }}>
-              <span style={{ width:6, height:6, borderRadius:'50%', background:STATUS_COLORS[run.status]||'#6b7280', flexShrink:0, display:'inline-block' }}/>
-              <span style={{ color:C.text2, flex:1 }}>{run.agent_name || run.agent_id}</span>
-              <span style={{ color:C.text3 }}>{new Date(run.created_at).toLocaleDateString('en',{day:'numeric',month:'short'})}</span>
+            <div key={run.id} style={{ marginBottom: run.status === 'failed' && run.error ? 4 : 0 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0', fontSize:12 }}>
+                <span style={{ width:6, height:6, borderRadius:'50%', background:STATUS_COLORS[run.status]||'#6b7280', flexShrink:0, display:'inline-block' }}/>
+                <span style={{ color: run.status === 'failed' ? '#b91c1c' : C.text2, flex:1, fontWeight: run.status === 'failed' ? 600 : 400 }}>
+                  {run.agent_name || run.agent_id}
+                </span>
+                <span style={{ color:C.text3, fontSize:11 }}>{new Date(run.created_at).toLocaleDateString('en',{day:'numeric',month:'short'})}</span>
+                {run.status === 'failed' && run.error && (
+                  <button type="button"
+                    onClick={() => setExpanded(p => ({ ...p, [run.id]: !p[run.id] }))}
+                    style={{ background:'none', border:'none', cursor:'pointer', color:'#ef4444', fontSize:11, fontWeight:700, padding:'0 2px', fontFamily:F, textDecoration:'underline' }}>
+                    {expanded[run.id] ? 'hide' : 'why?'}
+                  </button>
+                )}
+              </div>
+              {run.status === 'failed' && run.error && expanded[run.id] && (
+                <div style={{ margin:'2px 14px 6px', padding:'7px 10px', borderRadius:7, background:'#fef2f2', border:'1px solid #fecaca', fontSize:11, color:'#b91c1c', lineHeight:1.5, wordBreak:'break-word' }}>
+                  <strong>Error:</strong> {run.error}
+                </div>
+              )}
             </div>
           ))}
         </div>

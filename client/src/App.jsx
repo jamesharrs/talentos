@@ -1743,6 +1743,28 @@ function App({ onEnvReady }) {
     return () => window.removeEventListener('talentos:unauthenticated', handler);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // On startup: validate the stored session against the server.
+  // If the server doesn't recognise the user (stale session after restart),
+  // clear localStorage and show the login screen immediately.
+  useEffect(() => {
+    if (!userId) return; // no session — already showing login
+    const sess = getSession();
+    const userIdHeader = sess?.user?.id;
+    const tenantSlug   = sess?.tenant_slug || '';
+    if (!userIdHeader) return;
+    fetch('/api/environments', {
+      headers: {
+        'X-User-Id':     userIdHeader,
+        'X-Tenant-Slug': tenantSlug,
+      },
+    }).then(r => {
+      if (r.status === 401) {
+        try { localStorage.removeItem('talentos_session'); } catch {}
+        setSession(null);
+      }
+    }).catch(() => {}); // server offline — health poll will handle it
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (apiOnline !== true) return;
     // Re-runs when userId changes (i.e. after login) so we always fetch

@@ -1201,9 +1201,9 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
                       const NOTIF_ACTIONS = {
                         interview_today:  { label:"View interview",  fn:(n)=>{ setBellOpen(false); window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:n.record_id,objectId:n.object_id}})); } },
                         application_new:  { label:"View candidate",  fn:(n)=>{ setBellOpen(false); window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:n.record_id,objectId:n.object_id}})); } },
-                        offer_action:     { label:"View offer",      fn:(n)=>{ setBellOpen(false); startTransition(()=>setActiveNav("offers")); } },
-                        workflow_blocked: { label:"Review workflow",  fn:(n)=>{ setBellOpen(false); startTransition(()=>setActiveNav("workflows")); } },
-                        agent_review:     { label:"Review agent",     fn:(n)=>{ setBellOpen(false); startTransition(()=>setActiveNav("agents")); } },
+                        offer_action:     { label:"View offer",      fn:(n)=>{ setBellOpen(false); window.dispatchEvent(new CustomEvent("talentos:navigate",{detail:{slug:"offers"}})); } },
+                        workflow_blocked: { label:"Review workflow",  fn:(n)=>{ setBellOpen(false); window.dispatchEvent(new CustomEvent("talentos:navigate",{detail:{slug:"workflows"}})); } },
+                        agent_review:     { label:"Review agent",     fn:(n)=>{ setBellOpen(false); window.dispatchEvent(new CustomEvent("talentos:navigate",{detail:{slug:"agents"}})); } },
                         stage_change:     { label:"View candidate",  fn:(n)=>{ setBellOpen(false); window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:n.record_id,objectId:n.object_id}})); } },
                         scorecard_submitted:{ label:"View scorecard",fn:(n)=>{ setBellOpen(false); window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:n.record_id,objectId:n.object_id}})); } },
                       };
@@ -1733,6 +1733,16 @@ function App({ onEnvReady }) {
     return () => clearInterval(poll);
   }, []);
 
+  // When any API call returns 401, clear the local session and show the login screen
+  useEffect(() => {
+    const handler = () => {
+      try { localStorage.removeItem('talentos_session'); } catch {}
+      setSession(null);
+    };
+    window.addEventListener('talentos:unauthenticated', handler);
+    return () => window.removeEventListener('talentos:unauthenticated', handler);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (apiOnline !== true) return;
     // Re-runs when userId changes (i.e. after login) so we always fetch
@@ -1778,6 +1788,8 @@ function App({ onEnvReady }) {
     const attempt = (retries, delay) => {
       api.get(`/objects?environment_id=${envId}`).then(d => {
         const objs = Array.isArray(d) ? d : [];
+        // If the response is an auth error, bail — the unauthenticated handler will redirect
+        if (d?.code === 'UNAUTHENTICATED') return;
         // Never replace a loaded list with an empty one — prevents nav blinking
         // during re-fetches while already showing objects
         setNavObjects(prev => (objs.length === 0 && prev.length > 0) ? prev : objs);

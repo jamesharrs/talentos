@@ -1755,11 +1755,11 @@ function App({ onEnvReady }) {
         if (def) {
           setSelectedEnv(prev => {
             if (prev?.id === def.id) return prev; // same env — keep reference stable
-            onEnvReady?.(def.id);
             return def;
           });
-          // Call onEnvReady only when setting for the first time
-          if (!selectedEnv) onEnvReady?.(def.id);
+          // Call onEnvReady outside the updater to avoid setState-during-render
+          // Use startTransition so lazy-loaded components don't suspend synchronously
+          startTransition(() => onEnvReady?.(def.id));
         }
         setLoading(false);
       }).catch(() => {
@@ -2285,7 +2285,7 @@ function App({ onEnvReady }) {
                   t={t}
                   environments={environments}
                   selectedEnv={selectedEnv}
-                  onSwitchEnv={(env) => { setSelectedEnv(env); onEnvReady?.(env.id); setActiveNav("dashboard"); }}
+                  onSwitchEnv={(env) => { setSelectedEnv(env); startTransition(() => onEnvReady?.(env.id)); setActiveNav("dashboard"); }}
                 />
               : <div style={{ display: "flex", justifyContent: "center", padding: "4px 0" }}>
                   <div

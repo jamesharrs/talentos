@@ -386,7 +386,7 @@ app.get('/api/health', (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json({
     status:  'ok',
-    version: '1.5.2',
+    version: '1.5.3',
     uptime:  Math.floor(process.uptime()),
     cache:   stats(),
     region:  process.env.RAILWAY_REGION || 'local',
@@ -610,7 +610,7 @@ initDB().then(() => {
     // Log server start event
     const { platformLog } = require('./services/platformLogger');
     platformLog('system', 'server_start', `Vercentic API started on port ${PORT}`,
-      { version: '1.5.2', node: process.version, env: process.env.NODE_ENV || 'development' });
+      { version: '1.5.3', node: process.version, env: process.env.NODE_ENV || 'development' });
   } catch (e) { console.warn('[Scheduler] Init:', e.message); }
 
 }).catch(err => { console.error('[Boot] DB init failed:', err.message); });

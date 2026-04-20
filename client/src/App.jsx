@@ -17,7 +17,8 @@ const lazyWithRetry = (factory) => lazy(() =>
       sessionStorage.setItem(reloadKey, "1");
       window.location.reload();
     }
-    return { default: () => null };
+    // If already reloaded and still failing, show error instead of silent null
+    return { default: () => <div style={{padding:40,color:"#e03131",fontSize:14}}>Failed to load component. <button onClick={()=>{sessionStorage.clear();location.reload();}}>Clear cache & reload</button></div> };
   })
 );
 

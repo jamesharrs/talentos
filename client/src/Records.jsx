@@ -10656,7 +10656,14 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
           {activeListName && <span style={{ fontWeight:400, color:C.accent, fontSize:15, marginLeft:8 }}>/ {activeListName}</span>}
         </h1>
         <span style={{ fontSize:13, color:C.text3, fontWeight:500 }}>
-          {activeFilters.length ? `${displayedRecords.length} of ${total}` : total} record{total!==1?"s":""}
+          {(() => {
+            const shown = displayedRecords.length;
+            // When a named list is active, the filtered count IS the total for that list
+            if (activeListName || filterChip) return `${shown}`;
+            // No list — show "N of total" when advanced filters narrow the results
+            if (activeFilters.length && shown < total) return `${shown} of ${total}`;
+            return total;
+          })()} record{(activeListName || filterChip ? displayedRecords.length : total)!==1?"s":""}
         </span>
 
         <div style={{ flex:1 }}/>

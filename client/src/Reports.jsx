@@ -635,24 +635,36 @@ function AxisPicker({ label, value, onChange, resultCols, fields, formulas }) {
 function ExprFieldPicker({ fields, onPick }) {
   const [open, setOpen]     = useState(false);
   const [search, setSearch] = useState("");
+  const [pos, setPos]       = useState({ top:0, left:0 });
+  const btnRef              = useRef(null);
   const filtered = fields.filter(f => !search || f.name.toLowerCase().includes(search.toLowerCase()) || f.api_key.toLowerCase().includes(search.toLowerCase()));
+
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 6 + window.scrollY, left: r.right - 220 + window.scrollX });
+    }
+    setSearch(""); setOpen(p=>!p);
+  };
+
   return (
-    <div style={{ position:"relative", flexShrink:0 }}>
-      <button onClick={()=>{setOpen(p=>!p);setSearch("");}} onMouseDown={e=>e.preventDefault()}
+    <div style={{ flexShrink:0 }}>
+      <button ref={btnRef} onClick={handleOpen} onMouseDown={e=>e.preventDefault()}
         style={{ padding:"5px 8px", borderRadius:7, border:"1.5px solid #E5E7EB",
           background:open?"#F5F3FF":"white", color:"#8B7EC8",
           fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:F }}>
         {"{…}"}
       </button>
       {open&&(
-        <div style={{ position:"absolute", right:0, top:"110%", zIndex:200, background:"white",
-          border:"1.5px solid #E5E7EB", borderRadius:10, boxShadow:"0 8px 24px rgba(0,0,0,0.12)",
-          width:220, padding:6 }}>
+        <div style={{ position:"absolute", top: pos.top, left: Math.max(4, pos.left),
+          zIndex:9999, background:"white", border:"1.5px solid #E5E7EB", borderRadius:10,
+          boxShadow:"0 8px 24px rgba(0,0,0,0.14)", width:220, padding:6 }}
+          onMouseDown={e=>e.stopPropagation()}>
           <input autoFocus value={search} onChange={e=>setSearch(e.target.value)}
             placeholder="Search fields…"
             style={{ width:"100%", padding:"5px 8px", borderRadius:7, border:"1.5px solid #E5E7EB",
               fontSize:11, fontFamily:F, boxSizing:"border-box", marginBottom:4 }}/>
-          <div style={{ maxHeight:160, overflowY:"auto" }}>
+          <div style={{ maxHeight:180, overflowY:"auto" }}>
             {filtered.map(f=>(
               <div key={f.api_key} onClick={()=>{onPick(f.api_key);setOpen(false);setSearch("");}}
                 style={{ padding:"5px 8px", borderRadius:6, cursor:"pointer", fontSize:11, color:"#111827",
@@ -665,8 +677,12 @@ function ExprFieldPicker({ fields, onPick }) {
             ))}
             {!filtered.length && <div style={{ fontSize:11, color:"#9CA3AF", padding:"6px 8px" }}>No fields found</div>}
           </div>
+          <div style={{ borderTop:"1px solid #F3F4F6", marginTop:4, paddingTop:4 }}>
+            <div style={{ fontSize:10, color:"#9CA3AF", padding:"2px 8px" }}>Click to insert {"{field}"}</div>
+          </div>
         </div>
       )}
+      {open && <div style={{ position:"fixed",inset:0,zIndex:9998 }} onClick={()=>setOpen(false)}/>}
     </div>
   );
 }
@@ -1306,10 +1322,11 @@ export default function Reports({ environment, initialReport }) {
         </div>
       </div>
 
-      <div style={{ display:"grid",gridTemplateColumns:"280px minmax(0,1fr)",gap:16,alignItems:"start" }}>
+      {/* Two-column layout — left panel stretches to match right panel height */}
+      <div style={{ display:"grid",gridTemplateColumns:"300px minmax(0,1fr)",gap:16,alignItems:"stretch" }}>
 
         {/* ── Left sidebar ── */}
-        <div style={{ display:"flex",flexDirection:"column",gap:12,position:"sticky",top:0 }}>
+        <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
           <div style={{ display:"flex",gap:4,flexWrap:"wrap" }}>
             <Pill label="Build"    active={panel==="build"}    onClick={()=>setPanel("build")}/>
             <Pill label="Saved"    active={panel==="saved"}    onClick={()=>setPanel("saved")} badge={savedReports.length||null}/>
@@ -1318,7 +1335,7 @@ export default function Reports({ environment, initialReport }) {
 
           {/* Build panel */}
           {panel==="build" && (
-            <div style={{ background:B.card,borderRadius:14,padding:16,boxShadow:"0 1px 4px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",gap:14,minHeight:600 }}>
+            <div style={{ background:B.card,borderRadius:14,padding:16,boxShadow:"0 1px 4px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",gap:14,flex:1 }}>
               <div>
                 <SideLabel>Data source</SideLabel>
                 <div style={{ display:"flex",gap:4,marginBottom:8 }}>
@@ -1427,7 +1444,7 @@ export default function Reports({ environment, initialReport }) {
 
           {/* Saved reports panel */}
           {panel==="saved"&&(
-            <div style={{ background:B.card,borderRadius:14,padding:16,boxShadow:"0 1px 4px rgba(0,0,0,0.04)" }}>
+            <div style={{ background:B.card,borderRadius:14,padding:16,boxShadow:"0 1px 4px rgba(0,0,0,0.04)",flex:1 }}>
               <div style={{ fontSize:12,fontWeight:700,color:"#111827",marginBottom:12 }}>Saved reports</div>
               {showSaveDialog&&(
                 <div style={{ background:"#F8F7FF",borderRadius:10,padding:12,marginBottom:12 }}>

@@ -71,7 +71,8 @@ function fetchPanelData(panel, user, environment_id) {
       const current  = recs.filter(r => r.created_at >= cutoff).length;
       const previous = recs.filter(r => r.created_at >= prevCutoff && r.created_at < cutoff).length;
       const trend = previous > 0 ? Math.round(((current - previous) / previous) * 100) : 0;
-      return { value: recs.length, current, previous, trend, label: cfg.label || obj.plural_name };
+      return { value: recs.length, current, previous, trend, label: cfg.label || obj.plural_name,
+               object_slug: obj.slug, filter_field: cfg.filter_field||null, filter_value: cfg.filter_value||null };
     }
 
     case 'chart': {
@@ -136,7 +137,58 @@ function fetchPanelData(panel, user, environment_id) {
       return { items: actLogs };
     }
     case 'text': return { content: cfg.content || '', bg_color: cfg.bg_color };
-    case 'saved_report': { const report = findOne('saved_views', v => v.id === cfg.report_id); if (!report) return { error: 'Report not found' }; return { report }; }
+    case 'saved_report': {
+      const report = findOne('saved_views', v => v.id === cfg.report_id);
+      if (!report) return { error: 'Report not found' };
+      // Execute the saved report and return live data
+      const obj = findOne('objects', o => o.id === report.object_id);
+      if (!obj) return { report, chartData: [], error: null }; // return report meta without data
+      const fields = query('fields', f => f.object_id === report.object_id && !f.deleted_at);
+      let recs = query('records', r =>
+        r.object_id === report.object_id && r.environment_id === environment_id && !r.deleted_at
+      );
+      // Apply saved filters
+      if (Array.isArray(report.filters)) {
+        report.filters.forEach(f => {
+          if (!f.field || !f.op) return;
+          recs = recs.filter(r => {
+            const v = String(r.data?.[f.field] || '').toLowerCase();
+            const fv = String(f.value || '').toLowerCase();
+            if (f.op === 'contains') return v.includes(fv);
+            if (f.op === 'is_not' || f.op === '!=') return v !== fv;
+            if (f.op === 'is_empty') return !v;
+            return v === fv;
+          });
+        });
+      }
+      // Build chart data if group_by is set
+      let chartData = [];
+      const grp = report.group_by;
+      if (grp) {
+        const groups = {};
+        recs.forEach(r => {
+          const v = r.data?.[grp];
+          const vals = Array.isArray(v) ? v : [v || 'Unknown'];
+          vals.forEach(val => { const key = String(val || 'Unknown'); groups[key] = (groups[key] || 0) + 1; });
+        });
+        chartData = Object.entries(groups).sort(([,a],[,b])=>b-a).slice(0,15)
+          .map(([name,value])=>({ name, value, [report.chart_x||'name']:name, [report.chart_y||'_count']:value }));
+      }
+      // Return recent records for table view
+      const columns = fields.filter(f => (report.columns||[]).includes(f.id) || f.show_in_list).slice(0,6);
+      const records = recs.slice(0, cfg.limit || 10).map(r => ({ id:r.id, object_id:r.object_id, data:r.data||{} }));
+      return {
+        report,
+        chartData,
+        chartType: report.chart_type || 'bar',
+        chartX: report.chart_x || (grp || '_group'),
+        chartY: report.chart_y || '_count',
+        records,
+        columns,
+        total: recs.length,
+        object: obj,
+      };
+    }
     default: return { error: `Unknown panel type: ${panel.type}` };
   }
 }

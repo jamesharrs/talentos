@@ -11,7 +11,7 @@ const PATHS = {
   refresh:"M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 005.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 013.51 15",
   settings:"M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z",
   layout:"M12 3H3v7h9V3zm9 0h-7v4h7V3zm0 6h-7v12h7V9zm-9 4H3v8h9v-8z",
-  chevD:"M6 9l6 6 6-6",arrowUp:"M12 19V5M5 12l7-7 7 7",arrowDown:"M12 5v14M5 12l7 7 7-7",
+  chevD:"M6 9l6 6 6-6",arrowUp:"M12 19V5M5 12l7-7 7 7",arrowDown:"M12 5v14M5 12l7 7 7-7",arrowRight:"M5 12h14M12 5l7 7-7 7",
 };
 function Ic({n,s=16,c="currentColor"}){ const d=PATHS[n]||PATHS.layout; return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d={d}/></svg>; }
 
@@ -30,15 +30,28 @@ function ErrorState({msg}){
   </div>;
 }
 
-function StatPanel({ panel, data }) {
+function StatPanel({ panel, data, onNavigate }) {
   if (!data) return <Skeleton/>;
   if (data.error) return <ErrorState msg={data.error}/>;
-  const { value, label, trend } = data;
+  const { value, label, trend, object_slug, filter_field, filter_value } = data;
   const tp=trend>0, tn=trend<0;
   const tc=tp?"#059669":tn?V.red:V.text3; const tb=tp?"#f0fdf4":tn?"#fef2f2":`${V.border}40`;
-  return <div style={{ height:"100%",display:"flex",flexDirection:"column",justifyContent:"center" }}>
+  const handleClick = () => {
+    if (!object_slug) return;
+    window.dispatchEvent(new CustomEvent("talentos:filter-navigate", {
+      detail: { objectSlug: object_slug, fieldKey: filter_field||null, fieldValue: filter_value||null }
+    }));
+  };
+  const clickable = !!object_slug;
+  return <div onClick={clickable?handleClick:undefined}
+    style={{ height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",cursor:clickable?"pointer":"default",borderRadius:8,transition:"background .1s" }}
+    onMouseEnter={e=>{if(clickable)e.currentTarget.style.background=`${V.accent}04`;}}
+    onMouseLeave={e=>{if(clickable)e.currentTarget.style.background="transparent";}}>
     {panel.title&&<div style={{ fontSize:11,fontWeight:700,color:V.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10 }}>{panel.title}</div>}
-    <div style={{ fontSize:48,fontWeight:900,color:V.accent,letterSpacing:"-0.05em",lineHeight:1 }}>{fmtNum(value)}</div>
+    <div style={{ display:"flex",alignItems:"flex-end",gap:6 }}>
+      <div style={{ fontSize:48,fontWeight:900,color:V.accent,letterSpacing:"-0.05em",lineHeight:1 }}>{fmtNum(value)}</div>
+      {clickable&&<div style={{ fontSize:11,color:V.text3,marginBottom:6,display:"flex",alignItems:"center",gap:3 }}>View all <Ic n="arrowRight" s={10} c={V.text3}/></div>}
+    </div>
     <div style={{ fontSize:13,color:V.text3,marginTop:6 }}>{label}</div>
     {trend!==0&&<div style={{ display:"inline-flex",alignItems:"center",gap:5,marginTop:10,padding:"4px 10px",borderRadius:20,background:tb,width:"fit-content" }}>
       <Ic n={tp?"arrowUp":"arrowDown"} s={12} c={tc}/><span style={{ fontSize:12,fontWeight:700,color:tc }}>{Math.abs(trend)}% vs last period</span>
@@ -113,39 +126,39 @@ function TextPanel({ panel, data }) {
   </div>;
 }
 
-function SavedReportPanel({ panel, data }) {
+function SavedReportPanel({ panel, data, onNavigate, onOpenRecord }) {
   if (!data) return <Skeleton/>;
   if (data.error) return <ErrorState msg={data.error}/>;
-  const { report } = data;
+  const { report, chartData=[], chartType="bar", chartX="_group", chartY="_count", records=[], columns=[], total=0 } = data;
   if (!report) return <ErrorState msg="Report not configured"/>;
-  // Use the saved chart config to render a preview chart
-  const chartData = (report.chartData || []);
-  const chartType = report.chart_type || "bar";
-  const xKey = report.chart_x || "_group";
-  const yKey = report.chart_y || "_count";
-  // chartData from saved_views is stored differently — build from results if needed
-  if (!chartData.length) {
-    return <div style={{ height:"100%",display:"flex",flexDirection:"column" }}>
-      {panel.title&&<div style={{ fontSize:12,fontWeight:700,color:V.text2,marginBottom:6 }}>{panel.title}</div>}
-      <div style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8 }}>
-        <div style={{ fontSize:12,fontWeight:600,color:V.text2 }}>{report.name}</div>
-        <div style={{ fontSize:11,color:V.text3 }}>
-          {[report.group_by&&`Grouped by ${report.group_by}`, report.chart_type&&`${report.chart_type} chart`].filter(Boolean).join(" · ")}
-        </div>
-        <div style={{ fontSize:11,color:V.text3,background:`${V.accent}08`,padding:"4px 10px",borderRadius:6 }}>Run report to see data</div>
-      </div>
-    </div>;
-  }
-  return <div style={{ height:"100%",display:"flex",flexDirection:"column" }}>
-    {panel.title&&<div style={{ fontSize:12,fontWeight:700,color:V.text2,marginBottom:6 }}>{panel.title}<span style={{ fontSize:11,fontWeight:400,color:V.text3,marginLeft:6 }}>{report.name}</span></div>}
-    <div style={{ flex:1,minHeight:0 }}>
+  const hasChart = chartData.length > 0;
+  const hasRecords = records.length > 0;
+  const title = panel.title || report.name;
+  return <div style={{ height:"100%",display:"flex",flexDirection:"column",overflow:"hidden" }}>
+    {title&&<div style={{ fontSize:12,fontWeight:700,color:V.text2,marginBottom:8,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+      <span>{title}</span>
+      {total>0&&<span style={{ fontSize:11,color:V.text3,fontWeight:400 }}>{total} total</span>}
+    </div>}
+    {hasChart&&<div style={{ flex:hasRecords?0:1,minHeight:hasRecords?100:0,height:hasRecords?100:"auto" }}>
       <ResponsiveContainer width="100%" height="100%">
         {chartType==="pie"
-          ? <PieChart><Pie data={chartData} dataKey={yKey} nameKey={xKey} cx="50%" cy="50%" innerRadius="35%" outerRadius="65%" paddingAngle={2}>{chartData.map((_,i)=><Cell key={i} fill={PALETTES[i%PALETTES.length]}/>)}</Pie><Tooltip contentStyle={{ fontSize:11,fontFamily:F,borderRadius:8 }}/></PieChart>
-          : <BarChart data={chartData} margin={{ top:4,right:8,bottom:0,left:-20 }}><XAxis dataKey={xKey} tick={{ fontSize:9,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><YAxis tick={{ fontSize:9,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><Tooltip contentStyle={{ fontSize:11,fontFamily:F,borderRadius:8 }}/><Bar dataKey={yKey} radius={[4,4,0,0]}>{chartData.map((_,i)=><Cell key={i} fill={PALETTES[i%PALETTES.length]}/>)}</Bar></BarChart>
+          ? <PieChart><Pie data={chartData} dataKey={chartY} nameKey={chartX} cx="50%" cy="50%" innerRadius="30%" outerRadius="60%" paddingAngle={2}>{chartData.map((_,i)=><Cell key={i} fill={PALETTES[i%PALETTES.length]}/>)}</Pie><Tooltip contentStyle={{ fontSize:11,fontFamily:F,borderRadius:8 }}/></PieChart>
+          : <BarChart data={chartData} margin={{ top:2,right:4,bottom:0,left:-24 }}><XAxis dataKey={chartX} tick={{ fontSize:9,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><YAxis tick={{ fontSize:9,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><Tooltip contentStyle={{ fontSize:11,fontFamily:F,borderRadius:8 }}/><Bar dataKey={chartY} radius={[3,3,0,0]}>{chartData.map((_,i)=><Cell key={i} fill={PALETTES[i%PALETTES.length]}/>)}</Bar></BarChart>
         }
       </ResponsiveContainer>
-    </div>
+    </div>}
+    {hasRecords&&<div style={{ flex:1,overflowY:"auto",marginTop:hasChart?8:0 }}>
+      {columns.length>0&&<div style={{ display:"grid",gridTemplateColumns:`repeat(${Math.min(columns.length,4)},1fr)`,gap:"0 8px",paddingBottom:4,marginBottom:4,borderBottom:`1px solid ${V.border}`,flexShrink:0 }}>
+        {columns.slice(0,4).map(c=><div key={c.id} style={{ fontSize:10,fontWeight:700,color:V.text3,textTransform:"uppercase",letterSpacing:"0.05em" }}>{c.name}</div>)}
+      </div>}
+      {records.map(r=><div key={r.id} onClick={()=>onOpenRecord?.(r.id,r.object_id)} style={{ display:"grid",gridTemplateColumns:`repeat(${Math.min(columns.length||1,4)},1fr)`,gap:"0 8px",padding:"4px 0",borderBottom:`0.5px solid ${V.border}40`,cursor:"pointer" }} onMouseEnter={e=>e.currentTarget.style.background=`${V.accent}06`} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+        {(columns.length?columns:[{api_key:Object.keys(r.data||{})[0]||'',name:''}]).slice(0,4).map((c,ci)=><div key={ci} style={{ fontSize:11,color:V.text2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{r.data?.[c.api_key]!=null?String(r.data[c.api_key]):"—"}</div>)}
+      </div>)}
+    </div>}
+    {!hasChart&&!hasRecords&&<div style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6 }}>
+      <div style={{ fontSize:12,fontWeight:600,color:V.text2 }}>{report.name}</div>
+      <div style={{ fontSize:11,color:V.text3 }}>No data yet — run the report first</div>
+    </div>}
   </div>;
 }
 

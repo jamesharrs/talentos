@@ -838,7 +838,7 @@ export default function Reports({ environment, initialReport }) {
         if (sv.object_id)   setSelObject(sv.object_id);
         if (sv.group_by)    setGroupBy(sv.group_by);
         if (sv.chart_type)  setChartType(sv.chart_type);
-        if (sv.formulas)    setFormulas(sv.formulas);
+        if (sv.formulas)    setFormulas(sv.formulas.map((f,i)=>({...f, id: f.id||`t_${i}_${Date.now()}`, draft:false})));
         if (sv.filters)     setFilters(sv.filters);
         if (sv.sort_by)     setSortBy(sv.sort_by);
         if (sv.sort_dir)    setSortDir(sv.sort_dir);
@@ -1035,7 +1035,12 @@ export default function Reports({ environment, initialReport }) {
     if (sv.group_by)   setGroupBy(sv.group_by);
     if (sv.sort_by)    setSortBy(sv.sort_by);
     if (sv.sort_dir)   setSortDir(sv.sort_dir);
-    if (sv.formulas)   setFormulas(sv.formulas);
+    // Normalise saved formulas: ensure id, mark as applied (not draft)
+    if (sv.formulas)   setFormulas(sv.formulas.map((f,i)=>({
+      ...f,
+      id: f.id || `loaded_${i}_${Date.now()}`,
+      draft: false,
+    })));
     if (sv.chart_type) setChartType(sv.chart_type);
     if (sv.chart_x)    setChartX(sv.chart_x);
     if (sv.chart_y)    setChartY(sv.chart_y);
@@ -1427,7 +1432,7 @@ export default function Reports({ environment, initialReport }) {
                     </button>
                   )}
                   {formulas.map((f,i)=>{
-                    return <FormulaCard key={f.id} formula={f} fields={fields}
+                    return <FormulaCard key={`${f.id}::${f.name}::${f.expression}`} formula={f} fields={fields}
                       onApply={updated => setFormulas(p=>p.map((x,j)=>j===i?{...updated,draft:false}:x))}
                       onRemove={()=>setFormulas(p=>p.filter((_,j)=>j!==i))}
                     />;

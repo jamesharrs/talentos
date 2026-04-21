@@ -1078,9 +1078,29 @@ export default function Reports({ environment, initialReport }) {
     setSavedReports(prev=>prev.map(r=>r.id===sv.id?{...r,pinned:next}:r));
   };
 
+  const [deletedReports, setDeletedReports] = useState([]);
+  const [showDeleted,    setShowDeleted]    = useState(false);
+
+  const loadDeletedReports = async () => {
+    if (!environment?.id) return;
+    const d = await api.get(`/saved-views/recently-deleted?environment_id=${environment.id}`);
+    setDeletedReports(Array.isArray(d) ? d : []);
+  };
+
   const deleteReport = async id => {
+    const confirmed = await window.__confirm?.({ title:"Delete this report?", message:"It will be recoverable for 24 hours.", danger:true }) ?? window.confirm("Delete this report? It will be recoverable for 24 hours.");
+    if (!confirmed) return;
     await api.delete(`/saved-views/${id}`);
     setSavedReports(p=>p.filter(s=>s.id!==id));
+    if (activeSavedId === id) setActiveSavedId(null);
+  };
+
+  const restoreReport = async id => {
+    const d = await api.post(`/saved-views/${id}/restore`, {});
+    if (d?.id) {
+      setSavedReports(p=>[d,...p]);
+      setDeletedReports(p=>p.filter(r=>r.id!==id));
+    }
   };
 
   const addFilter  = () => setFilters(p=>[...p,{id:Date.now(),field:fields[0]?.api_key||"",op:"contains",value:""}]);
@@ -1514,6 +1534,33 @@ export default function Reports({ environment, initialReport }) {
                   </div>
                 </div>
               ))}
+
+              {/* Recently deleted */}
+              <div style={{ marginTop:16,borderTop:`1px solid #F3F4F6`,paddingTop:12 }}>
+                <button onClick={()=>{ setShowDeleted(p=>!p); if(!showDeleted) loadDeletedReports(); }}
+                  style={{ display:"flex",alignItems:"center",gap:6,fontSize:11,color:B.gray,background:"none",border:"none",cursor:"pointer",fontFamily:F,padding:0 }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.2"/></svg>
+                  {showDeleted?"Hide":"Show"} recently deleted {deletedReports.length>0&&`(${deletedReports.length})`}
+                </button>
+                {showDeleted&&(
+                  <div style={{ marginTop:8,display:"flex",flexDirection:"column",gap:6 }}>
+                    {deletedReports.length===0&&<div style={{ fontSize:11,color:B.gray,padding:"6px 0" }}>No recently deleted reports</div>}
+                    {deletedReports.map(sv=>{
+                      const hoursLeft = Math.max(0, Math.round((new Date(sv.deleted_at).getTime()+86400000-Date.now())/3600000));
+                      return <div key={sv.id} style={{ background:"#FFF5F5",borderRadius:8,padding:"8px 10px",display:"flex",alignItems:"center",gap:8 }}>
+                        <div style={{ flex:1,minWidth:0 }}>
+                          <div style={{ fontSize:12,fontWeight:600,color:"#111827",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{sv.name}</div>
+                          <div style={{ fontSize:10,color:B.gray,marginTop:2 }}>Deleted · recoverable for {hoursLeft}h</div>
+                        </div>
+                        <button onClick={()=>restoreReport(sv.id)}
+                          style={{ fontSize:10,padding:"4px 9px",borderRadius:7,border:"none",background:"#F0FDF4",color:"#059669",cursor:"pointer",fontFamily:F,fontWeight:700,flexShrink:0 }}>
+                          Restore
+                        </button>
+                      </div>;
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

@@ -15,6 +15,7 @@ router.get('/', (req, res) => {
   const { object_id, environment_id, user_id } = req.query;
   if (!environment_id) return res.status(400).json({ error: 'environment_id required' });
   const views = query('saved_views', v => {
+    if (v.deleted_at) return false; // exclude soft-deleted
     if (v.environment_id !== environment_id) return false;
     // If object_id is supplied, filter to that object only
     if (object_id && v.object_id !== object_id) return false;
@@ -120,11 +121,41 @@ router.patch('/:id', (req, res) => {
   updated ? res.json(updated) : res.status(404).json({ error: 'Not found' });
 });
 
-// DELETE /api/saved-views/:id
+// DELETE /api/saved-views/:id — soft delete (survives 24h for recovery)
 router.delete('/:id', (req, res) => {
   ensureTable();
-  remove('saved_views', v => v.id === req.params.id);
+  const store = getStore();
+  const view = (store.saved_views || []).find(v => v.id === req.params.id);
+  if (!view) return res.status(404).json({ error: 'Not found' });
+  view.deleted_at = new Date().toISOString();
+  view.updated_at = new Date().toISOString();
+  saveStore();
   res.json({ deleted: true });
+});
+
+// POST /api/saved-views/:id/restore — restore a soft-deleted report
+router.post('/:id/restore', (req, res) => {
+  ensureTable();
+  const store = getStore();
+  const view = (store.saved_views || []).find(v => v.id === req.params.id);
+  if (!view) return res.status(404).json({ error: 'Not found' });
+  delete view.deleted_at;
+  view.updated_at = new Date().toISOString();
+  saveStore();
+  res.json(view);
+});
+
+// GET /api/saved-views/recently-deleted?environment_id=
+router.get('/recently-deleted', (req, res) => {
+  ensureTable();
+  const { environment_id } = req.query;
+  if (!environment_id) return res.status(400).json({ error: 'environment_id required' });
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const deleted = query('saved_views', v =>
+    v.environment_id === environment_id &&
+    v.deleted_at && v.deleted_at >= cutoff
+  ).sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at));
+  res.json(deleted);
 });
 
 module.exports = router;

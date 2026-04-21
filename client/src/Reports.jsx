@@ -767,9 +767,21 @@ export default function Reports({ environment, initialReport }) {
         const af  = filters.filter(f=>f.field&&f.op);
         if (af.length) rows = rows.filter(row=>af.every(f=>applyFilter(row,f)));
         if (grp) {
-          const counts={};
-          rows.forEach(row=>{const v=String(row[grp]??"Unknown");counts[v]=(counts[v]||0)+1;});
-          rows=Object.entries(counts).map(([k,v])=>({_group:k,[grp]:k,_count:v})).sort((a,b)=>b._count-a._count);
+          const groups = {};
+          rows.forEach(row => {
+            const v = String(row[grp] ?? "Unknown");
+            if (!groups[v]) groups[v] = [];
+            groups[v].push(row);
+          });
+          const activeFormulaCols = formulas.filter(f => f.name && f.expression);
+          rows = Object.entries(groups).map(([k, grpRows]) => {
+            const base = { _group: k, [grp]: k, _count: grpRows.length };
+            activeFormulaCols.forEach(f => {
+              const vals = grpRows.map(r => parseFloat(r[f.name])).filter(v => !isNaN(v));
+              base[f.name] = vals.length ? parseFloat((vals.reduce((s,v)=>s+v,0)/vals.length).toFixed(2)) : null;
+            });
+            return base;
+          }).sort((a,b)=>b._count-a._count);
         }
         setResults(rows); setActiveFilter(null);
       } finally { setRunning(false); }
@@ -806,13 +818,46 @@ export default function Reports({ environment, initialReport }) {
       });
       if (sortBy) rows.sort((a,b)=>sortDir==="asc"?String(a[sortBy]??"").localeCompare(String(b[sortBy]??"")):String(b[sortBy]??"").localeCompare(String(a[sortBy]??"")));
       if (grp) {
-        const counts={};
-        rows.forEach(row=>{const val=String(row[grp]??"Unknown");counts[val]=(counts[val]||0)+1;});
-        rows=Object.entries(counts).map(([k,v])=>({_group:k,[grp]:k,_count:v})).sort((a,b)=>b._count-a._count);
+        // Group rows and aggregate: count + formula columns per group
+        const groups = {};
+        rows.forEach(row => {
+          const val = String(row[grp] ?? "Unknown");
+          if (!groups[val]) groups[val] = [];
+          groups[val].push(row);
+        });
+        const activeFormulaCols = formulas.filter(f => f.name && f.expression);
+        rows = Object.entries(groups).map(([k, grpRows]) => {
+          const base = { _group: k, [grp]: k, _count: grpRows.length };
+          // Aggregate each formula column across the group
+          activeFormulaCols.forEach(f => {
+            const vals = grpRows.map(r => parseFloat(r[f.name])).filter(v => !isNaN(v));
+            if (vals.length) {
+              const expr = f.expression.trim().toUpperCase();
+              if (expr.startsWith("AVG(") || expr.startsWith("AVG ")) {
+                base[f.name] = parseFloat((vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(2));
+              } else if (expr.startsWith("SUM(") || expr.startsWith("SUM ")) {
+                base[f.name] = parseFloat(vals.reduce((s, v) => s + v, 0).toFixed(2));
+              } else if (expr.startsWith("MAX(") || expr.startsWith("MAX ")) {
+                base[f.name] = Math.max(...vals);
+              } else if (expr.startsWith("MIN(") || expr.startsWith("MIN ")) {
+                base[f.name] = Math.min(...vals);
+              } else if (expr.startsWith("COUNT(") || expr === "COUNT()") {
+                base[f.name] = grpRows.length;
+              } else {
+                // Generic: average the formula result across the group
+                base[f.name] = parseFloat((vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(2));
+              }
+            } else {
+              base[f.name] = null;
+            }
+          });
+          return base;
+        }).sort((a, b) => b._count - a._count);
       }
       setResults(rows); setActiveFilter(null); setQuickFilter("");
+      const readyFormulas = formulas.filter(f => f.name && f.expression);
       if (!chartX&&rows.length) setChartX(grp||Object.keys(rows[0]).find(k=>!k.startsWith("_"))||"_group");
-      if (!chartY&&rows.length&&grp) setChartY("_count");
+      if (!chartY&&rows.length&&grp) setChartY(readyFormulas.length ? readyFormulas[0].name : "_count");
     } finally { setRunning(false); }
   }, [selObject,environment,filters,groupBy,sortBy,sortDir,formulas,joinObject,dataMode,selForm,objects,chartX,chartY]);
 

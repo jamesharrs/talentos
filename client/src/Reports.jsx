@@ -367,6 +367,138 @@ function ResultRow({ row, cols, groupBy, chartX, onFilter }) {
 }
 
 // ── Main Reports component ────────────────────────────────────────────────────
+// ── ColumnMultiPicker — compact multi-select for report columns ───────────────
+function ColumnMultiPicker({ fields, selCols, setSelCols }) {
+  const [open,   setOpen]   = useState(false);
+  const [search, setSearch] = useState("");
+  const ref    = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setTimeout(() => inputRef.current?.focus(), 30);
+    const h = e => { if (!ref.current?.contains(e.target)) { setOpen(false); setSearch(""); } };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+
+  const toggle = id => setSelCols(p => p.includes(id) ? p.filter(x=>x!==id) : [...p, id]);
+  const q = search.trim().toLowerCase();
+  const filtered = fields.filter(f => !q || f.name.toLowerCase().includes(q) || f.api_key.toLowerCase().includes(q));
+  const selected = fields.filter(f => selCols.includes(f.id));
+  const unselected = filtered.filter(f => !selCols.includes(f.id));
+
+  return (
+    <div ref={ref} style={{ position:"relative" }}>
+      {/* Trigger button */}
+      <button onClick={() => setOpen(p=>!p)}
+        style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
+          gap:6, padding:"7px 10px", borderRadius:9, cursor:"pointer", fontFamily:F,
+          border:`1.5px solid ${open ? B.purple : "#E5E7EB"}`,
+          background: open ? `${B.purple}06` : "white" }}>
+        <span style={{ fontSize:12, color: selected.length ? B.gray2 : "#9CA3AF", fontWeight: selected.length ? 500 : 400 }}>
+          {selected.length === 0
+            ? "No columns selected…"
+            : selected.length === fields.length
+            ? `All ${fields.length} columns`
+            : `${selected.length} of ${fields.length} columns`}
+        </span>
+        <svg width="9" height="9" viewBox="0 0 10 10" style={{ flexShrink:0, opacity:0.4 }}>
+          <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
+        </svg>
+      </button>
+
+      {/* Selected pills */}
+      {selected.length > 0 && selected.length < fields.length && (
+        <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginTop:6 }}>
+          {selected.map(f => (
+            <span key={f.id}
+              style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 8px",
+                borderRadius:99, fontSize:11, fontWeight:600,
+                background:`${B.purple}12`, color:B.purple, border:`1px solid ${B.purple}28` }}>
+              {f.name}
+              <button onMouseDown={e=>{e.preventDefault();toggle(f.id);}}
+                style={{ background:"none", border:"none", cursor:"pointer", padding:0,
+                  color:B.purple, lineHeight:1, fontSize:13, display:"flex" }}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Dropdown */}
+      {open && (
+        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:500,
+          background:"white", border:"1.5px solid #E5E7EB", borderRadius:12,
+          boxShadow:"0 8px 28px rgba(0,0,0,.12)", overflow:"hidden", fontFamily:F }}>
+          {/* Search */}
+          <div style={{ padding:"8px 10px", borderBottom:"1px solid #F3F4F6" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6, background:"#F9F9FB",
+              borderRadius:7, padding:"5px 8px", border:"1px solid #E5E7EB" }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              <input ref={inputRef} value={search} onChange={e=>setSearch(e.target.value)}
+                placeholder="Search columns…"
+                style={{ border:"none", background:"transparent", outline:"none",
+                  fontSize:12, fontFamily:F, flex:1, color:"#111827" }}/>
+              {search && <button onClick={()=>setSearch("")}
+                style={{ background:"none", border:"none", cursor:"pointer", color:"#9CA3AF", fontSize:14, lineHeight:1 }}>×</button>}
+            </div>
+          </div>
+          {/* List */}
+          <div style={{ maxHeight:220, overflowY:"auto" }}>
+            {/* Selected first */}
+            {!q && selected.length > 0 && (
+              <>
+                <div style={{ padding:"5px 10px 2px", fontSize:10, fontWeight:700, color:"#9CA3AF", textTransform:"uppercase", letterSpacing:"0.06em" }}>Selected</div>
+                {selected.map(f => (
+                  <label key={f.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px",
+                    cursor:"pointer", background:`${B.purple}06` }}
+                    onMouseEnter={e=>e.currentTarget.style.background=`${B.purple}10`}
+                    onMouseLeave={e=>e.currentTarget.style.background=`${B.purple}06`}>
+                    <div style={{ width:15, height:15, borderRadius:4, border:`2px solid ${B.purple}`,
+                      background:B.purple, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span style={{ fontSize:12, color:B.gray2, flex:1 }}>{f.name}</span>
+                    <span style={{ fontSize:10, color:"#9CA3AF", fontFamily:"ui-monospace,monospace" }}>{f.api_key}</span>
+                    <input type="checkbox" checked style={{ display:"none" }} onChange={()=>toggle(f.id)}/>
+                  </label>
+                ))}
+                {unselected.length > 0 && <div style={{ padding:"5px 10px 2px", fontSize:10, fontWeight:700, color:"#9CA3AF", textTransform:"uppercase", letterSpacing:"0.06em" }}>Available</div>}
+              </>
+            )}
+            {/* Unselected / all when searching */}
+            {(q ? filtered : unselected).map(f => (
+              <label key={f.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px", cursor:"pointer" }}
+                onMouseEnter={e=>e.currentTarget.style.background="#F9F9FB"}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div style={{ width:15, height:15, borderRadius:4, border:"2px solid #D1D5DB",
+                  background:"white", flexShrink:0 }}/>
+                <span style={{ fontSize:12, color:B.gray2, flex:1 }}>{f.name}</span>
+                <span style={{ fontSize:10, color:"#9CA3AF", fontFamily:"ui-monospace,monospace" }}>{f.api_key}</span>
+                <input type="checkbox" checked={selCols.includes(f.id)} onChange={()=>toggle(f.id)} style={{ display:"none" }}/>
+              </label>
+            ))}
+            {filtered.length === 0 && (
+              <div style={{ padding:"12px", textAlign:"center", fontSize:12, color:"#9CA3AF" }}>No columns match</div>
+            )}
+          </div>
+          {/* Footer */}
+          <div style={{ padding:"8px 10px", borderTop:"1px solid #F3F4F6", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <span style={{ fontSize:11, color:"#9CA3AF" }}>{selCols.length} selected</span>
+            <button onClick={()=>{setOpen(false);setSearch("");}}
+              style={{ fontSize:11, fontWeight:600, color:B.purple, background:`${B.purple}10`,
+                border:"none", borderRadius:7, padding:"4px 10px", cursor:"pointer", fontFamily:F }}>
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── AxisPicker — friendly labeled dropdown for chart X/Y axis ────────────────
 function AxisPicker({ label, value, onChange, resultCols, fields }) {
   const [open, setOpen] = useState(false);
@@ -949,17 +1081,12 @@ export default function Reports({ environment, initialReport }) {
                 <div>
                   <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:5 }}>
                     <SideLabel>Columns</SideLabel>
-                    <button onClick={()=>setSelCols(fields.map(f=>f.id))} style={{ fontSize:10,color:B.purple,background:"none",border:"none",cursor:"pointer",fontFamily:F }}>All</button>
+                    <div style={{ display:"flex",gap:8 }}>
+                      <button onClick={()=>setSelCols(fields.map(f=>f.id))} style={{ fontSize:10,color:B.purple,background:"none",border:"none",cursor:"pointer",fontFamily:F }}>All</button>
+                      <button onClick={()=>setSelCols([])} style={{ fontSize:10,color:B.gray,background:"none",border:"none",cursor:"pointer",fontFamily:F }}>None</button>
+                    </div>
                   </div>
-                  <div style={{ display:"flex",flexDirection:"column",gap:3 }}>
-                    {fields.map(f=>(
-                      <label key={f.id} style={{ display:"flex",alignItems:"center",gap:7,cursor:"pointer",fontSize:12,color:B.gray2 }}>
-                        <input type="checkbox" checked={selCols.includes(f.id)}
-                          onChange={e=>setSelCols(p=>e.target.checked?[...p,f.id]:p.filter(x=>x!==f.id))}
-                          style={{ accentColor:B.purple }}/>{f.name}
-                      </label>
-                    ))}
-                  </div>
+                  <ColumnMultiPicker fields={fields} selCols={selCols} setSelCols={setSelCols}/>
                 </div>
               )}
               <div>

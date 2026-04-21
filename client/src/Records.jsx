@@ -7585,6 +7585,7 @@ const GroupCard = ({ ids, overSlot, overZone, openPanels, setOpenPanels, openPan
 
   return (
     <div ref={cardRef}
+      data-panel-id={repId}
       onMouseMove={e => cardRef.current && reportZone(repId, e, cardRef.current)}
       onMouseLeave={() => clearZone(repId)}
       style={{

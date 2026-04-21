@@ -205,7 +205,7 @@ Respond ONLY with valid JSON: { name, description, panels:[{type,title,position:
   }
 }
 
-export default function DashboardBuilder({ environment, session, onBack }) {
+export default function DashboardBuilder({ environment, session, onBack, initialEditId }) {
   const [dashboards, setDashboards] = useState([]);
   const [editing,    setEditing]    = useState(null);
   const [selPanel,   setSelPanel]   = useState(null);
@@ -228,11 +228,22 @@ export default function DashboardBuilder({ environment, session, onBack }) {
   useEffect(()=>{
     if(!envId) return;
     Promise.all([api.get(`/dashboards?environment_id=${envId}`),api.get(`/objects?environment_id=${envId}`),api.get("/roles"),api.get("/users"),api.get(`/saved-views?environment_id=${envId}`)]).then(([dbs,objs,rls,usrs,rpts])=>{
-      setDashboards(Array.isArray(dbs)?dbs:[]);
+      const dbList = Array.isArray(dbs)?dbs:[];
+      setDashboards(dbList);
       setObjects(Array.isArray(objs)?objs:[]);
       setRoles(Array.isArray(rls)?rls:[]);
       setUsers(Array.isArray(usrs)?usrs:[]);
       setSavedRpts(Array.isArray(rpts)?rpts:[]);
+      // Auto-open a specific dashboard if requested (e.g. from "Edit dashboard" button)
+      if (initialEditId) {
+        const target = dbList.find(d => d.id === initialEditId);
+        if (target) {
+          api.get(`/dashboards/${target.id}`).then(full => {
+            setEditing(full.id ? full : {...target, panels:[]});
+            setView("builder");
+          });
+        }
+      }
     });
   },[envId]);
 

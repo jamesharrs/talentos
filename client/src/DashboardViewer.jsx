@@ -21,7 +21,14 @@ function fmtNum(n){if(typeof n!=="number")return n;if(n>=1e6)return(n/1e6).toFix
 function Skeleton(){return <div style={{ height:"100%",display:"flex",flexDirection:"column",gap:8,padding:4 }}>
   {[80,60,40,60,30].map((w,i)=><div key={i} style={{ height:12,width:`${w}%`,borderRadius:6,background:`${V.border}` }}/>)}
 </div>;}
-function ErrorState({msg}){return <div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:"100%",fontSize:12,color:V.red }}>{msg==="Permission denied"?"🔒 No access":msg}</div>;}
+function ErrorState({msg}){
+  const isConfig = msg && (msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('not configured') || msg.toLowerCase().includes('no group'));
+  return <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",gap:6,padding:"12px 0" }}>
+    <Ic n={isConfig?"settings":"alertTriangle"} s={18} c={isConfig?V.text3:V.red}/>
+    <span style={{ fontSize:12,color:isConfig?V.text3:V.red,textAlign:"center" }}>{msg==="Permission denied"?"🔒 No access":isConfig?"Panel not configured":msg}</span>
+    {isConfig&&<span style={{ fontSize:11,color:V.text3 }}>Edit dashboard to set up this panel</span>}
+  </div>;
+}
 
 function StatPanel({ panel, data }) {
   if (!data) return <Skeleton/>;
@@ -196,7 +203,7 @@ export default function DashboardViewer({ environment, session, onNavigate, onOp
       <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:20 }}>
         <DashboardSwitcher dashboards={dashboards} current={current} onChange={handleSwitch}/>
         <div style={{ flex:1 }}/>
-        {canEdit&&onManage&&<button onClick={onManage} style={{ display:"flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:8,border:`1.5px solid ${V.border}`,background:"transparent",fontSize:12,color:V.text2,cursor:"pointer",fontFamily:F }}><Ic n="settings" s={13} c={V.text3}/> Manage</button>}
+        {canEdit&&onManage&&<button onClick={()=>onManage(current?.id)} style={{ display:"flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:8,border:`1.5px solid ${V.border}`,background:"transparent",fontSize:12,color:V.text2,cursor:"pointer",fontFamily:F }}><Ic n="settings" s={13} c={V.text3}/> Edit dashboard</button>}
         <button onClick={handleRefresh} disabled={refreshing} style={{ display:"flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:8,border:`1.5px solid ${V.border}`,background:"transparent",fontSize:12,color:V.text2,cursor:"pointer",fontFamily:F }}>
           <Ic n="refresh" s={13} c={refreshing?V.text3:V.text2}/>{refreshing?"Refreshing…":"Refresh"}
         </button>

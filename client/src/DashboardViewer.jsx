@@ -113,6 +113,42 @@ function TextPanel({ panel, data }) {
   </div>;
 }
 
+function SavedReportPanel({ panel, data }) {
+  if (!data) return <Skeleton/>;
+  if (data.error) return <ErrorState msg={data.error}/>;
+  const { report } = data;
+  if (!report) return <ErrorState msg="Report not configured"/>;
+  // Use the saved chart config to render a preview chart
+  const chartData = (report.chartData || []);
+  const chartType = report.chart_type || "bar";
+  const xKey = report.chart_x || "_group";
+  const yKey = report.chart_y || "_count";
+  // chartData from saved_views is stored differently — build from results if needed
+  if (!chartData.length) {
+    return <div style={{ height:"100%",display:"flex",flexDirection:"column" }}>
+      {panel.title&&<div style={{ fontSize:12,fontWeight:700,color:V.text2,marginBottom:6 }}>{panel.title}</div>}
+      <div style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8 }}>
+        <div style={{ fontSize:12,fontWeight:600,color:V.text2 }}>{report.name}</div>
+        <div style={{ fontSize:11,color:V.text3 }}>
+          {[report.group_by&&`Grouped by ${report.group_by}`, report.chart_type&&`${report.chart_type} chart`].filter(Boolean).join(" · ")}
+        </div>
+        <div style={{ fontSize:11,color:V.text3,background:`${V.accent}08`,padding:"4px 10px",borderRadius:6 }}>Run report to see data</div>
+      </div>
+    </div>;
+  }
+  return <div style={{ height:"100%",display:"flex",flexDirection:"column" }}>
+    {panel.title&&<div style={{ fontSize:12,fontWeight:700,color:V.text2,marginBottom:6 }}>{panel.title}<span style={{ fontSize:11,fontWeight:400,color:V.text3,marginLeft:6 }}>{report.name}</span></div>}
+    <div style={{ flex:1,minHeight:0 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        {chartType==="pie"
+          ? <PieChart><Pie data={chartData} dataKey={yKey} nameKey={xKey} cx="50%" cy="50%" innerRadius="35%" outerRadius="65%" paddingAngle={2}>{chartData.map((_,i)=><Cell key={i} fill={PALETTES[i%PALETTES.length]}/>)}</Pie><Tooltip contentStyle={{ fontSize:11,fontFamily:F,borderRadius:8 }}/></PieChart>
+          : <BarChart data={chartData} margin={{ top:4,right:8,bottom:0,left:-20 }}><XAxis dataKey={xKey} tick={{ fontSize:9,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><YAxis tick={{ fontSize:9,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><Tooltip contentStyle={{ fontSize:11,fontFamily:F,borderRadius:8 }}/><Bar dataKey={yKey} radius={[4,4,0,0]}>{chartData.map((_,i)=><Cell key={i} fill={PALETTES[i%PALETTES.length]}/>)}</Bar></BarChart>
+        }
+      </ResponsiveContainer>
+    </div>
+  </div>;
+}
+
 function DashboardSwitcher({ dashboards, current, onChange }) {
   const [open,setOpen]=useState(false); const ref=useRef(null);
   useEffect(()=>{ const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);}; document.addEventListener("mousedown",h); return()=>document.removeEventListener("mousedown",h); },[]);
@@ -181,7 +217,7 @@ export default function DashboardViewer({ environment, session, onNavigate, onOp
       case "list":         return <ListPanel {...props}/>;
       case "activity":     return <ActivityPanel {...props}/>;
       case "text":         return <TextPanel {...props}/>;
-      case "saved_report": return <div style={{ fontSize:12,color:V.text3,display:"flex",height:"100%",alignItems:"center",justifyContent:"center" }}>Report panel</div>;
+      case "saved_report": return <SavedReportPanel {...props}/>;
       default:             return <div style={{ fontSize:12,color:V.text3 }}>Unknown type</div>;
     }
   };

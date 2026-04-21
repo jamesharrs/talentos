@@ -794,6 +794,7 @@ export default function Reports({ environment, initialReport }) {
   const [reportShared,  setReportShared]  = useState(false);
   const [savingReport,  setSavingReport]  = useState(false);
   const [showSaveDialog,setShowSaveDialog]= useState(false);
+  const [activeSavedId, setActiveSavedId] = useState(null); // tracks which saved report is loaded
   const [activeFilter,  setActiveFilter]  = useState(null);
   const [quickFilter,   setQuickFilter]   = useState("");
   const [scheduleView,  setScheduleView]  = useState(null);
@@ -822,6 +823,7 @@ export default function Reports({ environment, initialReport }) {
         setSelCols(f.filter(x=>x.show_in_list).map(x=>x.id));
         setGroupBy(""); setSortBy(""); setFilters([]);
         setFormulas([]); setChartX(""); setChartY(""); setResults(null); setActiveFilter(null); setJoinObject("");
+        if (!skipReset.current) setActiveSavedId(null); // clear active report when switching objects
       }
       skipReset.current = false;
     });
@@ -1028,12 +1030,28 @@ export default function Reports({ environment, initialReport }) {
       filters, columns:selCols, group_by:groupBy, sort_by:sortBy, sort_dir:sortDir,
       formulas, chart_type:chartType, chart_x:chartX, chart_y:chartY,
     });
-    if (d?.id) { setSavedReports(p=>[...p,d]); setReportName(""); setShowSaveDialog(false); }
+    if (d?.id) { setSavedReports(p=>[...p,d]); setActiveSavedId(d.id); setShowSaveDialog(false); }
+    setSavingReport(false);
+  };
+
+  const updateReport = async () => {
+    if (!activeSavedId) return;
+    setSavingReport(true);
+    const d = await api.patch(`/saved-views/${activeSavedId}`, {
+      name:reportName.trim()||undefined, object_id:selObject,
+      is_shared:reportShared,
+      filters, columns:selCols, group_by:groupBy, sort_by:sortBy, sort_dir:sortDir,
+      formulas, chart_type:chartType, chart_x:chartX, chart_y:chartY,
+    });
+    if (d?.id) { setSavedReports(p=>p.map(r=>r.id===d.id?d:r)); }
     setSavingReport(false);
   };
 
   const loadReport = sv => {
     skipReset.current = true;
+    setActiveSavedId(sv.id);
+    setReportName(sv.name || "");
+    setReportShared(!!sv.is_shared);
     // Always reset chart/formula state first so stale values don't bleed in
     setChartX(sv.chart_x || "");
     setChartY(sv.chart_y || "");
@@ -1326,7 +1344,12 @@ export default function Reports({ environment, initialReport }) {
         </div>
         <div style={{ display:"flex",gap:8 }}>
           <button onClick={exportCSV} style={{ fontSize:11,padding:"7px 14px",borderRadius:20,border:"1.5px solid #E5E7EB",background:B.card,color:B.gray,cursor:"pointer",fontFamily:F }}>Export CSV</button>
-          <button onClick={()=>{setShowSaveDialog(true);setPanel("saved");}} style={{ fontSize:11,padding:"7px 14px",borderRadius:20,border:"1.5px solid #E5E7EB",background:B.card,color:B.gray,cursor:"pointer",fontFamily:F }}>Save report</button>
+          {activeSavedId && (
+            <button onClick={updateReport} disabled={savingReport} style={{ fontSize:11,padding:"7px 14px",borderRadius:20,border:"1.5px solid #8B7EC8",background:"#F5F3FF",color:"#8B7EC8",cursor:"pointer",fontFamily:F,fontWeight:700 }}>
+              {savingReport?"Saving…":"↑ Update report"}
+            </button>
+          )}
+          <button onClick={()=>{setShowSaveDialog(true);setPanel("saved");}} style={{ fontSize:11,padding:"7px 14px",borderRadius:20,border:"1.5px solid #E5E7EB",background:B.card,color:B.gray,cursor:"pointer",fontFamily:F }}>{activeSavedId?"Save as new":"Save report"}</button>
           <button onClick={()=>runReport()} style={{ fontSize:11,padding:"7px 14px",borderRadius:20,border:"none",background:B.purple,color:"#fff",cursor:"pointer",fontFamily:F,fontWeight:700 }}>
             {running?"Running…":"▶ Run"}
           </button>

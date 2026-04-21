@@ -7,6 +7,26 @@ const F = "'DM Sans',-apple-system,sans-serif";
 const PALETTES = ["#4f46e5","#0891b2","#059669","#d97706","#dc2626","#7c3aed","#ec4899","#14b8a6","#f59e0b","#6366f1"];
 const api = { get:(u)=>apiClient.get(u.replace(/^\/api/,"")).catch(()=>null) };
 
+// Renders children(width, height) only once the container has positive dimensions
+function AutoSizedChart({ children, style }) {
+  const ref = useRef(null);
+  const [dims, setDims] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    if (!ref.current) return;
+    const ro = new ResizeObserver(entries => {
+      const { width, height } = entries[0].contentRect;
+      if (width > 0 && height > 0) setDims({ w: Math.floor(width), h: Math.floor(height) });
+    });
+    ro.observe(ref.current);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div ref={ref} style={{ width:"100%", height:"100%", ...style }}>
+      {dims.w > 0 && dims.h > 0 && children(dims.w, dims.h)}
+    </div>
+  );
+}
+
 const PATHS = {
   refresh:"M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 005.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 013.51 15",
   settings:"M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z",
@@ -66,14 +86,16 @@ function ChartPanel({ panel, data }) {
   return <div style={{ height:"100%",display:"flex",flexDirection:"column" }}>
     {panel.title&&<div style={{ fontSize:12,fontWeight:700,color:V.text2,marginBottom:10 }}>{panel.title}<span style={{ fontSize:11,color:V.text3,fontWeight:400,marginLeft:6 }}>{data.total} total</span></div>}
     <div style={{ flex:1,minHeight:0 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        {chartType==="pie"?
-          <PieChart><Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius="35%" outerRadius="65%" paddingAngle={2}>{chartData.map((_,i)=><Cell key={i} fill={PALETTES[i%PALETTES.length]}/>)}</Pie><Tooltip contentStyle={{ fontSize:12,fontFamily:F,borderRadius:8,border:`1px solid ${V.border}` }}/></PieChart>
-        :chartType==="line"?
-          <AreaChart data={chartData} margin={{ top:4,right:8,bottom:0,left:-20 }}><defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={V.accent} stopOpacity={0.15}/><stop offset="95%" stopColor={V.accent} stopOpacity={0}/></linearGradient></defs><XAxis dataKey="name" tick={{ fontSize:10,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><YAxis tick={{ fontSize:10,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><Tooltip contentStyle={{ fontSize:12,fontFamily:F,borderRadius:8,border:`1px solid ${V.border}` }}/><Area type="monotone" dataKey="value" stroke={V.accent} strokeWidth={2} fill="url(#ag)" dot={false}/></AreaChart>
-        :
-          <BarChart data={chartData} margin={{ top:4,right:8,bottom:0,left:-20 }}><XAxis dataKey="name" tick={{ fontSize:10,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><YAxis tick={{ fontSize:10,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><Tooltip contentStyle={{ fontSize:12,fontFamily:F,borderRadius:8,border:`1px solid ${V.border}` }}/><Bar dataKey="value" radius={[4,4,0,0]}>{chartData.map((_,i)=><Cell key={i} fill={PALETTES[i%PALETTES.length]}/>)}</Bar></BarChart>}
-      </ResponsiveContainer>
+      <AutoSizedChart>
+        {(w,h)=><ResponsiveContainer width={w} height={h}>
+          {chartType==="pie"?
+            <PieChart><Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius="35%" outerRadius="65%" paddingAngle={2}>{chartData.map((_,i)=><Cell key={i} fill={PALETTES[i%PALETTES.length]}/>)}</Pie><Tooltip contentStyle={{ fontSize:12,fontFamily:F,borderRadius:8,border:`1px solid ${V.border}` }}/></PieChart>
+          :chartType==="line"?
+            <AreaChart data={chartData} margin={{ top:4,right:8,bottom:0,left:-20 }}><defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={V.accent} stopOpacity={0.15}/><stop offset="95%" stopColor={V.accent} stopOpacity={0}/></linearGradient></defs><XAxis dataKey="name" tick={{ fontSize:10,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><YAxis tick={{ fontSize:10,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><Tooltip contentStyle={{ fontSize:12,fontFamily:F,borderRadius:8,border:`1px solid ${V.border}` }}/><Area type="monotone" dataKey="value" stroke={V.accent} strokeWidth={2} fill="url(#ag)" dot={false}/></AreaChart>
+          :
+            <BarChart data={chartData} margin={{ top:4,right:8,bottom:0,left:-20 }}><XAxis dataKey="name" tick={{ fontSize:10,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><YAxis tick={{ fontSize:10,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><Tooltip contentStyle={{ fontSize:12,fontFamily:F,borderRadius:8,border:`1px solid ${V.border}` }}/><Bar dataKey="value" radius={[4,4,0,0]}>{chartData.map((_,i)=><Cell key={i} fill={PALETTES[i%PALETTES.length]}/>)}</Bar></BarChart>}
+        </ResponsiveContainer>}
+      </AutoSizedChart>
     </div>
   </div>;
 }
@@ -141,12 +163,14 @@ function SavedReportPanel({ panel, data, onNavigate, onOpenRecord }) {
       {total>0&&<span style={{ fontSize:11,color:V.text3,fontWeight:400 }}>{total} total</span>}
     </div>}
     {showChart&&<div style={{ flex:showTable?0:1,height:chartHeight,minHeight:showTable?chartHeight:0 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        {chartType==="pie"
-          ? <PieChart><Pie data={chartData} dataKey={chartY} nameKey={chartX} cx="50%" cy="50%" innerRadius="30%" outerRadius="60%" paddingAngle={2}>{chartData.map((_,i)=><Cell key={i} fill={PALETTES[i%PALETTES.length]}/>)}</Pie><Tooltip contentStyle={{ fontSize:11,fontFamily:F,borderRadius:8 }}/></PieChart>
-          : <BarChart data={chartData} margin={{ top:2,right:4,bottom:0,left:-24 }}><XAxis dataKey={chartX} tick={{ fontSize:9,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><YAxis tick={{ fontSize:9,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><Tooltip contentStyle={{ fontSize:11,fontFamily:F,borderRadius:8 }}/><Bar dataKey={chartY} radius={[3,3,0,0]}>{chartData.map((_,i)=><Cell key={i} fill={PALETTES[i%PALETTES.length]}/>)}</Bar></BarChart>
-        }
-      </ResponsiveContainer>
+      <AutoSizedChart>
+        {(w,h)=><ResponsiveContainer width={w} height={h}>
+          {chartType==="pie"
+            ? <PieChart><Pie data={chartData} dataKey={chartY} nameKey={chartX} cx="50%" cy="50%" innerRadius="30%" outerRadius="60%" paddingAngle={2}>{chartData.map((_,i)=><Cell key={i} fill={PALETTES[i%PALETTES.length]}/>)}</Pie><Tooltip contentStyle={{ fontSize:11,fontFamily:F,borderRadius:8 }}/></PieChart>
+            : <BarChart data={chartData} margin={{ top:2,right:4,bottom:0,left:-24 }}><XAxis dataKey={chartX} tick={{ fontSize:9,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><YAxis tick={{ fontSize:9,fontFamily:F,fill:V.text3 }} axisLine={false} tickLine={false}/><Tooltip contentStyle={{ fontSize:11,fontFamily:F,borderRadius:8 }}/><Bar dataKey={chartY} radius={[3,3,0,0]}>{chartData.map((_,i)=><Cell key={i} fill={PALETTES[i%PALETTES.length]}/>)}</Bar></BarChart>
+          }
+        </ResponsiveContainer>}
+      </AutoSizedChart>
     </div>}
     {showTable&&<div style={{ flex:1,overflowY:"auto",marginTop:showChart?8:0 }}>
       {columns.length>0&&<div style={{ display:"grid",gridTemplateColumns:`repeat(${Math.min(columns.length,4)},1fr)`,gap:"0 8px",paddingBottom:4,marginBottom:4,borderBottom:`1px solid ${V.border}`,flexShrink:0 }}>

@@ -27,6 +27,7 @@ import TalentCardModal from './TalentCard.jsx';
 import ScreeningRulesPanel from './ScreeningRulesPanel.jsx'; // kept for ScreeningTab inside JobQuestionsPanel
 import LinkedInFinderButton from './LinkedInFinder.jsx';
 const InterviewPlanPanelLazy = lazy(() => import('./InterviewPlanPanel.jsx').then(m => ({ default: m.InterviewPlanPanel })));
+const ScheduleModalLazy = lazy(() => import('./Interviews.jsx').then(m => ({ default: m.ScheduleModal })));
 
 // Bare fetch wrapper that always includes X-Tenant-Slug + X-User-Id headers.
 // Use this instead of raw fetch() anywhere in this file.
@@ -5897,6 +5898,7 @@ const PersonInterviewsPanel = ({ record, environment, linkedJobRecords, activeJo
   const [jobFilter, setJobFilter]     = useState("all");
   const [timeFilter, setTimeFilter]   = useState("all"); // all | upcoming | past
   const [expanded, setExpanded]       = useState(null);
+  const [showSchedule, setShowSchedule] = useState(false);
 
   // Sync to activeJobContext when a job is clicked in the Linked Records panel (same as Notes)
   useEffect(() => {
@@ -5967,8 +5969,8 @@ const PersonInterviewsPanel = ({ record, environment, linkedJobRecords, activeJo
           ))}
         </div>
       )}
-      {/* Time filter */}
-      <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
+      {/* Time filter + Schedule button row */}
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:12,flexWrap:"wrap"}}>
         {["all","upcoming","past"].map(v => (
           <button key={v} onClick={()=>setTimeFilter(v)} style={{
             padding:"4px 10px",borderRadius:99,border:`1.5px solid ${timeFilter===v?C.accent:C.border}`,
@@ -5976,6 +5978,14 @@ const PersonInterviewsPanel = ({ record, environment, linkedJobRecords, activeJo
             fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F,
           }}>{v==="all"?"All":v==="upcoming"?"Upcoming":"Past"}</button>
         ))}
+        <button onClick={()=>setShowSchedule(true)} style={{
+          marginLeft:"auto",display:"flex",alignItems:"center",gap:5,
+          padding:"5px 12px",borderRadius:8,border:`1.5px solid ${C.accent}`,
+          background:C.accent,color:"white",fontSize:12,fontWeight:600,
+          cursor:"pointer",fontFamily:F,flexShrink:0}}>
+          <Ic n="calendar" s={12} c="white"/>
+          Schedule Interview
+        </button>
       </div>
 
       {filtered.length === 0 ? (
@@ -6072,6 +6082,32 @@ const PersonInterviewsPanel = ({ record, environment, linkedJobRecords, activeJo
             );
           })}
         </div>
+      )}
+
+      {/* Schedule Interview modal — pre-populated with this person's context */}
+      {showSchedule && (
+        <Suspense fallback={null}>
+          <ScheduleModalLazy
+            envId={environment?.id}
+            interviewType={null}
+            initialValues={{
+              candidate_id:   record.id,
+              candidate_name: [record.data?.first_name, record.data?.last_name].filter(Boolean).join(" "),
+              job_id:   jobFilter !== "all" ? jobFilter : (linkedJobs[0]?.id   || null),
+              job_name: jobFilter !== "all"
+                ? linkedJobs.find(j => j.id === jobFilter)?.name
+                : (linkedJobs[0]?.name || ""),
+            }}
+            onSave={async (payload) => {
+              await api.post("/interviews", { ...payload, environment_id: environment?.id });
+              setShowSchedule(false);
+              // Refresh the list
+              api.get(`/interviews?person_id=${record.id}&environment_id=${environment?.id}`)
+                .then(d => setInterviews(Array.isArray(d) ? d : []));
+            }}
+            onClose={() => setShowSchedule(false)}
+          />
+        </Suspense>
       )}
     </div>
   );
@@ -7667,9 +7703,18 @@ const GroupCard = ({ ids, overSlot, overZone, openPanels, setOpenPanels, openPan
                   </svg>
                 </div>
 
-                {/* Tab label */}
-                <div onClick={() => setActiveTab(id)}
-                  style={{ display:"flex", alignItems:"center", gap:5 }}>
+                {/* Tab label — clicking switches to this tab AND opens the group if collapsed */}
+                <div onClick={() => {
+                    setActiveTab(id);
+                    if (!isGroupOpen) {
+                      setOpenPanels(p => {
+                        const next = { ...p, [groupOpenKey]: true };
+                        try { localStorage.setItem(openPanelsKey, JSON.stringify(next)); } catch {}
+                        return next;
+                      });
+                    }
+                  }}
+                  style={{ display:"flex", alignItems:"center", gap:5, cursor:"pointer" }}>
                   <Ic n={meta.icon} s={14} c={isActive ? C.accent : C.text3}/>
                   <span style={{ fontSize:13, fontWeight: isActive ? 700 : 500,
                     color: isActive ? C.accent : C.text2, whiteSpace:"nowrap" }}>

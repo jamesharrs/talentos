@@ -829,7 +829,7 @@ const TypeFormModal = ({ type, envId, onSave, onClose }) => {
 
 
 // ── Schedule Interview Modal ──────────────────────────────────────────────────
-const ScheduleModal = ({ interviewType, envId, onSave, onClose, initialValues }) => {
+export const ScheduleModal = ({ interviewType, envId, onSave, onClose, initialValues }) => {
   const isEdit = !!initialValues?.id;
   const bulkCandidates = interviewType?._bulkCandidates || null;
   const [form, setForm] = useState({

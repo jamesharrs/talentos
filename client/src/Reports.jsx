@@ -115,7 +115,11 @@ Rules: use {api_key} curly-brace syntax. Return one expression only.`,
         }),
       });
       const data = await res.json();
-      const raw  = (data?.content?.[0]?.text || data?.response || "").trim();
+      // Proxy returns { content: "string" } — handle both string and array formats
+      const raw  = (typeof data?.content === "string"
+        ? data.content
+        : data?.content?.[0]?.text || data?.response || ""
+      ).trim();
       const expr = raw.replace(/^```[\w]*\n?/,"").replace(/\n?```$/,"").trim();
       const v    = validateExpr(expr, fields);
       setResult({ expression:expr, ...v });

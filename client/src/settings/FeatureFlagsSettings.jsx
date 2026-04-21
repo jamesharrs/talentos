@@ -127,8 +127,8 @@ function RecordPanelsSection({ flagMap, saving, toggle, toggleAll, bulkSaving, B
     if (selectedType === 'all')    return true;
     if (selectedType === 'person') return p.applies === 'all' || p.applies === 'person' || p.applies === 'personOrJob';
     if (selectedType === 'job')    return p.applies === 'all' || p.applies === 'job'    || p.applies === 'personOrJob';
-    // Any other object type: only show universal panels
-    return p.applies === 'all';
+    // Any other object type (Talent Pools, custom): same as Job — everything except person-only panels
+    return p.applies === 'all' || p.applies === 'job' || p.applies === 'personOrJob';
   });
 
   const visibleKeys = visiblePanels.map(p => p.key);

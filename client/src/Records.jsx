@@ -7611,8 +7611,8 @@ const GroupCard = ({ ids, overSlot, overZone, openPanels, setOpenPanels, openPan
       )}
 
       {/* Tab strip header */}
-      <div style={{ display:"flex", alignItems:"stretch", borderBottom:`1px solid ${C.border}`,
-        background:"#fafbfc", userSelect:"none", padding:"4px 0" }}>
+      <div style={{ display:"flex", alignItems:"center", borderBottom:`1px solid ${C.border}`,
+        background: C.surface, userSelect:"none", padding:"0", minHeight:46 }}>
 
         {/* Group grip (move whole group) */}
         <div title="Drag group"
@@ -7629,7 +7629,7 @@ const GroupCard = ({ ids, overSlot, overZone, openPanels, setOpenPanels, openPan
 
         {/* Tabs */}
         <div ref={tabStripRef} style={{ display:"flex", flex:1, overflowX:"auto", userSelect:"none",
-          gap:2, padding:"0 4px", alignItems:"center" }}>
+          gap:2, padding:"8px 4px", alignItems:"center" }}>
           {ids.map(id => {
             const meta = PANEL_META[id];
             if (!meta) return null;

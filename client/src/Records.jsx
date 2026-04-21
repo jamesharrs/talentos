@@ -6527,22 +6527,22 @@ export const PANEL_META = {
   fields:       { icon:"edit",          label:"Profile Fields",      defaultOpen:true  },
   tasks:        { icon:"checkSquare",   label:"Tasks & Reminders",   defaultOpen:true  },
   comms:        { icon:"mail",          label:"Communications",      defaultOpen:true  },
-  coordination: { icon:"calendar",      label:"Interviews",             defaultOpen:true  },
+  coordination: { icon:"calendar",      label:"Interviews",             defaultOpen:true,  personOnly:true },
   notes:        { icon:"messageSquare", label:"Notes",               defaultOpen:true  },
   attachments:  { icon:"paperclip",     label:"Files",               defaultOpen:true  },
   forms:        { icon:"clipboard",     label:"Forms",               defaultOpen:false },
   activity:     { icon:"activity",      label:"Activity",            defaultOpen:false },
   agents:       { icon:"sparkles",      label:"AI Agents",           defaultOpen:false },
-  linked:       { icon:"link",          label:"Linked Records",      defaultOpen:true  },
+  linked:       { icon:"link",          label:"Linked Records",      defaultOpen:true,  personOnly:true },
   match:        { icon:"sparkles",      label:"Recommendations",     defaultOpen:false },
-  reporting:    { icon:"gitBranch",     label:"Reporting",           defaultOpen:true  },
+  reporting:    { icon:"gitBranch",     label:"Reporting",           defaultOpen:true,  personOnly:true },
   user:         { icon:"user",          label:"Platform User",       defaultOpen:false, hidden:true },
   scorecard:    { icon:"clipboard",     label:"Scorecards",          defaultOpen:false, jobOnly:true },
-  assessments:  { icon:"clipboard",     label:"Assessments",          defaultOpen:true  },
-  questions:    { icon:"listChecks",     label:"Screening & Interview Questions", defaultOpen:false, jobOnly:true },
-  interview_plan: { icon:"calendar",      label:"Interview Plan",      defaultOpen:true, jobOnly:true  },
-  insights: { icon:"barChart", label:"Insights", defaultOpen:true, jobOnly:true },
-  engagement: { icon:"activity", label:"Engagement Score", defaultOpen:true  },
+  assessments:  { icon:"clipboard",     label:"Assessments",         defaultOpen:true,  personOnly:true },
+  questions:    { icon:"listChecks",    label:"Screening & Interview Questions", defaultOpen:false, jobOnly:true },
+  interview_plan: { icon:"calendar",    label:"Interview Plan",      defaultOpen:true,  jobOnly:true  },
+  insights:     { icon:"barChart",      label:"Insights",            defaultOpen:true,  jobOnly:true },
+  engagement:   { icon:"activity",      label:"Engagement Score",    defaultOpen:true,  personOnly:true },
 };
 
 export const getDefaultPanelOrder = (objectName) => {
@@ -8061,7 +8061,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   // A panel is visible if its feature flag is on (and for match, also needs ai_matching)
   const panelVisible = (id) => {
     if (PANEL_META[id]?.hidden) return false;
-    if (PANEL_META[id]?.jobOnly && objectName !== "Job" && objectName !== "Jobs") return false;
+    if (PANEL_META[id]?.jobOnly    && objectName !== "Job" && objectName !== "Jobs") return false;
+    if (PANEL_META[id]?.personOnly && objectName !== "Person") return false;
     const flag = PANEL_FLAGS[id];
     if (!flag) return true;
     if (id === 'match') return ff[flag] && ff.ai_matching;

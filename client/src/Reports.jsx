@@ -500,7 +500,7 @@ function ColumnMultiPicker({ fields, selCols, setSelCols }) {
 }
 
 // ── AxisPicker — friendly labeled dropdown for chart X/Y axis ────────────────
-function AxisPicker({ label, value, onChange, resultCols, fields }) {
+function AxisPicker({ label, value, onChange, resultCols, fields, formulas }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -515,13 +515,17 @@ function AxisPicker({ label, value, onChange, resultCols, fields }) {
   const colLabel = key => {
     if (key === "_count") return "Count";
     if (key === "_group") return "Group";
+    // Check formula columns first
+    const fm = (formulas||[]).find(f => f.name === key);
+    if (fm) return fm.name;
     const f = fields?.find(f => f.api_key === key);
     return f?.name || key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
   };
 
-  // Icon by field type
+  // Icon by field type — formula gets ∑
   const colIcon = key => {
-    if (key === "_count" || key === "_group") return "🔢";
+    if (key === "_count" || key === "_group") return "#";
+    if ((formulas||[]).some(f => f.name === key)) return "∑";
     const f = fields?.find(f => f.api_key === key);
     if (!f) return "•";
     if (["number","currency","rating","percent"].includes(f.field_type)) return "#";
@@ -530,17 +534,27 @@ function AxisPicker({ label, value, onChange, resultCols, fields }) {
     return "T";
   };
 
-  // Group cols: system first, then text/categorical, then numeric
-  const sysCols  = resultCols.filter(k => k.startsWith("_"));
-  const numCols  = resultCols.filter(k => !k.startsWith("_") && ["number","currency","rating","percent"].includes(fields?.find(f=>f.api_key===k)?.field_type));
-  const catCols  = resultCols.filter(k => !k.startsWith("_") && !numCols.includes(k));
+  // Build full option list: system cols + field cols + formula cols
+  // Prefer resultCols when available (report has run), otherwise derive from fields+formulas
+  const activeFormulas = (formulas||[]).filter(f => f.name && f.expression);
+  const derivedCols = [
+    "_group", "_count",
+    ...(fields||[]).map(f => f.api_key),
+    ...activeFormulas.map(f => f.name),
+  ];
+  const allCols = resultCols?.length ? resultCols : derivedCols;
+
+  const sysCols = allCols.filter(k => k === "_count" || k === "_group");
+  const fmCols  = allCols.filter(k => (formulas||[]).some(f => f.name === k));
+  const numCols = allCols.filter(k => !sysCols.includes(k) && !fmCols.includes(k) &&
+    ["number","currency","rating","percent"].includes(fields?.find(f=>f.api_key===k)?.field_type));
+  const catCols = allCols.filter(k => !sysCols.includes(k) && !fmCols.includes(k) && !numCols.includes(k));
 
   const selectedLabel = value ? colLabel(value) : `Choose ${label}…`;
   const hasValue = !!value;
-
   const axisColor = label === "X" ? B.purple : B.teal;
 
-  const DropdownGroup = ({ title, cols }) => cols.length === 0 ? null : (
+  const DropdownGroup = ({ title, cols, iconColor }) => cols.length === 0 ? null : (
     <>
       <div style={{ padding:"4px 10px 2px", fontSize:10, fontWeight:700, color:"#9CA3AF", textTransform:"uppercase", letterSpacing:"0.06em" }}>{title}</div>
       {cols.map(k => (
@@ -549,7 +563,9 @@ function AxisPicker({ label, value, onChange, resultCols, fields }) {
             border:"none", background: value===k ? `${axisColor}12` : "transparent",
             cursor:"pointer", fontFamily:F, textAlign:"left", fontSize:12,
             color: value===k ? axisColor : "#374151", fontWeight: value===k ? 700 : 400 }}>
-          <span style={{ width:16, textAlign:"center", fontSize:11, color: value===k ? axisColor : "#9CA3AF", flexShrink:0, fontFamily:"ui-monospace,monospace" }}>
+          <span style={{ width:16, textAlign:"center", fontSize:11,
+            color: value===k ? axisColor : (iconColor || "#9CA3AF"),
+            flexShrink:0, fontFamily:"ui-monospace,monospace" }}>
             {colIcon(k)}
           </span>
           {colLabel(k)}
@@ -566,7 +582,6 @@ function AxisPicker({ label, value, onChange, resultCols, fields }) {
           background: hasValue ? `${axisColor}08` : "white",
           cursor:"pointer", fontFamily:F, fontSize:11, fontWeight:600,
           color: hasValue ? axisColor : "#9CA3AF", whiteSpace:"nowrap" }}>
-        {/* Axis label badge */}
         <span style={{ width:16, height:16, borderRadius:4, background: hasValue ? axisColor : "#E5E7EB",
           color:"white", fontSize:9, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
           {label}
@@ -580,9 +595,8 @@ function AxisPicker({ label, value, onChange, resultCols, fields }) {
       {open && (
         <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:500,
           background:"white", border:"1.5px solid #E5E7EB", borderRadius:12,
-          boxShadow:"0 8px 28px rgba(0,0,0,.12)", minWidth:200, maxHeight:280,
+          boxShadow:"0 8px 28px rgba(0,0,0,.12)", minWidth:200, maxHeight:300,
           overflowY:"auto", fontFamily:F }}>
-          {/* Clear option */}
           {hasValue && (
             <button onMouseDown={e => { e.preventDefault(); onChange(""); setOpen(false); }}
               style={{ width:"100%", display:"flex", alignItems:"center", gap:8, padding:"7px 10px",
@@ -591,9 +605,10 @@ function AxisPicker({ label, value, onChange, resultCols, fields }) {
               <span style={{ fontSize:10 }}>✕</span> Clear {label} axis
             </button>
           )}
-          <DropdownGroup title="Aggregated" cols={sysCols}/>
-          <DropdownGroup title="Categories" cols={catCols}/>
-          <DropdownGroup title="Numbers"    cols={numCols}/>
+          <DropdownGroup title="Aggregated"           cols={sysCols}/>
+          <DropdownGroup title="Categories"           cols={catCols}/>
+          <DropdownGroup title="Numbers"              cols={numCols}/>
+          <DropdownGroup title="Calculated columns"   cols={fmCols} iconColor={B.purple}/>
         </div>
       )}
     </div>
@@ -1224,9 +1239,9 @@ export default function Reports({ environment, initialReport }) {
               </div>
               {chartType!=="table"&&(
                 <>
-                  <AxisPicker label="X" value={chartX} onChange={setChartX} resultCols={resultCols} fields={fields}/>
+                  <AxisPicker label="X" value={chartX} onChange={setChartX} resultCols={resultCols} fields={fields} formulas={formulas}/>
                   {!["pie","funnel"].includes(chartType)&&(
-                    <AxisPicker label="Y" value={chartY} onChange={setChartY} resultCols={resultCols} fields={fields}/>
+                    <AxisPicker label="Y" value={chartY} onChange={setChartY} resultCols={resultCols} fields={fields} formulas={formulas}/>
                   )}
                   {activeFilter&&<button onClick={()=>setActiveFilter(null)} style={{ fontSize:11,padding:"4px 10px",borderRadius:14,border:`1.5px solid ${B.purple}`,background:"#F5F3FF",color:B.purple,cursor:"pointer",fontFamily:F }}>{activeFilter} ×</button>}
                 </>

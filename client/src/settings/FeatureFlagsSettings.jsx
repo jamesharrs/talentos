@@ -9,10 +9,38 @@ const C = { accent:'#4361EE', text1:'#1a1a2e', text2:'#4b5563', text3:'#9ca3af',
 const FLAG_GROUPS = {
   'Core Features':  ['ai_copilot','ai_matching','communications_panel','workflows','portals','reports','org_chart','interviews','offers','forms','bulk_actions','cv_parsing','duplicate_detection'],
   'Navigation':     ['access_calendar','access_search','access_chat','access_documents'],
-  'Record Panels':  ['panel_notes','panel_files','panel_activity','panel_forms','panel_recommendations','panel_linked_records','panel_tasks','panel_assessments','panel_engagement','panel_reporting','panel_agents','panel_user','panel_insights','panel_questions'],
   'Beta Features':  ['linkedin_finder','document_extraction'],
   'Experimental':   ['voice_copilot','predictive_analytics','auto_screening'],
 };
+
+// All panel flags with which record types they can apply to.
+// 'all' = universal, 'person' = Person only, 'job' = Job only, 'personOrJob' = both
+const PANEL_CONFIGS = [
+  { key:'panel_notes',         applies:'all',       label:'Notes',                        desc:'Notes and comments' },
+  { key:'panel_files',         applies:'all',       label:'Files & Attachments',           desc:'File upload and attachments' },
+  { key:'panel_activity',      applies:'all',       label:'Activity Log',                  desc:'Activity log and audit history' },
+  { key:'panel_forms',         applies:'all',       label:'Form Responses',                desc:'Submitted form responses' },
+  { key:'panel_tasks',         applies:'all',       label:'Tasks & Reminders',             desc:'Tasks and reminders' },
+  { key:'panel_agents',        applies:'all',       label:'AI Agents',                     desc:'Automated AI agent actions' },
+  { key:'panel_recommendations',applies:'personOrJob',label:'AI Recommendations',         desc:'AI-powered job/candidate matching (requires AI Matching)' },
+  { key:'panel_linked_records',applies:'person',    label:'Linked Records',               desc:'Records linked via pipeline workflows' },
+  { key:'coordination',        applies:'personOrJob',label:'Interviews Panel',             desc:'Interview list and scheduling' },
+  { key:'panel_assessments',   applies:'person',    label:'Assessments',                  desc:'Candidate assessment results' },
+  { key:'panel_engagement',    applies:'person',    label:'Engagement Score',             desc:'Engagement score and activity breakdown' },
+  { key:'panel_reporting',     applies:'person',    label:'Reporting Relationships',      desc:'Org chart reporting lines' },
+  { key:'panel_insights',      applies:'job',       label:'Insights',                     desc:'Hiring insights and analytics' },
+  { key:'panel_questions',     applies:'job',       label:'Screening & Interview Questions', desc:'Screening and interview question bank' },
+  { key:'interview_plan',      applies:'job',       label:'Interview Plan',               desc:'Structured interview plan for the role' },
+  { key:'scorecard',           applies:'job',       label:'Scorecards',                   desc:'Interviewer scorecards and feedback' },
+];
+
+// Which record types each 'applies' value covers for display
+const RECORD_TYPES = [
+  { key:'all',       label:'All Records',   color:'#6b7280' },
+  { key:'person',    label:'Person',        color:'#4361EE' },
+  { key:'job',       label:'Job',           color:'#0CA678' },
+  { key:'personOrJob',label:'Person & Job', color:'#7C3AED' },
+];
 
 const FLAG_LABELS = {
   ai_copilot:'AI Copilot', ai_matching:'AI Matching', communications_panel:'Communications Panel',
@@ -70,6 +98,104 @@ const FLAG_DESC = {
   predictive_analytics:'AI-powered hiring predictions',
   auto_screening:'Automatic candidate screening',
 };
+
+// ── Record Panels sub-section ──────────────────────────────────────────────
+function RecordPanelsSection({ flagMap, saving, toggle, toggleAll, bulkSaving, BulkBtn }) {
+  const [selectedType, setSelectedType] = useState('all');
+
+  // Panels visible for the selected type filter
+  const visiblePanels = PANEL_CONFIGS.filter(p => {
+    if (selectedType === 'all') return true;
+    if (selectedType === 'person') return p.applies === 'all' || p.applies === 'person' || p.applies === 'personOrJob';
+    if (selectedType === 'job')    return p.applies === 'all' || p.applies === 'job'    || p.applies === 'personOrJob';
+    return p.applies === selectedType;
+  });
+
+  const visibleKeys = visiblePanels.map(p => p.key);
+  const groupEnabled  = visibleKeys.every(k => (flagMap[k]?.enabled ?? true));
+  const groupDisabled = visibleKeys.every(k => !(flagMap[k]?.enabled ?? true));
+
+  const TYPE_COLORS = { all:'#6b7280', person:'#4361EE', job:'#0CA678', personOrJob:'#7C3AED' };
+  const TYPE_LABELS = { all:'All Records', person:'Person only', job:'Job only', personOrJob:'Person & Job' };
+
+  return (
+    <div style={{ marginBottom:28 }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.08em' }}>Record Panels</div>
+        <div style={{ display:'flex', gap:5 }}>
+          <BulkBtn onClick={() => toggleAll(visibleKeys, true)} disabled={groupEnabled}>Enable all</BulkBtn>
+          <BulkBtn onClick={() => toggleAll(visibleKeys, false)} danger disabled={groupDisabled}>Disable all</BulkBtn>
+        </div>
+      </div>
+
+      {/* Record type filter tabs */}
+      <div style={{ display:'flex', gap:6, marginBottom:10, flexWrap:'wrap' }}>
+        {['all','person','job'].map(t => {
+          const col = TYPE_COLORS[t];
+          const active = selectedType === t;
+          return (
+            <button key={t} onClick={() => setSelectedType(t)} style={{
+              padding:'4px 12px', borderRadius:20, border:`1.5px solid ${active ? col : C.border}`,
+              background: active ? `${col}15` : 'white', color: active ? col : C.text3,
+              fontSize:12, fontWeight: active ? 700 : 500, cursor:'pointer', fontFamily:F,
+              transition:'all .15s',
+            }}>
+              {t === 'all' ? 'All record types' : t === 'person' ? 'Person' : 'Job'}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ background:C.surface, borderRadius:12, border:`1px solid ${C.border}`, overflow:'hidden' }}>
+        {visiblePanels.map((panel, i) => {
+          const { key, applies, label, desc } = panel;
+          const f = flagMap[key];
+          const enabled    = f?.enabled    ?? true;
+          const overridden = f?.overridden  ?? false;
+          const isSaving   = saving === key;
+          const typeColor  = TYPE_COLORS[applies];
+          const typeLabel  = TYPE_LABELS[applies];
+
+          return (
+            <div key={key} style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 18px',
+              borderBottom: i < visiblePanels.length - 1 ? `1px solid ${C.border}` : 'none',
+              opacity: isSaving ? 0.6 : 1, transition:'opacity .15s' }}>
+
+              <button type="button" onClick={() => toggle(key, enabled)} disabled={isSaving}
+                style={{ width:40, height:22, borderRadius:11, border:'none', cursor:isSaving?'not-allowed':'pointer',
+                  background: enabled ? C.accent : '#d1d5db', position:'relative', flexShrink:0, transition:'background .2s' }}>
+                <span style={{ position:'absolute', top:3, left: enabled ? 21 : 3, width:16, height:16,
+                  borderRadius:8, background:'white', boxShadow:'0 1px 3px rgba(0,0,0,.2)', transition:'left .2s' }}/>
+              </button>
+
+              <div style={{ flex:1 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                  <span style={{ fontSize:14, fontWeight:600, color:C.text1 }}>{label}</span>
+                  {/* Record type badge */}
+                  <span style={{ fontSize:10, fontWeight:700, padding:'1px 7px', borderRadius:99,
+                    background:`${typeColor}15`, color:typeColor, border:`1px solid ${typeColor}30` }}>
+                    {typeLabel}
+                  </span>
+                  {overridden && (
+                    <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:99,
+                      background:'#eff6ff', color:'#3b82f6', border:'1px solid #bfdbfe' }}>CUSTOM</span>
+                  )}
+                </div>
+                <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>{desc}</div>
+              </div>
+
+              <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:99,
+                background: enabled ? '#ecfdf5' : '#f9fafb',
+                color: enabled ? '#059669' : C.text3, flexShrink:0 }}>
+                {enabled ? 'ON' : 'OFF'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function FeatureFlagsSettings({ environment }) {
   const [flags, setFlags]       = useState([]);
@@ -172,7 +298,7 @@ export default function FeatureFlagsSettings({ environment }) {
     setBulkSaving(false);
   };
 
-  const allKeys = Object.values(FLAG_GROUPS).flat();
+  const allKeys = [...Object.values(FLAG_GROUPS).flat(), ...PANEL_CONFIGS.map(p => p.key)];
   const allEnabled  = allKeys.every(k => (flagMap[k]?.enabled ?? true));
   const allDisabled = allKeys.every(k => !(flagMap[k]?.enabled ?? true));
 
@@ -206,8 +332,17 @@ export default function FeatureFlagsSettings({ environment }) {
       {Object.entries(FLAG_GROUPS).map(([group, keys]) => {
         const groupEnabled  = keys.every(k => (flagMap[k]?.enabled ?? true));
         const groupDisabled = keys.every(k => !(flagMap[k]?.enabled ?? true));
+        // Insert Record Panels section after Navigation
+        const insertAfter = group === 'Navigation';
         return (
-        <div key={group} style={{ marginBottom:28 }}>
+        <div key={group}>
+          {insertAfter && (
+            <RecordPanelsSection
+              flagMap={flagMap} saving={saving} toggle={toggle}
+              toggleAll={toggleAll} bulkSaving={bulkSaving} BulkBtn={BulkBtn}
+            />
+          )}
+        <div style={{ marginBottom:28 }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
             <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.08em' }}>{group}</div>
             <div style={{ display:'flex', gap:5 }}>
@@ -252,6 +387,7 @@ export default function FeatureFlagsSettings({ environment }) {
               );
             })}
           </div>
+        </div>
         </div>
         );
       })}

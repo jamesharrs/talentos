@@ -100,7 +100,32 @@ function PanelPreview({ panel, liveData }) {
     </div></div>;
   }
   if (type==="text") return <div style={{ ...wrap,background:liveData.bg_color||V.card }}>{titleEl}<div style={{ flex:1,fontSize:13,color:V.text2,lineHeight:1.6,whiteSpace:"pre-wrap",overflow:"auto" }}>{liveData.content||"Add content in panel settings."}</div></div>;
-  return <div style={wrap}>{titleEl}<div style={{ flex:1,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:V.text3 }}>Preview unavailable</div></div>;
+  if (type==="saved_report") {
+    const { report, chartData=[], chartType="bar", chartX="_group", chartY="_count", records=[], columns=[], total=0 } = liveData;
+    if (!report) return <div style={wrap}>{titleEl}<div style={{ flex:1,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:V.text3 }}>Select a report in settings</div></div>;
+    const hasChart = chartData.length > 0;
+    const hasRecords = records.length > 0;
+    return <div style={wrap}>
+      <div style={{ fontSize:12,fontWeight:700,color:V.text2,marginBottom:6,display:"flex",justifyContent:"space-between" }}>
+        <span>{title||report.name}</span>
+        {total>0&&<span style={{ fontSize:11,color:V.text3,fontWeight:400 }}>{total} total</span>}
+      </div>
+      {hasChart&&<div style={{ flex:hasRecords?0:1,minHeight:hasRecords?90:0,height:hasRecords?90:"auto" }}>
+        <ResponsiveContainer width="100%" height="100%">
+          {chartType==="pie"
+            ?<PieChart><Pie data={chartData} dataKey={chartY} nameKey={chartX} cx="50%" cy="50%">{chartData.map((_,i)=><Cell key={i} fill={CHART_PALETTES[i%CHART_PALETTES.length]}/>)}</Pie><Tooltip contentStyle={{ fontSize:10,fontFamily:F }}/></PieChart>
+            :<BarChart data={chartData} margin={{ top:4,right:4,bottom:0,left:-20 }}><XAxis dataKey={chartX} tick={{ fontSize:9,fontFamily:F }}/><YAxis tick={{ fontSize:9,fontFamily:F }}/><Tooltip contentStyle={{ fontSize:10,fontFamily:F }}/><Bar dataKey={chartY} fill={V.accent} radius={[3,3,0,0]}>{chartData.map((_,i)=><Cell key={i} fill={CHART_PALETTES[i%CHART_PALETTES.length]}/>)}</Bar></BarChart>
+          }
+        </ResponsiveContainer>
+      </div>}
+      {hasRecords&&<div style={{ flex:1,overflow:"hidden",marginTop:hasChart?6:0 }}>
+        {records.slice(0,6).map(r=><div key={r.id} style={{ display:"grid",gridTemplateColumns:`repeat(${Math.min(columns.length||1,3)},1fr)`,gap:"0 8px",padding:"4px 0",borderBottom:`0.5px solid rgba(0,0,0,0.04)` }}>
+          {(columns.length?columns:[]).slice(0,3).map((c,ci)=><div key={ci} style={{ fontSize:11,color:V.text2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{r.data?.[c.api_key]!=null?String(r.data[c.api_key]):"—"}</div>)}
+        </div>)}
+      </div>}
+      {!hasChart&&!hasRecords&&<div style={{ flex:1,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:V.text3 }}>No data — add group by in Reports</div>}
+    </div>;
+  }
 }
 
 function PanelConfigEditor({ panel, objects, savedReports, onChange }) {

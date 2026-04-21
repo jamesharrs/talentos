@@ -420,8 +420,10 @@ function ActionBtn({ label, color, iconPath, onClick }) {
 
 // ── Main Dashboard ────────────────────────────────────────────────────────
 export default function Dashboard({ environment, session, onNavigate, onOpenRecord, onReport, onViewAll }) {
-  const [data, setData]       = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Seed from module-level cache immediately so HMR / component remount doesn't
+  // flash "0 records" while the environment prop propagates and load() fires.
+  const [data, setData]       = useState(() => (_cache && _cacheEnv === environment?.id) ? _cache : null);
+  const [loading, setLoading] = useState(!(_cache && _cacheEnv === environment?.id));
   const isMounted = useRef(true);
 
   const load = useCallback(async (force = false) => {
@@ -526,12 +528,12 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
   const goTo = (slug, key, val) => window.dispatchEvent(new CustomEvent("talentos:filter-navigate", { detail: { objectSlug: slug, fieldKey: key, fieldValue: val } }));
   const openRpt = (cfg) => { if (onReport) onReport(cfg); else window.dispatchEvent(new CustomEvent("talentos:open-report", { detail: cfg })); };
 
-  const activeCandidates = data?.people?.records.filter(r => !r.deleted_at && !["hired","rejected","withdrawn","placed"].includes((r.data?.status || "").toLowerCase())).length ?? 0;
-  const totalCandidates  = data?.people?.total ?? 0;
-  const openRoles        = data?.jobs?.records.filter(r => !r.deleted_at && !["filled","closed","cancelled"].includes((r.data?.status || "").toLowerCase())).length ?? 0;
-  const totalJobs        = data?.jobs?.total ?? 0;
-  const poolCount        = data?.pools?.total ?? 0;
-  const totalPlacements  = data?.people?.records.filter(r => (r.data?.status || "").toLowerCase() === "hired").length ?? 0;
+  const activeCandidates = data?.people?.records.filter(r => !r.deleted_at && !["hired","rejected","withdrawn","placed"].includes((r.data?.status || "").toLowerCase())).length ?? (loading ? null : 0);
+  const totalCandidates  = data?.people?.total ?? (loading ? null : 0);
+  const openRoles        = data?.jobs?.records.filter(r => !r.deleted_at && !["filled","closed","cancelled"].includes((r.data?.status || "").toLowerCase())).length ?? (loading ? null : 0);
+  const totalJobs        = data?.jobs?.total ?? (loading ? null : 0);
+  const poolCount        = data?.pools?.total ?? (loading ? null : 0);
+  const totalPlacements  = data?.people?.records.filter(r => (r.data?.status || "").toLowerCase() === "hired").length ?? (loading ? null : 0);
 
   // Interviews today (from any interview data on records)
   const interviewsToday  = 0; // placeholder — wire to interviews API when available
@@ -594,8 +596,8 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
       {/* ── 4 KPI cards ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 16 }}>
         <KpiCard
-          label="Total candidates" value={totalCandidates.toLocaleString()}
-          sub={`${activeCandidates} active`} sub2="vs last month"
+          label="Total candidates" value={totalCandidates === null ? "—" : totalCandidates.toLocaleString()}
+          sub={activeCandidates === null ? "" : `${activeCandidates} active`} sub2="vs last month"
           tag={momP !== null ? (momP >= 0 ? `+${momP}%` : `${momP}%`) : null} tagUp={momP >= 0}
           color={V.purple}
           iconPath={<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>}
@@ -603,8 +605,8 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
           onReport={openRpt} reportHint={{ object: "people", title: "Candidates by status", groupBy: "status", chartType: "bar" }}
         />
         <KpiCard
-          label="Open jobs" value={openRoles.toLocaleString()}
-          sub={`${totalJobs} total roles`} sub2="vs last month"
+          label="Open jobs" value={openRoles === null ? "—" : openRoles.toLocaleString()}
+          sub={totalJobs === null ? "" : `${totalJobs} total roles`} sub2="vs last month"
           tag={momJ !== null ? (momJ >= 0 ? `+${momJ}%` : `${momJ}%`) : null} tagUp={momJ >= 0}
           color={V.rose}
           iconPath={<><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></>}
@@ -612,7 +614,7 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
           onReport={openRpt} reportHint={{ object: "jobs", title: "Jobs by department", groupBy: "department", chartType: "bar" }}
         />
         <KpiCard
-          label="Talent pools" value={poolCount.toLocaleString()}
+          label="Talent pools" value={poolCount === null ? "—" : poolCount.toLocaleString()}
           sub="curated pipelines" sub2="vs last month"
           color={V.teal}
           iconPath={<><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>}
@@ -620,7 +622,7 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
           onReport={openRpt} reportHint={{ object: "talent-pools", title: "Pools by category", groupBy: "category", chartType: "pie" }}
         />
         <KpiCard
-          label="Placed" value={totalPlacements.toLocaleString()}
+          label="Placed" value={totalPlacements === null ? "—" : totalPlacements.toLocaleString()}
           sub="total placements" sub2="vs last month"
           color={V.amber}
           iconPath={<><polyline points="20 6 9 17 4 12"/></>}

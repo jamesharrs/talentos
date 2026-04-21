@@ -8072,18 +8072,25 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     if (PANEL_META[id]?.jobOnly    && objectName !== "Job" && objectName !== "Jobs") return false;
     if (PANEL_META[id]?.personOnly && objectName !== "Person") return false;
     if (PANEL_META[id]?.personOrJob && objectName !== "Person" && objectName !== "Job" && objectName !== "Jobs") return false;
-    // Check per-object override first (e.g. panel_tasks__talent-pools)
-    // Derive slug from allObjects — currentObject isn't declared yet at this point
+    // Check per-object override — settings saves using panel config key (panel_notes OR coordination)
+    // Try both the flag key AND the panel ID itself as lookup keys in _perObject
     const recObj = (allObjects||[]).find(o => o.id === record?.object_id);
     const slug = (recObj?.slug || '').toLowerCase();
     const perObj = ff._perObject || {};
-    if (slug && perObj[slug] && id in perObj[slug]) {
-      // Per-object override exists — use it (skip global flag for this slug)
-      if (!perObj[slug][id]) return false;
+    const flagKey = PANEL_FLAGS[id]; // e.g. 'panel_notes' for id='notes'
+    if (slug && perObj[slug]) {
+      const po = perObj[slug];
+      // Check by flag key first (panel_notes), then by panel ID (notes, coordination)
+      if (flagKey !== undefined && flagKey in po) {
+        if (!po[flagKey]) return false;
+      } else if (id in po) {
+        if (!po[id]) return false;
+      } else if (flagKey && !ff[flagKey]) {
+        return false; // no per-object override, use global flag
+      }
     } else {
-      // Fall back to global flag
-      const flag = PANEL_FLAGS[id];
-      if (flag && !ff[flag]) return false;
+      // No per-object overrides for this slug — use global flag
+      if (flagKey && !ff[flagKey]) return false;
     }
     if (id === 'match') return ff.ai_matching;
     return true;

@@ -49,7 +49,7 @@ function fetchPanelData(panel, user, environment_id) {
 
   switch (panel.type) {
     case 'stat': {
-      const obj = findOne('object_definitions', o => o.id === cfg.object_id);
+      const obj = findOne('objects', o => o.id === cfg.object_id) || findOne('object_definitions', o => o.id === cfg.object_id);
       if (!obj) return { value: 0, label: cfg.label || 'Records', trend: 0 };
       if (!hasPermission(user, obj.slug, 'view')) return { error: 'Permission denied', value: '—' };
       const orgSubtree = getOrgSubtree(user);
@@ -75,7 +75,7 @@ function fetchPanelData(panel, user, environment_id) {
     }
 
     case 'chart': {
-      const obj = findOne('object_definitions', o => o.id === cfg.object_id);
+      const obj = findOne('objects', o => o.id === cfg.object_id) || findOne('object_definitions', o => o.id === cfg.object_id);
       if (!obj) return { error: 'Object not found' };
       if (!hasPermission(user, obj.slug, 'view')) return { error: 'Permission denied' };
       const orgSubtree = getOrgSubtree(user);
@@ -99,7 +99,7 @@ function fetchPanelData(panel, user, environment_id) {
     }
 
     case 'list': {
-      const obj = findOne('object_definitions', o => o.id === cfg.object_id);
+      const obj = findOne('objects', o => o.id === cfg.object_id) || findOne('object_definitions', o => o.id === cfg.object_id);
       if (!obj) return { error: 'Object not found' };
       if (!hasPermission(user, obj.slug, 'view')) return { error: 'Permission denied' };
       const fields = query('fields', f => f.object_id === cfg.object_id && !f.deleted_at);

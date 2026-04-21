@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import DashboardViewer  from "./DashboardViewer.jsx";
 import DashboardBuilder from "./DashboardBuilder.jsx";
 
@@ -20,7 +20,7 @@ const Loader = () => (
 );
 
 export default function DashboardHub({ tab = "overview", onTabChange, environment, session, onOpenRecord, onNavigate, builderMode, setBuilderMode, onViewAll }) {
-  const [editDashId, setEditDashId] = React.useState(null);
+  const [editDashId, setEditDashId] = useState(null);
   const showNav = ["overview","screening","interviews","offers","onboarding"].includes(tab);
 
   const navigate = (id) => {

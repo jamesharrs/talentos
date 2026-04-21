@@ -7670,8 +7670,8 @@ const GroupCard = ({ ids, overSlot, overZone, openPanels, setOpenPanels, openPan
                 {/* Tab label */}
                 <div onClick={() => setActiveTab(id)}
                   style={{ display:"flex", alignItems:"center", gap:5 }}>
-                  <Ic n={meta.icon} s={12} c={isActive ? C.accent : C.text3}/>
-                  <span style={{ fontSize:12, fontWeight: isActive ? 700 : 500,
+                  <Ic n={meta.icon} s={14} c={isActive ? C.accent : C.text3}/>
+                  <span style={{ fontSize:13, fontWeight: isActive ? 700 : 500,
                     color: isActive ? C.accent : C.text2, whiteSpace:"nowrap" }}>
                     {meta.label}
                   </span>

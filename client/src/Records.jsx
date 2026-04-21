@@ -6084,12 +6084,13 @@ const PersonInterviewsPanel = ({ record, environment, linkedJobRecords, activeJo
         </div>
       )}
 
-      {/* Schedule Interview modal — pre-populated with this person's context */}
-      {showSchedule && (
+      {/* Schedule Interview modal — rendered into document.body via portal to escape panel clipping */}
+      {showSchedule && ReactDOM.createPortal(
         <Suspense fallback={null}>
           <ScheduleModalLazy
             envId={environment?.id}
             interviewType={null}
+            linkedJobIds={linkedJobs.map(j => j.id)}
             initialValues={{
               candidate_id:   record.id,
               candidate_name: [record.data?.first_name, record.data?.last_name].filter(Boolean).join(" "),
@@ -6107,7 +6108,8 @@ const PersonInterviewsPanel = ({ record, environment, linkedJobRecords, activeJo
             }}
             onClose={() => setShowSchedule(false)}
           />
-        </Suspense>
+        </Suspense>,
+        document.body
       )}
     </div>
   );

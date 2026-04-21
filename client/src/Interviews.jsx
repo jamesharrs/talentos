@@ -829,7 +829,7 @@ const TypeFormModal = ({ type, envId, onSave, onClose }) => {
 
 
 // ── Schedule Interview Modal ──────────────────────────────────────────────────
-export const ScheduleModal = ({ interviewType, envId, onSave, onClose, initialValues }) => {
+export const ScheduleModal = ({ interviewType, envId, onSave, onClose, initialValues, linkedJobIds }) => {
   const isEdit = !!initialValues?.id;
   const bulkCandidates = interviewType?._bulkCandidates || null;
   const [form, setForm] = useState({
@@ -935,8 +935,8 @@ export const ScheduleModal = ({ interviewType, envId, onSave, onClose, initialVa
               <Ic n={meta.iconName} s={22} c={meta.color}/>
             </div>
             <div>
-              <div style={{fontSize:16,fontWeight:800,color:C.text1}}>{isEdit ? "Edit Interview" : `Schedule: ${interviewType?.name}`}</div>
-              <div style={{fontSize:12,color:C.text3}}>{interviewType?.duration} min · {interviewType?.format}</div>
+              <div style={{fontSize:16,fontWeight:800,color:C.text1}}>{isEdit ? "Edit Interview" : `Schedule Interview${interviewType?.name ? `: ${interviewType.name}` : ""}`}</div>
+              <div style={{fontSize:12,color:C.text3}}>{interviewType?.duration ? `${interviewType.duration} min · ${interviewType.format}` : "Schedule a new interview"}</div>
             </div>
             <button onClick={onClose} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:C.text3,fontSize:20}}>×</button>
           </div>
@@ -970,7 +970,7 @@ export const ScheduleModal = ({ interviewType, envId, onSave, onClose, initialVa
               <label style={labelSt}>Job (optional)</label>
               <select value={form.job_id||""} onChange={e=>{ const j=jobs.find(j=>j.id===e.target.value); set("job_id",j?.id||null); set("job_name",j?.name||""); }} style={inpSt}>
                 <option value="">Select job…</option>
-                {jobs.map(j=><option key={j.id} value={j.id}>{j.name}</option>)}
+                {(linkedJobIds?.length ? jobs.filter(j=>linkedJobIds.includes(j.id)) : jobs).map(j=><option key={j.id} value={j.id}>{j.name}</option>)}
               </select>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>

@@ -5892,27 +5892,28 @@ const INTERVIEW_STATUS_COLORS = {
   cancelled:  { color:"#DC2626", bg:"#FEF2F2" },
   rescheduled:{ color:"#D97706", bg:"#FFFBEB" },
 };
-const PersonInterviewsPanel = ({ record, environment, linkedJobRecords, activeJobContext }) => {
+const PersonInterviewsPanel = ({ record, environment, linkedJobRecords, activeJobContext, fetchByJob = false }) => {
   const [interviews, setInterviews]   = useState([]);
   const [loading, setLoading]         = useState(true);
   const [jobFilter, setJobFilter]     = useState("all");
-  const [timeFilter, setTimeFilter]   = useState("all"); // all | upcoming | past
+  const [timeFilter, setTimeFilter]   = useState("all");
   const [expanded, setExpanded]       = useState(null);
   const [showSchedule, setShowSchedule] = useState(false);
 
-  // Sync to activeJobContext when a job is clicked in the Linked Records panel (same as Notes)
-  useEffect(() => {
-    setJobFilter(activeJobContext || "all");
-  }, [activeJobContext]);
+  useEffect(() => { setJobFilter(activeJobContext || "all"); }, [activeJobContext]);
 
   useEffect(() => {
     if (!record?.id || !environment?.id) return;
     setLoading(true);
-    api.get(`/interviews?person_id=${record.id}&environment_id=${environment.id}`)
+    // Job records: fetch all interviews for this job; Person records: fetch by person
+    const url = fetchByJob
+      ? `/interviews?job_id=${record.id}&environment_id=${environment.id}`
+      : `/interviews?person_id=${record.id}&environment_id=${environment.id}`;
+    api.get(url)
       .then(d => setInterviews(Array.isArray(d) ? d : []))
       .catch(() => setInterviews([]))
       .finally(() => setLoading(false));
-  }, [record?.id, environment?.id]);
+  }, [record?.id, environment?.id, fetchByJob]);
 
   // Unique jobs — from interview data OR from the person's linked records
   const linkedJobs = useMemo(() => {
@@ -6090,8 +6091,13 @@ const PersonInterviewsPanel = ({ record, environment, linkedJobRecords, activeJo
           <ScheduleModalLazy
             envId={environment?.id}
             interviewType={null}
-            linkedJobIds={linkedJobs.map(j => j.id)}
-            initialValues={{
+            linkedJobIds={fetchByJob ? [] : linkedJobs.map(j => j.id)}
+            initialValues={fetchByJob ? {
+              // Job record context: pre-populate the job, let user pick candidate
+              job_id:   record.id,
+              job_name: record.data?.job_title || record.data?.name || "",
+            } : {
+              // Person record context: pre-populate candidate + active job
               candidate_id:   record.id,
               candidate_name: [record.data?.first_name, record.data?.last_name].filter(Boolean).join(" "),
               job_id:   jobFilter !== "all" ? jobFilter : (linkedJobs[0]?.id   || null),
@@ -6102,9 +6108,11 @@ const PersonInterviewsPanel = ({ record, environment, linkedJobRecords, activeJo
             onSave={async (payload) => {
               await api.post("/interviews", { ...payload, environment_id: environment?.id });
               setShowSchedule(false);
-              // Refresh the list
-              api.get(`/interviews?person_id=${record.id}&environment_id=${environment?.id}`)
-                .then(d => setInterviews(Array.isArray(d) ? d : []));
+              // Refresh the list using the correct fetch key
+              const url = fetchByJob
+                ? `/interviews?job_id=${record.id}&environment_id=${environment?.id}`
+                : `/interviews?person_id=${record.id}&environment_id=${environment?.id}`;
+              api.get(url).then(d => setInterviews(Array.isArray(d) ? d : []));
             }}
             onClose={() => setShowSchedule(false)}
           />
@@ -6527,7 +6535,7 @@ export const PANEL_META = {
   fields:       { icon:"edit",          label:"Profile Fields",      defaultOpen:true  },
   tasks:        { icon:"checkSquare",   label:"Tasks & Reminders",   defaultOpen:true  },
   comms:        { icon:"mail",          label:"Communications",      defaultOpen:true  },
-  coordination: { icon:"calendar",      label:"Interviews",             defaultOpen:true,  personOnly:true },
+  coordination: { icon:"calendar",      label:"Interviews",             defaultOpen:true,  personOrJob:true },
   notes:        { icon:"messageSquare", label:"Notes",               defaultOpen:true  },
   attachments:  { icon:"paperclip",     label:"Files",               defaultOpen:true  },
   forms:        { icon:"clipboard",     label:"Forms",               defaultOpen:false },
@@ -6551,7 +6559,7 @@ export const getDefaultPanelOrder = (objectName) => {
   if (["Person","Job"].includes(objectName)) base.push("match");
   if (objectName === "Person") base.push("assessments");
   if (objectName === "Person") base.push("engagement");
-  if (objectName === "Job") { base.unshift("interview_plan"); base.push("questions"); }
+  if (objectName === "Job") { base.unshift("interview_plan"); base.splice(base.indexOf("tasks") + 1, 0, "coordination"); base.push("questions"); }
   if (objectName === "Job" || objectName === "Jobs") base.unshift("insights");
 
   return base;
@@ -8063,6 +8071,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     if (PANEL_META[id]?.hidden) return false;
     if (PANEL_META[id]?.jobOnly    && objectName !== "Job" && objectName !== "Jobs") return false;
     if (PANEL_META[id]?.personOnly && objectName !== "Person") return false;
+    if (PANEL_META[id]?.personOrJob && objectName !== "Person" && objectName !== "Job" && objectName !== "Jobs") return false;
     const flag = PANEL_FLAGS[id];
     if (!flag) return true;
     if (id === 'match') return ff[flag] && ff.ai_matching;
@@ -9092,7 +9101,9 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     }
     if (id==="coordination") {
       if (!ff.interviews) return null;
-      return <PersonInterviewsPanel record={record} environment={environment} linkedJobRecords={linkedJobRecords} activeJobContext={activeJobContext}/>;
+      // On Job records: fetch interviews by job_id; on Person records: by person_id
+      const isJobRecord = objectName === "Job" || objectName === "Jobs";
+      return <PersonInterviewsPanel record={record} environment={environment} linkedJobRecords={linkedJobRecords} activeJobContext={activeJobContext} fetchByJob={isJobRecord}/>;
     }
     if (id==="interview_plan") {
       if (!ff.interviews) return null;

@@ -78,9 +78,11 @@ router.put('/:key', (req, res) => {
   const { key } = req.params;
   const { environment_id, enabled } = req.body;
   if (!environment_id) return res.status(400).json({ error: 'environment_id required' });
-  // Allow base keys from DEFAULT_FLAGS, and also per-object panel keys (panel_xxx__slug)
-  const baseKey = key.includes('__') ? key.split('__')[0] : key;
-  if (!(baseKey in DEFAULT_FLAGS)) return res.status(404).json({ error: `Unknown flag: ${key}` });
+  // For per-object scoped keys (e.g. panel_tasks__talent-pools), skip base-key validation
+  // For global keys, validate against DEFAULT_FLAGS to catch typos
+  if (!key.includes('__') && !(key in DEFAULT_FLAGS)) {
+    return res.status(404).json({ error: `Unknown flag: ${key}` });
+  }
   const existing = findOne('feature_flags', f => f.environment_id === environment_id && f.flag_key === key);
   if (existing) {
     update('feature_flags', f => f.id === existing.id, { enabled: !!enabled, updated_at: new Date().toISOString() });

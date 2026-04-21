@@ -538,7 +538,7 @@ export default function Reports({ environment, initialReport }) {
         if (sv.filters)     setFilters(sv.filters);
         if (sv.sort_by)     setSortBy(sv.sort_by);
         if (sv.sort_dir)    setSortDir(sv.sort_dir);
-        setPanel(sv.formulas?.length ? "formulas" : "build");
+        setPanel("build");
         setTimeout(() => runReport(sv.object_id, sv.group_by), 400);
       }).catch(() => {});
       return;
@@ -561,7 +561,7 @@ export default function Reports({ environment, initialReport }) {
       if (initialReport.filters)   setFilters(initialReport.filters);
       if (initialReport.sortBy)    setSortBy(initialReport.sortBy);
       if (initialReport.sortDir)   setSortDir(initialReport.sortDir);
-      setPanel(initialReport.formulas?.length ? "formulas" : "build");
+      setPanel("build");
       setTimeout(() => runReport(obj.id, initialReport.groupBy), 400);
     }
   }, [initialReport, objects]);
@@ -858,7 +858,7 @@ export default function Reports({ environment, initialReport }) {
     setFilters((t.filters||[]).map((f,i)=>({...f,id:String(i)})));
     setFormulas((t.formulas||[]).map((f,i)=>({...f,id:f.id||String(i)})));
     setChartType(t.chartType||'bar');
-    setPanel('builder');
+    setPanel('build');
     // Directly run after React has flushed the state updates
     setTimeout(() => runReport(obj.id, t.groupBy||''), 400);
   };
@@ -916,7 +916,6 @@ export default function Reports({ environment, initialReport }) {
         <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
           <div style={{ display:"flex",gap:4,flexWrap:"wrap" }}>
             <Pill label="Build"    active={panel==="build"}    onClick={()=>setPanel("build")}/>
-            <Pill label="∑ Formulas" active={panel==="formulas"} onClick={()=>setPanel("formulas")} badge={formulas.filter(f=>f.expression).length||null}/>
             <Pill label="Saved"    active={panel==="saved"}    onClick={()=>setPanel("saved")} badge={savedReports.length||null}/>
             <Pill label="Library"  active={panel==="library"}  onClick={()=>setPanel("library")} badge={25}/>
           </div>
@@ -991,33 +990,54 @@ export default function Reports({ environment, initialReport }) {
                     <Sel val={sortBy} onChange={setSortBy} opts={[{value:"",label:"None"},...fields.map(f=>({value:f.api_key,label:f.name}))]}/></div>
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Formulas panel */}
-          {panel==="formulas"&&(
-            <div style={{ background:B.card,borderRadius:14,padding:16,boxShadow:"0 1px 4px rgba(0,0,0,0.04)" }}>
-              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12 }}>
-                <div style={{ fontSize:12,fontWeight:700,color:"#111827" }}>Calculated columns</div>
-                <button onClick={addFormula} style={{ fontSize:11,color:B.purple,background:"none",border:"none",cursor:"pointer",fontWeight:700,fontFamily:F }}>+ Add</button>
-              </div>
-              {formulas.length===0&&<div style={{ fontSize:12,color:B.gray,textAlign:"center",padding:"16px 0" }}>No formulas yet</div>}
-              {formulas.map((f,i)=>(
-                <div key={f.id} style={{ marginBottom:10, background:"#F8F7FF", borderRadius:10, padding:"10px 12px", border:"1px solid #EDE9FE" }}>
-                  <FormulaInput
-                    value={f.expression}
-                    onChange={v=>setFormulas(p=>p.map((x,j)=>j===i?{...x,expression:v}:x))}
-                    fields={fields}
-                    formulaName={f.name}
-                    onNameChange={v=>setFormulas(p=>p.map((x,j)=>j===i?{...x,name:v}:x))}
-                    onRemove={()=>setFormulas(p=>p.filter((_,j)=>j!==i))}
-                    placeholder="DIFF({salary_max},{salary_min})"
-                  />
+              {/* ── Calculated columns — inline in Build panel ── */}
+              {fields.length>0&&(
+                <div style={{ borderTop:`1px solid #F3F4F6`, paddingTop:12 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: formulas.length ? 8 : 0 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      <span style={{ fontSize:12, fontWeight:700, color:"#111827" }}>Calculated columns</span>
+                      {formulas.filter(f=>f.expression).length > 0 && (
+                        <span style={{ fontSize:10, fontWeight:700, color:B.purple, background:`${B.purple}15`, borderRadius:99, padding:"1px 7px" }}>
+                          {formulas.filter(f=>f.expression).length}
+                        </span>
+                      )}
+                    </div>
+                    <button onClick={addFormula}
+                      style={{ display:"flex", alignItems:"center", gap:4, fontSize:11, color:B.purple,
+                        background:`${B.purple}10`, border:`1px solid ${B.purple}30`, borderRadius:7,
+                        padding:"3px 9px", cursor:"pointer", fontWeight:700, fontFamily:F }}>
+                      + Add
+                    </button>
+                  </div>
+                  {formulas.length===0 && (
+                    <button onClick={addFormula}
+                      style={{ width:"100%", padding:"8px", borderRadius:9, border:`1.5px dashed ${B.purple}40`,
+                        background:`${B.purple}05`, color:B.purple, cursor:"pointer", fontFamily:F,
+                        fontSize:11, fontWeight:600, display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+                      <span style={{ fontSize:14 }}>∑</span> Add a calculated column
+                    </button>
+                  )}
+                  {formulas.map((f,i)=>(
+                    <div key={f.id} style={{ marginBottom:8, background:"#F8F7FF", borderRadius:10, padding:"10px 12px", border:"1px solid #EDE9FE" }}>
+                      <FormulaInput
+                        value={f.expression}
+                        onChange={v=>setFormulas(p=>p.map((x,j)=>j===i?{...x,expression:v}:x))}
+                        fields={fields}
+                        formulaName={f.name}
+                        onNameChange={v=>setFormulas(p=>p.map((x,j)=>j===i?{...x,name:v}:x))}
+                        onRemove={()=>setFormulas(p=>p.filter((_,j)=>j!==i))}
+                        placeholder="DIFF({salary_max},{salary_min})"
+                      />
+                    </div>
+                  ))}
+                  {formulas.length > 0 && (
+                    <div style={{ marginTop:6, padding:"8px 10px", background:`${B.purple}06`, borderRadius:8, fontSize:10, color:B.gray, lineHeight:1.6 }}>
+                      <strong style={{ color:B.purple }}>Functions:</strong>{" "}SUM · AVG · COUNT() · DIFF(a,b) · ROUND(f,N) · IF(x=y,a,b) · CONCAT(a,b) · UPPER · LOWER · LEN
+                    </div>
+                  )}
                 </div>
-              ))}
-              <div style={{ marginTop:12,padding:"10px 12px",background:`${B.purple}08`,borderRadius:10,fontSize:11,color:B.gray,lineHeight:1.6 }}>
-                <strong style={{ color:B.purple }}>Functions:</strong>{" "}SUM · AVG · COUNT() · DIFF(a,b) · ROUND(f,N) · IF(x=y,a,b) · CONCAT(a,b) · UPPER · LOWER · LEN
-              </div>
+              )}
             </div>
           )}
 

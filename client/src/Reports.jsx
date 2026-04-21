@@ -25,18 +25,26 @@ const api = {
 
 function evalFormula(expr, row) {
   try {
-    const e = (expr||"").toUpperCase().trim();
-    const nv = k => { const v=row[k?.toLowerCase()]; return typeof v==="number"?v:parseFloat(v)||0; };
+    const e = (expr||"").trim();
+    const eUp = e.toUpperCase();
+    // Strip curly braces and look up field value from row (case-insensitive key)
+    const nv = k => {
+      const clean = k.replace(/^\{|\}$/g,"").toLowerCase().trim();
+      const v = row[clean];
+      return typeof v === "number" ? v : parseFloat(v) || 0;
+    };
     if (/^COUNT\(\)$/i.test(e)) return 1;
     if (/^SUM\(([^)]+)\)$/i.test(e))  { const m=e.match(/SUM\(([^)]+)\)/i);  return nv(m[1]); }
     if (/^AVG\(([^)]+)\)$/i.test(e))  { const m=e.match(/AVG\(([^)]+)\)/i);  return nv(m[1]); }
-    if (/^UPPER\(([^)]+)\)$/i.test(e)){ const m=expr.match(/UPPER\(([^)]+)\)/i); return String(row[m[1].toLowerCase()]||"").toUpperCase(); }
-    if (/^LOWER\(([^)]+)\)$/i.test(e)){ const m=expr.match(/LOWER\(([^)]+)\)/i); return String(row[m[1].toLowerCase()]||"").toLowerCase(); }
-    if (/^LEN\(([^)]+)\)$/i.test(e))  { const m=expr.match(/LEN\(([^)]+)\)/i);   return String(row[m[1].toLowerCase()]||"").length; }
-    if (/^ROUND\(([^,)]+),([^)]+)\)$/i.test(e)){const m=expr.match(/ROUND\(([^,)]+),([^)]+)\)/i);return +nv(m[1].trim()).toFixed(+m[2].trim());}
-    if (/^DIFF\(([^,)]+),([^)]+)\)$/i.test(e)) {const m=e.match(/DIFF\(([^,)]+),([^)]+)\)/);    return nv(m[1].trim())-nv(m[2].trim());}
-    if (/^CONCAT\(([^)]+)\)$/i.test(e)){const m=expr.match(/CONCAT\(([^)]+)\)/i);return m[1].split(",").map(p=>{const t=p.trim();return t.startsWith("{")&&t.endsWith("}")?row[t.slice(1,-1).toLowerCase()]||"":t.replace(/^['"]|['"]$/g,"");}).join("");}
-    if (/^IF\(/i.test(e)){const m=expr.match(/IF\(([^,]+),([^,]+),([^)]+)\)/i);if(m){const lhs=String(row[m[1].trim().toLowerCase()]||""),rhs=m[1].includes("=")?m[1].split("=")[1].trim().replace(/^['"]|['"]$/g,""):"";return lhs===rhs?m[2].trim().replace(/^['"]|['"]$/g,""):m[3].trim().replace(/^['"]|['"]$/g,"");}}
+    if (/^MAX\(([^)]+)\)$/i.test(e))  { const m=e.match(/MAX\(([^)]+)\)/i);  return nv(m[1]); }
+    if (/^MIN\(([^)]+)\)$/i.test(e))  { const m=e.match(/MIN\(([^)]+)\)/i);  return nv(m[1]); }
+    if (/^UPPER\(([^)]+)\)$/i.test(e)){ const m=e.match(/UPPER\(([^)]+)\)/i); const clean=m[1].replace(/^\{|\}$/g,"").toLowerCase(); return String(row[clean]||"").toUpperCase(); }
+    if (/^LOWER\(([^)]+)\)$/i.test(e)){ const m=e.match(/LOWER\(([^)]+)\)/i); const clean=m[1].replace(/^\{|\}$/g,"").toLowerCase(); return String(row[clean]||"").toLowerCase(); }
+    if (/^LEN\(([^)]+)\)$/i.test(e))  { const m=e.match(/LEN\(([^)]+)\)/i);   const clean=m[1].replace(/^\{|\}$/g,"").toLowerCase(); return String(row[clean]||"").length; }
+    if (/^ROUND\(([^,)]+),([^)]+)\)$/i.test(e)){const m=e.match(/ROUND\(([^,)]+),([^)]+)\)/i);return +nv(m[1].trim()).toFixed(+m[2].trim());}
+    if (/^DIFF\(([^,)]+),([^)]+)\)$/i.test(e)) {const m=e.match(/DIFF\(([^,)]+),([^)]+)\)/i);    return nv(m[1].trim())-nv(m[2].trim());}
+    if (/^CONCAT\(([^)]+)\)$/i.test(e)){const m=e.match(/CONCAT\(([^)]+)\)/i);return m[1].split(",").map(p=>{const t=p.trim();return t.startsWith("{")&&t.endsWith("}")?row[t.slice(1,-1).toLowerCase()]||"":t.replace(/^['"]|['"]$/g,"");}).join("");}
+    if (/^IF\(/i.test(e)){const m=e.match(/IF\(([^,]+),([^,]+),([^)]+)\)/i);if(m){const lhs=String(row[m[1].trim().replace(/^\{|\}$/g,"").toLowerCase()]||""),rhs=m[1].includes("=")?m[1].split("=")[1].trim().replace(/^['"]|['"]$/g,""):"";return lhs===rhs?m[2].trim().replace(/^['"]|['"]$/g,""):m[3].trim().replace(/^['"]|['"]$/g,"");}}
     return null;
   } catch { return null; }
 }

@@ -191,6 +191,13 @@ router.post('/:id/responses', (req, res) => {
 
   s.form_responses.push(response);
   saveStore();
+
+  // Fire form_submitted agent trigger
+  try {
+    const engine = require('../agent-engine');
+    engine.fireFormSubmitTrigger(response.form_id, response.record_id, response.environment_id).catch(()=>{});
+  } catch(e) { /* agent-engine optional */ }
+
   res.status(201).json(response);
 });
 

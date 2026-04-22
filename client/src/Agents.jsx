@@ -964,6 +964,27 @@ function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
                   </select>
                 </div>
               )}
+              {/* stage_changed: filter by specific stage value */}
+              {form.trigger_type==='stage_changed'&&(
+                <div style={{marginBottom:12,padding:"12px 14px",borderRadius:10,background:`${C.accent}06`,border:`1px solid ${C.accent}20`}}>
+                  <label style={{fontSize:12,fontWeight:600,color:C.text2,display:"block",marginBottom:6}}>Only fire when stage changes to…</label>
+                  <input value={form.trigger_config?.stage_value||''} onChange={e=>set('trigger_config',{...form.trigger_config,stage_value:e.target.value})}
+                    placeholder="e.g. Hired, Offer, Rejected — leave empty to fire on any stage change"
+                    style={{width:"100%",padding:"9px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:13,fontFamily:F,boxSizing:"border-box"}}/>
+                  <div style={{fontSize:11,color:C.text3,marginTop:5}}>Case-insensitive. Matches the status/stage field value exactly.</div>
+                </div>
+              )}
+              {/* record_updated: filter by specific field */}
+              {form.trigger_type==='record_updated'&&(
+                <div style={{marginBottom:12,padding:"12px 14px",borderRadius:10,background:`${C.accent}06`,border:`1px solid ${C.accent}20`}}>
+                  <label style={{fontSize:12,fontWeight:600,color:C.text2,display:"block",marginBottom:6}}>Only fire when this field changes</label>
+                  <select value={form.trigger_config?.watch_field||''} onChange={e=>set('trigger_config',{...form.trigger_config,watch_field:e.target.value})}
+                    style={{width:"100%",padding:"9px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:13,fontFamily:F,background:"white"}}>
+                    <option value="">Any field (default)</option>
+                    {fields.map(f=><option key={f.id} value={f.api_key}>{f.name}</option>)}
+                  </select>
+                </div>
+              )}
               {['schedule_daily','schedule_weekly'].includes(form.trigger_type)&&(
                 <div style={{display:"flex",gap:12}}>
                   <div style={{flex:1}}>
@@ -1026,9 +1047,16 @@ function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
                     </div>
                     <div style={{padding:"10px 12px"}}>
                       {isAiAction(a.type)&&a.type!=='ai_draft_email'&&(
-                        <textarea value={a.prompt} onChange={e=>updateAction(i,'prompt',e.target.value)}
-                          placeholder={a.type==='ai_score'?"Scoring criteria…":"Custom prompt (leave empty for default)…"}
-                          rows={2} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,resize:"vertical"}}/>
+                        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                          <textarea value={a.prompt} onChange={e=>updateAction(i,'prompt',e.target.value)}
+                            placeholder={a.type==='ai_score'?"Scoring criteria (e.g. Python skills, 5+ years exp, Dubai based)…":"Custom prompt (leave empty for default)…"}
+                            rows={2} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,resize:"vertical"}}/>
+                          {a.type==='ai_score'&&(
+                            <div style={{fontSize:11,color:C.text3,padding:"7px 10px",borderRadius:7,background:"#fffbeb",border:"1px solid #fde68a"}}>
+                              💡 Add an <strong>Update Field</strong> action after this one and set value to empty — it will automatically save the score to any field you choose.
+                            </div>
+                          )}
+                        </div>
                       )}
                       {a.type==='ai_draft_email'&&(
                         <div style={{display:"flex",gap:8}}>
@@ -1342,6 +1370,23 @@ function ApprovalInbox({ environmentId, onRefresh }) {
             return(
               <div key={idx} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px",marginBottom:8}}>
                 <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8,textTransform:"capitalize"}}>Action: {(pa.action?.type||'').replace(/_/g,' ')}</div>
+                {/* Show what will execute so reviewers aren't approving blind */}
+                {pa.action?.type==='send_email'&&pa.action?.email_subject&&(
+                  <div style={{padding:"7px 10px",borderRadius:7,background:"#f0f4ff",border:"1px solid #c7d2fe",fontSize:11,color:"#3730a3",marginBottom:8,lineHeight:1.5}}>
+                    <strong>Subject:</strong> {pa.action.email_subject}<br/>
+                    {pa.action.email_body&&<><strong>Body:</strong> {pa.action.email_body.slice(0,150)}{pa.action.email_body.length>150?'…':''}</>}
+                  </div>
+                )}
+                {pa.action?.type==='update_field'&&pa.action?.field_key&&(
+                  <div style={{padding:"7px 10px",borderRadius:7,background:"#fffbeb",border:"1px solid #fde68a",fontSize:11,color:"#92400e",marginBottom:8}}>
+                    Will set <strong>{pa.action.field_key}</strong> → <strong>{pa.action.field_value||'(AI output)'}</strong>
+                  </div>
+                )}
+                {pa.action?.type==='webhook'&&pa.action?.webhook_url&&(
+                  <div style={{padding:"7px 10px",borderRadius:7,background:"#f9fafb",border:"1px solid #e5e7eb",fontSize:11,color:C.text2,marginBottom:8}}>
+                    POST → <code style={{fontSize:10}}>{pa.action.webhook_url}</code>
+                  </div>
+                )}
                 <textarea value={notes[key]||''} onChange={e=>setNotes(n=>({...n,[key]:e.target.value}))} placeholder="Add a note before approving (optional)…" rows={2}
                   style={{width:"100%",padding:"7px 10px",borderRadius:7,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,resize:"vertical",marginBottom:8}}/>
                 <div style={{display:"flex",gap:8}}>

@@ -58,6 +58,29 @@ async function executeAction(action, record_id, environment_id, aiOutput, modifi
       await fetch(action.webhook_url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ record_id, environment_id, ai_output:aiOutput, timestamp:new Date().toISOString() }) }).catch(()=>{});
       break;
     }
+    case 'add_to_pool': {
+      if (!record_id || !action.pool_name) break;
+      const poolStore = getStore();
+      const poolObj = (poolStore.object_definitions||[]).find(o=>o.name==='Talent Pool'||o.name==='TalentPool'||o.slug==='talent-pools');
+      if (!poolObj) break;
+      let pool = (poolStore.records||[]).find(r=>r.object_id===poolObj.id&&(r.data?.pool_name||r.data?.name||'').toLowerCase()===action.pool_name.toLowerCase()&&!r.deleted_at);
+      if (!pool) {
+        pool = insert('records',{id:uuidv4(),object_id:poolObj.id,environment_id,data:{pool_name:action.pool_name,name:action.pool_name},created_by:'Agent',created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+      }
+      const already=(poolStore.people_links||[]).find(l=>l.person_record_id===record_id&&l.target_record_id===pool.id);
+      if (!already){insert('people_links',{id:uuidv4(),person_record_id:record_id,target_record_id:pool.id,target_object_id:poolObj.id,stage_id:null,stage_name:null,environment_id,created_at:new Date().toISOString(),updated_at:new Date().toISOString()});saveStore();}
+      break;
+    }
+    case 'notify_user': {
+      if (!action.message) break;
+      const ns = getStore();
+      if (!ns.notifications) ns.notifications = [];
+      const rec = record_id ? (ns.records||[]).find(r=>r.id===record_id) : null;
+      const msg = (action.message||'').replace(/\{\{(\w+)\}\}/g,(_,k)=>rec?.data?.[k]??`{{${k}}}`);
+      ns.notifications.push({id:uuidv4(),message:msg,record_id:record_id||null,environment_id,read:false,created_by:'Agent',created_at:new Date().toISOString()});
+      saveStore();
+      break;
+    }
     case 'link_to_object': {
       if (!record_id || !action.object_id) break;
       const targetRecordId = action.record_id || null;
@@ -103,16 +126,51 @@ function evaluateConditions(conditions, record) {
   if (!record) return true;
   return conditions.every(c => {
     const val = record.data?.[c.field] ?? record[c.field];
+    const strVal = String(val ?? '').toLowerCase();
+    const strCv  = String(c.value ?? '').toLowerCase();
+    const numVal = Number(val);
+    const numCv  = Number(c.value);
     switch(c.operator) {
-      case 'equals':       return String(val||'').toLowerCase() === String(c.value||'').toLowerCase();
-      case 'not_equals':   return String(val||'').toLowerCase() !== String(c.value||'').toLowerCase();
-      case 'contains':     return String(val||'').toLowerCase().includes(String(c.value||'').toLowerCase());
-      case 'greater_than': return Number(val) > Number(c.value);
-      case 'less_than':    return Number(val) < Number(c.value);
-      case 'is_empty':     return !val || val === '';
-      case 'is_not_empty': return !!val && val !== '';
-      case 'includes':     return Array.isArray(val) && val.includes(c.value);
-      default:             return true;
+      // equality
+      case 'equals': case 'is': case '=':
+        return strVal === strCv;
+      case 'not_equals': case 'is not': case '≠':
+        return strVal !== strCv;
+      // text
+      case 'contains':
+        return strVal.includes(strCv);
+      case 'does not contain':
+        return !strVal.includes(strCv);
+      case 'starts with':
+        return strVal.startsWith(strCv);
+      // numeric
+      case 'greater_than': case '>':
+        return numVal > numCv;
+      case 'less_than': case '<':
+        return numVal < numCv;
+      case '≥': case 'greater_than_or_equal':
+        return numVal >= numCv;
+      case '≤': case 'less_than_or_equal':
+        return numVal <= numCv;
+      // date
+      case 'is before':
+        return val && c.value && new Date(val) < new Date(c.value);
+      case 'is after':
+        return val && c.value && new Date(val) > new Date(c.value);
+      // emptiness
+      case 'is_empty': case 'is empty':
+        return !val || val === '' || (Array.isArray(val) && val.length === 0);
+      case 'is_not_empty': case 'is not empty': case 'not empty':
+        return !!(val && val !== '') || (Array.isArray(val) && val.length > 0);
+      // boolean
+      case 'is true':  return val === true || val === 'true' || val === 1;
+      case 'is false': return !val || val === 'false' || val === 0;
+      // array
+      case 'includes':
+        return Array.isArray(val) ? val.some(v => String(v).toLowerCase() === strCv) : strVal.includes(strCv);
+      case 'excludes':
+        return Array.isArray(val) ? !val.some(v => String(v).toLowerCase() === strCv) : !strVal.includes(strCv);
+      default: return true;
     }
   });
 }
@@ -201,7 +259,6 @@ async function executeAgentForRecord(agent, record_id, trigger) {
 // ── SCHEDULED TRIGGERS ─────────────────────────────────────────────────────────
 // Runs every minute to check for agents that should fire
 function startScheduler() {
-  // Check every minute
   cron.schedule('* * * * *', () => {
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -209,13 +266,27 @@ function startScheduler() {
 
     const agents = query('agents', a => a.is_active && !a.deleted_at);
     for (const agent of agents) {
-      if (agent.trigger_type === 'schedule_daily' && agent.schedule_time === timeStr) {
-        console.log(`[Scheduler] Firing daily agent: ${agent.name}`);
-        executeAgentForRecord(agent, null, 'schedule_daily').catch(console.error);
-      }
-      if (agent.trigger_type === 'schedule_weekly' && agent.schedule_time === timeStr && agent.trigger_config?.day_of_week === dayName) {
-        console.log(`[Scheduler] Firing weekly agent: ${agent.name}`);
-        executeAgentForRecord(agent, null, 'schedule_weekly').catch(console.error);
+      const isDaily  = agent.trigger_type === 'schedule_daily'  && agent.schedule_time === timeStr;
+      const isWeekly = agent.trigger_type === 'schedule_weekly' && agent.schedule_time === timeStr && agent.trigger_config?.day_of_week === dayName;
+      if (!isDaily && !isWeekly) continue;
+
+      console.log(`[Scheduler] Firing ${agent.trigger_type} agent: ${agent.name}`);
+
+      // If the agent targets a specific object, run once per matching record
+      if (agent.target_object_id) {
+        const records = query('records', r => r.object_id === agent.target_object_id && !r.deleted_at);
+        if (records.length === 0) {
+          // Still run once with no record (e.g. a summary/report agent)
+          executeAgentForRecord(agent, null, agent.trigger_type).catch(console.error);
+        } else {
+          for (const rec of records) {
+            // Stagger slightly to avoid hammering the AI API
+            const delay = records.indexOf(rec) * 200;
+            setTimeout(() => executeAgentForRecord(agent, rec.id, agent.trigger_type).catch(console.error), delay);
+          }
+        }
+      } else {
+        executeAgentForRecord(agent, null, agent.trigger_type).catch(console.error);
       }
     }
   });
@@ -231,13 +302,23 @@ async function fireEventTrigger(eventType, record, changedFields) {
   );
 
   for (const agent of agents) {
-    // For stage_changed, check if relevant field actually changed
     if (eventType === 'stage_changed') {
+      // Must have an actual stage field change
       const hasStageChange = changedFields && changedFields.some(f => f === 'status' || f === 'pipeline_stage' || f === 'stage');
       if (!hasStageChange) continue;
+      // If agent specifies a stage_value, only fire when the record's status matches
+      const targetStage = agent.trigger_config?.stage_value;
+      if (targetStage) {
+        const currentStage = record.data?.status || record.data?.pipeline_stage || record.data?.stage || '';
+        if (currentStage.toLowerCase() !== targetStage.toLowerCase()) continue;
+      }
+    }
+    if (eventType === 'record_updated') {
+      // If agent specifies watch_field, only fire when that field changed
+      const watchField = agent.trigger_config?.watch_field;
+      if (watchField && changedFields && !changedFields.includes(watchField)) continue;
     }
     console.log(`[Event] Firing ${eventType} agent "${agent.name}" for record ${record.id}`);
-    // Small delay to avoid blocking the HTTP response
     setTimeout(() => executeAgentForRecord(agent, record.id, eventType).catch(console.error), 100);
   }
 }

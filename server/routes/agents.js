@@ -330,20 +330,34 @@ router.delete('/:id', (req, res) => {
 router.post('/:id/run', async (req, res) => {
   const agent = query('agents', a => a.id === req.params.id && !a.deleted_at)[0];
   if (!agent) return res.status(404).json({ error: 'Not found' });
-  const { record_id, environment_id } = req.body;
-  const run = insert('agent_runs', {
-    id: uuidv4(), agent_id: agent.id, agent_name: agent.name, trigger: 'manual',
-    record_id: record_id || null, environment_id: environment_id || agent.environment_id,
-    status: 'running', steps: [], ai_output: null, pending_actions: [],
-    created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-  });
-  executeAgent(agent, run, record_id).catch(err => {
-    console.error('Agent run error:', err);
-    const s = getStore();
-    const idx = s.agent_runs.findIndex(r => r.id === run.id);
-    if (idx !== -1) { s.agent_runs[idx].status = 'failed'; s.agent_runs[idx].error = err.message; s.agent_runs[idx].updated_at = new Date().toISOString(); saveStore(); }
-  });
-  res.json({ run_id: run.id, status: 'running' });
+  const { record_id, record_ids, environment_id, object_id } = req.body;
+
+  // Build the list of record IDs to run against
+  const targets = Array.isArray(record_ids) && record_ids.length > 0
+    ? record_ids
+    : record_id
+      ? [record_id]
+      : object_id
+        ? query('records', r => r.object_id === object_id && !r.deleted_at).map(r => r.id)
+        : [null]; // scheduled / no-record run
+
+  const runs = [];
+  for (const rid of targets) {
+    const run = insert('agent_runs', {
+      id: uuidv4(), agent_id: agent.id, agent_name: agent.name, trigger: 'manual',
+      record_id: rid || null, environment_id: environment_id || agent.environment_id,
+      status: 'running', steps: [], ai_output: null, pending_actions: [],
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    });
+    runs.push(run);
+    executeAgent(agent, run, rid).catch(err => {
+      console.error('Agent run error:', err);
+      const s = getStore();
+      const idx = s.agent_runs.findIndex(r => r.id === run.id);
+      if (idx !== -1) { s.agent_runs[idx].status = 'failed'; s.agent_runs[idx].error = err.message; s.agent_runs[idx].updated_at = new Date().toISOString(); saveStore(); }
+    });
+  }
+  res.json({ run_id: runs[0]?.id, run_ids: runs.map(r => r.id), count: runs.length, status: 'running' });
 });
 
 router.post('/runs/:run_id/approve', async (req, res) => {
@@ -456,15 +470,32 @@ function evaluateConditions(conditions, record) {
   if (!record) return true;
   return conditions.every(c => {
     const val = record.data?.[c.field] ?? record[c.field];
+    const strVal = String(val ?? '').toLowerCase();
+    const strCv  = String(c.value ?? '').toLowerCase();
+    const numVal = Number(val);
+    const numCv  = Number(c.value);
     switch(c.operator) {
-      case 'equals': return String(val||'').toLowerCase() === String(c.value||'').toLowerCase();
-      case 'not_equals': return String(val||'').toLowerCase() !== String(c.value||'').toLowerCase();
-      case 'contains': return String(val||'').toLowerCase().includes(String(c.value||'').toLowerCase());
-      case 'greater_than': return Number(val) > Number(c.value);
-      case 'less_than': return Number(val) < Number(c.value);
-      case 'is_empty': return !val || val === '';
-      case 'is_not_empty': return !!val && val !== '';
-      case 'includes': return Array.isArray(val) && val.includes(c.value);
+      case 'equals': case 'is': case '=':          return strVal === strCv;
+      case 'not_equals': case 'is not': case '≠':  return strVal !== strCv;
+      case 'contains':                             return strVal.includes(strCv);
+      case 'does not contain':                     return !strVal.includes(strCv);
+      case 'starts with':                          return strVal.startsWith(strCv);
+      case 'greater_than': case '>':               return numVal > numCv;
+      case 'less_than': case '<':                  return numVal < numCv;
+      case '≥': case 'greater_than_or_equal':      return numVal >= numCv;
+      case '≤': case 'less_than_or_equal':         return numVal <= numCv;
+      case 'is before':  return val && c.value && new Date(val) < new Date(c.value);
+      case 'is after':   return val && c.value && new Date(val) > new Date(c.value);
+      case 'is_empty': case 'is empty':
+        return !val || val === '' || (Array.isArray(val) && val.length === 0);
+      case 'is_not_empty': case 'is not empty': case 'not empty':
+        return !!(val && val !== '') || (Array.isArray(val) && val.length > 0);
+      case 'is true':  return val === true || val === 'true' || val === 1;
+      case 'is false': return !val || val === 'false' || val === 0;
+      case 'includes':
+        return Array.isArray(val) ? val.some(v => String(v).toLowerCase() === strCv) : strVal.includes(strCv);
+      case 'excludes':
+        return Array.isArray(val) ? !val.some(v => String(v).toLowerCase() === strCv) : !strVal.includes(strCv);
       default: return true;
     }
   });
@@ -530,6 +561,55 @@ async function executeAction(action, record_id, environment_id, aiOutput, modifi
     case 'webhook': {
       if (!action.webhook_url) break;
       await fetch(action.webhook_url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ record_id, environment_id, ai_output: aiOutput, timestamp: new Date().toISOString() }) }).catch(() => {});
+      break;
+    }
+    case 'add_to_pool': {
+      if (!record_id || !action.pool_name) break;
+      const s2 = getStore();
+      // Find a talent pool record matching the name
+      const poolObj = (s2.object_definitions || []).find(o => o.name === 'Talent Pool' || o.name === 'TalentPool' || o.slug === 'talent-pools');
+      if (!poolObj) { addStep('⚠ add_to_pool: Talent Pool object not found'); break; }
+      let pool = (s2.records || []).find(r =>
+        r.object_id === poolObj.id &&
+        (r.data?.pool_name || r.data?.name || '').toLowerCase() === action.pool_name.toLowerCase() &&
+        !r.deleted_at
+      );
+      // Create pool if it doesn't exist
+      if (!pool) {
+        pool = insert('records', {
+          id: uuidv4(), object_id: poolObj.id, environment_id,
+          data: { pool_name: action.pool_name, name: action.pool_name },
+          created_by: 'Agent', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        });
+      }
+      // Link person to pool via people_links (same mechanism as manual linking)
+      const already = (s2.people_links || []).find(l => l.person_record_id === record_id && l.target_record_id === pool.id);
+      if (!already) {
+        insert('people_links', {
+          id: uuidv4(), person_record_id: record_id, target_record_id: pool.id,
+          target_object_id: poolObj.id, stage_id: null, stage_name: null,
+          environment_id, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        });
+        saveStore();
+      }
+      break;
+    }
+    case 'notify_user': {
+      if (!action.message) break;
+      const s2 = getStore();
+      if (!s2.notifications) { s2.notifications = []; }
+      const rec = record_id ? (s2.records || []).find(r => r.id === record_id) : null;
+      const interpolated = (action.message || '').replace(/\{\{(\w+)\}\}/g, (_, k) => rec?.data?.[k] ?? `{{${k}}}`);
+      s2.notifications.push({
+        id: uuidv4(),
+        message: interpolated,
+        record_id: record_id || null,
+        environment_id,
+        read: false,
+        created_by: 'Agent',
+        created_at: new Date().toISOString(),
+      });
+      saveStore();
       break;
     }
     case 'ai_interview': {

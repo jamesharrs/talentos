@@ -82,6 +82,10 @@ export default api;
 export { authHeaders, jsonHeaders, getTenantSlug, getSession, API_ORIGIN };
 
 export function tFetch(url, opts = {}) {
+  const method = (opts.method || 'GET').toUpperCase();
+  const isMutation = !['GET', 'HEAD', 'OPTIONS'].includes(method);
+  const csrf = isMutation ? getCsrfToken() : '';
   const h = { ...authHeaders(), ...(opts.headers || {}) };
+  if (csrf) h['X-CSRF-Token'] = csrf;
   return fetch(url, { ...opts, headers: h });
 }

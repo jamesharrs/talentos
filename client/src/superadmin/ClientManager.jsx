@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import AIDiagnosisPanel from './AIDiagnosisPanel.jsx';
 
 const F = "'Geist', -apple-system, sans-serif";
 const C = {
@@ -703,7 +704,7 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
       )}
 
       <div style={{display:'flex',gap:4,marginBottom:16,background:C.surface2,borderRadius:10,padding:4,width:'fit-content'}}>
-        {[['overview','Overview'],['environments','Environments'],['users','Users'],['demo','Demo Data'],['errors','Error Logs'],['activity','Activity'],['log','Provision Log']].map(([id,label])=>(
+        {[['overview','Overview'],['environments','Environments'],['users','Users'],['demo','Demo Data'],['errors','Error Logs'],['activity','Activity'],['log','Provision Log'],['diagnose','✦ AI Diagnose']].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)} style={TAB(id)}>{label}</button>
         ))}
       </div>
@@ -1017,6 +1018,13 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
           }
         </div>
       )}
+
+      {tab==='diagnose' && (
+        <AIDiagnosisPanel
+          environmentId={(client?.environments||[])[0]?.id || client?.id}
+          clientName={client?.name}
+        />
+      )}
     </div>
   );
 }
@@ -1071,7 +1079,7 @@ export function ProvisionWizard({ onDone, onCancel }) {
     if (!(await window.__confirm({ title:'Load standard test data? This adds 15 people, 8 jobs and 3 talent pools.' }))) return;
     setLoadingTD(true); setTdResult(null);
     try {
-      const r = await fetch('/api/superadmin/clients/load-test-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ environment_id: envId, tenant_slug: client?.tenant_slug }) });
+      const r = await fetch('/api/superadmin/clients/load-test-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ environment_id: envId, tenant_slug: null }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Failed');
       setTdResult(d);

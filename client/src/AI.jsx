@@ -679,6 +679,13 @@ You are always given the current page and record via "CURRENT PAGE CONTEXT:" in 
 - If asked "what can you see?" or "what am I looking at?" — describe the page and record clearly in plain English
 - Reference people and jobs by name — never say "the current record" when you know their name
 - On a person record: proactively offer to summarise, draft emails, find matching jobs
+- COMMUNICATIONS context is injected when viewing a record. Use it to answer "when did we last contact X?", "have we emailed them?", "what was the last call about?". If total is 0, say no communications are recorded.
+- PIPELINE POSITION is injected when a person is linked to a job/pool. Use it to answer "what stage are they at?", "which jobs are they being considered for?".
+- OFFERS context is injected when offers exist. Use it to answer "has an offer been made?", "what salary?", "is it approved?", "has it expired?".
+- INTERVIEWS context is injected when interviews are scheduled. Use it to answer "when is the interview?", "who is interviewing them?", "is anything booked?".
+- FORM RESPONSES are injected when forms have been submitted. Read them to answer screening, scorecard, or survey questions — the actual answers are in the context.
+- NOTES and AI AGENT ACTIVITY are also available when present.
+- NEVER say you cannot see communications, pipeline, offers, interviews, or notes when those sections appear in the context — all of this is live data injected at runtime.
 - On a job record: proactively offer to find matching candidates, summarise requirements
 - On a list page: the context includes "LIST:" data — total count, status/dept breakdown,
     first 25 record names. Use this directly to answer "how many people are in this list?",
@@ -1690,6 +1697,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   const [adminRoles,   setAdminRoles]   = useState([]);
   const [adminUsers,   setAdminUsers]   = useState([]);
   const [interviewTypes, setInterviewTypes] = useState([]);
+  const [recordCtx,      setRecordCtx]      = useState(null); // enriched comms/pipeline/offers context
   const [lastCreatedRecord, setLastCreatedRecord] = useState(null);
   const [pendingUpdate, setPendingUpdate]   = useState(null);
   const [pendingBulk,   setPendingBulk]     = useState(null);
@@ -1773,6 +1781,16 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     window.addEventListener("talentos:editor-context", h);
     return () => window.removeEventListener("talentos:editor-context", h);
   },[]);
+  // Fetch enriched record context whenever the viewed record changes
+  useEffect(() => {
+    if (!currentRecord?.id) { setRecordCtx(null); return; }
+    let cancelled = false;
+    api.get(`/record-context/${currentRecord.id}?environment_id=${environment?.id || ''}`)
+      .then(ctx => { if (!cancelled) setRecordCtx(ctx); })
+      .catch(() => {}); // non-fatal
+    return () => { cancelled = true; };
+  }, [currentRecord?.id, environment?.id]);
+
   // Build rich page context from everything we know
   useEffect(()=>{
     const parts=[];
@@ -1797,6 +1815,70 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       parts.push('VIEWING '+currentObject.name.toUpperCase()+' RECORD: '+name);
       parts.push('Record ID: '+currentRecord.id);
       parts.push('Object type: '+currentObject.name+' (slug: '+currentObject.slug+')');
+      // ── Inject enriched context sections ──────────────────────────────────
+      if(recordCtx?.sections?.length){
+        recordCtx.sections.forEach(section=>{
+          const d2=section.data;
+          if(section.id==='comms'){
+            if(!d2.total){parts.push('COMMUNICATIONS: None recorded.');}
+            else{
+              parts.push(`COMMUNICATIONS: ${d2.total} total. Last contact: ${d2.last_contact||'unknown'} (${d2.last_type}, ${d2.last_direction}).`);
+              const bk=Object.entries(d2.breakdown||{}).map(([k,v])=>`${k}: ${v}`).join(', ');
+              if(bk) parts.push(`  Breakdown — ${bk}`);
+              (d2.recent||[]).forEach(c=>{
+                const sub=c.subject?` "${c.subject}"`:'';
+                const out=c.outcome?` — ${c.outcome}`:'';
+                parts.push(`  [${c.when}] ${c.direction} ${c.type}${sub}${out}${c.preview?': '+c.preview:''}`);
+              });
+            }
+          } else if(section.id==='pipeline'){
+            const arr=Array.isArray(d2)?d2:[];
+            if(arr.length){
+              parts.push('PIPELINE POSITION:');
+              arr.forEach(l=>parts.push(`  ${l.workflow}: "${l.linked_record}" — stage: ${l.current_stage} (${l.updated})`));
+            }
+          } else if(section.id==='offers'){
+            const arr=Array.isArray(d2)?d2:[];
+            if(arr.length){
+              parts.push('OFFERS:');
+              arr.forEach(o=>{
+                const sal=o.salary?`, ${o.salary}`:'';
+                const exp=o.expiry?`, expires ${o.expiry}`:'';
+                parts.push(`  [${o.status}] ${o.job_title||o.candidate||'Offer'}${sal}${exp}`);
+                if(o.approvers) parts.push(`    Approvers: ${o.approvers}`);
+              });
+            }
+          } else if(section.id==='interviews'){
+            const arr=Array.isArray(d2)?d2:[];
+            if(arr.length){
+              parts.push('INTERVIEWS:');
+              arr.forEach(i=>{
+                const when=[i.date,i.time].filter(Boolean).join(' ');
+                parts.push(`  [${i.status}] ${i.type}${when?' on '+when:''}${i.interviewers?' — '+i.interviewers:''}`);
+                if(i.notes) parts.push(`    Notes: ${i.notes.slice(0,100)}`);
+              });
+            }
+          } else if(section.id==='forms'){
+            const arr=Array.isArray(d2)?d2:[];
+            if(arr.length){
+              parts.push('FORM RESPONSES:');
+              arr.forEach(r=>{
+                parts.push(`  ${r.form_name} (submitted ${r.submitted}${r.submitted_by?' by '+r.submitted_by:''})`);
+                (r.summary||[]).forEach(line=>parts.push(`    ${line}`));
+              });
+            }
+          } else if(section.id==='notes'&&d2.count){
+            parts.push(`NOTES: ${d2.count} total.`);
+            (d2.recent||[]).forEach(n=>parts.push(`  [${n.when}${n.by?' by '+n.by:''}]: ${n.text}`));
+          } else if(section.id==='agent_runs'){
+            const arr=Array.isArray(d2)?d2:[];
+            if(arr.length){
+              parts.push('AI AGENT ACTIVITY:');
+              arr.forEach(r=>parts.push(`  ${r.agent} [${r.status}] ${r.when}${r.output?' — '+r.output.slice(0,80):''}`));
+            }
+          }
+        });
+      }
       parts.push('All field values:');
       Object.entries(d).forEach(([k,v])=>{
         if(v===null||v===undefined||v==='')return;
@@ -3608,7 +3690,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       `<div style="display:flex;gap:8px;padding:2px 0;"><span style="color:#7c3aed;font-weight:700;min-width:16px;">$1.</span><span>$2</span></div>`);
 
     // ── Bullet lists ─────────────────────────────────────────────────────────
-    html = html.replace(/^[•\-\*] (.+)$/gm,
+    html = html.replace(/^[•\-*] (.+)$/gm,
       `<div style="display:flex;gap:8px;padding:2px 0;"><span style="color:#7c3aed;margin-top:1px;">•</span><span>$1</span></div>`);
 
     // ── Horizontal rules ──────────────────────────────────────────────────────

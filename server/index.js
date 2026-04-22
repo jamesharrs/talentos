@@ -317,6 +317,8 @@ app.use('/api/data-import',       require('./routes/data_import'));
 app.use('/api/question-bank',     require('./routes/question_bank'));
 app.use('/api/forms',             require('./routes/forms'));
 app.use('/api/portal-auth',       require('./routes/portal_auth'));
+app.use('/api/record-context',    require('./routes/record_context'));
+app.use('/api/env-diagnosis',     require('./routes/env_diagnosis'));
 app.use('/api/cases',             require('./routes/cases'));
 
 // ── Portals ───────────────────────────────────────────────────────────────────

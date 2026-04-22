@@ -7,6 +7,7 @@ import FeaturePacksAdmin from './superadmin/FeaturePacks';
 import ErrorLogViewer from './superadmin/ErrorLogViewer.jsx';
 import { ReleaseNotesAdmin } from './ReleaseNotes.jsx';
 import CaseManager from './superadmin/CaseManager.jsx';
+import AIDiagnosisPanel from './superadmin/AIDiagnosisPanel.jsx';
 import EmailSequencer from './EmailSequencer.jsx';
 
 const F = "'Geist', -apple-system, sans-serif";
@@ -336,6 +337,7 @@ const NAV_ITEMS = [
   { id:'errors',   label:'Error Logs',     icon:'errors',   desc:'App errors across all environments' },
   { id:'release_notes', label:'Release Notes', icon:'bell', desc:'Manage platform release notes' },
   { id:'cases',    label:'Support Cases',  icon:'cases',    desc:'Customer service case management' },
+  { id:'diagnose', label:'AI Diagnose',    icon:'health',   desc:'AI environment health check for any client' },
   { id:'sequencer',label:'Email Sequencer',icon:'mail',     desc:'Client onboarding email automation' },
   { id:'ai_usage', label:'AI Usage',       icon:'cpu',      desc:'Token usage, costs & quota management' },
   { id:'activity', label:'Activity Report',icon:'activity', desc:'Environment activity & usage analytics' },
@@ -493,6 +495,33 @@ function PlatformEvents() {
   );
 }
 
+function EnvDiagnoseSection() {
+  const [envs,    setEnvs]    = useState([]);
+  const [selEnv,  setSelEnv]  = useState('');
+  const [selName, setSelName] = useState('');
+  useEffect(() => {
+    fetch('/api/environments').then(r=>r.json()).then(data => {
+      const list = Array.isArray(data) ? data : [];
+      setEnvs(list);
+      if (list.length) { setSelEnv(list[0].id); setSelName(list[0].name); }
+    }).catch(()=>{});
+  }, []);
+  return (
+    <div>
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+        <select value={selEnv} onChange={e=>{
+          setSelEnv(e.target.value);
+          setSelName(envs.find(v=>v.id===e.target.value)?.name||'');
+        }} style={{padding:'8px 12px',borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,color:C.text1,fontFamily:F,fontSize:13,minWidth:240}}>
+          {envs.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
+        </select>
+        <span style={{fontSize:12,color:C.text3}}>{envs.length} environment{envs.length!==1?'s':''} available</span>
+      </div>
+      {selEnv && <AIDiagnosisPanel environmentId={selEnv} clientName={selName}/>}
+    </div>
+  );
+}
+
 export default function SuperAdminConsole() {
   const [authed,  setAuthed]  = useState(() => !!sessionStorage.getItem('sa_token'));
   const [section, setSection] = useState('clients');
@@ -573,6 +602,15 @@ export default function SuperAdminConsole() {
         {section === 'errors' && <ErrorLogViewer/>}
         {section === 'release_notes' && <ReleaseNotesAdmin />}
         {section === 'cases' && <CaseManager />}
+        {section === 'diagnose' && (
+          <div>
+            <div style={{marginBottom:20}}>
+              <h2 style={{margin:'0 0 4px',fontSize:18,fontWeight:800,color:C.text1}}>AI Environment Diagnosis</h2>
+              <p style={{margin:0,fontSize:13,color:C.text3}}>Select a client environment to run an AI health check</p>
+            </div>
+            <EnvDiagnoseSection/>
+          </div>
+        )}
         {section === 'sequencer' && <EmailSequencer />}
       </div>
     </div>

@@ -81,6 +81,29 @@ async function executeAction(action, record_id, environment_id, aiOutput, modifi
       saveStore();
       break;
     }
+    case 'run_agent': {
+      if (!action.agent_id) break;
+      const targetAgent = query('agents', a => a.id === action.agent_id && !a.deleted_at)[0];
+      if (!targetAgent) break;
+      // Fire async — don't await to avoid blocking the parent chain
+      setTimeout(() => executeAgentForRecord(targetAgent, record_id, 'chained').catch(console.error), 50);
+      break;
+    }
+    case 'move_stage': {
+      if (!record_id || !action.stage_name) break;
+      const ms = getStore();
+      const link = (ms.people_links || []).find(l => l.person_record_id === record_id && !l.deleted_at);
+      if (!link) break;
+      const assignment = (ms.record_workflow_assignments || []).find(a => a.record_id === link.target_record_id && a.type === 'people_link');
+      const wf = assignment ? (ms.workflows || []).find(w => w.id === assignment.workflow_id) : null;
+      const wfSteps = wf ? (ms.workflow_steps || []).filter(s => s.workflow_id === wf.id).sort((a,b) => a.order - b.order) : [];
+      const tStep = wfSteps.find(s => s.name?.toLowerCase() === action.stage_name?.toLowerCase());
+      if (tStep) {
+        const li = ms.people_links.findIndex(l => l.id === link.id);
+        if (li !== -1) { ms.people_links[li].stage_id = tStep.id; ms.people_links[li].stage_name = tStep.name; ms.people_links[li].updated_at = new Date().toISOString(); saveStore(); }
+      }
+      break;
+    }
     case 'link_to_object': {
       if (!record_id || !action.object_id) break;
       const targetRecordId = action.record_id || null;

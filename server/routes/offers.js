@@ -13,15 +13,18 @@ function _checkGA(req, res, action) {
 const express = require('express');
 const router  = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { query, insert, update, remove, getStore, saveStore } = require('../db/init');
+const { query, insert, update, remove: _remove, getStore, saveStore } = require('../db/init');
 const { getConnector, fireEvent } = require('../services/connectors');
+
+let _agentEngine = null;
+const getEngine = () => { if (!_agentEngine) _agentEngine = require('../agent-engine'); return _agentEngine; };
 
 function ensure() {
   const s = getStore();
   if (!s.offers) { s.offers = []; saveStore(); }
 }
 
-function advanceApproval(offer) {
+function _advanceApproval(offer) {
   const chain = offer.approval_chain || [];
   const nextIdx = chain.findIndex(a => a.status === 'pending');
   if (nextIdx === -1) {
@@ -188,10 +191,24 @@ router.patch('/:id/status', validate(offerStatusSchema), async (req, res) => {
   const rec = update('offers', o => o.id === req.params.id, updates);
   res.json(rec);
 
+  // ── AGENT TRIGGERS (non-blocking) ─────────────────────────────────────────
+  process.nextTick(() => {
+    try {
+      const candidateRec = offer.candidate_id
+        ? (getStore().records || []).find(r => r.id === offer.candidate_id)
+        : null;
+      if (candidateRec) {
+        if (status === 'sent')     getEngine().fireEventTrigger('offer_sent',     candidateRec, ['status']).catch(() => {});
+        if (status === 'declined') getEngine().fireEventTrigger('offer_declined', candidateRec, ['status']).catch(() => {});
+        if (status === 'expired')  getEngine().fireEventTrigger('offer_expired',  candidateRec, ['status']).catch(() => {});
+      }
+    } catch (e) { console.warn('[Agents] offer status trigger error:', e.message); }
+  });
+
   // ── CONNECTOR TRIGGERS (non-blocking) ──────────────────────────────────
   const envId = offer.environment_id;
   if (status === 'sent' && req.body.send_for_signature) {
-    setImmediate(async () => {
+    process.nextTick(async () => {
       try {
         const docusign = getConnector(envId, 'docusign');
         if (docusign) {
@@ -210,7 +227,7 @@ router.patch('/:id/status', validate(offerStatusSchema), async (req, res) => {
   }
 
   if (status === 'accepted') {
-    setImmediate(async () => {
+    process.nextTick(async () => {
       // Sync new hire to connected HRIS
       const employee = { firstName: offer.candidate_name?.split(' ')[0] || '', lastName: offer.candidate_name?.split(' ').slice(1).join(' ') || '',
         email: offer.candidate_email, jobTitle: offer.job_title, department: offer.department,
@@ -228,6 +245,16 @@ router.patch('/:id/status', validate(offerStatusSchema), async (req, res) => {
         await fireEvent(envId, 'offer_accepted', {
           candidateName: offer.candidate_name, jobTitle: offer.job_title, startDate: offer.start_date });
       } catch (e) { console.warn('[Connectors] Notification error:', e.message); }
+
+      // Fire agent trigger — offer_accepted
+      try {
+        const candidateRec = offer.candidate_id
+          ? (getStore().records || []).find(r => r.id === offer.candidate_id)
+          : null;
+        if (candidateRec) {
+          getEngine().fireEventTrigger('offer_accepted', candidateRec, ['status']).catch(() => {});
+        }
+      } catch (e) { console.warn('[Agents] offer_accepted trigger error:', e.message); }
     });
   }
 });
@@ -261,7 +288,7 @@ router.patch('/:id/approve', validate(offerApprovalSchema), (req, res) => {
     timestamp: now,
   };
 
-  let updates = {
+  const updates = {
     approval_chain: chain,
     updated_at:     now,
     activity_log:   [...(offer.activity_log || []), logEntry],

@@ -65,12 +65,12 @@ const Ic = ({ n, s = 16, c = C.text3 }) => {
   );
 };
 
-const TRIGGER_ICONS = { record_created:"plus", record_updated:"edit", stage_changed:"chevR", form_submitted:"check", schedule_daily:"clock", schedule_weekly:"calendar", manual:"play" };
-const TRIGGER_COLORS = { record_created:"#4361EE", record_updated:"#F08C00", stage_changed:"#7048E8", form_submitted:"#0CA678", schedule_daily:"#E03131", schedule_weekly:"#E03131", manual:"#374151" };
+const TRIGGER_ICONS = { record_created:"plus", record_updated:"edit", stage_changed:"chevR", form_submitted:"check", interview_scheduled:"calendar", offer_sent:"mail", offer_accepted:"thumbUp", offer_declined:"thumbDown", schedule_daily:"clock", schedule_weekly:"calendar", manual:"play" };
+const TRIGGER_COLORS = { record_created:"#4361EE", record_updated:"#F08C00", stage_changed:"#7048E8", form_submitted:"#0CA678", interview_scheduled:"#0891b2", offer_sent:"#4361EE", offer_accepted:"#0CA678", offer_declined:"#E03131", schedule_daily:"#E03131", schedule_weekly:"#E03131", manual:"#374151" };
 // Whether a trigger fires automatically (vs manually)
 const AUTO_TRIGGERS = new Set(["record_created","record_updated","stage_changed","form_submitted","schedule_daily","schedule_weekly"]);
-const ACTION_ICONS  = { ai_analyse:"sparkles", ai_draft_email:"sparkles", ai_summarise:"sparkles", ai_score:"sparkles", send_email:"mail", update_field:"edit", add_note:"edit", add_to_pool:"users", link_to_object:"link", create_task:"check", notify_user:"alert", webhook:"zap", human_review:"eye", ai_interview:"users", interview_coordinator:"calendar" };
-const ACTION_COLORS = { ai_analyse:"#7048E8", ai_draft_email:"#7048E8", ai_summarise:"#7048E8", ai_score:"#7048E8", send_email:"#4361EE", update_field:"#F08C00", add_note:"#0CA678", add_to_pool:"#0CA678", link_to_object:"#0CA678", create_task:"#F08C00", notify_user:"#E03131", webhook:"#374151", human_review:"#E67700", ai_interview:"#7048E8", interview_coordinator:"#0891b2" };
+const ACTION_ICONS  = { ai_analyse:"sparkles", ai_draft_email:"sparkles", ai_summarise:"sparkles", ai_score:"sparkles", send_email:"mail", update_field:"edit", add_note:"edit", add_to_pool:"users", link_to_object:"link", create_task:"check", notify_user:"alert", webhook:"zap", human_review:"eye", run_agent:"play", move_stage:"chevR", ai_interview:"users", interview_coordinator:"calendar" };
+const ACTION_COLORS = { ai_analyse:"#7048E8", ai_draft_email:"#7048E8", ai_summarise:"#7048E8", ai_score:"#7048E8", send_email:"#4361EE", update_field:"#F08C00", add_note:"#0CA678", add_to_pool:"#0CA678", link_to_object:"#0CA678", create_task:"#F08C00", notify_user:"#E03131", webhook:"#374151", human_review:"#E67700", run_agent:"#7048E8", move_stage:"#7048E8", ai_interview:"#7048E8", interview_coordinator:"#0891b2" };
 
 const VOICES = [
   {id:'en-US',label:'English (US)'},{id:'en-GB',label:'English (UK)'},
@@ -859,6 +859,50 @@ function CreateTaskConfig({ action, fields, onChange }) {
   );
 }
 
+// ── RunAgentConfig ────────────────────────────────────────────────────────────
+function RunAgentConfig({ action, environment, onChange }) {
+  const [agents, setAgents] = useState([]);
+  useEffect(() => {
+    if (!environment?.id) return;
+    api.get(`/agents?environment_id=${environment.id}`)
+      .then(d => setAgents(Array.isArray(d) ? d.filter(a => a.is_active) : []))
+      .catch(() => {});
+  }, [environment?.id]);
+  const inp = { padding:"8px 10px", borderRadius:8, border:`1.5px solid ${C.border}`, fontSize:12, fontFamily:F, background:"white", color:C.text1, outline:"none", width:"100%", boxSizing:"border-box" };
+  const selected = agents.find(a => a.id === action.agent_id);
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+      <select value={action.agent_id||''} onChange={e=>onChange('agent_id',e.target.value)} style={inp}>
+        <option value="">Select agent to run…</option>
+        {agents.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+      </select>
+      {selected && (
+        <div style={{padding:"8px 10px",borderRadius:8,background:`${C.purple}08`,border:`1px solid ${C.purple}20`,fontSize:11,color:C.text2,lineHeight:1.5}}>
+          <strong style={{color:C.purple}}>{selected.name}</strong> — {selected.description||'No description'}
+          <br/>Trigger: {selected.trigger_type?.replace(/_/g,' ')} · {selected.actions?.length||0} action{selected.actions?.length!==1?'s':''}
+        </div>
+      )}
+      <div style={{fontSize:11,color:C.text3}}>
+        The chained agent runs on the same record. It runs asynchronously and won't block this agent from completing.
+      </div>
+    </div>
+  );
+}
+
+// ── MoveStageConfig ───────────────────────────────────────────────────────────
+function MoveStageConfig({ action, onChange }) {
+  const inp = { padding:"8px 10px", borderRadius:8, border:`1.5px solid ${C.border}`, fontSize:12, fontFamily:F, background:"white", color:C.text1, outline:"none", width:"100%", boxSizing:"border-box" };
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+      <input value={action.stage_name||''} onChange={e=>onChange('stage_name',e.target.value)}
+        placeholder="Stage name, e.g. Shortlisted, Interview, Offer, Hired…" style={inp}/>
+      <div style={{fontSize:11,color:C.text3,lineHeight:1.5}}>
+        Moves the person to this stage in their active pipeline. Stage name must match exactly (case-insensitive). If the person isn't in a pipeline, the action is skipped.
+      </div>
+    </div>
+  );
+}
+
 function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
   const isEdit = !!agent?.id;
   const [tab, setTab] = useState('trigger');
@@ -1076,6 +1120,12 @@ function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
                       )}
                       {a.type==='create_task'&&(
                         <CreateTaskConfig action={a} fields={fields} onChange={(k,v)=>updateAction(i,k,v)}/>
+                      )}
+                      {a.type==='run_agent'&&(
+                        <RunAgentConfig action={a} environment={environment} onChange={(k,v)=>updateAction(i,k,v)}/>
+                      )}
+                      {a.type==='move_stage'&&(
+                        <MoveStageConfig action={a} fields={fields} onChange={(k,v)=>updateAction(i,k,v)}/>
                       )}
                       {a.type==='send_email'&&(
                         <SendEmailConfig

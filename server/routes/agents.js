@@ -33,13 +33,17 @@ if (!store.agents)       { store.agents = [];       saveStore(); }
 if (!store.agent_runs)   { store.agent_runs = [];   saveStore(); }
 
 const TRIGGER_TYPES = {
-  record_created:   { label: 'Record Created',   description: 'Fires when a new record is added to an object' },
-  record_updated:   { label: 'Record Updated',   description: 'Fires when a record field changes' },
-  stage_changed:    { label: 'Stage Changed',    description: 'Fires when a pipeline stage changes' },
-  form_submitted:   { label: 'Form Submitted',   description: 'Fires when a form response is submitted' },
-  schedule_daily:   { label: 'Daily Schedule',   description: 'Runs at a set time every day' },
-  schedule_weekly:  { label: 'Weekly Schedule',  description: 'Runs once a week on a chosen day' },
-  manual:           { label: 'Manual Trigger',   description: 'Run on demand from a record or the agents page' },
+  record_created:       { label: 'Record Created',       description: 'Fires when a new record is added to an object' },
+  record_updated:       { label: 'Record Updated',       description: 'Fires when a record field changes' },
+  stage_changed:        { label: 'Stage Changed',        description: 'Fires when a pipeline stage changes' },
+  form_submitted:       { label: 'Form Submitted',       description: 'Fires when a form response is submitted' },
+  interview_scheduled:  { label: 'Interview Scheduled',  description: 'Fires when an interview is booked for a candidate' },
+  offer_sent:           { label: 'Offer Sent',           description: 'Fires when an offer is sent to a candidate' },
+  offer_accepted:       { label: 'Offer Accepted',       description: 'Fires when a candidate accepts an offer' },
+  offer_declined:       { label: 'Offer Declined',       description: 'Fires when a candidate declines an offer' },
+  schedule_daily:       { label: 'Daily Schedule',       description: 'Runs at a set time every day' },
+  schedule_weekly:      { label: 'Weekly Schedule',      description: 'Runs once a week on a chosen day' },
+  manual:               { label: 'Manual Trigger',       description: 'Run on demand from a record or the agents page' },
 };
 
 const ACTION_TYPES = {
@@ -55,8 +59,10 @@ const ACTION_TYPES = {
   create_task:      { label: 'Create Task',       description: 'Create a follow-up task for a user' },
   notify_user:      { label: 'Notify User',       description: 'Send an in-app notification to a user' },
   webhook:          { label: 'Call Webhook',      description: 'POST record data to an external URL' },
-  human_review:      { label: 'Request Approval',   description: 'Pause and wait for a human to approve before continuing' },
-  ai_interview:      { label: 'AI Interview',          description: 'Send the candidate a link to an AI-powered voice interview' },
+  human_review:     { label: 'Request Approval',  description: 'Pause and wait for a human to approve before continuing' },
+  run_agent:        { label: 'Run Another Agent', description: 'Trigger a second agent — useful for chaining modular automations' },
+  move_stage:       { label: 'Move Pipeline Stage', description: 'Move the person to a specific stage in a linked workflow' },
+  ai_interview:     { label: 'AI Interview',      description: 'Send the candidate a link to an AI-powered voice interview' },
   interview_coordinator: { label: 'Interview Coordinator', description: 'Automatically collect availability from the hiring manager and candidate, find mutual slots, and confirm the interview' },
 };
 
@@ -704,6 +710,43 @@ async function executeAction(action, record_id, environment_id, aiOutput, modifi
       saveStore();
       addStep(`✓ AI Interview link generated — ${scorecardQuestions.length} questions from ${sourceLabel}. Link: /interview/${token}`);
       logAiActivity({ record_id, environment_id, agent_name: 'AI Interview Agent', action_type: 'ai_interview', summary: `Interview link generated — ${scorecardQuestions.length} questions from ${sourceLabel}` });
+      break;
+    }
+    case 'run_agent': {
+      if (!action.agent_id) { addStep('⚠ run_agent: no agent_id configured'); break; }
+      const targetAgent = query('agents', a => a.id === action.agent_id && !a.deleted_at)[0];
+      if (!targetAgent) { addStep(`⚠ run_agent: agent ${action.agent_id} not found`); break; }
+      const chainRun = insert('agent_runs', {
+        id: uuidv4(), agent_id: targetAgent.id, agent_name: targetAgent.name,
+        trigger: 'chained', record_id: record_id || null,
+        environment_id: environment_id || targetAgent.environment_id,
+        status: 'running', steps: [], ai_output: null, pending_actions: [],
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      });
+      executeAgent(targetAgent, chainRun, record_id).catch(e => console.error('[run_agent] chain error:', e.message));
+      addStep(`✓ Chained agent "${targetAgent.name}" started`);
+      break;
+    }
+    case 'move_stage': {
+      if (!record_id || !action.stage_name) { addStep('⚠ move_stage: record_id and stage_name required'); break; }
+      const s3 = getStore();
+      // Find active people_link for this record
+      const link = (s3.people_links || []).find(l => l.person_record_id === record_id && !l.deleted_at);
+      if (!link) { addStep('⚠ move_stage: no pipeline link found for this record'); break; }
+      // Find the target stage by name in the linked workflow
+      const assignment = (s3.record_workflow_assignments || []).find(a => a.record_id === link.target_record_id && a.type === 'people_link');
+      const wf = assignment ? (s3.workflows || []).find(w => w.id === assignment.workflow_id) : null;
+      const steps3 = wf ? (s3.workflow_steps || []).filter(s => s.workflow_id === wf.id).sort((a,b) => a.order - b.order) : [];
+      const targetStep = steps3.find(s => s.name?.toLowerCase() === action.stage_name?.toLowerCase());
+      if (!targetStep) { addStep(`⚠ move_stage: stage "${action.stage_name}" not found in workflow`); break; }
+      const linkIdx = s3.people_links.findIndex(l => l.id === link.id);
+      if (linkIdx !== -1) {
+        s3.people_links[linkIdx].stage_id   = targetStep.id;
+        s3.people_links[linkIdx].stage_name = targetStep.name;
+        s3.people_links[linkIdx].updated_at = new Date().toISOString();
+        saveStore();
+      }
+      addStep(`✓ Moved to stage "${targetStep.name}"`);
       break;
     }
     case 'interview_coordinator': {

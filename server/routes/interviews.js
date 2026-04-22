@@ -12,9 +12,12 @@ const express = require('express');
 const { makeToken } = require('./reschedule');
 const router  = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { query, insert, update, remove, getStore, saveStore } = require('../db/init');
+const { query, insert, update, remove: _remove, getStore, saveStore } = require('../db/init');
 const { createInterviewMeeting, fireEvent } = require('../services/connectors');
 const { sendEmail } = require('../services/messaging');
+
+let _agentEngine = null;
+const getEngine = () => { if (!_agentEngine) _agentEngine = require('../agent-engine'); return _agentEngine; };
 
 // ── ICS builder ──────────────────────────────────────────────────────────────
 function buildICS({ uid, summary, description, location, startISO, endISO, organiserEmail, organiserName, attendeeEmails, rescheduleUrl }) {
@@ -98,7 +101,7 @@ router.post('/', async (req, res) => {
 
   // Resolve candidate name if only ID provided
   let resolvedCandidateId = candidate_id || null;
-  let resolvedCandidateName = candidate_name || '';
+  const resolvedCandidateName = candidate_name || '';
   if (!resolvedCandidateId && candidate_name) {
     const store = getStore();
     const nameNorm = candidate_name.toLowerCase().trim();
@@ -135,7 +138,7 @@ router.post('/', async (req, res) => {
   // ── AI INTERVIEW: trigger agent run immediately or store for scheduler ────
   if (isAiInterview) {
     if (ai_trigger === 'now' || !ai_trigger) {
-      setImmediate(async () => {
+      process.nextTick(async () => {
         try {
           const { query: q2, update: upd2 } = require('../db/init');
           const agents = q2('agents', a => a.id === ai_agent_id);
@@ -191,7 +194,7 @@ router.post('/', async (req, res) => {
   }
 
   // ── AUTO-CREATE MEETING LINK (human interviews only) ─────────────────────
-  setImmediate(async () => {
+  process.nextTick(async () => {
     try {
       const startTime = `${date}T${time || '09:00'}`;
       const endTime   = new Date(new Date(startTime).getTime() + (duration || 30) * 60_000).toISOString();
@@ -207,13 +210,23 @@ router.post('/', async (req, res) => {
   });
 
   // ── FIRE NOTIFICATIONS + SEND ICS EMAILS ─────────────────────────────────
-  setImmediate(async () => {
+  process.nextTick(async () => {
     try {
       await fireEvent(environment_id, 'interview_scheduled', {
         candidateName: resolvedCandidateName, jobTitle: job_name,
         date, time: time || '09:00', format: format || 'Video Call', interviewers: interviewers || [],
       });
     } catch (e) { console.warn('[Connectors] Notification failed:', e.message); }
+
+    // Fire agent trigger — interview_scheduled
+    try {
+      const candidateRec = resolvedCandidateId
+        ? (getStore().records || []).find(r => r.id === resolvedCandidateId)
+        : null;
+      if (candidateRec) {
+        getEngine().fireEventTrigger('interview_scheduled', candidateRec, ['status']).catch(() => {});
+      }
+    } catch (e) { console.warn('[Agents] interview_scheduled trigger error:', e.message); }
 
     try {
       const { getStore } = require('../db/init');
@@ -246,7 +259,7 @@ router.post('/', async (req, res) => {
         const candToken = makeToken(rec.id, 'candidate');
         const ivToken   = makeToken(rec.id, 'interviewer');
         const rescheduleUrl = `${baseUrl}/reschedule/${rec.id}/${candToken}?role=candidate`;
-        const ivRescheduleUrl = `${baseUrl}/reschedule/${rec.id}/${ivToken}?role=interviewer`;
+        const _ivRescheduleUrl = `${baseUrl}/reschedule/${rec.id}/${ivToken}?role=interviewer`;
         const profile = (store.company_profiles || []).find(p => p.environment_id === environment_id);
         const companyName = profile?.name || process.env.SENDGRID_FROM_NAME || 'Vercentic';
         const fromEmail   = process.env.SENDGRID_FROM_EMAIL || 'noreply@vercentic.com';
@@ -317,7 +330,7 @@ router.delete('/:id', async (req, res) => {
   update('interviews', i => i.id === req.params.id, { deleted_at: new Date().toISOString() });
   if (interview?.meeting_link && interview?.meeting_provider === 'zoom') {
     const { getConnector } = require('../services/connectors');
-    setImmediate(async () => {
+    process.nextTick(async () => {
       try {
         const zoom = getConnector(interview.environment_id, 'zoom');
         if (zoom && interview.meeting_id) await zoom.cancelMeeting(interview.meeting_id);

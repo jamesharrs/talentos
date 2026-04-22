@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-
+import FilterModal from "./components/FilterModal.jsx";
 import api from './apiClient.js';
 
 
@@ -65,82 +65,21 @@ const Avatar = ({ name, color=C.accent, size=32 }) => (
   </div>
 );
 
-/* ─── Filter Builder ─────────────────────────────────────────────────────── */
-const OPERATORS = {
-  text:     ["contains","does not contain","is","starts with","is empty","is not empty"],
-  email:    ["contains","is","is empty","is not empty"],
-  number:   ["equals","greater than","less than","between","is empty","is not empty"],
-  currency: ["equals","greater than","less than","between","is empty","is not empty"],
-  select:   ["is","is not","is empty","is not empty"],
-  multi_select: ["includes","excludes","is empty","is not empty"],
-  boolean:  ["is true","is false"],
-  date:     ["is","before","after","between","is empty","is not empty"],
-  rating:   ["equals","greater than","less than"],
-};
-
-const getOperators = (fieldType) => OPERATORS[fieldType] || OPERATORS.text;
-
-const FilterRow = ({ filter, fields, onChange, onRemove }) => {
-  const field = fields.find(f=>f.id===filter.field_id);
-  const operators = field ? getOperators(field.field_type) : [];
-  const needsValue = !["is empty","is not empty","is true","is false"].includes(filter.operator);
-
-  const selSt = { padding:"7px 10px", borderRadius:8, border:`1.5px solid ${C.border}`, fontSize:12,
-    fontFamily:F, outline:"none", background:"white", color:C.text1, cursor:"pointer",
-    appearance:"none", WebkitAppearance:"none",
-    backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
-    backgroundRepeat:"no-repeat", backgroundPosition:"right 8px center", paddingRight:28 };
-
-  return (
-    <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0" }}>
-      {/* Field selector */}
-      <select value={filter.field_id||""}
-        onChange={e=>onChange({...filter,field_id:e.target.value,operator:getOperators(fields.find(f=>f.id===e.target.value)?.field_type||"text")[0],value:""})}
-        style={{ ...selSt, minWidth:150 }}>
-        <option value="">Select field…</option>
-        {fields.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}
-      </select>
-
-      {/* Operator */}
-      <select value={filter.operator||""} onChange={e=>onChange({...filter,operator:e.target.value,value:""})}
-        style={{ ...selSt, minWidth:140 }}>
-        {operators.map(op=><option key={op} value={op}>{op}</option>)}
-      </select>
-
-      {/* Value */}
-      {needsValue && field && (
-        field.field_type==="select" ? (
-          <select value={filter.value||""} onChange={e=>onChange({...filter,value:e.target.value})}
-            style={{ ...selSt, minWidth:130 }}>
-            <option value="">Any</option>
-            {(field.options||[]).map(o=><option key={o} value={o}>{o}</option>)}
-          </select>
-        ) : field.field_type==="boolean" ? null : (
-          <input value={filter.value||""} onChange={e=>onChange({...filter,value:e.target.value})}
-            placeholder="Value…" type={["number","currency","rating"].includes(field.field_type)?"number":"text"}
-            style={{ padding:"7px 10px", borderRadius:8, border:`1.5px solid ${C.border}`, fontSize:12,
-              fontFamily:F, outline:"none", background:"white", color:C.text1, minWidth:130 }}/>
-        )
-      )}
-
-      <button onClick={onRemove} style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:"4px", display:"flex", flexShrink:0, marginLeft:"auto", borderRadius:6 }}
-        onMouseEnter={e=>e.currentTarget.style.color=C.red} onMouseLeave={e=>e.currentTarget.style.color=C.text3}>
-        <Ic n="x" s={14}/>
-      </button>
-    </div>
-  );
-};
+/* ─── Filter types moved to FilterModal component ────────────────────────── */
 
 /* ─── Apply filters to records client-side ───────────────────────────────── */
 const applyFilters = (records, filters, fields) => {
   if (!filters.length) return records;
   return records.filter(record => {
     return filters.every(filter => {
-      const field = fields.find(f=>f.id===filter.field_id);
+      // Support both old shape (field_id/operator) and new shape (fieldId/op)
+      const fldId = filter.fieldId || filter.field_id;
+      const op    = filter.op || filter.operator;
+      const field = fields.find(f=>f.id===fldId);
       if (!field) return true;
-      const val = record.data?.[field.api_key];
+      const val  = record.data?.[field.api_key];
       const fval = filter.value;
-      switch(filter.operator) {
+      switch(op) {
         case "contains":         return String(val||"").toLowerCase().includes(String(fval).toLowerCase());
         case "does not contain": return !String(val||"").toLowerCase().includes(String(fval).toLowerCase());
         case "is":               return String(val||"")===String(fval);
@@ -148,9 +87,12 @@ const applyFilters = (records, filters, fields) => {
         case "starts with":      return String(val||"").toLowerCase().startsWith(String(fval).toLowerCase());
         case "is empty":         return !val && val!==0;
         case "is not empty":     return !!val || val===0;
-        case "equals":           return Number(val)===Number(fval);
-        case "greater than":     return Number(val)>Number(fval);
-        case "less than":        return Number(val)<Number(fval);
+        case "=": case "equals": return Number(val)===Number(fval);
+        case "≠":                return Number(val)!==Number(fval);
+        case ">": case "greater than": return Number(val)>Number(fval);
+        case "<": case "less than":    return Number(val)<Number(fval);
+        case "≥":                return Number(val)>=Number(fval);
+        case "≤":                return Number(val)<=Number(fval);
         case "includes":         return (Array.isArray(val)?val:String(val||"").split(",")).includes(fval);
         case "excludes":         return !(Array.isArray(val)?val:String(val||"").split(",")).includes(fval);
         case "before":           return new Date(val)<new Date(fval);
@@ -278,7 +220,7 @@ export default function SearchPage({ environment, onNavigateToRecord }) {
   const [showFilters,  setShowFilters]  = useState(false);
   const [activeObject, setActiveObject] = useState(null); // object to filter on
   const [filters,      setFilters]      = useState([]);
-  const [filterLogic,  setFilterLogic]  = useState("AND");
+  const [filterLogic,  setFilterLogic]  = useState("AND"); // kept for applyFilters compat
 
   // Saved searches
   const [savedSearches, setSavedSearches] = useState(getSaved());
@@ -390,7 +332,14 @@ export default function SearchPage({ environment, onNavigateToRecord }) {
     const objFields = fields[activeObject?.id]||[];
     const firstField = objFields[0];
     if (!firstField) return;
-    setFilters(f=>[...f, { id:Date.now(), field_id:firstField.id, operator:getOperators(firstField.field_type)[0], value:"" }]);
+    setFilters(f=>[...f, {
+      id:         Date.now() + "",
+      fieldId:    firstField.id,
+      fieldValue: firstField.id,
+      op:         "contains",
+      value:      "",
+      rowLogic:   "AND",
+    }]);
   };
 
   const objResults = (objId) => results.filter(r=>r._object?.id===objId);
@@ -427,130 +376,51 @@ export default function SearchPage({ environment, onNavigateToRecord }) {
           {/* Filter toolbar */}
           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16, flexWrap:"wrap" }}>
             <button onClick={()=>setShowFilters(f=>!f)}
-              style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:8, border:`1.5px solid ${showFilters?C.accent:C.border}`, background:showFilters?C.accentLight:"transparent", color:showFilters?C.accent:C.text2, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
-              <Ic n="sliders" s={13}/> Filters {filters.length>0&&`(${filters.length})`}
+              style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:8,
+                border:`1.5px solid ${showFilters || filters.length ? C.accent : C.border}`,
+                background: showFilters || filters.length ? C.accentLight : "transparent",
+                color: showFilters || filters.length ? C.accent : C.text2,
+                fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
+              <Ic n="sliders" s={13}/>
+              Filters {filters.length > 0 && `(${filters.length})`}
             </button>
 
-            {/* Active filters as badges */}
+            {/* Active filter chips */}
             {filters.map(f => {
-              const field = activeFields.find(fd=>fd.id===f.field_id);
+              const fldId = f.fieldId || f.field_id;
+              const op    = f.op || f.operator;
+              const field = activeFields.find(fd => fd.id === fldId);
               if (!field) return null;
               return (
-                <Badge key={f.id} color={C.accent} light onRemove={()=>setFilters(fs=>fs.filter(x=>x.id!==f.id))}>
-                  {field.name} {f.operator} {f.value}
+                <Badge key={f.id} color={C.accent} light onRemove={() => setFilters(fs => fs.filter(x => x.id !== f.id))}>
+                  {field.name} {op} {f.value}
                 </Badge>
               );
             })}
 
-            {filters.length>1 && (
-              <div style={{ display:"flex", border:`1px solid ${C.border}`, borderRadius:6, overflow:"hidden" }}>
-                {["AND","OR"].map(l=>(
-                  <button key={l} onClick={()=>setFilterLogic(l)}
-                    style={{ padding:"4px 10px", border:"none", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:F, background:filterLogic===l?C.accent:"transparent", color:filterLogic===l?"white":C.text3 }}>
-                    {l}
-                  </button>
-                ))}
-              </div>
-            )}
-
             <div style={{ flex:1 }}/>
 
-            {searched && results.length>0 && (
+            {searched && results.length > 0 && (
               <button onClick={()=>setShowSave(true)}
-                style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:8, border:`1px solid ${C.border}`, background:"transparent", color:C.text2, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
+                style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:8,
+                  border:`1px solid ${C.border}`, background:"transparent", color:C.text2,
+                  fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
                 <Ic n="save" s={13}/> Save Search
               </button>
             )}
           </div>
 
-          {/* Filter panel */}
+          {/* Filter modal */}
           {showFilters && (
-            <div style={{ background:"white", borderRadius:16, border:`1.5px solid ${C.border}`,
-              marginBottom:16, overflow:"hidden", boxShadow:"0 2px 12px rgba(0,0,0,0.06)" }}>
-
-              {/* Header */}
-              <div style={{ display:"flex", alignItems:"center", gap:12, padding:"16px 20px",
-                borderBottom:`1px solid ${C.border}` }}>
-                <div style={{ width:36, height:36, borderRadius:10, background:C.accentLight,
-                  display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                  <Ic n="sliders" s={16} c={C.accent}/>
-                </div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:15, fontWeight:700, color:C.text1 }}>Filter records</div>
-                </div>
-                {/* Object tabs */}
-                <div style={{ display:"flex", gap:4 }}>
-                  {objects.map(obj=>(
-                    <button key={obj.id} onClick={()=>{setActiveObject(obj);setFilters([]);}}
-                      style={{ padding:"5px 12px", borderRadius:8, border:`1.5px solid ${activeObject?.id===obj.id?obj.color||C.accent:C.border}`,
-                        background:activeObject?.id===obj.id?`${obj.color||C.accent}12`:"transparent",
-                        color:activeObject?.id===obj.id?obj.color||C.accent:C.text3,
-                        fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
-                      {obj.name}
-                    </button>
-                  ))}
-                </div>
-                <button onClick={()=>setShowFilters(false)}
-                  style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:4, display:"flex", borderRadius:6 }}>
-                  <Ic n="x" s={16}/>
-                </button>
-              </div>
-
-              {/* Conditions list or empty state */}
-              <div style={{ padding:"16px 20px", minHeight:120 }}>
-                {filters.length === 0 ? (
-                  <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
-                    justifyContent:"center", padding:"32px 0", gap:10 }}>
-                    <Ic n="sliders" s={28} c={C.border}/>
-                    <div style={{ fontSize:14, fontWeight:600, color:C.text2 }}>No filters yet</div>
-                    <div style={{ fontSize:12, color:C.text3 }}>Add a condition below to filter records</div>
-                  </div>
-                ) : (
-                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                    {filters.length>1 && (
-                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
-                        <span style={{ fontSize:11, color:C.text3, fontWeight:600 }}>Match</span>
-                        <div style={{ display:"flex", border:`1.5px solid ${C.border}`, borderRadius:8, overflow:"hidden" }}>
-                          {["AND","OR"].map(l=>(
-                            <button key={l} onClick={()=>setFilterLogic(l)}
-                              style={{ padding:"4px 12px", border:"none", fontSize:11, fontWeight:700,
-                                cursor:"pointer", fontFamily:F,
-                                background:filterLogic===l?C.accent:"transparent",
-                                color:filterLogic===l?"white":C.text3 }}>
-                              {l}
-                            </button>
-                          ))}
-                        </div>
-                        <span style={{ fontSize:11, color:C.text3 }}>conditions</span>
-                      </div>
-                    )}
-                    {filters.map((f) => (
-                      <FilterRow key={f.id} filter={f} fields={activeFields}
-                        onChange={updated=>setFilters(fs=>fs.map(x=>x.id===f.id?updated:x))}
-                        onRemove={()=>setFilters(fs=>fs.filter(x=>x.id!==f.id))}/>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-                padding:"12px 20px", borderTop:`1px solid ${C.border}`, background:C.surface }}>
-                <button onClick={addFilter}
-                  style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"8px 14px",
-                    borderRadius:8, border:`1.5px dashed ${C.border}`, background:"transparent",
-                    color:C.text3, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
-                  <Ic n="plus" s={13}/> Add condition
-                </button>
-                <button onClick={handleSearch}
-                  style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"8px 20px",
-                    borderRadius:8, border:"none", background:C.accent, color:"white",
-                    fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F,
-                    opacity: filters.length===0 ? 0.5 : 1 }}>
-                  Apply
-                </button>
-              </div>
-            </div>
+            <FilterModal
+              asModal={false}
+              fields={activeFields}
+              filters={filters}
+              onFiltersChange={setFilters}
+              onApply={() => { handleSearch(); setShowFilters(false); }}
+              onClose={() => setShowFilters(false)}
+              onSave={searched && results.length > 0 ? () => { setShowFilters(false); setShowSave(true); } : undefined}
+            />
           )}
 
           {/* Save search dialog */}

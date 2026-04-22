@@ -2839,6 +2839,40 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
   return (
     <div style={{ fontFamily:F, background:"white" }}>
 
+      {/* ── Simple stage strip — shown when no stage categories configured ── */}
+      {hasStages && allGroups.length === 0 && (
+        <div style={{ display:"flex", borderBottom:`1px solid ${C.border}`, overflowX:"auto" }}>
+          {/* "All" pill */}
+          <button
+            onClick={() => { setSelectedStage("__all__"); setExpandedCat(null); }}
+            style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+              padding:"10px 16px", border:"none", borderBottom: selectedStage === "__all__" ? `2px solid ${C.accent}` : "2px solid transparent",
+              background:"transparent", cursor:"pointer", fontFamily:F, flexShrink:0, minWidth:72 }}>
+            <span style={{ fontSize:15, fontWeight:700, color: selectedStage==="__all__" ? C.accent : C.text1 }}>{peopleLinks.length}</span>
+            <span style={{ fontSize:11, color: selectedStage==="__all__" ? C.accent : C.text3, fontWeight:500 }}>All</span>
+          </button>
+          <div style={{ width:1, background:C.border, alignSelf:"stretch", margin:"8px 0" }}/>
+          {plSteps.map((step, i) => {
+            const count   = countByStage[step.id] || 0;
+            const isActive = selectedStage === step.id;
+            return (
+              <button key={step.id}
+                onClick={() => { setSelectedStage(isActive ? null : step.id); setExpandedCat(null); }}
+                style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+                  padding:"10px 16px", border:"none",
+                  borderBottom: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
+                  background:"transparent", cursor:"pointer", fontFamily:F, flexShrink:0, minWidth:80,
+                  transition:"all .12s" }}>
+                <span style={{ fontSize:15, fontWeight:700,
+                  color: isActive ? C.accent : count > 0 ? C.text1 : C.text3 }}>{count}</span>
+                <span style={{ fontSize:11, fontWeight:500, whiteSpace:"nowrap",
+                  color: isActive ? C.accent : C.text3 }}>{step.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* ── SVG Funnel + category bar ──────────────────────────────────────── */}
       {hasStages && allGroups.length > 0 && (
         <div>
@@ -2858,7 +2892,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
             // Half-height at each segment: zero = very thin sliver, max = almost full height
             const halfH = (i) => {
               const c = counts[i] || 0;
-              if (c === 0) return 3;
+              if (c === 0) return 8; // minimum visible height for empty stages
               return PAD + (H/2 - PAD) * (c / maxCount);
             };
 
@@ -2973,17 +3007,14 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                           </div>
                         </>
                       ) : (
-                        /* Empty — faint full-width bar + name */
-                        <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4 }}>
-                          <div style={{ position:"absolute", left:12, right:12, height:4, background:"#e2e8f0", borderRadius:99 }}/>
-                          <div style={{ position:"relative", zIndex:1, display:"flex", alignItems:"center", gap:4, marginTop:18 }}>
-                            <div style={{ width:5, height:5, borderRadius:"50%", background: cat.color, flexShrink:0 }}/>
-                            <span style={{
-                              fontSize: 10, fontWeight: 500,
-                              color: "#c4cdd8",
-                              fontFamily: "'DM Sans', -apple-system, sans-serif",
-                              whiteSpace:"nowrap",
-                            }}>
+                        /* Empty — show 0 count + name, muted */
+                        <div style={{ position:"relative", zIndex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
+                          <span style={{ fontSize:15, fontWeight:600, color:"#CBD5E1", lineHeight:1,
+                            fontFamily:"'DM Sans', -apple-system, sans-serif" }}>0</span>
+                          <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                            <div style={{ width:5, height:5, borderRadius:"50%", background:cat.color, opacity:0.4, flexShrink:0 }}/>
+                            <span style={{ fontSize:10, fontWeight:500, color:"#C4CDD8",
+                              fontFamily:"'DM Sans', -apple-system, sans-serif", whiteSpace:"nowrap" }}>
                               {cat.name}
                             </span>
                           </div>

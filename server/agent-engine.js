@@ -8,14 +8,13 @@ const { v4: uuidv4 } = require('uuid');
 async function runAiAction(action, recordContext, previousAiOutput) {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return '[AI unavailable — no API key]';
-  let prompt = '';
-  switch(action.type) {
-    case 'ai_analyse':    prompt = action.prompt || `Analyse this record concisely:\n\n${recordContext}`; break;
-    case 'ai_draft_email': prompt = `Draft a professional email. Subject on line 1 as "Subject: ...".\nRecord:\n${recordContext}\nPurpose: ${action.email_purpose||'follow up'}\nTone: ${action.tone||'professional'}`; break;
-    case 'ai_summarise':  prompt = `Write a 2-3 sentence summary of this record for a recruiter:\n\n${recordContext}`; break;
-    case 'ai_score':      prompt = `Score this candidate 0-100. Return ONLY JSON: {"score":85,"reasoning":"...","strengths":["..."],"gaps":["..."]}\nCriteria: ${action.criteria||'overall suitability'}\n${recordContext}`; break;
-    default:              prompt = action.prompt || `Analyse:\n${recordContext}`;
-  }
+  const promptMap = {
+    'ai_analyse':    action.prompt || `Analyse this record concisely:\n\n${recordContext}`,
+    'ai_draft_email': `Draft a professional email. Subject on line 1 as "Subject: ...".\nRecord:\n${recordContext}\nPurpose: ${action.email_purpose||'follow up'}\nTone: ${action.tone||'professional'}`,
+    'ai_summarise':  `Write a 2-3 sentence summary of this record for a recruiter:\n\n${recordContext}`,
+    'ai_score':      `Score this candidate 0-100. Return ONLY JSON: {"score":85,"reasoning":"...","strengths":["..."],"gaps":["..."]}\nCriteria: ${action.criteria||'overall suitability'}\n${recordContext}`,
+  };
+  let prompt = promptMap[action.type] || action.prompt || `Analyse:\n${recordContext}`;
   if (previousAiOutput) prompt += `\n\nPrevious AI output:\n${previousAiOutput}`;
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -57,6 +56,44 @@ async function executeAction(action, record_id, environment_id, aiOutput, modifi
     case 'webhook': {
       if (!action.webhook_url) break;
       await fetch(action.webhook_url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ record_id, environment_id, ai_output:aiOutput, timestamp:new Date().toISOString() }) }).catch(()=>{});
+      break;
+    }
+    case 'link_to_object': {
+      if (!record_id || !action.object_id) break;
+      const targetRecordId = action.record_id || null;
+      if (!targetRecordId) break;
+      const existingLink = query('people_links', l => l.person_record_id === record_id && l.target_record_id === targetRecordId)[0];
+      if (existingLink) break;
+      const assignment = query('record_workflow_assignments', a => a.record_id === targetRecordId && a.type === 'people_link')[0];
+      const wf = assignment ? query('workflows', w => w.id === assignment.workflow_id)[0] : null;
+      const steps = wf ? query('workflow_steps', s => s.workflow_id === wf.id).sort((a,b)=>a.order-b.order) : [];
+      const firstStep = steps[0] || null;
+      insert('people_links', {
+        id: uuidv4(), person_record_id: record_id, target_record_id: targetRecordId,
+        target_object_id: action.object_id, stage_id: firstStep?.id||null, stage_name: firstStep?.name||null,
+        environment_id: environment_id||null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      });
+      saveStore();
+      break;
+    }
+    case 'create_task': {
+      if (!action.task_title) break;
+      const interpolate = (str) => (str||'').replace(/\{\{(\w+)\}\}/g, (_,k) => {
+        const rec = query('records', r=>r.id===record_id)[0];
+        return rec?.data?.[k]??`{{${k}}}`;
+      });
+      const title = interpolate(action.task_title);
+      const dueDate = action.due_days!=null
+        ? new Date(Date.now()+action.due_days*86400000).toISOString().split('T')[0]
+        : null;
+      insert('tasks', {
+        id: uuidv4(), title, description: interpolate(action.task_description||''),
+        due_date: dueDate, priority: action.task_priority||'Normal', status: 'Open',
+        tags: action.task_tags ? action.task_tags.split(',').map(t=>t.trim()).filter(Boolean) : [],
+        record_id: action.task_link_record ? record_id : null,
+        environment_id, created_by: 'Agent', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      });
+      saveStore();
       break;
     }
   }

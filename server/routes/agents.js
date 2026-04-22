@@ -51,6 +51,7 @@ const ACTION_TYPES = {
   update_field:     { label: 'Update Field',      description: 'Set a field value on the record' },
   add_note:         { label: 'Add Note',          description: 'Log a note on the record' },
   add_to_pool:      { label: 'Add to Pool',       description: 'Add the person to a talent pool' },
+  link_to_object:   { label: 'Link to Object',    description: 'Link this person to a job or record and enter them into a pipeline stage' },
   create_task:      { label: 'Create Task',       description: 'Create a follow-up task for a user' },
   notify_user:      { label: 'Notify User',       description: 'Send an in-app notification to a user' },
   webhook:          { label: 'Call Webhook',      description: 'POST record data to an external URL' },

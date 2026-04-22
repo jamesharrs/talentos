@@ -51,6 +51,8 @@ const Ic = ({ n, s = 16, c = C.text3 }) => {
     sparkles: "M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0L9.937 15.5z",
     loader: "M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83",
     eye: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+    link: "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71",
+    search: "M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z",
     thumbUp: "M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3",
     thumbDown: "M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10zM17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17",
     calendar: "M3 4h18v18H3V4zM16 2v4M8 2v4M3 10h18",
@@ -67,8 +69,8 @@ const TRIGGER_ICONS = { record_created:"plus", record_updated:"edit", stage_chan
 const TRIGGER_COLORS = { record_created:"#4361EE", record_updated:"#F08C00", stage_changed:"#7048E8", form_submitted:"#0CA678", schedule_daily:"#E03131", schedule_weekly:"#E03131", manual:"#374151" };
 // Whether a trigger fires automatically (vs manually)
 const AUTO_TRIGGERS = new Set(["record_created","record_updated","stage_changed","form_submitted","schedule_daily","schedule_weekly"]);
-const ACTION_ICONS  = { ai_analyse:"sparkles", ai_draft_email:"sparkles", ai_summarise:"sparkles", ai_score:"sparkles", send_email:"mail", update_field:"edit", add_note:"edit", add_to_pool:"users", create_task:"check", notify_user:"alert", webhook:"zap", human_review:"eye", ai_interview:"users", interview_coordinator:"calendar" };
-const ACTION_COLORS = { ai_analyse:"#7048E8", ai_draft_email:"#7048E8", ai_summarise:"#7048E8", ai_score:"#7048E8", send_email:"#4361EE", update_field:"#F08C00", add_note:"#0CA678", add_to_pool:"#0CA678", create_task:"#F08C00", notify_user:"#E03131", webhook:"#374151", human_review:"#E67700", ai_interview:"#7048E8", interview_coordinator:"#0891b2" };
+const ACTION_ICONS  = { ai_analyse:"sparkles", ai_draft_email:"sparkles", ai_summarise:"sparkles", ai_score:"sparkles", send_email:"mail", update_field:"edit", add_note:"edit", add_to_pool:"users", link_to_object:"link", create_task:"check", notify_user:"alert", webhook:"zap", human_review:"eye", ai_interview:"users", interview_coordinator:"calendar" };
+const ACTION_COLORS = { ai_analyse:"#7048E8", ai_draft_email:"#7048E8", ai_summarise:"#7048E8", ai_score:"#7048E8", send_email:"#4361EE", update_field:"#F08C00", add_note:"#0CA678", add_to_pool:"#0CA678", link_to_object:"#0CA678", create_task:"#F08C00", notify_user:"#E03131", webhook:"#374151", human_review:"#E67700", ai_interview:"#7048E8", interview_coordinator:"#0891b2" };
 
 const VOICES = [
   {id:'en-US',label:'English (US)'},{id:'en-GB',label:'English (UK)'},
@@ -630,6 +632,233 @@ function SendEmailConfig({ action: a, actionIndex: i, environment, updateAction 
   );
 }
 
+// ── AgentConditionBuilder ─────────────────────────────────────────────────────
+// Field-type-aware condition builder matching the Records filter bar
+const COND_OPS = {
+  text:["contains","does not contain","is","is not","starts with","is empty","is not empty"],
+  textarea:["contains","does not contain","is empty","is not empty"],
+  number:["=","≠","<",">","≤","≥","is empty","is not empty"],
+  currency:["=","≠","<",">","≤","≥","is empty","is not empty"],
+  date:["is","is before","is after","is empty","is not empty"],
+  boolean:["is true","is false"],
+  select:["is","is not","is empty","is not empty"],
+  multi_select:["includes","excludes","is empty","is not empty"],
+  email:["contains","is","is empty","is not empty"],
+  url:["contains","is empty","is not empty"],
+  phone:["contains","is","is empty","is not empty"],
+  rating:["=","≠","<",">"],
+};
+const COND_NO_VAL = ["is empty","is not empty","is true","is false"];
+const getCondOps = f => COND_OPS[f?.field_type] || COND_OPS.text;
+
+function AgentConditionBuilder({ conditions, fields, onChange }) {
+  const addCond = () => {
+    const f = fields[0];
+    onChange([...conditions,{id:Date.now(),field:f?.api_key||'',operator:f?getCondOps(f)[0]:'contains',value:''}]);
+  };
+  const upd = (i,k,v) => {
+    const c=[...conditions];
+    c[i]={...c[i],[k]:v};
+    if(k==='operator'&&COND_NO_VAL.includes(v)) c[i].value='';
+    if(k==='field'){const f=fields.find(f=>f.api_key===v);c[i].operator=f?getCondOps(f)[0]:'contains';c[i].value='';}
+    onChange(c);
+  };
+  const rm = i=>onChange(conditions.filter((_,idx)=>idx!==i));
+  const inp = {padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,background:"white",color:C.text1,outline:"none"};
+  return (
+    <div>
+      {conditions.length===0&&(
+        <div style={{fontSize:12,color:C.text3,marginBottom:12,fontStyle:"italic"}}>No conditions — agent always runs when triggered.</div>
+      )}
+      {conditions.map((c,i)=>{
+        const field=fields.find(f=>f.api_key===c.field);
+        const ops=getCondOps(field);
+        const needsVal=!COND_NO_VAL.includes(c.operator);
+        const isSelect=field?.field_type==='select';
+        return (
+          <div key={c.id||i} style={{display:"flex",gap:8,alignItems:"center",marginBottom:8,flexWrap:"wrap"}}>
+            {i>0&&<div style={{width:32,textAlign:"center",fontSize:11,fontWeight:700,color:C.text3,flexShrink:0}}>AND</div>}
+            <select value={c.field} onChange={e=>upd(i,'field',e.target.value)} style={{...inp,flex:"2 1 120px"}}>
+              <option value="">Pick field…</option>
+              {fields.map(f=><option key={f.id} value={f.api_key}>{f.name}</option>)}
+            </select>
+            <select value={c.operator} onChange={e=>upd(i,'operator',e.target.value)} style={{...inp,flex:"1.5 1 100px"}}>
+              {ops.map(op=><option key={op} value={op}>{op}</option>)}
+            </select>
+            {needsVal&&(
+              isSelect&&field?.options?.length ? (
+                <select value={c.value} onChange={e=>upd(i,'value',e.target.value)} style={{...inp,flex:"2 1 110px"}}>
+                  <option value="">Any…</option>
+                  {field.options.map(o=><option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input value={c.value} onChange={e=>upd(i,'value',e.target.value)} placeholder="Value…"
+                  type={['number','currency','rating'].includes(field?.field_type)?'number':'text'}
+                  style={{...inp,flex:"2 1 110px"}}/>
+              )
+            )}
+            <button onClick={()=>rm(i)} style={{padding:"6px",border:"none",background:"transparent",cursor:"pointer",flexShrink:0}}>
+              <Ic n="x" s={14} c={C.red}/>
+            </button>
+          </div>
+        );
+      })}
+      <button onClick={addCond} disabled={fields.length===0}
+        style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:8,
+          border:`1.5px dashed ${C.border}`,background:"transparent",
+          cursor:fields.length===0?"not-allowed":"pointer",
+          color:C.text3,fontSize:13,fontFamily:F,opacity:fields.length===0?0.5:1}}>
+        <Ic n="plus" s={14} c={C.text3}/> Add condition
+      </button>
+    </div>
+  );
+}
+
+// ── UpdateFieldConfig ─────────────────────────────────────────────────────────
+function UpdateFieldConfig({ action, fields, onChange }) {
+  const [search, setSearch] = useState('');
+  const filtered = search ? fields.filter(f=>f.name.toLowerCase().includes(search.toLowerCase())) : fields;
+  const selectedField = fields.find(f=>f.api_key===action.field_key);
+  const inp = {padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,background:"white",color:C.text1,outline:"none",width:"100%",boxSizing:"border-box"};
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+      <div style={{position:"relative"}}>
+        <div style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",display:"flex"}}><Ic n="search" s={11} c={C.text3}/></div>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search fields…" style={{...inp,paddingLeft:28}}/>
+      </div>
+      <select value={action.field_key||''} onChange={e=>{onChange('field_key',e.target.value);setSearch('');}}
+        style={{...inp}} size={Math.min(filtered.length+1,6)}>
+        <option value="">Select field…</option>
+        {filtered.map(f=><option key={f.id} value={f.api_key}>{f.name}{f.field_type?` (${f.field_type})`:''}</option>)}
+      </select>
+      {selectedField&&(
+        <div style={{fontSize:10,color:C.text3,fontStyle:"italic"}}>
+          Type: {selectedField.field_type}
+          {selectedField.options?.length?` · Options: ${selectedField.options.slice(0,5).join(', ')}${selectedField.options.length>5?'…':''}`:'' }
+        </div>
+      )}
+      <input value={action.field_value||''} onChange={e=>onChange('field_value',e.target.value)}
+        placeholder="Value (leave empty to use AI output)…" style={inp}/>
+      {selectedField?.field_type==='select'&&selectedField.options?.length>0&&(
+        <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+          {selectedField.options.map(o=>(
+            <button key={o} onClick={()=>onChange('field_value',o)}
+              style={{padding:"3px 9px",borderRadius:99,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F,
+                border:`1.5px solid ${action.field_value===o?C.accent:C.border}`,
+                background:action.field_value===o?C.accentLight:"transparent",
+                color:action.field_value===o?C.accent:C.text3}}>
+              {o}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── LinkToObjectConfig ────────────────────────────────────────────────────────
+function LinkToObjectConfig({ action, environment, objects, onChange }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [recSearch, setRecSearch] = useState('');
+  useEffect(()=>{
+    if(!action.object_id||!environment?.id){setRecords([]);return;}
+    setLoading(true);
+    api.get(`/records?object_id=${action.object_id}&environment_id=${environment.id}&limit=200`)
+      .then(d=>{setRecords(d.records||d||[]);})
+      .catch(()=>setRecords([]))
+      .finally(()=>setLoading(false));
+  },[action.object_id,environment?.id]);
+  const nonPersonObjs=(objects||[]).filter(o=>o.name!=='Person');
+  const filteredRecs=records.filter(r=>{
+    if(!recSearch)return true;
+    const d=r.data||{};
+    return [d.job_title,d.pool_name,d.name,d.first_name].filter(Boolean).join(' ').toLowerCase().includes(recSearch.toLowerCase());
+  });
+  const recLabel=r=>{const d=r.data||{};return d.job_title||d.pool_name||d.name||d.first_name||r.id.slice(0,8);};
+  const inp={padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,background:"white",color:C.text1,outline:"none",width:"100%",boxSizing:"border-box"};
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:9}}>
+      <div>
+        <div style={{fontSize:11,fontWeight:600,color:C.text2,marginBottom:5}}>Object type to link to</div>
+        <select value={action.object_id||''} onChange={e=>{onChange('object_id',e.target.value);onChange('record_id','');}} style={inp}>
+          <option value="">Choose object type…</option>
+          {nonPersonObjs.map(o=><option key={o.id} value={o.id}>{o.plural_name||o.name}</option>)}
+        </select>
+      </div>
+      {action.object_id&&(
+        <div>
+          <div style={{fontSize:11,fontWeight:600,color:C.text2,marginBottom:5}}>
+            Specific record {loading?'(loading…)':''}
+            <span style={{fontWeight:400,color:C.text3}}> — leave blank to use context record</span>
+          </div>
+          <input value={recSearch} onChange={e=>setRecSearch(e.target.value)} placeholder="Search records…" style={{...inp,marginBottom:6}}/>
+          <select value={action.record_id||''} onChange={e=>onChange('record_id',e.target.value)}
+            style={inp} size={Math.min(filteredRecs.length+2,7)}>
+            <option value="">Use triggering record context</option>
+            {filteredRecs.map(r=><option key={r.id} value={r.id}>{recLabel(r)}</option>)}
+          </select>
+        </div>
+      )}
+      <div style={{padding:"8px 12px",borderRadius:8,background:"#f0fdf4",border:"1px solid #bbf7d0",fontSize:11,color:"#166534"}}>
+        The person will be linked to the selected record and placed into the first stage of its Linked Person workflow.
+      </div>
+    </div>
+  );
+}
+
+// ── CreateTaskConfig ──────────────────────────────────────────────────────────
+function CreateTaskConfig({ action, fields, onChange }) {
+  const PRIORITIES=['Low','Normal','High','Urgent'];
+  const inp={padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,background:"white",color:C.text1,outline:"none",width:"100%",boxSizing:"border-box"};
+  const peopleFields=fields.filter(f=>f.field_type==='people'||['assigned_to','recruiter','hiring_manager'].includes(f.api_key));
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:9}}>
+      <div>
+        <div style={{fontSize:11,fontWeight:600,color:C.text2,marginBottom:4}}>Task title</div>
+        <input value={action.task_title||''} onChange={e=>onChange('task_title',e.target.value)}
+          placeholder="e.g. Follow up with {{first_name}} about offer" style={inp}/>
+        <div style={{fontSize:10,color:C.text3,marginTop:3}}>Use {'{{field_name}}'} to insert record values.</div>
+      </div>
+      <div>
+        <div style={{fontSize:11,fontWeight:600,color:C.text2,marginBottom:4}}>Description (optional)</div>
+        <textarea value={action.task_description||''} onChange={e=>onChange('task_description',e.target.value)}
+          rows={2} placeholder="Additional context…" style={{...inp,resize:"vertical"}}/>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:11,fontWeight:600,color:C.text2,marginBottom:4}}>Due in days</div>
+          <input type="number" value={action.due_days??''} onChange={e=>onChange('due_days',Number(e.target.value))} placeholder="3" style={inp}/>
+          <div style={{fontSize:10,color:C.text3,marginTop:2}}>From today. 0 = today.</div>
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:11,fontWeight:600,color:C.text2,marginBottom:4}}>Priority</div>
+          <select value={action.task_priority||'Normal'} onChange={e=>onChange('task_priority',e.target.value)} style={inp}>
+            {PRIORITIES.map(p=><option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+      </div>
+      <div>
+        <div style={{fontSize:11,fontWeight:600,color:C.text2,marginBottom:4}}>Assign to</div>
+        <select value={action.task_assign_field||''} onChange={e=>onChange('task_assign_field',e.target.value)} style={inp}>
+          <option value="">Agent runner (default)</option>
+          <option value="__record_owner__">Record owner</option>
+          {peopleFields.map(f=><option key={f.id} value={f.api_key}>{f.name}</option>)}
+        </select>
+      </div>
+      <div>
+        <div style={{fontSize:11,fontWeight:600,color:C.text2,marginBottom:4}}>Tags</div>
+        <input value={action.task_tags||''} onChange={e=>onChange('task_tags',e.target.value)}
+          placeholder="comma-separated, e.g. offer, urgent" style={inp}/>
+      </div>
+      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:C.text2}}>
+        <input type="checkbox" checked={!!action.task_link_record} onChange={e=>onChange('task_link_record',e.target.checked)} style={{width:14,height:14}}/>
+        Link task to the triggering record
+      </label>
+    </div>
+  );
+}
+
 function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
   const isEdit = !!agent?.id;
   const [tab, setTab] = useState('trigger');
@@ -766,27 +995,13 @@ function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
             <div>
               <div style={{fontSize:12,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Run only when…</div>
               <div style={{fontSize:12,color:C.text3,marginBottom:16}}>All conditions must be true. Leave empty to always run.</div>
-              {form.conditions.map((c,i)=>(
-                <div key={i} style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
-                  <select value={c.field} onChange={e=>updateCondition(i,'field',e.target.value)}
-                    style={{flex:2,padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,background:"white"}}>
-                    <option value="">Pick field…</option>
-                    {fields.map(f=><option key={f.id} value={f.api_key}>{f.name}</option>)}
-                  </select>
-                  <select value={c.operator} onChange={e=>updateCondition(i,'operator',e.target.value)}
-                    style={{flex:1.5,padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,background:"white"}}>
-                    {['equals','not_equals','contains','greater_than','less_than','is_empty','is_not_empty','includes'].map(op=><option key={op} value={op}>{op.replace(/_/g,' ')}</option>)}
-                  </select>
-                  {!['is_empty','is_not_empty'].includes(c.operator)&&(
-                    <input value={c.value} onChange={e=>updateCondition(i,'value',e.target.value)} placeholder="Value…"
-                      style={{flex:2,padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F}}/>
-                  )}
-                  <button onClick={()=>removeCondition(i)} style={{padding:"6px",border:"none",background:"transparent",cursor:"pointer"}}><Ic n="x" s={14} c={C.red}/></button>
+              {!form.target_object_id&&(
+                <div style={{padding:"10px 14px",borderRadius:10,background:"#fff8e1",border:"1.5px solid #f59f00",fontSize:12,color:"#b45309",marginBottom:14,display:"flex",alignItems:"center",gap:8}}>
+                  <Ic n="alert" s={14} c="#f59f00"/>
+                  Select a target object in the Trigger tab to enable field conditions.
                 </div>
-              ))}
-              <button onClick={addCondition} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:8,border:`1.5px dashed ${C.border}`,background:"transparent",cursor:"pointer",color:C.text3,fontSize:13,fontFamily:F}}>
-                <Ic n="plus" s={14} c={C.text3}/> Add condition
-              </button>
+              )}
+              <AgentConditionBuilder conditions={form.conditions} fields={fields} onChange={v=>set('conditions',v)}/>
             </div>
           )}
 
@@ -824,15 +1039,16 @@ function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
                         </div>
                       )}
                       {a.type==='update_field'&&(
-                        <div style={{display:"flex",gap:8}}>
-                          <select value={a.field_key} onChange={e=>updateAction(i,'field_key',e.target.value)} style={{flex:1,padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,background:"white"}}>
-                            <option value="">Select field…</option>
-                            {fields.map(f=><option key={f.id} value={f.api_key}>{f.name}</option>)}
-                          </select>
-                          <input value={a.field_value} onChange={e=>updateAction(i,'field_value',e.target.value)} placeholder="Value (or empty for AI output)…" style={{flex:1,padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F}}/>
-                        </div>
+                        <UpdateFieldConfig action={a} fields={fields} onChange={(k,v)=>updateAction(i,k,v)}/>
                       )}
                       {a.type==='add_note'&&(<textarea value={a.note_template} onChange={e=>updateAction(i,'note_template',e.target.value)} placeholder="Note text. Use {{ai_output}} to include AI result…" rows={2} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,resize:"vertical"}}/>)}
+                      {a.type==='add_to_pool'&&(<input value={a.pool_name||''} onChange={e=>updateAction(i,'pool_name',e.target.value)} placeholder="Pool name…" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F}}/>)}
+                      {a.type==='link_to_object'&&(
+                        <LinkToObjectConfig action={a} environment={environment} objects={objects} onChange={(k,v)=>updateAction(i,k,v)}/>
+                      )}
+                      {a.type==='create_task'&&(
+                        <CreateTaskConfig action={a} fields={fields} onChange={(k,v)=>updateAction(i,k,v)}/>
+                      )}
                       {a.type==='send_email'&&(
                         <SendEmailConfig
                           action={a}

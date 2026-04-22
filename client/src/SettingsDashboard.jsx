@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePermissions } from "./PermissionContext.jsx";
 
 // Matches the NAV_GROUPS in Settings.jsx — ids must be identical
 const DASHBOARD_GROUPS = [
@@ -13,36 +14,36 @@ const DASHBOARD_GROUPS = [
   {
     id: "people", label: "People & Access", color: "#0891b2",
     items: [
-      { id:"users",   icon:"users",   label:"Users",              desc:"Invite and manage platform users" },
-      { id:"groups",  icon:"layers",  label:"Groups",             desc:"Organise users into teams and groups" },
-      { id:"roles",   icon:"shield",  label:"Roles & Permissions",desc:"Define what each role can see and do" },
-      { id:"org",     icon:"git-branch", label:"Org Structure",  desc:"Build your organisational hierarchy" },
+      { id:"users",   icon:"users",      label:"Users",              desc:"Invite and manage platform users",          perm:"manage_users" },
+      { id:"groups",  icon:"layers",     label:"Groups",             desc:"Organise users into teams and groups",      perm:"manage_users" },
+      { id:"roles",   icon:"shield",     label:"Roles & Permissions",desc:"Define what each role can see and do",      perm:"manage_roles" },
+      { id:"org",     icon:"git-branch", label:"Org Structure",      desc:"Build your organisational hierarchy",       perm:"manage_org_structure" },
     ],
   },
   {
     id: "security", label: "Security", color: "#dc2626",
     items: [
-      { id:"security", icon:"lock",     label:"Security",         desc:"Password policy, MFA and SSO settings" },
-      { id:"sessions", icon:"activity", label:"Active Sessions",  desc:"View and revoke live user sessions" },
-      { id:"audit",    icon:"file-text",label:"Audit Log",        desc:"Full trail of system activity and changes" },
+      { id:"security", icon:"lock",      label:"Security",           desc:"Password policy, MFA and SSO settings",    perm:"manage_roles" },
+      { id:"sessions", icon:"activity",  label:"Active Sessions",    desc:"View and revoke live user sessions",        perm:"manage_roles" },
+      { id:"audit",    icon:"file-text", label:"Audit Log",          desc:"Full trail of system activity and changes", perm:"view_audit_log" },
     ],
   },
   {
     id: "schema", label: "Data & Schema", color: "#059669",
     items: [
-      { id:"datamodel",   icon:"database",    label:"Data Model",       desc:"Configure objects, fields and field types" },
-      { id:"file_types",  icon:"paperclip",   label:"File Types",       desc:"Define file categories and extraction rules" },
-      { id:"forms",       icon:"clipboard",   label:"Forms",            desc:"Build forms to capture structured data" },
+      { id:"datamodel",   icon:"database",    label:"Data Model",       desc:"Configure objects, fields and field types", perm:"manage_data_model" },
+      { id:"file_types",  icon:"paperclip",   label:"File Types",       desc:"Define file categories and extraction rules", perm:"manage_data_model" },
+      { id:"forms",       icon:"clipboard",   label:"Forms",            desc:"Build forms to capture structured data",    perm:"manage_forms" },
       { id:"questions",   icon:"help-circle", label:"Question Library", desc:"Reusable questions for interviews and surveys" },
       { id:"datasets",    icon:"layers",      label:"Data Sets",        desc:"Manage shared data sets and lookup values" },
-      { id:"enterprise",  icon:"briefcase",   label:"Enterprise",       desc:"Enterprise-specific configuration options" },
+      { id:"enterprise",  icon:"briefcase",   label:"Enterprise",       desc:"Enterprise-specific configuration options", perm:"manage_roles" },
     ],
   },
   {
     id: "processes", label: "Processes", color: "#7c3aed",
     items: [
-      { id:"workflows", icon:"zap",   label:"Workflows", desc:"Automate steps, triggers and AI actions" },
-      { id:"portals",   icon:"globe", label:"Portals",   desc:"Career sites, HM portals and external experiences" },
+      { id:"workflows", icon:"zap",   label:"Workflows", desc:"Automate steps, triggers and AI actions",                  perm:"manage_workflows" },
+      { id:"portals",   icon:"globe", label:"Portals",   desc:"Career sites, HM portals and external experiences",        perm:"manage_portals" },
       { id:"agents",    icon:"cpu",   label:"Agents",    desc:"Configure AI agents and their capabilities" },
     ],
   },
@@ -56,8 +57,8 @@ const DASHBOARD_GROUPS = [
   {
     id: "system", label: "System", color: "#64748b",
     items: [
-      { id:"superadmin", icon:"link",    label:"Integrations",   desc:"Connect email, SMS, WhatsApp and third-party tools" },
-      { id:"config",     icon:"download",label:"Import / Export",desc:"Bulk import data or export configuration" },
+      { id:"integration_hub", icon:"link",    label:"Integrations",   desc:"Connect email, SMS, WhatsApp and third-party tools", perm:"manage_integrations" },
+      { id:"config",          icon:"download",label:"Import / Export",desc:"Bulk import data or export configuration",            perm:"manage_roles" },
     ],
   },
 ];
@@ -99,16 +100,20 @@ function Ic({ n, s = 16, c = "currentColor" }) {
 
 export default function SettingsDashboard({ onNavigate, searchQuery = "" }) {
   const [hovered, setHovered] = useState(null);
+  const { canGlobal } = usePermissions();
   const q = searchQuery.trim().toLowerCase();
 
   const filtered = DASHBOARD_GROUPS.map(group => ({
     ...group,
-    items: group.items.filter(item =>
-      !q ||
-      item.label.toLowerCase().includes(q) ||
-      item.desc.toLowerCase().includes(q) ||
-      group.label.toLowerCase().includes(q)
-    ),
+    items: group.items.filter(item => {
+      // Permission gate — items with no perm always show
+      if (item.perm && !canGlobal(item.perm)) return false;
+      // Search filter
+      if (q && !item.label.toLowerCase().includes(q) &&
+               !item.desc.toLowerCase().includes(q) &&
+               !group.label.toLowerCase().includes(q)) return false;
+      return true;
+    }),
   })).filter(g => g.items.length > 0);
 
   return (

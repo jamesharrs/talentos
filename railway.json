@@ -9,9 +9,7 @@
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 3
-  },
-  "watch": {
-    "patterns": ["server/**", "package.json", "railway.json"]
+    "restartPolicyMaxRetries": 3,
+    "watchPatterns": ["server/**", "package.json", "railway.json", "nixpacks.toml"]
   }
 }

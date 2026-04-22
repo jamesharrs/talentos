@@ -292,7 +292,7 @@ router.get('/:id/runs', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { name, description, environment_id, trigger_type, trigger_config, conditions, actions, avatar_icon, avatar_color, is_active, schedule_time, target_object_id } = req.body;
+  const { name, description, environment_id, trigger_type, trigger_config, conditions, actions, avatar_icon, avatar_color, is_active, schedule_time, target_object_id, agent_scope, scope_object_id } = req.body;
   if (!name || !environment_id || !trigger_type) return res.status(400).json({ error: 'name, environment_id, trigger_type required' });
   const agent = insert('agents', {
     id: uuidv4(), name, description: description||'', environment_id, trigger_type,
@@ -300,6 +300,8 @@ router.post('/', (req, res) => {
     target_object_id: target_object_id || null, schedule_time: schedule_time || '09:00',
     is_active: is_active !== false ? 1 : 0, avatar_icon: avatar_icon || "", avatar_color: avatar_color || "", run_count: 0,
     sharing: req.body.sharing || { visibility: 'private', user_ids: [], group_ids: [] },
+    agent_scope: agent_scope || 'all',        // 'all' | 'object' | 'none'
+    scope_object_id: scope_object_id || null, // object id when agent_scope === 'object'
     created_by: req.body.created_by || null,
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   });

@@ -530,6 +530,8 @@ function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
     is_active: agent?.is_active!==undefined?agent.is_active:1, schedule_time: agent?.schedule_time||'09:00',
     sharing: agent?.sharing || { visibility: 'private', user_ids: [], group_ids: [] },
     avatar_icon: agent?.avatar_icon || '', avatar_color: agent?.avatar_color || '',
+    agent_scope: agent?.agent_scope || 'all',       // 'all' | 'object' | 'none'
+    scope_object_id: agent?.scope_object_id || '',  // object id when agent_scope === 'object'
   });
 
   useEffect(()=>{ api.get('/agents/meta').then(setMeta).catch(()=>{}); },[]);
@@ -853,6 +855,50 @@ function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
                   <div style={{width:18,height:18,borderRadius:"50%",background:"white",position:"absolute",top:3,left:form.is_active?19:3,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
                 </div>
               </div>
+
+              {/* ── Appears in record panel ─────────────────────────────────── */}
+              <div style={{paddingBottom:16,borderBottom:`1px solid ${C.border}`}}>
+                <div style={{fontSize:13,fontWeight:600,color:C.text1,marginBottom:3}}>Appears in record panel</div>
+                <div style={{fontSize:11,color:C.text3,marginBottom:10}}>Choose which records show this agent in their AI Agents panel</div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {[
+                    {val:"all",  label:"All records", desc:"Shows in the Agents panel on every record type"},
+                    {val:"object",label:"Specific object", desc:"Only shows on records of a chosen object"},
+                    {val:"none", label:"General agent (hidden)", desc:"Does not appear in any record panel"},
+                  ].map(opt=>(
+                    <div key={opt.val} onClick={()=>set('agent_scope',opt.val)}
+                      style={{
+                        display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",borderRadius:8,cursor:"pointer",
+                        background:form.agent_scope===opt.val?`${C.accent}10`:"transparent",
+                        border:`1.5px solid ${form.agent_scope===opt.val?C.accent:C.border}`,
+                        transition:"all .12s",
+                      }}>
+                      <div style={{
+                        width:16,height:16,borderRadius:"50%",flexShrink:0,marginTop:1,
+                        border:`2px solid ${form.agent_scope===opt.val?C.accent:"#D1D5DB"}`,
+                        background:form.agent_scope===opt.val?C.accent:"transparent",
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                      }}>
+                        {form.agent_scope===opt.val&&<div style={{width:6,height:6,borderRadius:"50%",background:"white"}}/>}
+                      </div>
+                      <div>
+                        <div style={{fontSize:12,fontWeight:600,color:C.text1}}>{opt.label}</div>
+                        <div style={{fontSize:11,color:C.text3,marginTop:1}}>{opt.desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {form.agent_scope==="object"&&(
+                  <div style={{marginTop:10}}>
+                    <select value={form.scope_object_id} onChange={e=>set('scope_object_id',e.target.value)}
+                      style={{width:"100%",padding:"9px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:13,fontFamily:F,background:"white",color:C.text1}}>
+                      <option value="">— choose an object —</option>
+                      {objects.map(o=><option key={o.id} value={o.id}>{o.plural_name||o.name}</option>)}
+                    </select>
+                    {!form.scope_object_id&&<div style={{fontSize:11,color:"#f59e0b",marginTop:4}}>Select an object to save this setting</div>}
+                  </div>
+                )}
+              </div>
               <div style={{paddingTop:4,borderBottom:`1px solid ${C.border}`,paddingBottom:16}}>
                 <div style={{fontSize:13,fontWeight:600,color:C.text1,marginBottom:3}}>Avatar</div>
                 <div style={{fontSize:11,color:C.text3,marginBottom:10}}>Choose an icon and colour for this agent</div>
@@ -1158,157 +1204,6 @@ export default function AgentsModule({ environment }) {
       </div>
 
       {/* ── DASHBOARD VIEW ── */}
-      {false && view==='__removed_dashboard__' && (
-        <div>
-          {dash && (
-            <div style={{marginBottom:16}}>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:10,marginBottom:10}}>
-                {[
-                  {label:"Total",value:dash.agents.total,sub:"agents",icon:"zap",color:C.accent},
-                  {label:"Active",value:dash.agents.active,sub:"running",icon:"play",color:C.green},
-                  {label:"Ran today",value:dash.runs.today,sub:"executions",icon:"clock",color:C.purple},
-                  {label:"This week",value:dash.runs.this_week,sub:"total runs",icon:"calendar",color:"#0891b2"},
-                  {label:"Need review",value:dash.runs.pending_approval,sub:"approvals",icon:"eye",color:dash.runs.pending_approval>0?C.amber:C.text3},
-                  {label:"Failed",value:dash.runs.failed,sub:"runs",icon:"alert",color:dash.runs.failed>0?C.red:C.text3},
-                ].map(s=>(
-                  <div key={s.label} style={{background:"white",borderRadius:12,padding:"12px 14px",border:`1.5px solid ${s.value>0&&(s.label==="Need review"||s.label==="Failed")?s.color+"50":C.border}`,display:"flex",flexDirection:"column",gap:4}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                      <span style={{fontSize:10,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:".05em"}}>{s.label}</span>
-                      <div style={{width:24,height:24,borderRadius:7,background:`${s.color}15`,display:"flex",alignItems:"center",justifyContent:"center"}}><Ic n={s.icon} s={11} c={s.color}/></div>
-                    </div>
-                    <div style={{fontSize:26,fontWeight:800,color:s.value>0&&(s.label==="Need review"||s.label==="Failed")?s.color:C.text1,lineHeight:1}}>{s.value}</div>
-                    <div style={{fontSize:11,color:C.text3}}>{s.sub}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 200px 1fr",gap:10,marginBottom:10}}>
-                <div style={{background:"white",borderRadius:12,padding:"14px 16px",border:`1.5px solid ${C.border}`}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                    <span style={{fontSize:12,fontWeight:700,color:C.text1}}>Runs — last 7 days</span>
-                    <span style={{fontSize:11,color:C.text3}}>{dash.runs.this_week} total</span>
-                  </div>
-                  {dash.daily && <Spark data={dash.daily}/>}
-                </div>
-                <div style={{background:`${C.purple}08`,borderRadius:12,padding:"14px 16px",border:`1px solid ${C.purple}25`,display:"flex",flexDirection:"column",gap:8}}>
-                  <div style={{fontSize:12,fontWeight:700,color:C.purple,display:"flex",alignItems:"center",gap:6}}><Ic n="users" s={13} c={C.purple}/> AI Interviews</div>
-                  {[{label:"Generated",value:dash.interviews.total,color:C.purple},{label:"Completed",value:dash.interviews.completed,color:C.green},{label:"Pending",value:dash.interviews.pending,color:C.amber}].map(r=>(
-                    <div key={r.label} style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                      <span style={{fontSize:11,color:C.text2}}>{r.label}</span>
-                      <span style={{fontSize:15,fontWeight:800,color:r.value>0?r.color:C.text3}}>{r.value}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{background:"white",borderRadius:12,padding:"14px 16px",border:`1.5px solid ${C.border}`}}>
-                  <div style={{fontSize:12,fontWeight:700,color:C.text1,marginBottom:8}}>Recent runs</div>
-                  {(!dash.recent_runs||dash.recent_runs.length===0)?<div style={{color:C.text3,fontSize:12}}>No runs yet</div>:
-                    <div style={{maxHeight:120,overflowY:"auto",display:"flex",flexDirection:"column",gap:4}}>
-                      {dash.recent_runs.slice(0,8).map(r=>(
-                        <div key={r.id} style={{display:"flex",alignItems:"center",gap:7,padding:"4px 6px",borderRadius:6}}>
-                          <div style={{width:7,height:7,borderRadius:"50%",background:statusColor(r.status),flexShrink:0}}/>
-                          <span style={{flex:1,fontSize:11,color:C.text1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.agent_name}</span>
-                          <span style={{fontSize:10,color:C.text3,flexShrink:0}}>{relTime(r.created_at)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  }
-                </div>
-              </div>
-              {dash.agent_summary && dash.agent_summary.length > 0 && (
-                <div style={{background:"white",borderRadius:12,border:`1.5px solid ${C.border}`,overflow:"hidden",marginBottom:10}}>
-                  <div style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`,fontSize:12,fontWeight:700,color:C.text1}}>Agent performance</div>
-                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-                    <thead><tr style={{background:C.bg}}>{["Agent","Trigger","Status","Runs","Today","Failed","Pending","Last run"].map(h=><th key={h} style={{padding:"7px 12px",textAlign:"left",fontWeight:600,color:C.text3,fontSize:11,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
-                    <tbody>{dash.agent_summary.map(a=>(
-                      <tr key={a.id} style={{borderTop:`1px solid ${C.border}`}}>
-                        <td style={{padding:"7px 12px",fontWeight:600,color:C.text1}}>{a.name}</td>
-                        <td style={{padding:"7px 12px",color:C.text3,textTransform:"capitalize"}}>{(a.trigger_type||'').replace(/_/g,' ')}</td>
-                        <td style={{padding:"7px 12px"}}><span style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:a.is_active?`${C.green}15`:"#F3F4F6",color:a.is_active?C.green:C.text3,fontWeight:700}}>{a.is_active?"Active":"Inactive"}</span></td>
-                        <td style={{padding:"7px 12px",color:C.text2,fontWeight:600}}>{a.total_runs}</td>
-                        <td style={{padding:"7px 12px",color:a.runs_today>0?C.purple:C.text3,fontWeight:a.runs_today>0?700:400}}>{a.runs_today}</td>
-                        <td style={{padding:"7px 12px",color:a.failed>0?C.red:C.text3,fontWeight:a.failed>0?700:400}}>{a.failed}</td>
-                        <td style={{padding:"7px 12px",color:a.pending_approval>0?C.amber:C.text3,fontWeight:a.pending_approval>0?700:400}}>{a.pending_approval}</td>
-                        <td style={{padding:"7px 12px",color:C.text3}}>{relTime(a.last_run)}</td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr",gap:16}}>
-            <div style={{background:"white",borderRadius:16,border:`1.5px solid ${C.border}`,overflow:"hidden"}}>
-              <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div>
-                  <div style={{fontSize:14,fontWeight:700,color:C.text1}}>Activity Feed</div>
-                  <div style={{fontSize:11,color:C.text3,marginTop:1}}>Every agent run, in real time</div>
-                </div>
-                <button onClick={load} style={{padding:"5px",border:"none",background:"transparent",cursor:"pointer"}}><Ic n="refresh" s={14} c={C.text3}/></button>
-              </div>
-              {loading ? (
-                <div style={{padding:"48px 0",textAlign:"center",color:C.text3,fontSize:12}}>Loading…</div>
-              ) : !feed || feed.items.length === 0 ? (
-                <div style={{padding:"48px 24px",textAlign:"center"}}>
-                  <div style={{width:48,height:48,borderRadius:14,background:`${C.purple}10`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}><Ic n="zap" s={22} c={C.purple}/></div>
-                  <div style={{fontSize:13,fontWeight:600,color:C.text2,marginBottom:6}}>No agent runs yet</div>
-                  <div style={{fontSize:11,color:C.text3,lineHeight:1.5,marginBottom:16}}>Activate an agent or run one manually to see activity here</div>
-                  <button onClick={()=>{setEditAgent(null);setShowBuilder(true);}} style={{padding:"8px 18px",borderRadius:9,border:"none",background:C.accent,color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F}}>Create Agent</button>
-                </div>
-              ) : (
-                <div style={{maxHeight:520,overflowY:"auto"}}>
-                  {feed.items.map(item=><AgentFeedRow key={item.id} item={item}/>)}
-                </div>
-              )}
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                {[
-                  {label:"New Agent",icon:"plus",color:C.accent,fn:()=>{setEditAgent(null);setShowBuilder(true);}},
-                  {label:"Browse Library",icon:"zap",color:"#0891b2",fn:()=>setShowLibrary(true)},
-                  {label:"Approvals",icon:"eye",color:pendingCount>0?C.amber:C.text3,fn:()=>setView('approvals'),badge:pendingCount>0?pendingCount:null},
-                  {label:"All Agents",icon:"layers",color:C.purple,fn:()=>setView('agents')},
-                ].map(a=>(
-                  <button key={a.label} onClick={a.fn} style={{position:"relative",display:"flex",alignItems:"center",gap:8,padding:"11px 14px",borderRadius:12,border:`1.5px solid ${a.color}25`,background:`${a.color}08`,cursor:"pointer",fontFamily:F,textAlign:"left",transition:"all .12s"}}
-                    onMouseEnter={e=>e.currentTarget.style.background=`${a.color}15`}
-                    onMouseLeave={e=>e.currentTarget.style.background=`${a.color}08`}>
-                    <div style={{width:30,height:30,borderRadius:9,background:`${a.color}15`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Ic n={a.icon} s={14} c={a.color}/></div>
-                    <span style={{fontSize:12,fontWeight:700,color:a.color}}>{a.label}</span>
-                    {a.badge&&<span style={{position:"absolute",top:8,right:8,minWidth:18,height:18,borderRadius:9,background:C.amber,color:"white",fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px"}}>{a.badge}</span>}
-                  </button>
-                ))}
-              </div>
-              <div style={{background:"white",borderRadius:16,border:`1.5px solid ${C.border}`,overflow:"hidden",flex:1}}>
-                <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,fontSize:13,fontWeight:700,color:C.text1}}>
-                  Your Agents <span style={{fontWeight:500,color:C.text3,fontSize:11,marginLeft:6}}>{agents.length} total</span>
-                </div>
-                {agents.length===0 ? (
-                  <div style={{padding:"32px 0",textAlign:"center",color:C.text3,fontSize:12}}>No agents yet</div>
-                ) : (
-                  <div style={{maxHeight:380,overflowY:"auto"}}>
-                    {agents.map(a=>(
-                      <div key={a.id} onClick={()=>{setView('agents');setSelectedAgent(a);}} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",borderBottom:`1px solid ${C.border}`,cursor:"pointer",transition:"background .1s"}}
-                        onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"}
-                        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                        <div style={{width:8,height:8,borderRadius:"50%",background:a.is_active?C.green:"#D1D5DB",flexShrink:0}}/>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,fontWeight:600,color:C.text1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.name}</div>
-                          <div style={{fontSize:10,color:C.text3,textTransform:"capitalize"}}>{(a.trigger_type||'').replace(/_/g,' ')}</div>
-                        </div>
-                        <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                          {a.pending_approvals>0&&<span style={{fontSize:9,padding:"2px 6px",borderRadius:4,background:`${C.amber}18`,color:C.amber,fontWeight:700}}>{a.pending_approvals}</span>}
-                          <span style={{fontSize:10,color:C.text3}}>{relTime(a.last_run_at)}</span>
-                          <button onClick={e=>{e.stopPropagation();handleRun(a.id);}} style={{padding:"3px 9px",borderRadius:6,border:"none",background:C.accent,color:"white",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:F}}>Run</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── APPROVALS VIEW ── */}
       {view==='approvals' && <ApprovalInbox environmentId={environment?.id} onRefresh={load}/>}
 

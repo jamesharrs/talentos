@@ -6283,7 +6283,18 @@ const AgentsRecordPanel = ({ record, environment }) => {
         api.get(`/agents?environment_id=${environment.id}`),
         api.get(`/agents/runs/by-record/${record.id}`),
       ]);
-      setAgents(Array.isArray(a) ? a.filter(ag => ag.active !== false) : []);
+      // Filter agents to those relevant to this record's object:
+      // - agent_scope === 'all' (or not set — legacy): show on all records
+      // - agent_scope === 'object' + scope_object_id matches this record's object: show
+      // - agent_scope === 'none': never show in record panels
+      const allAgents = Array.isArray(a) ? a.filter(ag => ag.active !== false) : [];
+      const filtered = allAgents.filter(ag => {
+        const scope = ag.agent_scope || 'all';
+        if (scope === 'none') return false;
+        if (scope === 'object') return ag.scope_object_id === record.object_id;
+        return true; // 'all'
+      });
+      setAgents(filtered);
       setRuns(Array.isArray(r) ? r.slice(0, 10) : []);
     } catch (_) {}
     setLoading(false);

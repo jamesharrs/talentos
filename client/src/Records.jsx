@@ -3461,7 +3461,7 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
   };
 
   const handleBulkLink = (targetRecord, stageId, stageName) => {
-    console.log("[handleBulkLink] target:", targetRecord?.id?.slice(0,8), "stage:", stageName, "selectedIds:", selectedIds.size);
+    console.log("[handleBulkLink] target:", targetRecord?.id?.slice(0,8), "stage:", stageName);
     onBulkAction?.("link", {
       objectId: targetRecord.object_id,
       targetId: targetRecord.id,
@@ -10737,7 +10737,6 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
       }));
       return; // don't clear selection
     } else if (action === "link") {
-      console.log("[bulk link] ids:", ids.length, "target:", payload.targetId, "stage:", payload.stageName);
       try {
         // Use allSettled so a 409 (already linked) on one person doesn't abort the rest
         const results = await Promise.allSettled(ids.map(id =>

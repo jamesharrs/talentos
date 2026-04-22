@@ -471,15 +471,19 @@ function AgentCard({ agent, onEdit, onDelete, onRun, onRunWithOptions, environme
             <div style={{fontSize:14,fontWeight:700,color:C.text1,marginBottom:2}}>{agent.name}</div>
             {agent.description&&<div style={{fontSize:12,color:C.text3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{agent.description}</div>}
           </div>
-          {/* Auto/Manual badge */}
+          {/* Trigger type badge — informational only */}
           {AUTO_TRIGGERS.has(agent.trigger_type) ? (
-            <div style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:`${C.green}15`,color:C.green,fontWeight:700,flexShrink:0}}>AUTO</div>
+            <div style={{fontSize:9,padding:"2px 6px",borderRadius:4,background:`${C.green}12`,color:C.green,fontWeight:700,flexShrink:0,letterSpacing:".04em"}}>AUTO</div>
           ) : (
-            <div style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:"#F3F4F6",color:C.text3,fontWeight:700,flexShrink:0}}>MANUAL</div>
+            <div style={{fontSize:9,padding:"2px 6px",borderRadius:4,background:"#F3F4F6",color:C.text3,fontWeight:700,flexShrink:0,letterSpacing:".04em"}}>MANUAL</div>
           )}
-          <div onClick={async e=>{e.stopPropagation();await api.patch(`/agents/${agent.id}`,{is_active:agent.is_active?0:1});onEdit(agent);}}
-            style={{width:34,height:20,borderRadius:10,background:agent.is_active?C.green:"#D1D5DB",cursor:"pointer",position:"relative",flexShrink:0,transition:"background .2s"}}>
-            <div style={{width:16,height:16,borderRadius:"50%",background:"white",position:"absolute",top:2,left:agent.is_active?16:2,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+          {/* Enabled / Disabled toggle */}
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,flexShrink:0}}>
+            <div onClick={async e=>{e.stopPropagation();await api.patch(`/agents/${agent.id}`,{is_active:agent.is_active?0:1});onEdit(agent);}}
+              style={{width:34,height:20,borderRadius:10,background:agent.is_active?C.green:"#D1D5DB",cursor:"pointer",position:"relative",transition:"background .2s"}}>
+              <div style={{width:16,height:16,borderRadius:"50%",background:"white",position:"absolute",top:2,left:agent.is_active?16:2,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+            </div>
+            <div style={{fontSize:8,fontWeight:700,color:agent.is_active?C.green:C.text3,letterSpacing:".04em",textTransform:"uppercase"}}>{agent.is_active?"ON":"OFF"}</div>
           </div>
         </div>
         <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:10}}>
@@ -499,7 +503,6 @@ function AgentCard({ agent, onEdit, onDelete, onRun, onRunWithOptions, environme
           )}
           <div style={{flex:1}}/>
           <span style={{fontSize:11,color:C.text3}}>{relTime(agent.last_run_at)}</span>
-          <span style={{fontSize:11,color:statusColor(agent.is_active?'active':'inactive'),fontWeight:600}}>{agent.is_active?'Active':'Inactive'}</span>
           <button onClick={handleRun} disabled={running} style={{padding:"4px 10px",borderRadius:7,border:"none",background:C.accent,color:"white",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",gap:4}}>
             {running?<Ic n="loader" s={11} c="white"/>:<Ic n="play" s={11} c="white"/>}{running?'Running…':'Run'}
           </button>

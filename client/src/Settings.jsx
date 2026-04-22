@@ -2557,44 +2557,44 @@ const NAV_GROUPS = [
     id: "preferences",
     label: "Your preferences",
     items: [
-      { id:"appearance",  icon:"sun",       label:"Appearance" },
-      { id:"language",    icon:"globe",     label:"Language" },
-      { id:"notifications", icon:"bell",  label:"Notifications" },
-      { id:"company_profile", icon:"building", label:"Company Profile" },
+      { id:"appearance",      icon:"sun",       label:"Appearance" },
+      { id:"language",        icon:"globe",     label:"Language" },
+      { id:"notifications",   icon:"bell",      label:"Notifications" },
+      { id:"company_profile", icon:"building",  label:"Company Profile" },
     ],
   },
   {
     id: "people",
     label: "People & access",
     items: [
-      { id:"users",  icon:"users",  label:"Users" },
-      { id:"groups", icon:"layers", label:"Groups" },
-      { id:"roles",  icon:"shield", label:"Roles & permissions" },
-      { id:"org",    icon:"layers", label:"Org structure" },
+      { id:"users",  icon:"users",  label:"Users",               perm:"manage_users" },
+      { id:"groups", icon:"layers", label:"Groups",              perm:"manage_users" },
+      { id:"roles",  icon:"shield", label:"Roles & permissions", perm:"manage_roles" },
+      { id:"org",    icon:"layers", label:"Org structure",       perm:"manage_org_structure" },
     ],
   },
   {
     id: "security",
     label: "Security",
     items: [
-      { id:"security", icon:"lock",     label:"Security" },
-      { id:"sessions", icon:"activity", label:"Active sessions" },
-      { id:"audit",    icon:"key",      label:"Audit log" },
+      { id:"security", icon:"lock",     label:"Security",        perm:"manage_roles" },
+      { id:"sessions", icon:"activity", label:"Active sessions", perm:"manage_roles" },
+      { id:"audit",    icon:"key",      label:"Audit log",       perm:"view_audit_log" },
     ],
   },
   {
     id: "schema",
     label: "Data & schema",
     items: [
-      { id:"datamodel",  icon:"database",    label:"Data model" },
-      { id:"duplicates", icon:"users",       label:"Duplicates" },
-      { id:"file_types", icon:"paperclip",   label:"File types" },
-      { id:"company_docs", icon:"file",       label:"Company Documents" },
-      { id:"forms",      icon:"form",        label:"Forms" },
-      { id:"questions",  icon:"help-circle", label:"Question library" },
-      { id:"agents",     icon:"bot",         label:"Agents" },
-      { id:"datasets",   icon:"layers",      label:"Data Sets" },
-      { id:"enterprise", icon:"briefcase",   label:"Enterprise Settings" },
+      { id:"datamodel",    icon:"database",    label:"Data model",        perm:"manage_data_model" },
+      { id:"duplicates",   icon:"users",       label:"Duplicates",        perm:"manage_data_model" },
+      { id:"file_types",   icon:"paperclip",   label:"File types",        perm:"manage_data_model" },
+      { id:"company_docs", icon:"file",        label:"Company Documents" },
+      { id:"forms",        icon:"form",        label:"Forms",             perm:"manage_forms" },
+      { id:"questions",    icon:"help-circle", label:"Question library" },
+      { id:"agents",       icon:"bot",         label:"Agents" },
+      { id:"datasets",     icon:"layers",      label:"Data Sets" },
+      { id:"enterprise",   icon:"briefcase",   label:"Enterprise Settings", perm:"manage_roles" },
     ],
   },
   {
@@ -2604,8 +2604,8 @@ const NAV_GROUPS = [
       { id:"brand_kits",      icon:"palette",  label:"Brand Kits" },
       { id:"email_templates", icon:"mail",     label:"Email Templates" },
       { id:"talent_profile",  icon:"user",     label:"Talent Profile" },
-      { id:"workflows", icon:"workflow", label:"Workflows" },
-      { id:"portals",   icon:"globe",    label:"Portals" },
+      { id:"workflows", icon:"workflow", label:"Workflows", perm:"manage_workflows" },
+      { id:"portals",   icon:"globe",    label:"Portals",   perm:"manage_portals" },
     ],
   },
   {
@@ -2620,16 +2620,17 @@ const NAV_GROUPS = [
     id: "system",
     label: "System",
     items: [
-      { id:"integration_hub",  icon:"zap",      label:"Integrations" },
-      { id:"feature-flags",    icon:"flag",       label:"Feature Flags" },
-      { id:"sandbox",          icon:"gitBranch",  label:"Sandbox Manager" },
-      { id:"config",           icon:"refresh",    label:"Import / Export" },
+      { id:"integration_hub", icon:"zap",       label:"Integrations",   perm:"manage_integrations" },
+      { id:"feature-flags",   icon:"flag",      label:"Feature Flags",  perm:"manage_roles" },
+      { id:"sandbox",         icon:"gitBranch", label:"Sandbox Manager",perm:"manage_roles" },
+      { id:"config",          icon:"refresh",   label:"Import / Export",perm:"manage_roles" },
     ],
   },
 ];
 
 export default function SettingsPage({ currentUser, environment, initialSection, onSectionChange }) {
   const [activeSection, setActiveSectionState] = useState(initialSection || null);
+  const { canGlobal } = usePermissions();
   const [fullScreenMode, setFullScreenMode] = useState(false);
 
   const setActiveSection = (id) => {
@@ -2670,7 +2671,12 @@ export default function SettingsPage({ currentUser, environment, initialSection,
   const q = search.trim().toLowerCase();
   const filteredGroups = NAV_GROUPS.map(g => ({
     ...g,
-    items: q ? g.items.filter(i => i.label.toLowerCase().includes(q)) : g.items,
+    // Filter by: (1) search query, (2) permission — items with no perm are always shown
+    items: g.items.filter(i => {
+      if (i.perm && !canGlobal(i.perm)) return false;
+      if (q && !i.label.toLowerCase().includes(q)) return false;
+      return true;
+    }),
   })).filter(g => g.items.length > 0);
 
   return (

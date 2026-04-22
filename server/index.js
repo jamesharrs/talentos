@@ -553,7 +553,8 @@ initDB().then(() => {
     // ── AI Interview scheduled-send poller ────────────────────────────────────
     // Checks every 60s for AI interviews with ai_trigger='scheduled' and
     // ai_trigger_at in the past that haven't been sent yet.
-    setInterval(async () => {
+    setInterval(() => {
+      (async () => {
       try {
         const { query, update } = require('./db/init');
         const now = new Date();
@@ -605,6 +606,7 @@ initDB().then(() => {
           req.end();
         }
       } catch(e) { console.warn('[AI Interview Scheduler] Error:', e.message); }
+      })().catch(e => console.warn('[AI Interview Scheduler] Unhandled:', e.message));
     }, 60_000);
     // ── End AI Interview scheduler ────────────────────────────────────────────
 

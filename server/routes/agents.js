@@ -248,7 +248,7 @@ router.get('/activity-feed', (req, res) => {
     }
     const actions = agent.actions || [];
     const hasAi   = actions.some(a => ['ai_analyse','ai_summarise','ai_score','ai_draft_email'].includes(a.type));
-    let summary = null;
+    let summary = 'Completed successfully';
     if      (run.status === 'skipped')          summary = 'Conditions not met — skipped';
     else if (run.status === 'failed')           summary = run.error ? `Error: ${run.error.slice(0,80)}` : 'Run failed';
     else if (run.status === 'pending_approval') summary = 'Waiting for your review';
@@ -256,8 +256,7 @@ router.get('/activity-feed', (req, res) => {
     else if (actions.some(a=>['send_email','ai_draft_email'].includes(a.type))) summary = 'Drafted outreach email';
     else if (actions.some(a=>a.type==='add_note'))    summary = 'Added AI note to record';
     else if (actions.some(a=>a.type==='update_field')) summary = 'Updated record field';
-    else if (run.steps?.length > 0)             summary = run.steps[run.steps.length-1]?.step || null;
-    else                                        summary = 'Completed successfully';
+    else if (run.steps?.length > 0)             summary = run.steps[run.steps.length-1]?.step || 'Completed successfully';
     return {
       id: run.id, agent_id: run.agent_id,
       agent_name: agent.name || run.agent_name || 'Unknown agent',
@@ -471,13 +470,13 @@ function evaluateConditions(conditions, record) {
 async function runAiAction(action, recordContext, record, fields, previousAiOutput) {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
   if (!ANTHROPIC_API_KEY) return '[AI unavailable — no API key]';
-  let prompt = '';
+  let prompt = action.prompt || `Analyse this record:\n${recordContext}`;
   switch(action.type) {
     case 'ai_analyse': prompt = action.prompt || `Analyse this record and provide a concise assessment:\n\n${recordContext}`; break;
     case 'ai_draft_email': prompt = `Draft a professional, personalised email. Subject on first line prefixed "Subject: ".\nRecord: ${recordContext}\nPurpose: ${action.email_purpose||'follow up'}\nTone: ${action.tone||'professional'}`; break;
     case 'ai_summarise': prompt = `Write a concise 2-3 sentence summary of this record for a recruiter:\n\n${recordContext}`; break;
     case 'ai_score': prompt = `Score this candidate 0-100. Return ONLY JSON: {"score":85,"reasoning":"...","strengths":["..."],"gaps":["..."]}\nCriteria: ${action.criteria||'overall suitability'}\nData:\n${recordContext}`; break;
-    default: prompt = action.prompt || `Analyse this record:\n${recordContext}`;
+    default: break;
   }
   if (previousAiOutput) prompt += `\n\nPrevious AI analysis:\n${previousAiOutput}`;
   const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -540,19 +539,17 @@ async function executeAction(action, record_id, environment_id, aiOutput, modifi
       const d2 = rec2.data || {};
       const questionSource = action.question_source || 'job'; // 'job' | 'manual'
 
-      let qIds = [];
-      let sourceLabel = '';
+      let qIds = action.question_ids || [];
+      let sourceLabel = action.question_source === 'manual' ? 'manually selected' : '';
 
       if (questionSource === 'manual') {
-        // Use the question IDs selected by the admin when building the agent
-        qIds = action.question_ids || [];
-        sourceLabel = 'manually selected';
+        // qIds already set from action.question_ids above
         if (qIds.length === 0) {
           addStep(`⚠ AI Interview skipped — no questions selected. Edit this agent and choose questions manually.`);
           break;
         }
       } else {
-        // 'job' mode: resolve from the candidate's linked job at runtime
+        // sourceLabel will be set below once we know the job name
         const link = (s2.people_links || []).find(l => l.person_id === record_id);
         const linkedJobId = link?.record_id || null;
 
@@ -593,7 +590,7 @@ async function executeAction(action, record_id, environment_id, aiOutput, modifi
       const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
 
       s2.agent_tokens.push({
-        id: require('uuid').v4(), token, agent_id,
+        id: require('uuid').v4(), token, agent_id: action.agent_id || null,
         persona_name: action.persona_name || 'Alex',
         persona_description: action.persona_description || '',
         avatar_color: action.avatar_color || '#6366f1',
@@ -629,15 +626,14 @@ async function executeAction(action, record_id, environment_id, aiOutput, modifi
     case 'interview_coordinator': {
       try {
         const { startCoordination } = require('./interview_coordinator');
-        const rec = (getStore().records || []).find(r => r.id === record_id);
         const result = await startCoordination({
           candidate_id: record_id,
           environment_id,
           config: action.config || {},
           agent_id: null,
         });
-        output = result.logs?.join(' | ') || '✓ Interview coordination started';
-      } catch(e) { output = `⚠ Coordinator error: ${e.message}`; }
+        addStep(result.logs?.join(' | ') || '✓ Interview coordination started');
+      } catch(e) { addStep(`⚠ Coordinator error: ${e.message}`); }
       break;
     }
   }

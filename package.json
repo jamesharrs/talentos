@@ -10,7 +10,7 @@
     "test:e2e:auth": "playwright test e2e/core/auth.spec.js",
     "test:e2e:records": "playwright test e2e/core/records.spec.js",
     "test:all": "cd server && NODE_ENV=test npx jest --forceExit && cd .. && playwright test",
-    "prepare": "husky",
+    "prepare": "husky || true",
     "lint:server": "cd server && npx eslint . --max-warnings 0",
     "lint:client": "cd client && npx eslint src --max-warnings 0",
     "lint": "npm run lint:server && npm run lint:client",

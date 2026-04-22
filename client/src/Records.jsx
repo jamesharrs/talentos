@@ -6287,7 +6287,7 @@ const AgentsRecordPanel = ({ record, environment }) => {
       // - agent_scope === 'all' (or not set — legacy): show on all records
       // - agent_scope === 'object' + scope_object_id matches this record's object: show
       // - agent_scope === 'none': never show in record panels
-      const allAgents = Array.isArray(a) ? a.filter(ag => ag.active !== false) : [];
+      const allAgents = Array.isArray(a) ? a.filter(ag => ag.is_active !== 0 && ag.is_active !== false) : [];
       const filtered = allAgents.filter(ag => {
         const scope = ag.agent_scope || 'all';
         if (scope === 'none') return false;

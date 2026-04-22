@@ -519,6 +519,117 @@ function AgentCard({ agent, onEdit, onDelete, onRun, onRunWithOptions, environme
 }
 
 // ── AGENT BUILDER MODAL ────────────────────────────────────────────────────────
+// ── Send Email action config ─────────────────────────────────────────────────
+function SendEmailConfig({ action: a, actionIndex: i, environment, updateAction }) {
+  const [templates, setTemplates]   = useState([]);
+  const [mode, setMode]             = useState(a.email_template_id ? 'template' : 'manual');
+
+  useEffect(() => {
+    if (!environment?.id) return;
+    api.get(`/email-templates?environment_id=${environment.id}`)
+      .then(d => setTemplates(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, [environment?.id]);
+
+  // When a template is selected, auto-fill subject/body and enable pause_on_missing
+  const handleTemplateSelect = (templateId) => {
+    const tpl = templates.find(t => t.id === templateId);
+    updateAction(i, 'email_template_id', templateId);
+    if (tpl) {
+      updateAction(i, 'email_subject', tpl.subject || '');
+      updateAction(i, 'email_body',    tpl.body    || '');
+      // Auto-enable pause if template has variables
+      const hasVars = /\{\{.+?\}\}/.test((tpl.subject||'') + (tpl.body||''));
+      updateAction(i, 'pause_on_missing_vars', hasVars ? 1 : 0);
+    }
+  };
+
+  // Extract variables from current subject+body
+  const allText = (a.email_subject || '') + ' ' + (a.email_body || '');
+  const vars = [...new Set([...allText.matchAll(/\{\{(.+?)\}\}/g)].map(m => m[1].trim()))];
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {/* Mode toggle */}
+      <div style={{display:"flex",borderRadius:8,border:`1.5px solid ${C.border}`,overflow:"hidden"}}>
+        {[{id:'template',label:'From template'},{id:'manual',label:'Write manually'}].map(opt=>(
+          <button key={opt.id} onClick={()=>{ setMode(opt.id); if(opt.id==='manual') updateAction(i,'email_template_id',''); }}
+            style={{flex:1,padding:"6px 0",fontSize:11,fontWeight:700,border:"none",cursor:"pointer",fontFamily:F,
+              background:mode===opt.id?C.accent:"white",color:mode===opt.id?"white":C.text3,transition:"all .12s"}}>
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Template picker */}
+      {mode==='template'&&(
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <select value={a.email_template_id||''} onChange={e=>handleTemplateSelect(e.target.value)}
+            style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,background:"white",color:C.text1}}>
+            <option value="">— choose a template —</option>
+            {templates.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+          {templates.length===0&&(
+            <div style={{fontSize:11,color:C.text3,padding:"6px 10px",borderRadius:6,background:C.surface2}}>
+              No templates yet — create them in Settings → Email Templates.
+            </div>
+          )}
+          {a.email_template_id&&a.email_subject&&(
+            <div style={{padding:"8px 10px",borderRadius:8,background:`${C.accent}08`,border:`1px solid ${C.accent}20`}}>
+              <div style={{fontSize:11,fontWeight:600,color:C.accent,marginBottom:2}}>Subject preview</div>
+              <div style={{fontSize:11,color:C.text2}}>{a.email_subject}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Manual entry */}
+      {mode==='manual'&&(
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <input value={a.email_subject||''} onChange={e=>updateAction(i,'email_subject',e.target.value)}
+            placeholder="Subject… use {{first_name}}, {{job_title}} etc."
+            style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F}}/>
+          <textarea value={a.email_body||''} onChange={e=>updateAction(i,'email_body',e.target.value)}
+            placeholder={"Body…\nVariables: {{first_name}}, {{last_name}}, {{email}}, {{job_title}}, {{ai_output}}\nLeave blank to fully auto-generate."}
+            rows={4} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,resize:"vertical"}}/>
+          <select value={a.email_tone||'professional'} onChange={e=>updateAction(i,'email_tone',e.target.value)}
+            style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,background:"white"}}>
+            {['professional','friendly','concise','formal'].map(t=><option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+          </select>
+        </div>
+      )}
+
+      {/* Variable list + pause toggle */}
+      {vars.length>0&&(
+        <div style={{padding:"8px 10px",borderRadius:8,background:"#fffbeb",border:"1px solid #fcd34d",display:"flex",flexDirection:"column",gap:6}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+            <Ic n="alert" s={13} c="#b45309" style={{flexShrink:0,marginTop:1}}/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#b45309",marginBottom:3}}>
+                Template uses {vars.length} variable{vars.length!==1?"s":""}:
+                {vars.map(v=>(
+                  <span key={v} style={{display:"inline-block",margin:"0 3px 2px",padding:"0 5px",borderRadius:3,background:"#fef3c7",border:"1px solid #fcd34d",fontSize:10,fontWeight:700,color:"#92400e"}}>{`{{${v}}}`}</span>
+                ))}
+              </div>
+              <div style={{fontSize:11,color:"#92400e",lineHeight:1.4}}>
+                If any variable can't be filled at runtime the agent will
+                {a.pause_on_missing_vars?" pause and wait for approval before sending.":" skip sending and log a warning."}
+              </div>
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div onClick={()=>updateAction(i,'pause_on_missing_vars',a.pause_on_missing_vars?0:1)}
+              style={{width:30,height:18,borderRadius:9,background:a.pause_on_missing_vars?"#f59e0b":"#D1D5DB",cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0}}>
+              <div style={{width:14,height:14,borderRadius:"50%",background:"white",position:"absolute",top:2,left:a.pause_on_missing_vars?14:2,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+            </div>
+            <span style={{fontSize:11,color:C.text2,fontWeight:600}}>Pause &amp; request approval when variables are missing</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
   const isEdit = !!agent?.id;
   const [tab, setTab] = useState('trigger');
@@ -545,7 +656,7 @@ function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
   const addCondition = () => set('conditions',[...form.conditions,{field:'',operator:'equals',value:''}]);
   const updateCondition = (i,k,v) => { const c=[...form.conditions]; c[i]={...c[i],[k]:v}; set('conditions',c); };
   const removeCondition = (i) => set('conditions',form.conditions.filter((_,idx)=>idx!==i));
-  const addAction = (type) => set('actions',[...form.actions,{type,prompt:'',field_key:'',field_value:'',note_template:'',email_subject:'',email_body:'',webhook_url:'',criteria:'',email_purpose:'',tone:'professional'}]);
+  const addAction = (type) => set('actions',[...form.actions,{type,prompt:'',field_key:'',field_value:'',note_template:'',email_subject:'',email_body:'',email_tone:'professional',email_template_id:'',pause_on_missing_vars:1,webhook_url:'',criteria:'',email_purpose:'',tone:'professional'}]);
   const updateAction = (i,k,v) => { const a=[...form.actions]; a[i]={...a[i],[k]:v}; set('actions',a); };
   const removeAction = (i) => set('actions',form.actions.filter((_,idx)=>idx!==i));
   const moveAction = (i,dir) => { const a=[...form.actions]; const j=i+dir; if(j<0||j>=a.length) return; [a[i],a[j]]=[a[j],a[i]]; set('actions',a); };
@@ -723,21 +834,12 @@ function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
                       )}
                       {a.type==='add_note'&&(<textarea value={a.note_template} onChange={e=>updateAction(i,'note_template',e.target.value)} placeholder="Note text. Use {{ai_output}} to include AI result…" rows={2} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,resize:"vertical"}}/>)}
                       {a.type==='send_email'&&(
-                        <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                          <input value={a.email_subject||''} onChange={e=>updateAction(i,'email_subject',e.target.value)}
-                            placeholder="Email subject… (use {{first_name}}, {{job_title}} etc.)"
-                            style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F}}/>
-                          <textarea value={a.email_body||''} onChange={e=>updateAction(i,'email_body',e.target.value)}
-                            placeholder={"Email body…\n\nAvailable variables: {{first_name}}, {{last_name}}, {{email}}, {{job_title}}, {{ai_output}}\n\nLeave blank to let AI generate the email from context."}
-                            rows={5} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,resize:"vertical"}}/>
-                          <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                            <select value={a.email_tone||'professional'} onChange={e=>updateAction(i,'email_tone',e.target.value)}
-                              style={{flex:1,padding:"7px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,background:"white"}}>
-                              {['professional','friendly','concise','formal'].map(t=><option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
-                            </select>
-                            <div style={{flex:2,fontSize:11,color:C.text3,lineHeight:1.4}}>Tone is used when AI generates the email. Leave subject &amp; body blank to fully auto-generate.</div>
-                          </div>
-                        </div>
+                        <SendEmailConfig
+                          action={a}
+                          actionIndex={i}
+                          environment={environment}
+                          updateAction={updateAction}
+                        />
                       )}
                       {a.type==='webhook'&&(<input value={a.webhook_url} onChange={e=>updateAction(i,'webhook_url',e.target.value)} placeholder="https://your-endpoint.com/webhook" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F}}/>)}
                       {a.type==='human_review'&&(<div style={{padding:"8px 10px",borderRadius:8,background:"#FFF3CD",border:"1px solid #F08C00",fontSize:12,color:"#664D03"}}>⏸ Agent will pause here and wait for a human to approve before continuing.</div>)}

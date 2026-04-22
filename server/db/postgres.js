@@ -100,4 +100,9 @@ async function migrateFromJson(dataDir) {
     console.log('[PG] Migrated master JSON to PostgreSQL:', counts);
   } catch(e) { console.error('[PG] Migration error:', e.message); }
 }
-module.exports = { getPool, isEnabled, bootstrap, initSchema, loadTenant, saveTenant, upsertRecord, deleteRecord, queryRecordsDirect, migrateFromJson };
+module.exports = { getPool, isEnabled, bootstrap, initSchema, loadTenant, saveTenant, upsertRecord, deleteRecord, queryRecordsDirect, migrateFromJson,
+  // saveCollection: no-op stub — called by several routes but not yet implemented in PG adapter.
+  // When DATABASE_URL is not set, isEnabled() is false so this path is never reached.
+  // When it is set, silently skip rather than crashing — data is already persisted via saveTenant.
+  saveCollection: async () => {},
+};

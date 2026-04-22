@@ -434,12 +434,12 @@ async function executeAgent(agent, run, record_id) {
     if (agentIdx !== -1) { s.agents[agentIdx].run_count = (s.agents[agentIdx].run_count || 0) + 1; s.agents[agentIdx].last_run_at = new Date().toISOString(); }
     saveStore();
     addStep(hasPending ? 'Awaiting approval' : 'Agent completed successfully');
-    // Sync run stats to Postgres
+    // Sync run stats to Postgres if available
     try {
       const pg = require('../db/postgres');
-      const { getCurrentTenant } = require('../db/init');
-      const tenant = getCurrentTenant() || 'master';
       if (pg.isEnabled()) {
+        const { getCurrentTenant } = require('../db/init');
+        const tenant = getCurrentTenant() || 'master';
         await pg.saveCollection(tenant, 'agent_runs', s.agent_runs);
         await pg.saveCollection(tenant, 'agents', s.agents);
       }

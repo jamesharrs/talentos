@@ -12,6 +12,10 @@ const { auditResponseMiddleware } = require('./middleware/security-audit');
 const { attachCsrfCookie, verifyCsrf } = require('./middleware/csrf');
 
 const app = express();
+
+// Trust Railway/Vercel proxy — required for correct IP detection behind load balancers.
+// Without this, express-rate-limit throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+app.set('trust proxy', 1);
 let storeReady = false;
 // Compress all responses — reduces API payload sizes by ~60-80%
 app.use(compression());

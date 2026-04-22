@@ -660,14 +660,15 @@ router.get('/assignments', (req, res) => {
 router.get('/assignments/all', (req, res) => {
   ensureTables();
   const { environment_id } = req.query;
-  const assignments = query('record_workflow_assignments', a =>
-    !environment_id || a.environment_id === environment_id
-  );
+  const assignments = query('record_workflow_assignments', () => true); // fetch all, filter below
   const result = assignments.map(a => {
     const wf = findOne('workflows', w => w.id === a.workflow_id);
     if (!wf) return null;
+    // Filter by environment — check assignment first, fall back to workflow's environment
+    const envId = a.environment_id || wf.environment_id;
+    if (environment_id && envId !== environment_id) return null;
     const steps = query('workflow_steps', s => s.workflow_id === wf.id);
-    return { ...a, workflow: { ...wf, steps } };
+    return { ...a, environment_id: envId, workflow: { ...wf, steps } };
   }).filter(Boolean);
   res.json(result);
 });
@@ -684,9 +685,12 @@ router.put('/assignments', (req, res) => {
     a => !(a.record_id === record_id && a.type === type)
   );
   if (workflow_id) {
-    // Add new assignment
+    // Add new assignment — derive environment_id from the workflow so filtering works
+    const wfForAssign = findOne('workflows', w => w.id === workflow_id);
     store.record_workflow_assignments.push({
-      id: uuidv4(), record_id, workflow_id, type, created_at: new Date().toISOString()
+      id: uuidv4(), record_id, workflow_id, type,
+      environment_id: wfForAssign?.environment_id || null,
+      created_at: new Date().toISOString()
     });
   }
   saveStore();

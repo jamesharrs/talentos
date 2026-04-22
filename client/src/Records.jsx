@@ -3430,9 +3430,10 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
       (Array.isArray(allAssignments) ? allAssignments : []).forEach(a => {
         const wf = a.workflow;
         if (!wf) return;
-        if (a.type !== "people_link" && wf.workflow_type !== "people_link") return;
+        // Match on assignment type OR workflow_type — handles both storage patterns
+        const isPeopleLink = a.type === "people_link" || wf.workflow_type === "people_link";
+        if (!isPeopleLink) return;
         const steps = wf.steps || [];
-        if (steps.length === 0) return;
         peopleLinkMap[a.record_id] = steps;
       });
       // Filter records to only those with a valid people_link workflow
@@ -3659,35 +3660,49 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
                   })()}
                 </div>
 
-                {/* Stage picker */}
+                {/* Stage picker or no-stages warning */}
                 <div style={{ flex:1, padding:"20px 18px" }}>
-                  <div style={{ fontSize:12, fontWeight:700, color:C.text2, marginBottom:10 }}>
-                    Starting stage for {count} {count===1?"person":"people"}
-                  </div>
-                  <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                    {linkStaging.steps.map((step, i) => (
-                      <label key={step.id} onClick={() => setLinkStageId(step.id)}
-                        style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px", borderRadius:10,
-                          border:`2px solid ${linkStageId === step.id ? C.accent : C.border}`,
-                          background: linkStageId === step.id ? C.accentLight : "white",
-                          cursor:"pointer", transition:"all .1s" }}>
-                        <div style={{ width:22, height:22, borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
-                          background: linkStageId === step.id ? C.accent : C.border,
-                          color:"white", fontSize:11, fontWeight:800 }}>
-                          {i+1}
-                        </div>
-                        <div style={{ flex:1 }}>
-                          <div style={{ fontSize:13, fontWeight:600, color: linkStageId===step.id ? C.accent : C.text1 }}>
-                            {step.name || `Stage ${i+1}`}
-                          </div>
-                          {step.description && (
-                            <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>{step.description}</div>
-                          )}
-                        </div>
-                        {linkStageId === step.id && <Ic n="check" s={15} c={C.accent}/>}
-                      </label>
-                    ))}
-                  </div>
+                  {linkStaging.steps.length === 0 ? (
+                    <div style={{ textAlign:"center", padding:"24px 0" }}>
+                      <Ic n="info" s={28} c={C.border}/>
+                      <div style={{ fontSize:13, fontWeight:600, color:C.text2, marginTop:10, marginBottom:6 }}>
+                        No stages configured
+                      </div>
+                      <div style={{ fontSize:12, color:C.text3, lineHeight:1.5 }}>
+                        This workflow has no stages yet. Go to <strong>Workflows</strong> and add stages to the Linked Person workflow assigned to this record.
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize:12, fontWeight:700, color:C.text2, marginBottom:10 }}>
+                        Starting stage for {count} {count===1?"person":"people"}
+                      </div>
+                      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                        {linkStaging.steps.map((step, i) => (
+                          <label key={step.id} onClick={() => setLinkStageId(step.id)}
+                            style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px", borderRadius:10,
+                              border:`2px solid ${linkStageId === step.id ? C.accent : C.border}`,
+                              background: linkStageId === step.id ? C.accentLight : "white",
+                              cursor:"pointer", transition:"all .1s" }}>
+                            <div style={{ width:22, height:22, borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
+                              background: linkStageId === step.id ? C.accent : C.border,
+                              color:"white", fontSize:11, fontWeight:800 }}>
+                              {i+1}
+                            </div>
+                            <div style={{ flex:1 }}>
+                              <div style={{ fontSize:13, fontWeight:600, color: linkStageId===step.id ? C.accent : C.text1 }}>
+                                {step.name || `Stage ${i+1}`}
+                              </div>
+                              {step.description && (
+                                <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>{step.description}</div>
+                              )}
+                            </div>
+                            {linkStageId === step.id && <Ic n="check" s={15} c={C.accent}/>}
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Confirm footer */}
@@ -3700,7 +3715,8 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
                     const step = linkStaging.steps.find(s => s.id === linkStageId);
                     handleBulkLink(linkStaging.record, linkStageId, step?.name || "");
                   }}
-                    style={{ padding:"8px 20px", borderRadius:8, border:"none", background:C.accent, color:"white", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F }}>
+                    disabled={linkStaging.steps.length === 0}
+                    style={{ padding:"8px 20px", borderRadius:8, border:"none", background:C.accent, color:"white", fontSize:13, fontWeight:700, cursor: linkStaging.steps.length === 0 ? "not-allowed" : "pointer", fontFamily:F, opacity: linkStaging.steps.length === 0 ? 0.4 : 1 }}>
                     Link {count} {count===1?"person":"people"}
                   </button>
                 </div>
@@ -3736,8 +3752,20 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
                       return [d.job_title,d.pool_name,d.name,d.first_name].filter(Boolean).join(" ").toLowerCase().includes(linkSearch.toLowerCase());
                     });
                     if (!filtered.length) return (
-                      <div style={{ padding:24, textAlign:"center", color:C.text3, fontSize:13 }}>
-                        {linkTargets.length === 0 ? "No records with a Linked Person Workflow found." : "No matching records."}
+                      <div style={{ padding:"28px 24px", textAlign:"center" }}>
+                        <Ic n="link" s={28} c={C.border}/>
+                        {linkTargets.length === 0 ? (
+                          <>
+                            <div style={{ fontSize:13, fontWeight:600, color:C.text2, marginTop:10, marginBottom:6 }}>
+                              No records with a Linked Person Workflow found
+                            </div>
+                            <div style={{ fontSize:12, color:C.text3, lineHeight:1.6, maxWidth:300, margin:"0 auto" }}>
+                              Open a Job or Talent Pool record, go to its <strong>Pipeline</strong> panel, and assign a <strong>Linked Person</strong> workflow.
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ fontSize:13, color:C.text3, marginTop:10 }}>No matching records.</div>
+                        )}
                       </div>
                     );
                     return filtered.map((r, i) => {

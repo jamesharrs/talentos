@@ -32,9 +32,9 @@ const DASHBOARD_GROUPS = [
   {
     id: "schema", label: "Data & Schema", color: "#059669",
     items: [
-      { id:"datamodel",   icon:"database",    label:"Data Model",       desc:"Configure objects, fields and field types",     perm:"manage_data_model" },
-      { id:"duplicates",  icon:"copy",        label:"Duplicates",       desc:"Merge rules and duplicate detection settings",  perm:"manage_data_model" },
-      { id:"file_types",  icon:"paperclip",   label:"File Types",       desc:"Define file categories and extraction rules",   perm:"manage_data_model" },
+      { id:"datamodel",   icon:"database",    label:"Data Model",       desc:"Configure objects, fields and field types",     perm:"manage_settings" },
+      { id:"duplicates",  icon:"copy",        label:"Duplicates",       desc:"Merge rules and duplicate detection settings",  perm:"manage_settings" },
+      { id:"file_types",  icon:"paperclip",   label:"File Types",       desc:"Define file categories and extraction rules",   perm:"manage_settings" },
       { id:"company_docs",icon:"file-text",   label:"Company Documents",desc:"Shared documents available across the platform" },
       { id:"forms",       icon:"clipboard",   label:"Forms",            desc:"Build forms to capture structured data",         perm:"manage_forms" },
       { id:"questions",   icon:"help-circle", label:"Question Library", desc:"Reusable questions for interviews and surveys" },

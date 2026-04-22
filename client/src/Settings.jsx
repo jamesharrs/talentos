@@ -2586,9 +2586,9 @@ const NAV_GROUPS = [
     id: "schema",
     label: "Data & schema",
     items: [
-      { id:"datamodel",    icon:"database",    label:"Data model",        perm:"manage_data_model" },
-      { id:"duplicates",   icon:"users",       label:"Duplicates",        perm:"manage_data_model" },
-      { id:"file_types",   icon:"paperclip",   label:"File types",        perm:"manage_data_model" },
+      { id:"datamodel",    icon:"database",    label:"Data model",        perm:"manage_settings" },
+      { id:"duplicates",   icon:"users",       label:"Duplicates",        perm:"manage_settings" },
+      { id:"file_types",   icon:"paperclip",   label:"File types",        perm:"manage_settings" },
       { id:"company_docs", icon:"file",        label:"Company Documents" },
       { id:"forms",        icon:"form",        label:"Forms",             perm:"manage_forms" },
       { id:"questions",    icon:"help-circle", label:"Question library" },

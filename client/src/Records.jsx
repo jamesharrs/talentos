@@ -3461,7 +3461,6 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
   };
 
   const handleBulkLink = (targetRecord, stageId, stageName) => {
-    console.log("[handleBulkLink] target:", targetRecord?.id?.slice(0,8), "stage:", stageName);
     onBulkAction?.("link", {
       objectId: targetRecord.object_id,
       targetId: targetRecord.id,
@@ -10738,7 +10737,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
       try {
         // Use allSettled so a 409 (already linked) on one person doesn't abort the rest
         const results = await Promise.allSettled(ids.map(id =>
-          api.post("/people-links", {
+          api.post("/workflows/people-links", {
             person_record_id: id,
             target_record_id: payload.targetId,
             target_object_id: payload.objectId,

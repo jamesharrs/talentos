@@ -1944,15 +1944,17 @@ function App({ onEnvReady }) {
     items: section.items.filter(item => {
       if (['dashboard','dashboard_interviews','dashboard_offers','dashboard_agents','dashboard_admin','dashboard_screening','dashboard_onboarding','dashboard_custom','dashboard_insights'].includes(item.id))
         return canGlobal('access_dashboard');
-      if (item.id === 'org_chart')  return canGlobal('access_org_chart') && featOrgChart;
-      if (item.id === 'interviews') return canGlobal('access_interviews') && featInterviews;
-      if (item.id === 'offers')     return canGlobal('access_offers')     && featOffers;
-      if (item.id === 'reports')    return canGlobal('access_reports')    && featReports;
-      if (item.id === 'search')     return canGlobal('access_search')   && featSearch;
-      if (item.id === 'calendar')   return canGlobal('access_calendar') && featCalendar;
-      if (item.id === 'chat')       return featChat;
-      if (item.id === 'documents')  return featDocuments;
-      if (item.id === 'settings')   return canGlobal('manage_settings');
+      if (item.id === 'org_chart')    return canGlobal('access_org_chart')    && featOrgChart;
+      if (item.id === 'interviews')   return canGlobal('access_interviews')   && featInterviews;
+      if (item.id === 'offers')       return canGlobal('access_offers')       && featOffers;
+      if (item.id === 'reports')      return canGlobal('access_reports')      && featReports;
+      if (item.id === 'search')       return canGlobal('access_search')       && featSearch;
+      if (item.id === 'calendar')     return canGlobal('access_calendar')     && featCalendar;
+      if (item.id === 'sourcing')     return canGlobal('access_sourcing')   && featSourcing;
+      if (item.id === 'campaigns')    return canGlobal('access_campaigns')  && featCampaigns;
+      if (item.id === 'chat')         return canGlobal('access_chat')       && featChat;
+      if (item.id === 'documents')    return canGlobal('access_documents')  && featDocuments;
+      if (item.id === 'settings')     return canGlobal('manage_settings');
       return true;
     })
   })).filter(section => section.items.length > 0);

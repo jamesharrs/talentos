@@ -17,6 +17,7 @@ const DEFAULT_FLAGS = {
   // Nav section flags
   access_calendar: true, access_search: true,
   access_chat: true, access_documents: true,
+  access_sourcing: true, access_campaigns: true,
   // Record panels — on by default
   panel_notes: true, panel_files: true, panel_activity: true,
   panel_forms: true, panel_recommendations: true,

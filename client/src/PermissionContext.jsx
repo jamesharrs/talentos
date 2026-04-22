@@ -37,12 +37,23 @@ export function PermissionProvider({ userId, children }) {
     return Boolean(permissions.objects[objectSlug]?.[action]);
   }, [permissions, loading]);
 
+  // Nav-access flags that default to OPEN (true) when not explicitly configured.
+  // This prevents locking out existing roles that predate a new flag being added.
+  const NAV_ACCESS_DEFAULTS_OPEN = new Set([
+    'access_sourcing','access_campaigns','access_chat','access_documents',
+    'access_calendar','access_search','access_dashboard','access_org_chart',
+    'access_interviews','access_offers','access_reports',
+  ]);
+
   const checkGlobal = useCallback((action) => {
     if (!permissions || loading) return false; // RBAC FIX: restrictive until loaded
     // Only super_admin bypasses — admin is checked normally
     const slug = permissions._roleSlug;
     if (slug === 'super_admin') return true;
-    return Boolean(permissions.global?.[action]);
+    const val = permissions.global?.[action];
+    // If the flag is not set at all AND it's a nav-access flag → default to true
+    if (val === undefined && NAV_ACCESS_DEFAULTS_OPEN.has(action)) return true;
+    return Boolean(val);
   }, [permissions, loading]);
 
   return (

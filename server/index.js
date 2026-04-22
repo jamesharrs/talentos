@@ -392,6 +392,7 @@ app.get('/api/health', (req, res) => {
     uptime:  Math.floor(process.uptime()),
     cache:   stats(),
     region:  process.env.RAILWAY_REGION || 'local',
+    env:     process.env.NODE_ENV || 'development',
   });
 });
 

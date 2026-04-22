@@ -1726,7 +1726,9 @@ function App({ onEnvReady }) {
     } catch { return []; }
   });
   const [loading, setLoading] = useState(true);
-  const [apiOnline, setApiOnline] = useState(null);
+  const [apiOnline,   setApiOnline]   = useState(null);
+  const [appVersion,  setAppVersion]  = useState(null);
+  const [appEnv,      setAppEnv]      = useState(null);
   const [showTheme, setShowTheme] = useState(false);
   const [filterPreset, setFilterPreset] = useState(null);
   const [reportPreset, setReportPreset] = useState(null);
@@ -1739,7 +1741,11 @@ function App({ onEnvReady }) {
     // Initial health check
     fetch("/api/health")
       .then(r => r.json())
-      .then(() => setApiOnline(true))
+      .then(d => {
+        setApiOnline(true);
+        if (d.version) setAppVersion(d.version);
+        if (d.env)     setAppEnv(d.env);
+      })
       .catch(() => setApiOnline(false));
 
     // Poll every 5s — detects server restarts so nav objects reload automatically
@@ -2641,6 +2647,30 @@ function App({ onEnvReady }) {
             onCreateRecord={openRecord}
           />
         </Suspense>
+      )}
+      {/* ── Version badge — fixed bottom-right ─────────────────────────────── */}
+      {appVersion && (
+        <div style={{
+          position: "fixed", bottom: 10, right: 12, zIndex: 50,
+          display: "flex", alignItems: "center", gap: 5,
+          padding: "3px 9px", borderRadius: 99,
+          background: "var(--t-surface, #fff)",
+          border: "1px solid var(--t-border, #e5e7eb)",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+          pointerEvents: "none", userSelect: "none",
+        }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: "var(--t-accent, #7c3aed)", letterSpacing: ".02em" }}>
+            v{appVersion}
+          </span>
+          {appEnv && (
+            <span style={{
+              fontSize: 10, fontWeight: 600, letterSpacing: ".03em",
+              color: appEnv === "production" ? "#059669" : "#d97706",
+            }}>
+              · {appEnv === "production" ? "prod" : "dev"}
+            </span>
+          )}
+        </div>
       )}
     </PermissionProvider>
   );

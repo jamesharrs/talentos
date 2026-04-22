@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 // Matches the NAV_GROUPS in Settings.jsx — ids must be identical
 const DASHBOARD_GROUPS = [
@@ -99,23 +99,7 @@ function Ic({ n, s = 16, c = "currentColor" }) {
 
 export default function SettingsDashboard({ onNavigate, searchQuery = "" }) {
   const [hovered, setHovered] = useState(null);
-  const [appVersion, setAppVersion] = useState(null);
-  const [deployInfo, setDeployInfo] = useState(null);
   const q = searchQuery.trim().toLowerCase();
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then(r => r.json())
-      .then(d => {
-        setAppVersion(d.version || null);
-        // env tells us dev vs production
-        setDeployInfo({
-          env: d.env || d.environment || process.env.NODE_ENV || 'unknown',
-          region: d.region || null,
-        });
-      })
-      .catch(() => {});
-  }, []);
 
   const filtered = DASHBOARD_GROUPS.map(group => ({
     ...group,
@@ -130,39 +114,13 @@ export default function SettingsDashboard({ onNavigate, searchQuery = "" }) {
   return (
     <div style={{ maxWidth: 860 }}>
       {/* Page header */}
-      <div style={{ marginBottom: 28, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--t-text1)", margin: "0 0 4px" }}>
-            Settings
-          </h1>
-          <p style={{ fontSize: 13, color: "var(--t-text3)", margin: 0 }}>
-            Configure your workspace, team access, data model and integrations.
-          </p>
-        </div>
-        {appVersion && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "5px 10px", borderRadius: 20,
-              background: "var(--t-accent-light, #ede9fe)",
-              border: "1.5px solid var(--t-accent, #7c3aed)22",
-            }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: "var(--t-accent, #7c3aed)", letterSpacing: ".02em" }}>
-                v{appVersion}
-              </span>
-            </div>
-            {deployInfo && (
-              <span style={{
-                fontSize: 10, fontWeight: 600, letterSpacing: ".04em",
-                color: deployInfo.env === 'production' ? "#059669" : "#d97706",
-                textTransform: "uppercase",
-              }}>
-                {deployInfo.env === 'production' ? '● Production' : deployInfo.env === 'development' ? '● Development' : `● ${deployInfo.env}`}
-                {deployInfo.region ? ` · ${deployInfo.region}` : ''}
-              </span>
-            )}
-          </div>
-        )}
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--t-text1)", margin: "0 0 4px" }}>
+          Settings
+        </h1>
+        <p style={{ fontSize: 13, color: "var(--t-text3)", margin: 0 }}>
+          Configure your workspace, team access, data model and integrations.
+        </p>
       </div>
 
       {filtered.length === 0 && (

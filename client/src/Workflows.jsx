@@ -2892,8 +2892,8 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
             // Half-height at each segment: zero = very thin sliver, max = almost full height
             const halfH = (i) => {
               const c = counts[i] || 0;
-              if (c === 0) return 8; // minimum visible height for empty stages
-              return PAD + (H/2 - PAD) * (c / maxCount);
+              if (c === 0) return 5; // minimum visible height for empty stages
+              return PAD + (H/2 - PAD) * Math.pow(c / maxCount, 0.6); // power curve = more dramatic spread
             };
 
             // Build smooth SVG path: segment midpoints with HPAD inset
@@ -2986,7 +2986,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                           </svg>
                           <div style={{ position:"relative", zIndex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
                             <span style={{
-                              fontSize: 15, fontWeight: 500,
+                              fontSize: 17, fontWeight: 700,
                               color: isExpanded ? cat.color : "#2563EB",
                               fontFamily: "'DM Sans', -apple-system, sans-serif",
                               lineHeight: 1,

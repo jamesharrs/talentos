@@ -893,3 +893,31 @@ function migrateCalendarIds() {
   if (fixed > 0) console.log(`🔑 Backfilled IDs on ${fixed} calendar row(s)`);
 }
 migrateCalendarIds();
+
+// ── Backfill environment_id on record_workflow_assignments ────────────────────
+// Assignments created before this fix have no environment_id stored.
+// Derive it from the linked workflow so the assignments/all filter works.
+function migrateAssignmentEnvIds() {
+  try {
+    const slugs = listTenants();
+    slugs.forEach(slug => { if (!storeCache[slug]) loadTenantStore(slug); });
+  } catch(_) {}
+  let fixed = 0;
+  for (const [key, store] of Object.entries(storeCache)) {
+    const assignments = store.record_workflow_assignments;
+    const workflows   = store.workflows;
+    if (!Array.isArray(assignments) || !Array.isArray(workflows)) continue;
+    let dirty = false;
+    for (const a of assignments) {
+      if (a.environment_id) continue; // already set
+      const wf = workflows.find(w => w.id === a.workflow_id);
+      if (wf?.environment_id) {
+        a.environment_id = wf.environment_id;
+        dirty = true; fixed++;
+      }
+    }
+    if (dirty) saveStore(key);
+  }
+  if (fixed > 0) console.log(`🔗 Backfilled environment_id on ${fixed} workflow assignment(s)`);
+}
+migrateAssignmentEnvIds();

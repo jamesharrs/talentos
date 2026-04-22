@@ -85,18 +85,25 @@ const FilterRow = ({ filter, fields, onChange, onRemove }) => {
   const operators = field ? getOperators(field.field_type) : [];
   const needsValue = !["is empty","is not empty","is true","is false"].includes(filter.operator);
 
+  const selSt = { padding:"7px 10px", borderRadius:8, border:`1.5px solid ${C.border}`, fontSize:12,
+    fontFamily:F, outline:"none", background:"white", color:C.text1, cursor:"pointer",
+    appearance:"none", WebkitAppearance:"none",
+    backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+    backgroundRepeat:"no-repeat", backgroundPosition:"right 8px center", paddingRight:28 };
+
   return (
-    <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 0", borderBottom:`1px solid ${C.border}` }}>
+    <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0" }}>
       {/* Field selector */}
-      <select value={filter.field_id||""} onChange={e=>onChange({...filter,field_id:e.target.value,operator:getOperators(fields.find(f=>f.id===e.target.value)?.field_type||"text")[0],value:""})}
-        style={{ padding:"6px 8px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, outline:"none", background:C.surface, color:C.text1, minWidth:130 }}>
+      <select value={filter.field_id||""}
+        onChange={e=>onChange({...filter,field_id:e.target.value,operator:getOperators(fields.find(f=>f.id===e.target.value)?.field_type||"text")[0],value:""})}
+        style={{ ...selSt, minWidth:150 }}>
         <option value="">Select field…</option>
         {fields.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}
       </select>
 
       {/* Operator */}
       <select value={filter.operator||""} onChange={e=>onChange({...filter,operator:e.target.value,value:""})}
-        style={{ padding:"6px 8px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, outline:"none", background:C.surface, color:C.text1, minWidth:120 }}>
+        style={{ ...selSt, minWidth:140 }}>
         {operators.map(op=><option key={op} value={op}>{op}</option>)}
       </select>
 
@@ -104,18 +111,20 @@ const FilterRow = ({ filter, fields, onChange, onRemove }) => {
       {needsValue && field && (
         field.field_type==="select" ? (
           <select value={filter.value||""} onChange={e=>onChange({...filter,value:e.target.value})}
-            style={{ padding:"6px 8px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, outline:"none", background:C.surface, color:C.text1, minWidth:110 }}>
+            style={{ ...selSt, minWidth:130 }}>
             <option value="">Any</option>
             {(field.options||[]).map(o=><option key={o} value={o}>{o}</option>)}
           </select>
         ) : field.field_type==="boolean" ? null : (
           <input value={filter.value||""} onChange={e=>onChange({...filter,value:e.target.value})}
             placeholder="Value…" type={["number","currency","rating"].includes(field.field_type)?"number":"text"}
-            style={{ padding:"6px 8px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:12, fontFamily:F, outline:"none", background:C.surface, color:C.text1, width:110 }}/>
+            style={{ padding:"7px 10px", borderRadius:8, border:`1.5px solid ${C.border}`, fontSize:12,
+              fontFamily:F, outline:"none", background:"white", color:C.text1, minWidth:130 }}/>
         )
       )}
 
-      <button onClick={onRemove} style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:4, display:"flex", flexShrink:0, marginLeft:"auto" }}>
+      <button onClick={onRemove} style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:"4px", display:"flex", flexShrink:0, marginLeft:"auto", borderRadius:6 }}
+        onMouseEnter={e=>e.currentTarget.style.color=C.red} onMouseLeave={e=>e.currentTarget.style.color=C.text3}>
         <Ic n="x" s={14}/>
       </button>
     </div>
@@ -456,37 +465,91 @@ export default function SearchPage({ environment, onNavigateToRecord }) {
 
           {/* Filter panel */}
           {showFilters && (
-            <div style={{ background:C.surface, borderRadius:12, border:`1px solid ${C.border}`, padding:"16px 20px", marginBottom:16 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
-                <span style={{ fontSize:12, fontWeight:700, color:C.text2 }}>Filter</span>
+            <div style={{ background:"white", borderRadius:16, border:`1.5px solid ${C.border}`,
+              marginBottom:16, overflow:"hidden", boxShadow:"0 2px 12px rgba(0,0,0,0.06)" }}>
+
+              {/* Header */}
+              <div style={{ display:"flex", alignItems:"center", gap:12, padding:"16px 20px",
+                borderBottom:`1px solid ${C.border}` }}>
+                <div style={{ width:36, height:36, borderRadius:10, background:C.accentLight,
+                  display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  <Ic n="sliders" s={16} c={C.accent}/>
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:15, fontWeight:700, color:C.text1 }}>Filter records</div>
+                </div>
                 {/* Object tabs */}
                 <div style={{ display:"flex", gap:4 }}>
                   {objects.map(obj=>(
                     <button key={obj.id} onClick={()=>{setActiveObject(obj);setFilters([]);}}
-                      style={{ padding:"4px 10px", borderRadius:6, border:`1.5px solid ${activeObject?.id===obj.id?obj.color||C.accent:C.border}`, background:activeObject?.id===obj.id?`${obj.color||C.accent}12`:"transparent", color:activeObject?.id===obj.id?obj.color||C.accent:C.text3, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:F }}>
+                      style={{ padding:"5px 12px", borderRadius:8, border:`1.5px solid ${activeObject?.id===obj.id?obj.color||C.accent:C.border}`,
+                        background:activeObject?.id===obj.id?`${obj.color||C.accent}12`:"transparent",
+                        color:activeObject?.id===obj.id?obj.color||C.accent:C.text3,
+                        fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
                       {obj.name}
                     </button>
                   ))}
                 </div>
+                <button onClick={()=>setShowFilters(false)}
+                  style={{ background:"none", border:"none", cursor:"pointer", color:C.text3, padding:4, display:"flex", borderRadius:6 }}>
+                  <Ic n="x" s={16}/>
+                </button>
               </div>
 
-              {filters.map((f,i) => (
-                <FilterRow key={f.id} filter={f} fields={activeFields}
-                  onChange={updated=>setFilters(fs=>fs.map(x=>x.id===f.id?updated:x))}
-                  onRemove={()=>setFilters(fs=>fs.filter(x=>x.id!==f.id))}/>
-              ))}
+              {/* Conditions list or empty state */}
+              <div style={{ padding:"16px 20px", minHeight:120 }}>
+                {filters.length === 0 ? (
+                  <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
+                    justifyContent:"center", padding:"32px 0", gap:10 }}>
+                    <Ic n="sliders" s={28} c={C.border}/>
+                    <div style={{ fontSize:14, fontWeight:600, color:C.text2 }}>No filters yet</div>
+                    <div style={{ fontSize:12, color:C.text3 }}>Add a condition below to filter records</div>
+                  </div>
+                ) : (
+                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                    {filters.length>1 && (
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                        <span style={{ fontSize:11, color:C.text3, fontWeight:600 }}>Match</span>
+                        <div style={{ display:"flex", border:`1.5px solid ${C.border}`, borderRadius:8, overflow:"hidden" }}>
+                          {["AND","OR"].map(l=>(
+                            <button key={l} onClick={()=>setFilterLogic(l)}
+                              style={{ padding:"4px 12px", border:"none", fontSize:11, fontWeight:700,
+                                cursor:"pointer", fontFamily:F,
+                                background:filterLogic===l?C.accent:"transparent",
+                                color:filterLogic===l?"white":C.text3 }}>
+                              {l}
+                            </button>
+                          ))}
+                        </div>
+                        <span style={{ fontSize:11, color:C.text3 }}>conditions</span>
+                      </div>
+                    )}
+                    {filters.map((f) => (
+                      <FilterRow key={f.id} filter={f} fields={activeFields}
+                        onChange={updated=>setFilters(fs=>fs.map(x=>x.id===f.id?updated:x))}
+                        onRemove={()=>setFilters(fs=>fs.filter(x=>x.id!==f.id))}/>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-              <button onClick={addFilter}
-                style={{ display:"inline-flex", alignItems:"center", gap:6, marginTop:10, padding:"6px 12px", borderRadius:8, border:`1px dashed ${C.border}`, background:"transparent", color:C.text3, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
-                <Ic n="plus" s={13}/> Add Filter
-              </button>
-
-              {filters.length>0 && (
-                <button onClick={handleSearch}
-                  style={{ display:"inline-flex", alignItems:"center", gap:6, marginTop:10, marginLeft:8, padding:"6px 14px", borderRadius:8, border:"none", background:C.accent, color:"white", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
-                  Apply Filters
+              {/* Footer */}
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+                padding:"12px 20px", borderTop:`1px solid ${C.border}`, background:C.surface }}>
+                <button onClick={addFilter}
+                  style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"8px 14px",
+                    borderRadius:8, border:`1.5px dashed ${C.border}`, background:"transparent",
+                    color:C.text3, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
+                  <Ic n="plus" s={13}/> Add condition
                 </button>
-              )}
+                <button onClick={handleSearch}
+                  style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"8px 20px",
+                    borderRadius:8, border:"none", background:C.accent, color:"white",
+                    fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F,
+                    opacity: filters.length===0 ? 0.5 : 1 }}>
+                  Apply
+                </button>
+              </div>
             </div>
           )}
 

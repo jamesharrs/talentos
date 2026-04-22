@@ -611,7 +611,7 @@ function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
                   </div>
                 ))}
               </div>
-              {['record_created','record_updated','stage_changed'].includes(form.trigger_type)&&(
+              {!['schedule_daily','schedule_weekly'].includes(form.trigger_type)&&(
                 <div style={{marginBottom:12}}>
                   <label style={{fontSize:12,fontWeight:600,color:C.text2,display:"block",marginBottom:6}}>Target Object</label>
                   <select value={form.target_object_id} onChange={e=>set('target_object_id',e.target.value)}

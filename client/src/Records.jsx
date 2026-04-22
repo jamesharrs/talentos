@@ -3623,8 +3623,6 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.5)", zIndex:9000, display:"flex", alignItems:"center", justifyContent:"center" }}
           onClick={e => e.target === e.currentTarget && (setShowLinkModal(false), setLinkStaging(null))}>
           <div style={{ background:"white", borderRadius:16, width:520, maxHeight:"80vh", display:"flex", flexDirection:"column", overflow:"hidden", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
-
-            {/* Header */}
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 20px", borderBottom:`1px solid ${C.border}` }}>
               <div style={{ fontSize:14, fontWeight:700, color:C.text1 }}>Link {count} {count===1?"person":"people"} to…</div>
               <button onClick={() => { setShowLinkModal(false); setLinkStaging(null); }} style={{ background:"none", border:"none", cursor:"pointer" }}>
@@ -3662,7 +3660,7 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
                 </div>
 
                 {/* Stage picker or no-stages warning */}
-                <div style={{ flex:1, padding:"20px 18px" }}>
+                <div style={{ flex:1, minHeight:0, padding:"20px 18px", overflowY:"auto" }}>
                   {linkStaging.steps.length === 0 ? (
                     <div style={{ textAlign:"center", padding:"24px 0" }}>
                       <Ic n="info" s={28} c={C.border}/>

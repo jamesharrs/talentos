@@ -4556,11 +4556,11 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                 style={{ borderBottom:`1px solid ${C.border}`, transition:"background .1s", background: isSelected ? `${C.accent}08` : "transparent" }}
                 onMouseEnter={e=>{ if(!isSelected) e.currentTarget.style.background="#f8f9fc"; setHoveredRow(record.id); }}
                 onMouseLeave={e=>{ if(!isSelected) e.currentTarget.style.background="transparent"; setHoveredRow(null); }}>
-                <td style={{ padding:"12px 12px" }}>
+                <td style={{ padding:"var(--t-row-pad, 12px) 12px" }}>
                   <input type="checkbox" checked={!!isSelected} onChange={() => onToggleSelect(record.id)}
                     style={{ width:15, height:15, cursor:"pointer", accentColor:C.accent }}/>
                 </td>
-                <td style={{ padding:"12px 8px", cursor:"pointer", width:36 }} onClick={() => onProfile(record)}>
+                <td style={{ padding:"var(--t-row-pad, 12px) 8px", cursor:"pointer", width:36 }} onClick={() => onProfile(record)}>
                   <AvatarWithDupBadge name={title} color={objectColor} size={28} photoUrl={record.data?.profile_photo || record.data?.photo_url} dupInfo={dupMap?.[record.id]}/>
                 </td>
                 {orderedFields.map((f, fi) => {
@@ -4570,7 +4570,7 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                   const w = colWidths?.[f.id] || null;
                   return (
                     <td key={f.id}
-                      style={{ padding:"12px 14px", cursor: fi===0 ? "pointer" : "default",
+                      style={{ padding:"var(--t-row-pad, 12px) 14px", cursor: fi===0 ? "pointer" : "default",
                         overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
                         ...(w ? { maxWidth:w, width:w } : { maxWidth:220 }) }}
                       onClick={fi===0 ? () => onProfile(record) : undefined}>
@@ -4657,7 +4657,7 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                     </td>
                   );
                 })}
-                <td style={{ padding:"12px 14px", textAlign:"right" }}>
+                <td style={{ padding:"var(--t-row-pad, 12px) 14px", textAlign:"right" }}>
                   <div style={{ display:"flex", gap:4, justifyContent:"flex-end", alignItems:"center" }}>
                     <Btn v="ghost" sz="sm" icon="expand" onClick={()=>onSelect(record)}/>
                     {onDelete && <Btn v="ghost" sz="sm" icon="trash"  onClick={()=>onDelete(record.id)} style={{color:"#ef4444"}}/>}

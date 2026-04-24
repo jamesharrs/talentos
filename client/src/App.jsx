@@ -2463,6 +2463,7 @@ function App({ onEnvReady }) {
               onNavigate={(slug) => {
                 if (slug === "matching") { setActiveNav("matching"); return; }
                 if (slug === "search")   { setActiveNav("search");   return; }
+                if (slug === "overview") { setActiveNav("dashboard"); return; }
                 // Dashboard sub-tab navigation from pill buttons
                 const dashTabs = ["screening","interviews","offers","onboarding","insights","agents","admin"];
                 if (dashTabs.includes(slug)) {

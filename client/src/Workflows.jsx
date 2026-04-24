@@ -904,9 +904,22 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
   }, [actionTypes, envId]);
 
   // Always load categories on mount (separate from action types)
+  // Retry once if envId wasn't ready on first render
   useEffect(() => {
     if (!envId) return;
-    api.get(`/stage-categories?environment_id=${envId}`).then(d => setCategories(Array.isArray(d)?d:[])).catch(()=>{});
+    api.get(`/stage-categories?environment_id=${envId}`)
+      .then(d => {
+        const cats = Array.isArray(d) ? d : [];
+        setCategories(cats);
+        // If no categories returned, the server should seed them — retry after 500ms
+        if (cats.length === 0) {
+          setTimeout(() => {
+            api.get(`/stage-categories?environment_id=${envId}`)
+              .then(d2 => setCategories(Array.isArray(d2) ? d2 : []))
+              .catch(() => {});
+          }, 500);
+        }
+      }).catch(() => {});
   }, [envId]);
 
   const setName = (name) => onChange({ ...step, name });
@@ -1338,6 +1351,25 @@ const WorkflowEditor = ({ workflow, objects: parentObjects, environment, onSave,
       return arr;
     });
   };
+
+  // Auto-save steps whenever they change (debounced 800ms) — prevents losing
+  // visibility rules / conditions when navigating away without hitting Save.
+  const autoSaveTimer = useRef(null);
+  const autoSaveSteps = useCallback(async (currentSteps, wfId) => {
+    if (!wfId) return; // can't save without an id — new workflows still need manual save
+    try {
+      await api.put(`/workflows/${wfId}/steps`, { steps: currentSteps.map(migrateStep) });
+    } catch {} // silent — main Save button will show errors
+  }, []);
+
+  useEffect(() => {
+    if (!workflow?.id) return; // only auto-save existing workflows
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      autoSaveSteps(steps, workflow.id);
+    }, 800);
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+  }, [steps, workflow?.id, autoSaveSteps]);
 
   const save = async () => {
     if (!name.trim() || !objectId) return;

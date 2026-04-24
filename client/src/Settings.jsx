@@ -2209,14 +2209,12 @@ function LanguageSection() {
                 background: isActive ? C.accentLight : C.surface,
                 cursor: isLoading ? "wait" : "pointer", fontFamily:F, transition:"all .15s",
                 opacity: isLoading ? 0.7 : 1 }}>
-              <span style={{ fontSize:13, fontWeight:800, color: isActive ? C.accent : C.text2,
-                background: isActive ? C.accentLight : '#f1f3f5', padding:'3px 7px',
-                borderRadius:5, fontFamily:'system-ui', letterSpacing:'0.5px',
-                minWidth:30, textAlign:'center', display:'inline-block' }}>
-                {lang.code.toUpperCase()}
+              <span style={{ fontSize:22, lineHeight:1, flexShrink:0 }}>
+                {lang.flag}
               </span>
-              <div style={{ textAlign:"left", flex:1 }}>
-                <div style={{ fontSize:13, fontWeight:700, color: isActive ? C.accent : C.text1 }}>{lang.label}</div>
+              <div style={{ textAlign:"left", flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:700, color: isActive ? C.accent : C.text1,
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{lang.label}</div>
                 <div style={{ fontSize:10, color:C.text3, marginTop:1 }}>
                   {lang.code.toUpperCase()}{lang.dir === "rtl" ? " · RTL" : ""}
                 </div>

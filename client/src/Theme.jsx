@@ -70,8 +70,8 @@ export const FONTS = {
 };
 
 export const DENSITIES = {
-  comfortable: { label: "Comfortable", base: 13, padding: 10, radius: 10 },
-  compact:     { label: "Compact",     base: 12, padding:  7, radius:  8 },
+  comfortable: { label: "Comfortable", base: 13, padding: 10, radius: 10, rowPad: 12 },
+  compact:     { label: "Compact",     base: 12, padding:  7, radius:  8, rowPad:  6 },
 };
 
 const DEFAULT_PREFS = {
@@ -118,6 +118,8 @@ function applyTheme(prefs) {
     "--t-base":       d.base + "px",
     "--t-pad":        d.padding + "px",
     "--t-radius":     d.radius + "px",
+    "--t-row-pad":    d.rowPad + "px",   // table / list row vertical padding
+    "--t-font-sm":    (d.base - 1) + "px",
   };
 
   const root = document.documentElement;

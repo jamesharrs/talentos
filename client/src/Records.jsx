@@ -10579,12 +10579,12 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
       try {
         const saved = JSON.parse(localStorage.getItem(colStorageKey));
         if (saved && saved.length) {
-          setVisibleFieldIds(saved.filter(id => loadedFields.some(ff => ff.id === id)));
+          setVisibleFieldIds(saved.filter(id => loadedFields.some(ff => ff.id === id) || id.startsWith("__")));
         } else {
-          setVisibleFieldIds(loadedFields.filter(ff => ff.show_in_list).slice(0, 6).map(ff => ff.id));
+          setVisibleFieldIds(loadedFields.filter(ff => ff.show_in_list).map(ff => ff.id));
         }
       } catch {
-        setVisibleFieldIds(loadedFields.filter(ff => ff.show_in_list).slice(0, 6).map(ff => ff.id));
+        setVisibleFieldIds(loadedFields.filter(ff => ff.show_in_list).map(ff => ff.id));
       }
     }
     const loaded = r.records||[];
@@ -11161,7 +11161,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
             </button>
             {showColPicker && (
               <ColumnPickerDropdown
-                fields={fields.filter(f => f.show_in_list)}
+                fields={fields}
                 visibleIds={visibleFieldIds || []}
                 onChange={handleColChange}
                 onClose={() => setShowColPicker(false)}

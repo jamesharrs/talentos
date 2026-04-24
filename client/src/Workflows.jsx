@@ -673,16 +673,16 @@ const StepConditionBuilder = ({ step, personFields=[], recordFields=[], onChange
       {/* Header toggle */}
       <button onClick={() => setOpen(o => !o)}
         style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 0 4px', background:'none', border:'none', cursor:'pointer', fontFamily:F, width:'100%', textAlign:'left' }}>
-        <Ic n="plus" s={10} c={conds.length>0?'#b45309':C.text3}/>
-        <span style={{ fontSize:11, fontWeight:conds.length>0?700:500, color:conds.length>0?'#b45309':C.text3 }}>
+        <Ic n="plus" s={10} c={conds.length>0?C.accent:C.text3}/>
+        <span style={{ fontSize:11, fontWeight:conds.length>0?700:500, color:conds.length>0?C.accent:C.text3 }}>
           {conds.length > 0 ? `${activeLabel} (${conds.length}) — ${logic.toUpperCase()}` : label}
         </span>
-        {conds.length > 0 && <Ic n={open?'chevD':'chevRight'} s={10} c='#b45309'/>}
+        {conds.length > 0 && <Ic n={open?'chevD':'chevRight'} s={10} c={C.accent}/>}
       </button>
 
       {open && (
-        <div style={{ marginBottom:10, padding:'12px 14px', background:'#fffbeb', borderRadius:10, border:'1px solid #fde68a' }}>
-          <div style={{ fontSize:11, color:'#92400e', marginBottom:10, lineHeight:1.5 }}>
+        <div style={{ marginBottom:10, padding:'12px 14px', background:C.accentLight, borderRadius:10, border:`1.5px solid ${C.accent}40` }}>
+          <div style={{ fontSize:11, color:C.accent, marginBottom:10, lineHeight:1.5, fontWeight:600 }}>
             Candidate must meet <strong>all</strong> conditions below to be eligible for this stage.
           </div>
 
@@ -703,9 +703,9 @@ const StepConditionBuilder = ({ step, personFields=[], recordFields=[], onChange
                     {['and','or'].map(l => (
                       <button key={l} onClick={() => setLogic(l)}
                         style={{ padding:'2px 10px', borderRadius:20, border:'1.5px solid',
-                          borderColor: logic===l ? '#92400e' : '#fde68a',
-                          background:  logic===l ? '#92400e' : 'transparent',
-                          color:        logic===l ? 'white' : '#92400e',
+                          borderColor: logic===l ? C.accent : `${C.accent}40`,
+                          background:  logic===l ? C.accent : 'transparent',
+                          color:        logic===l ? 'white' : C.accent,
                           fontSize:10, fontWeight:700, cursor:'pointer', fontFamily:F }}>
                         {l.toUpperCase()}
                       </button>
@@ -715,38 +715,38 @@ const StepConditionBuilder = ({ step, personFields=[], recordFields=[], onChange
                 <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                   {/* Source */}
                   <select value={c.source||'person'} onChange={e => updateCond(c.id,{source:e.target.value,field:'',operator:'is_set',value:''})}
-                    style={{ fontSize:11, padding:'4px 7px', border:'1px solid #fde68a', borderRadius:6, fontFamily:F, outline:'none', background:'white', color:C.text1, flexShrink:0 }}>
+                    style={{ fontSize:11, padding:'5px 8px', border:`1.5px solid ${C.accent}40`, borderRadius:8, fontFamily:F, outline:'none', background:'white', color:C.text1, flexShrink:0 }}>
                     <option value="person">Person</option>
                     {recordFields.length > 0 && <option value="record">Record / Job</option>}
                   </select>
                   {/* Field */}
                   <select value={c.field||''} onChange={e => updateCond(c.id,{field:e.target.value,operator:'is_set',value:''})}
-                    style={{ fontSize:11, padding:'4px 7px', border:'1px solid #fde68a', borderRadius:6, fontFamily:F, outline:'none', background:'white', color:C.text1, flex:2, minWidth:100 }}>
+                    style={{ fontSize:11, padding:'5px 8px', border:`1.5px solid ${C.accent}40`, borderRadius:8, fontFamily:F, outline:'none', background:'white', color:C.text1, flex:2, minWidth:100 }}>
                     <option value="">Choose field…</option>
                     {fieldsFor(c.source).map(f => <option key={f.api_key} value={f.api_key}>{f.name}</option>)}
                   </select>
                   {/* Operator */}
                   <select value={c.operator||'is_set'} onChange={e => updateCond(c.id,{operator:e.target.value,value:''})}
-                    style={{ fontSize:11, padding:'4px 7px', border:'1px solid #fde68a', borderRadius:6, fontFamily:F, outline:'none', background:'white', color:C.text1, flexShrink:0 }}>
+                    style={{ fontSize:11, padding:'5px 8px', border:`1.5px solid ${C.accent}40`, borderRadius:8, fontFamily:F, outline:'none', background:'white', color:C.text1, flexShrink:0 }}>
                     {ops.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
                   </select>
                   {/* Value */}
                   {needsVal && (
                     selField?.field_type === 'select' && selField.options?.length > 0 ? (
                       <select value={c.value||''} onChange={e => updateCond(c.id,{value:e.target.value})}
-                        style={{ fontSize:11, padding:'4px 7px', border:'1px solid #fde68a', borderRadius:6, fontFamily:F, outline:'none', background:'white', color:C.text1, flex:2, minWidth:80 }}>
+                        style={{ fontSize:11, padding:'5px 8px', border:`1.5px solid ${C.accent}40`, borderRadius:8, fontFamily:F, outline:'none', background:'white', color:C.text1, flex:2, minWidth:80 }}>
                         <option value="">Any…</option>
                         {selField.options.map(o => <option key={o} value={o}>{o}</option>)}
                       </select>
                     ) : selField?.field_type === 'date' ? (
                       <input type="date" value={c.value||''} onChange={e => updateCond(c.id,{value:e.target.value})}
-                        style={{ fontSize:11, padding:'4px 7px', border:'1px solid #fde68a', borderRadius:6, fontFamily:F, outline:'none', background:'white', color:C.text1, flex:2 }}/>
+                        style={{ fontSize:11, padding:'5px 8px', border:`1.5px solid ${C.accent}40`, borderRadius:8, fontFamily:F, outline:'none', background:'white', color:C.text1, flex:2 }}/>
                     ) : (
                       <input value={c.value||''} onChange={e => updateCond(c.id,{value:e.target.value})} placeholder="value…"
-                        style={{ fontSize:11, padding:'4px 7px', border:'1px solid #fde68a', borderRadius:6, fontFamily:F, outline:'none', background:'white', color:C.text1, flex:2, minWidth:80 }}/>
+                        style={{ fontSize:11, padding:'5px 8px', border:`1.5px solid ${C.accent}40`, borderRadius:8, fontFamily:F, outline:'none', background:'white', color:C.text1, flex:2, minWidth:80 }}/>
                     )
                   )}
-                  <button onClick={() => removeCond(c.id)} style={{ background:'none', border:'none', cursor:'pointer', padding:2, display:'flex', flexShrink:0, color:'#b45309' }}>
+                  <button onClick={() => removeCond(c.id)} style={{ background:'none', border:'none', cursor:'pointer', padding:2, display:'flex', flexShrink:0, color:C.accent }}>
                     <Ic n="x" s={11}/>
                   </button>
                 </div>
@@ -755,8 +755,8 @@ const StepConditionBuilder = ({ step, personFields=[], recordFields=[], onChange
           })}
 
           <button onClick={addCond}
-            style={{ marginTop:10, display:'flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:6,
-              border:'1.5px dashed #fde68a', background:'transparent', color:'#92400e',
+            style={{ marginTop:10, display:'flex', alignItems:'center', gap:4, padding:'5px 10px', borderRadius:8,
+              border:`1.5px dashed ${C.accent}60`, background:'transparent', color:C.accent,
               fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:F }}>
             <Ic n="plus" s={10}/> Add condition
           </button>
@@ -2106,10 +2106,6 @@ export default function WorkflowsPage({ environment }) {
                   <div onClick={() => toggleActive(wf)} style={{ width: 38, height: 22, borderRadius: 99, background: wf.active ? C.green : "#e5e7eb", cursor: "pointer", position: "relative", transition: "background .2s", flexShrink: 0 }}>
                     <div style={{ width: 16, height: 16, borderRadius: "50%", background: "white", position: "absolute", top: 3, left: wf.active ? 19 : 3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.2)" }}/>
                   </div>
-                  <button onClick={() => setRunning(wf)}
-                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8, border: `1.5px solid ${C.accent}30`, background: C.accentLight, color: C.accent, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: F }}>
-                    <Ic n="play" s={12}/> Run
-                  </button>
                   <button onClick={() => setEditing(wf)}
                     style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.text2, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: F }}>
                     <Ic n="edit" s={12}/> Edit
@@ -2469,7 +2465,7 @@ function AddPersonModal({ steps, personRecords, peopleLinks, environment, onAdd,
     return !q || name.includes(q) || (p.data?.email||"").toLowerCase().includes(q);
   });
 
-  return ReactDOM.createPortal(
+  return createPortal(
     <>
       <div style={{ position:"fixed", inset:0, background:"rgba(10,14,30,.45)", zIndex:9800 }} onMouseDown={onClose}/>
       <div style={{ position:"fixed", top:"50%", left:"50%", transform:"translate(-50%,-50%)",

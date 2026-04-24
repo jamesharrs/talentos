@@ -338,11 +338,8 @@ const WeekGrid = ({ weekStart, interviews, onSelectEvent, selectedEvent, avatarC
               <div style={{ width: 32, flexShrink: 0, borderRight: `1px dashed ${C.border}`, position: "relative", background: `${C.accent}06` }}>
                 {HOURS.map(h => {
                   const d = new Date(); d.setHours(h, 0, 0, 0);
-                  let tzLabel = '';
-                  try {
-                    tzLabel = d.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true, timeZone: secTz })
-                      .replace(':00','').replace(' ','').toLowerCase();
-                  } catch(e) { tzLabel = ''; }
+                  let _tzLabel = '';
+                  try { _tzLabel = d.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true, timeZone: secTz }).replace(':00','').replace(' ','').toLowerCase(); } catch(_e) {}
                   return (
                     <div key={h} style={{
                       position: "absolute", top: (h - 7) * HOUR_HEIGHT, height: HOUR_HEIGHT,
@@ -350,7 +347,7 @@ const WeekGrid = ({ weekStart, interviews, onSelectEvent, selectedEvent, avatarC
                       paddingRight: 4, paddingTop: 0, boxSizing: "border-box",
                     }}>
                       <span style={{ fontSize: 9, fontWeight: 600, color: C.accent, lineHeight: 1, transform: "translateY(-5px)", opacity: 0.85, whiteSpace: "nowrap" }}>
-                        {tzLabel}
+                        {_tzLabel}
                       </span>
                     </div>
                   );
@@ -821,6 +818,37 @@ export default function CalendarView({ interviews: interviewsProp, interviewType
     });
   }, [scheduleInterviewees.map(p=>p.id).join(','), environment?.id]);
 
+  // When a job is selected, prefill interviewers from People-type fields on that job record
+  useEffect(() => {
+    if (!scheduleJob?.id || !environment?.id) return;
+    api.get(`/records/${scheduleJob.id}`).then(async rec => {
+      if (!rec?.id) return;
+      // Find People-type fields on this job object
+      const fieldsRes = await api.get(`/fields?object_id=${rec.object_id}`).catch(() => []);
+      const fields = Array.isArray(fieldsRes) ? fieldsRes : (fieldsRes.fields || []);
+      const peopleFields = fields.filter(f => f.field_type === 'people' || f.field_type === 'person' || f.field_type === 'user_select' || (f.field_type === 'lookup' && f.related_object_slug === 'people'));
+      if (!peopleFields.length) return; // no interviewer fields found on this job
+      // Collect all referenced person IDs
+      const personIds = [];
+      peopleFields.forEach(f => {
+        const val = rec.data?.[f.api_key];
+        if (!val) return;
+        const ids = Array.isArray(val) ? val : [val];
+        ids.forEach(v => { const id = typeof v === 'object' ? v?.id : v; if (id && typeof id === 'string') personIds.push(id); });
+      });
+      if (!personIds.length) return;
+      // Fetch those people records
+      const people = await Promise.all(personIds.map(id => api.get(`/records/${id}`).catch(() => null)));
+      const interviewers = people.filter(Boolean).map(p => ({
+        id: p.id,
+        name: `${p.data?.first_name||''} ${p.data?.last_name||''}`.trim() || p.data?.email || p.id,
+        email: p.data?.email || '',
+        job_title: p.data?.job_title || p.data?.current_title || '',
+      }));
+      if (interviewers.length > 0) setScheduleInterviewers(interviewers);
+    }).catch(() => {});
+  }, [scheduleJob?.id, environment?.id]);
+
 
   // Prefetch avatars for all interviewers that have person IDs
   useEffect(() => {
@@ -1124,7 +1152,19 @@ export default function CalendarView({ interviews: interviewsProp, interviewType
 
                     {/* Interviewers — Employee / AI Agent toggle */}
                     <div style={{ marginBottom:14 }}>
-                      <label style={labelSt}>Interviewers</label>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                        <label style={labelSt}>Interviewers</label>
+                        {scheduleJob && scheduleInterviewers.length > 0 && (
+                          <span style={{ fontSize:10, color:'#4361EE', background:'#EEF2FF', padding:'2px 7px', borderRadius:20, fontWeight:600 }}>
+                            ✓ auto-filled from job
+                          </span>
+                        )}
+                        {scheduleJob && scheduleInterviewers.length === 0 && (
+                          <span style={{ fontSize:10, color:'#9ca3af', background:'#f3f4f6', padding:'2px 7px', borderRadius:20 }}>
+                            no interviewer field on job
+                          </span>
+                        )}
+                      </div>
                       {/* Toggle */}
                       <div style={{ display:'flex', gap:0, borderRadius:9, border:'1.5px solid #e5e7eb', overflow:'hidden', marginBottom:10 }}>
                         {[['employee',<><Ic n='user' s={13} c='currentColor'/>&nbsp;Employee</>],['ai_agent',<><Ic n='zap' s={13} c='currentColor'/>&nbsp;AI Agent</>]].map(([val,lbl]) => (

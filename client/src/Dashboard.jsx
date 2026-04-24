@@ -166,7 +166,8 @@ const OBJ_ICONS = {
 };
 
 // Strip emoji characters from a string
-const stripEmoji = s => (s||"").replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F300}-\u{1F9FF}🧪]/gu, "").trim();
+// eslint-disable-next-line no-misleading-character-class
+const stripEmoji = s => (s||"").replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F300}-\u{1F9FF}]/gu, "").trim();
 
 // Format detail value nicely
 const fmtDetail = (detail, type) => {
@@ -794,10 +795,16 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
             <CardTitle title="Candidate Pipeline"
               sub={`${activeCandidates} total`}
               action={
-                <button onClick={() => goTo("people", "", "")}
-                  style={{ fontSize: 11, color: V.purple, background: "none", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: "inherit" }}>
-                  View all →
-                </button>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <button onClick={() => openRpt?.({ object:"people", title:"Candidates by status", groupBy:"status", chartType:"bar" })}
+                    style={{ fontSize: 11, color: V.purple, background: "none", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: "inherit" }}>
+                    Report →
+                  </button>
+                  <button onClick={() => goTo("people", "", "")}
+                    style={{ fontSize: 11, color: V.gray, background: "none", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: "inherit" }}>
+                    View all →
+                  </button>
+                </div>
               }
             />
             {data?.peopleStatus?.length ? (

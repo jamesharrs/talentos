@@ -41,6 +41,7 @@ const FEATURE_LABELS = {
 router.get('/dashboard', (req, res) => {
   try {
     const store = getStore();
+    const { environment_id } = req.query;
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
@@ -128,8 +129,10 @@ router.get('/dashboard', (req, res) => {
     // ── Other stats ───────────────────────────────────────────────
     const allWorkflows = store.workflows || [];
     const allWorkflowRuns = store.workflow_runs || [];
-    const allInterviews = store.interviews || [];
-    const allOffers = store.offers || [];
+    const _allInterviews = store.interviews || [];
+    const allInterviews = environment_id ? _allInterviews.filter(i => !i.deleted_at && i.environment_id === environment_id) : _allInterviews.filter(i => !i.deleted_at);
+    const _allOffers = store.offers || [];
+    const allOffers = environment_id ? _allOffers.filter(o => o.environment_id === environment_id) : _allOffers;
     const allForms = store.forms || [];
     const allFormResponses = store.form_responses || [];
     const allAttachments = store.attachments || [];

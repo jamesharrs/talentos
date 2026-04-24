@@ -47,7 +47,7 @@ export default function DashboardHub({ tab = "overview", onTabChange, environmen
         <AdminDashboard environment={environment} session={session}/>
       )}
       {tab === "screening" && (
-        <ScreeningDashboard environment={environment} onNavigate={onNavigate}/>
+        <ScreeningDashboard environment={environment} session={session} onNavigate={onNavigate}/>
       )}
       {tab === "onboarding" && (
         <OnboardingDashboard environment={environment} onNavigate={onNavigate}/>

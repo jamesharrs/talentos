@@ -788,6 +788,16 @@ export default function OffersModule({ environment }) {
     return () => window.removeEventListener('talentos:create-offer', handler);
   }, []);
 
+  // Open specific offer from dashboard
+  useEffect(() => {
+    const handler = (e) => {
+      const { offerId } = e.detail || {};
+      if (offerId) setSelected(offerId);
+    };
+    window.addEventListener('talentos:open-offer', handler);
+    return () => window.removeEventListener('talentos:open-offer', handler);
+  }, []);
+
   const filtered = offers.filter(o => {
     const q = search.toLowerCase();
     const matchSearch = !q || [o.candidate_name, o.job_name, o.job_department].some(v => (v||"").toLowerCase().includes(q));

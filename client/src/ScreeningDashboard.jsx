@@ -1,22 +1,23 @@
 import { useState, useEffect, useCallback } from "react";
 import api from './apiClient.js';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
-const C = { card:"#fff", accent:"var(--t-accent,#4361ee)", text1:"var(--t-text1,#111827)", text2:"var(--t-text2,#374151)", text3:"var(--t-text3,#9ca3af)", border:"var(--t-border,#f0f0f0)", green:"#0ca678", amber:"#f59f00", red:"#e03131", purple:"#7c3aed", blue:"#3b82f6" };
+const C = {
+  card:"#fff", accent:"var(--t-accent,#4361ee)", accentLight:"var(--t-accent-light,#EEF2FF)",
+  text1:"var(--t-text1,#111827)", text2:"var(--t-text2,#374151)", text3:"var(--t-text3,#9ca3af)",
+  border:"var(--t-border,#f0f0f0)", green:"#0ca678", amber:"#f59f00", red:"#e03131",
+  purple:"#7c3aed", blue:"#3b82f6",
+};
 const F = "'DM Sans',-apple-system,sans-serif";
-
 const PATHS = {
   users:"M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M9 7a4 4 0 100 8 4 4 0 000-8z",
-  search:"M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
   zap:"M13 2L3 14h9l-1 8 10-12h-9l1-8z",
   check:"M20 6L9 17l-5-5",
   clock:"M12 2a10 10 0 100 20 10 10 0 000-20zm0 5v5l3 3",
-  mail:"M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zm0 0l8 8 8-8",
   briefcase:"M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2",
-  filter:"M22 3H2l8 9.46V19l4 2v-8.54L22 3z",
   eye:"M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 100 6 3 3 0 000-6z",
-  calendar:"M3 9h18M3 15h18M8 3v3M16 3v3M3 6a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6z",
-  robot:"M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18",
+  sparkles:"M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z",
+  arrow:"M5 12h14M12 5l7 7-7 7",
+  x:"M18 6L6 18M6 6l12 12",
 };
 const Ic = ({ n, s=16, c="currentColor" }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -24,38 +25,43 @@ const Ic = ({ n, s=16, c="currentColor" }) => (
   </svg>
 );
 
-const QuickLink = ({ icon, label, color, onClick, badge }) => (
-  <button onClick={onClick} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 15px", borderRadius:10, border:`1.5px solid ${color}30`, background:`${color}08`, cursor:"pointer", fontFamily:F, transition:"all .15s", whiteSpace:"nowrap" }}
-    onMouseEnter={e=>{ e.currentTarget.style.background=`${color}18`; e.currentTarget.style.borderColor=`${color}60`; }}
-    onMouseLeave={e=>{ e.currentTarget.style.background=`${color}08`; e.currentTarget.style.borderColor=`${color}30`; }}>
-    <Ic n={icon} s={14} c={color}/>
-    <span style={{ fontSize:13, fontWeight:600, color }}>{label}</span>
-    {badge!=null&&badge>0&&<span style={{ fontSize:11, fontWeight:700, background:color, color:"white", borderRadius:99, padding:"1px 6px", marginLeft:2 }}>{badge}</span>}
-  </button>
-);
-
-const StatCard = ({ icon, value, label, sub, color=C.accent }) => (
-  <div style={{ background:C.card, borderRadius:14, padding:"18px 20px", border:`1px solid ${C.border}`, boxShadow:"0 1px 4px rgba(0,0,0,0.04)" }}>
-    <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:10 }}>
-      <div style={{ width:46, height:46, borderRadius:12, background:`${color}15`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Ic n={icon} s={22} c={color}/></div>
-      <div>
-        <div style={{ fontSize:28, fontWeight:800, color:C.text1, lineHeight:1 }}>{value??'—'}</div>
-        <div style={{ fontSize:12, fontWeight:600, color:C.text2, marginTop:3 }}>{label}</div>
+const StatCard = ({ icon, value, label, sub, color=C.accent, onClick, badge }) => (
+  <div onClick={onClick} style={{ background:C.card, borderRadius:14, padding:"18px 20px",
+    border:`1px solid ${C.border}`, boxShadow:"0 1px 4px rgba(0,0,0,0.04)",
+    cursor:onClick?"pointer":"default", transition:"box-shadow .15s",
+  }}
+    onMouseEnter={e=>{ if(onClick) e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,0.1)"; }}
+    onMouseLeave={e=>{ e.currentTarget.style.boxShadow="0 1px 4px rgba(0,0,0,0.04)"; }}>
+    <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:8 }}>
+      <div style={{ width:46,height:46,borderRadius:12,background:`${color}15`,
+        display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+        <Ic n={icon} s={22} c={color}/>
       </div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontSize:28,fontWeight:800,color:C.text1,lineHeight:1 }}>{value??'—'}</div>
+        <div style={{ fontSize:12,fontWeight:600,color:C.text2,marginTop:3 }}>{label}</div>
+      </div>
+      {badge!=null&&<div style={{ fontSize:12,fontWeight:700,color:color,background:`${color}15`,padding:"3px 9px",borderRadius:99 }}>{badge}</div>}
     </div>
-    {sub&&<div style={{ fontSize:12, color:C.text3 }}>{sub}</div>}
+    {sub&&<div style={{ fontSize:12,color:C.text3 }}>{sub}</div>}
   </div>
 );
 
-const Card = ({ children, title, style={} }) => (
-  <div style={{ background:C.card, borderRadius:14, border:`1px solid ${C.border}`, boxShadow:"0 1px 4px rgba(0,0,0,0.04)", padding:"20px 22px", ...style }}>
-    {title&&<div style={{ fontSize:14, fontWeight:700, color:C.text1, marginBottom:16 }}>{title}</div>}
+const Card = ({ children, title, sub, style={}, action }) => (
+  <div style={{ background:C.card,borderRadius:14,border:`1px solid ${C.border}`,
+    boxShadow:"0 1px 4px rgba(0,0,0,0.04)",padding:"20px 22px",...style }}>
+    {(title||action)&&(
+      <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:14,gap:8 }}>
+        <div>
+          {title&&<div style={{ fontSize:14,fontWeight:700,color:C.text1 }}>{title}</div>}
+          {sub&&<div style={{ fontSize:11,color:C.text3,marginTop:2 }}>{sub}</div>}
+        </div>
+        {action}
+      </div>
+    )}
     {children}
   </div>
 );
-
-const SOURCE_COLORS = ["#4361ee","#0ca678","#f59f00","#7c3aed","#ec4899","#06b6d4","#84cc16","#9ca3af"];
-const AI_COLORS = { approved:C.green, rejected:"#e03131", pending:"#f59f00" };
 
 function fmtDate(iso) {
   if (!iso) return "—";
@@ -65,164 +71,423 @@ function fmtDate(iso) {
   return `${Math.floor(diff/86400000)}d ago`;
 }
 
-export default function ScreeningDashboard({ environment, onNavigate }) {
-  const [data, setData] = useState(null);
+function monthStart(offset=0) {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth()+offset, 1).toISOString();
+}
+
+// ─── Candidate List Modal ─────────────────────────────────────────────────────
+function CandidateListModal({ title, candidates, jobs, onClose, _session }) {
+  const [search, setSearch] = useState('');
+  const filtered = candidates.filter(c => {
+    const q = search.toLowerCase();
+    return !q || [c.name, c.role, c.company, c.status, c.jobName].some(v=>(v||'').toLowerCase().includes(q));
+  });
+  // Compute AI match score for each candidate against their linked job
+  const scored = filtered.map(c => {
+    const job = jobs.find(j => j.id === c.jobId);
+    let score = null;
+    if (job && (c.skills||[]).length) {
+      const jobSkills = (job.data?.skills || job.data?.required_skills || []);
+      if (jobSkills.length) {
+        const matched = (c.skills||[]).filter(s => jobSkills.some(js=>(js||'').toLowerCase()===(s||'').toLowerCase()));
+        score = Math.round((matched.length / jobSkills.length)*100);
+      }
+    }
+    return { ...c, score };
+  }).sort((a,b) => (b.score??-1)-(a.score??-1));
+
+  return (
+    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,
+      display:"flex",alignItems:"center",justifyContent:"center" }}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{ background:"white",borderRadius:20,width:"min(92vw,900px)",maxHeight:"80vh",
+        display:"flex",flexDirection:"column",boxShadow:"0 24px 80px rgba(0,0,0,.2)" }}>
+        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",
+          padding:"20px 24px 16px",borderBottom:`1px solid ${C.border}` }}>
+          <div>
+            <div style={{ fontSize:18,fontWeight:800,color:C.text1 }}>{title}</div>
+            <div style={{ fontSize:12,color:C.text3,marginTop:2 }}>{filtered.length} candidates</div>
+          </div>
+          <div style={{ display:"flex",gap:8,alignItems:"center" }}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search…"
+              style={{ padding:"8px 12px",borderRadius:8,border:`1.5px solid ${C.border}`,
+                fontSize:13,fontFamily:F,outline:"none",width:200 }}/>
+            <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",padding:4 }}>
+              <Ic n="x" s={18} c={C.text3}/>
+            </button>
+          </div>
+        </div>
+        <div style={{ overflowY:"auto",flex:1 }}>
+          <table style={{ width:"100%",borderCollapse:"collapse" }}>
+            <thead style={{ position:"sticky",top:0,background:"white",zIndex:1 }}>
+              <tr>{["AI Match","Name","Title","Company","Linked Job","Status","Applied"].map(h=>(
+                <th key={h} style={{ textAlign:"left",fontSize:11,fontWeight:700,color:C.text3,
+                  padding:"10px 16px",textTransform:"uppercase",letterSpacing:"0.05em",
+                  borderBottom:`1px solid ${C.border}` }}>{h}</th>
+              ))}</tr>
+            </thead>
+            <tbody>
+              {scored.map((c,i)=>(
+                <tr key={c.id} style={{ background:i%2===0?"transparent":"#fafafa",cursor:"pointer" }}
+                  onClick={()=>{
+                    window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:c.id,objectId:c.object_id}}));
+                    onClose();
+                  }}>
+                  <td style={{ padding:"10px 16px" }}>
+                    {c.score!=null
+                      ? <div style={{ display:"flex",alignItems:"center",gap:6 }}>
+                          <div style={{ width:36,height:36,borderRadius:"50%",
+                            background:c.score>=70?"#0ca67820":c.score>=40?"#f59f0020":"#e0313120",
+                            display:"flex",alignItems:"center",justifyContent:"center" }}>
+                            <span style={{ fontSize:11,fontWeight:800,
+                              color:c.score>=70?C.green:c.score>=40?C.amber:C.red }}>{c.score}%</span>
+                          </div>
+                        </div>
+                      : <span style={{ color:C.text3,fontSize:12 }}>—</span>}
+                  </td>
+                  <td style={{ padding:"10px 16px",fontSize:13,fontWeight:600,color:C.accent }}>{c.name}</td>
+                  <td style={{ padding:"10px 16px",fontSize:12,color:C.text2 }}>{c.role||'—'}</td>
+                  <td style={{ padding:"10px 16px",fontSize:12,color:C.text3 }}>{c.company||'—'}</td>
+                  <td style={{ padding:"10px 16px",fontSize:12,color:C.text2 }}>{c.jobName||'—'}</td>
+                  <td style={{ padding:"10px 16px" }}>
+                    <span style={{ fontSize:11,padding:"3px 9px",borderRadius:99,fontWeight:600,
+                      background:`${C.amber}15`,color:C.amber }}>{c.status}</span>
+                  </td>
+                  <td style={{ padding:"10px 16px",fontSize:12,color:C.text3 }}>{fmtDate(c.created_at)}</td>
+                </tr>
+              ))}
+              {scored.length===0&&(
+                <tr><td colSpan={7} style={{ textAlign:"center",padding:"32px",color:C.text3,fontSize:13 }}>No candidates found</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+export default function ScreeningDashboard({ environment, onNavigate, session }) {
+  const [data, setData]     = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError]   = useState(null);
+  const [modal, setModal]   = useState(null); // { title, candidates }
 
   const load = useCallback(async () => {
     if (!environment?.id) { setLoading(false); return; }
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
+      // 1. Objects
       const objRes = await api.get(`/objects?environment_id=${environment.id}`);
-      const objects = Array.isArray(objRes) ? objRes : (objRes?.objects || objRes?.data || []);
-      const peopleObj = objects.find(o=>o.slug==='people'||o.name?.toLowerCase().includes('people')||o.name?.toLowerCase().includes('candidate'));
-      if (!peopleObj) { setData({ people:[], awaitingReview:[], aiApproved:[], aiRejected:[], aiPending:[], reviewed:[], bySource:[], funnel:[], recent:[], peopleObj:null }); return; }
-      const recRes = await api.get(`/records?object_id=${peopleObj.id}&environment_id=${environment.id}&limit=200`);
-      const allRecords = Array.isArray(recRes) ? recRes : (recRes?.records || recRes?.data || []);
-      const people = allRecords;
+      const objects = Array.isArray(objRes) ? objRes : (objRes?.objects||[]);
+      const peopleObj = objects.find(o=>o.slug==='people'||o.name?.toLowerCase().includes('people'));
+      const jobsObj   = objects.find(o=>o.slug==='jobs'  ||o.name?.toLowerCase().includes('job'));
 
-      const awaitingReview = people.filter(p=>{ const s=(p.data?.status||'').toLowerCase(); return ['applied','new','received','pending','screening','pending review'].includes(s); });
-      const aiApproved = people.filter(p=>p.data?.ai_screening_result==='approved'||p.data?.ai_status==='approved');
-      const aiRejected = people.filter(p=>p.data?.ai_screening_result==='rejected'||p.data?.ai_status==='rejected');
-      const aiPending  = people.filter(p=>p.data?.ai_screening_result==='pending' ||p.data?.ai_status==='pending');
-      const reviewed   = people.filter(p=>{ const s=(p.data?.status||'').toLowerCase(); return ['reviewed','shortlisted','interview','offer','hired'].includes(s); });
+      // 2. People records
+      const recRes = await api.get(`/records?object_id=${peopleObj?.id}&environment_id=${environment.id}&limit=500`);
+      const allPeople = Array.isArray(recRes)?recRes:(recRes?.records||[]);
 
-      const sourceMap = {};
-      people.forEach(p=>{ const src=p.data?.source||p.data?.application_source||'Direct'; sourceMap[src]=(sourceMap[src]||0)+1; });
-      const bySource = Object.entries(sourceMap).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([source,count],i)=>({ source, count, color:SOURCE_COLORS[i] }));
+      // 3. Jobs records (for pipeline funnel + linked job names)
+      let allJobs = [];
+      if (jobsObj) {
+        const jRes = await api.get(`/records?object_id=${jobsObj.id}&environment_id=${environment.id}&limit=200`);
+        allJobs = Array.isArray(jRes)?jRes:(jRes?.records||[]);
+      }
 
-      const stageOrder=['Applied','Screening','Shortlisted','Interview','Offer','Hired'];
-      const stageCounts={}; stageOrder.forEach(s=>{stageCounts[s]=0;});
-      people.forEach(p=>{ const s=(p.data?.status||'').toLowerCase();
-        if(s.includes('applied')||s.includes('new')||s.includes('received')) stageCounts['Applied']++;
-        else if(s.includes('screen')) stageCounts['Screening']++;
-        else if(s.includes('short')) stageCounts['Shortlisted']++;
-        else if(s.includes('interview')) stageCounts['Interview']++;
-        else if(s.includes('offer')) stageCounts['Offer']++;
-        else if(s.includes('hired')) stageCounts['Hired']++;
+      // 4. People links (to know which candidates are linked to which job)
+      let links = [];
+      try { links = await api.get(`/people-links?environment_id=${environment.id}`).then(r=>Array.isArray(r)?r:(r?.links||[])); } catch(_){}
+
+      // Build a map: personId → [{jobId, jobName, stage}]
+      const personJobMap = {};
+      links.forEach(lk => {
+        if (!personJobMap[lk.person_id]) personJobMap[lk.person_id] = [];
+        const job = allJobs.find(j=>j.id===lk.record_id);
+        personJobMap[lk.person_id].push({ jobId:lk.record_id, jobName:job?.data?.job_title||job?.data?.title||'Unknown Job', stage:lk.stage });
       });
-      const funnel = stageOrder.map(s=>({ stage:s, count:stageCounts[s] }));
-      const recent = [...people].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,10).map(p=>({
-        id:p.id, object_id:p.object_id,
-        name:[p.data?.first_name,p.data?.last_name].filter(Boolean).join(' ')||p.data?.email||'Unknown',
-        role:p.data?.current_title||p.data?.job_title||'—',
-        source:p.data?.source||'—', status:p.data?.status||'New',
-        ai_result:p.data?.ai_screening_result||p.data?.ai_status||null, applied:p.created_at,
-      }));
-      setData({ people, awaitingReview, aiApproved, aiRejected, aiPending, reviewed, bySource, funnel, recent, peopleObj });
-    } catch(e){ console.error('[Screening]', e); setError(e.message); } finally { setLoading(false); }
-  }, [environment?.id]);
+
+      // 5. Determine SCREENING stage categories (from stage_categories or workflow steps)
+      const screeningStages = new Set();
+      try {
+        const cats = await api.get(`/stage-categories?environment_id=${environment.id}`);
+        const arr = Array.isArray(cats)?cats:(cats?.categories||[]);
+        arr.filter(c=>(c.category||c.name||'').toLowerCase().includes('screen')).forEach(c=>{
+          (c.stages||c.values||[c.name]).forEach(s=>screeningStages.add((s||'').toLowerCase()));
+        });
+      } catch(_){}
+      if (screeningStages.size === 0) {
+        ['applied','new','received','screening','pending review','cv review','shortlisting'].forEach(s=>screeningStages.add(s));
+      }
+
+      // 6. Helper: build a candidate object from a record
+      const toCandidate = (p) => {
+        const links = personJobMap[p.id]||[];
+        const primaryLink = links[0];
+        return {
+          id: p.id, object_id: p.object_id || peopleObj?.id, created_at: p.created_at,
+          name: [p.data?.first_name, p.data?.last_name].filter(Boolean).join(' ')||p.data?.email||'Unknown',
+          role: p.data?.current_title||p.data?.job_title||'—',
+          company: p.data?.current_company||p.data?.company||'—',
+          status: p.data?.status||'New',
+          skills: Array.isArray(p.data?.skills)?p.data.skills:(typeof p.data?.skills==='string'?p.data.skills.split(',').map(s=>s.trim()):[]),
+          jobId: primaryLink?.jobId||null,
+          jobName: primaryLink?.jobName||null,
+          stage: primaryLink?.stage||null,
+          ai_screening_result: p.data?.ai_screening_result||p.data?.ai_status||null,
+          auto_progressed: !!(p.data?.auto_progressed||p.data?.ai_auto_progressed),
+          auto_declined:   !!(p.data?.auto_declined  ||p.data?.ai_auto_declined),
+        };
+      };
+
+      // 7. In-screening: anyone whose status or stage is a screening stage
+      const inScreening = allPeople.filter(p => {
+        const status = (p.data?.status||'').toLowerCase();
+        if (screeningStages.has(status)) return true;
+        const links = personJobMap[p.id]||[];
+        return links.some(lk => screeningStages.has((lk.stage||'').toLowerCase()));
+      });
+
+      // 8. Auto Screened this month (candidates with AI screening result set this month)
+      const thisMonth = monthStart(0);
+      const lastMonth = monthStart(-1);
+      const autoScreenedThisMonth = allPeople.filter(p =>
+        (p.data?.ai_screening_result||p.data?.ai_status) && (p.updated_at||p.created_at) >= thisMonth
+      );
+      const autoScreenedLastMonth = allPeople.filter(p =>
+        (p.data?.ai_screening_result||p.data?.ai_status) &&
+        (p.updated_at||p.created_at) >= lastMonth && (p.updated_at||p.created_at) < thisMonth
+      );
+
+      // 9. Reviewed this month (moved past screening)
+      const reviewedStatuses = new Set(['shortlisted','interview','offer','hired','rejected','withdrawn']);
+      const reviewedThisMonth = allPeople.filter(p =>
+        reviewedStatuses.has((p.data?.status||'').toLowerCase()) && (p.updated_at||p.created_at) >= thisMonth
+      );
+      const reviewedLastMonth = allPeople.filter(p =>
+        reviewedStatuses.has((p.data?.status||'').toLowerCase()) &&
+        (p.updated_at||p.created_at) >= lastMonth && (p.updated_at||p.created_at) < thisMonth
+      );
+
+      // 10. My jobs pipeline funnel (jobs where logged-in user is the recruiter)
+      const userId = session?.user?.id;
+      const userEmail = session?.user?.email;
+      const myJobs = allJobs.filter(j => {
+        const recruiter = j.data?.recruiter||j.data?.recruiter_id||j.data?.assigned_to||'';
+        return recruiter === userId || recruiter === userEmail || (typeof recruiter==='object'&&recruiter?.id===userId);
+      });
+      const myJobsFunnel = myJobs.map(job => {
+        const jobLinks = links.filter(lk=>lk.record_id===job.id);
+        const inScreen = jobLinks.filter(lk=>screeningStages.has((lk.stage||'').toLowerCase())).length;
+        return {
+          id: job.id, name: job.data?.job_title||job.data?.title||'Unknown', count: inScreen,
+          total: jobLinks.length, object_id: jobsObj?.id
+        };
+      }).filter(j=>j.total>0).sort((a,b)=>b.count-a.count);
+
+      // 11. Auto Screening Results: candidates auto-progressed OR auto-declined
+      const autoResults = allPeople.filter(p=>p.data?.auto_progressed||p.data?.ai_auto_progressed||p.data?.auto_declined||p.data?.ai_auto_declined);
+
+      // 12. Recent applications (last 20, with job column)
+      const recentApps = [...allPeople].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,20);
+
+      setData({
+        peopleObj, jobsObj, allJobs,
+        inScreening: inScreening.map(toCandidate),
+        autoScreenedThisMonth: autoScreenedThisMonth.map(toCandidate),
+        autoScreenedLastMonth: autoScreenedLastMonth.length,
+        reviewedThisMonth: reviewedThisMonth.map(toCandidate),
+        reviewedLastMonth: reviewedLastMonth.length,
+        myJobsFunnel,
+        autoResults: autoResults.map(toCandidate),
+        recentApps: recentApps.map(p => toCandidate(p)),
+      });
+    } catch(e){ console.error('[ScreeningDashboard]',e); setError(e.message); }
+    finally { setLoading(false); }
+  }, [environment?.id, session?.user?.id]);
 
   useEffect(()=>{ load(); },[load]);
   const nav = id=>{ if(onNavigate) onNavigate(id); };
 
-  if (loading) return <div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:300,fontFamily:F,color:C.text3 }}>Loading screening data…</div>;
-  if (error) return <div style={{ padding:32,fontFamily:F,background:"#fef2f2",borderRadius:12,color:"#e03131",fontSize:13 }}>Error loading screening data: {error}</div>;
-  if (!data) return <div style={{ padding:32,fontFamily:F,color:C.text3,textAlign:"center",fontSize:13 }}>No data available — make sure the server is running and People records exist.</div>;
-  const { awaitingReview, aiApproved, aiRejected, aiPending, reviewed, bySource, funnel, recent, people } = data;
-  const aiTotal = aiApproved.length+aiRejected.length+aiPending.length;
-  const aiPieData = [{name:"Approved",value:aiApproved.length,color:C.green},{name:"Rejected",value:aiRejected.length,color:"#e03131"},{name:"Pending",value:aiPending.length,color:C.amber}].filter(d=>d.value>0);
+  if (loading) return <div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:300,fontFamily:F,color:C.text3 }}>Loading…</div>;
+  if (error)   return <div style={{ padding:32,fontFamily:F,background:"#fef2f2",borderRadius:12,color:C.red,fontSize:13 }}>Error: {error}</div>;
+  if (!data)   return <div style={{ padding:32,fontFamily:F,color:C.text3,textAlign:"center",fontSize:13 }}>No data</div>;
+
+  const { inScreening, autoScreenedThisMonth, autoScreenedLastMonth, reviewedThisMonth, reviewedLastMonth,
+          myJobsFunnel, autoResults, recentApps, allJobs, jobsObj } = data;
+
+  const autoMonthDelta = autoScreenedThisMonth.length - autoScreenedLastMonth;
+  const reviewedDelta  = reviewedThisMonth.length - reviewedLastMonth;
 
   return (
-    <div style={{ fontFamily:F, color:C.text1, padding:"28px 32px 80px", background:"#F8F7FF", minHeight:"100%" }}>
-      {/* Header with nav pills */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, padding:"0 0 0 0" }}>
+    <div style={{ fontFamily:F,color:C.text1,padding:"28px 32px 80px",background:"var(--t-bg,#F8F7FF)",minHeight:"100%" }}>
+      {/* Header */}
+      <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20 }}>
         <div>
-          <div style={{ fontSize:22, fontWeight:800, color:C.text1, letterSpacing:"-0.02em" }}>Screening Dashboard</div>
-          <div style={{ fontSize:12, color:C.text3, marginTop:3 }}>CV review, AI screening &amp; shortlisting</div>
+          <div style={{ fontSize:22,fontWeight:800,color:C.text1,letterSpacing:"-0.02em" }}>Screening Dashboard</div>
+          <div style={{ fontSize:12,color:C.text3,marginTop:3 }}>CV review, AI screening &amp; shortlisting</div>
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+        <div style={{ display:"flex",alignItems:"center",gap:8,flexWrap:"wrap" }}>
           {[{label:"Overview",nav:"overview",color:"#6B7280"},{label:"Screening",nav:"screening",color:"#7F77DD",current:true},{label:"Interviews",nav:"interviews",color:"#1D9E75"},{label:"Offers",nav:"offers",color:"#D4537E"},{label:"Onboarding",nav:"onboarding",color:"#EF9F27"}]
             .map(({label,nav:n,color,current})=>(
-            <button key={n} onClick={()=>nav(n)}
-              style={{display:"flex",alignItems:"center",gap:6,padding:"6px 13px",borderRadius:20,border:current?`1.5px solid ${color}`:`1.5px solid ${color}40`,background:current?`${color}18`:`${color}10`,color,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:F,transition:"all .15s"}}
-              onMouseEnter={e=>{e.currentTarget.style.background=`${color}22`;e.currentTarget.style.borderColor=color;}}
-              onMouseLeave={e=>{e.currentTarget.style.background=current?`${color}18`:`${color}10`;e.currentTarget.style.borderColor=current?color:`${color}40`;}}>
-              <span style={{width:6,height:6,borderRadius:"50%",background:color,flexShrink:0}}/>{label}
+            <button key={n} onClick={()=>nav(n)} style={{ display:"flex",alignItems:"center",gap:6,padding:"6px 13px",borderRadius:20,
+              border:current?`1.5px solid ${color}`:`1.5px solid ${color}40`,background:current?`${color}18`:`${color}10`,
+              color,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:F }}>
+              <span style={{ width:6,height:6,borderRadius:"50%",background:color,flexShrink:0 }}/>{label}
             </button>
           ))}
-          <button onClick={load} style={{fontSize:11,padding:"6px 12px",borderRadius:20,border:"0.5px solid rgba(0,0,0,0.06)",background:"white",color:"#888780",cursor:"pointer",fontFamily:F}}>↻</button>
+          <button onClick={load} style={{ fontSize:11,padding:"6px 12px",borderRadius:20,border:`0.5px solid rgba(0,0,0,0.06)`,background:"white",color:"#888780",cursor:"pointer",fontFamily:F }}>↻</button>
         </div>
       </div>
-      {/* Quick Links */}
 
-      {/* Stats */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16, marginBottom:24 }}>
-        <StatCard icon="eye"   value={awaitingReview.length} label="Awaiting Review"    color={C.amber}  sub="need manual review"/>
-        <StatCard icon="zap"   value={aiTotal}               label="AI Screened"        color={C.purple} sub={`${aiApproved.length} approved · ${aiRejected.length} rejected`}/>
-        <StatCard icon="check" value={reviewed.length}       label="Reviewed"           color={C.green}  sub="moved to next stage"/>
-        <StatCard icon="users" value={people.length}         label="Total in Pipeline"  color={C.accent} sub="active candidates"/>
+      {/* Stat cards — row 1 */}
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16,marginBottom:20 }}>
+        {/* Item 1: In screening — clicking opens full list with AI match */}
+        <StatCard icon="eye" value={inScreening.length} label="In Screening" color={C.purple}
+          sub="aggregate — all screening stages"
+          onClick={()=>setModal({ title:"Candidates In Screening", candidates:inScreening })}/>
+
+        {/* Item 2: Auto Screened this month with delta */}
+        <StatCard icon="sparkles" value={autoScreenedThisMonth.length} label="Auto Screened"
+          color={C.accent}
+          sub={`vs last month`}
+          badge={autoMonthDelta===0?null:(autoMonthDelta>0?`+${autoMonthDelta}`:String(autoMonthDelta))}
+          onClick={()=>setModal({ title:"Auto Screened This Month", candidates:autoScreenedThisMonth })}/>
+
+        {/* Item 3: Reviewed this month with delta */}
+        <StatCard icon="check" value={reviewedThisMonth.length} label="Reviewed"
+          color={C.green}
+          sub={`this month`}
+          badge={reviewedDelta===0?null:(reviewedDelta>0?`+${reviewedDelta}`:String(reviewedDelta))}
+          onClick={()=>setModal({ title:"Reviewed This Month", candidates:reviewedThisMonth })}/>
+
+        <StatCard icon="users" value={inScreening.length > 0 ? Math.round((reviewedThisMonth.length/Math.max(inScreening.length,1))*100)+'%' : '—'}
+          label="Conversion Rate" color={C.amber}
+          sub="screening → reviewed"/>
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:20, marginBottom:24 }}>
-        {/* Funnel */}
-        <Card title="Pipeline Funnel">
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {funnel.map((f,i)=>{ const max=Math.max(...funnel.map(x=>x.count),1); const pct=Math.round((f.count/max)*100); const col=["#4361ee","#3b82f6","#7c3aed","#0ca678","#f59f00","#0d9488"][i]; return (
-              <div key={f.stage}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}><span style={{ fontSize:12, fontWeight:600 }}>{f.stage}</span><span style={{ fontSize:12, color:C.text3 }}>{f.count}</span></div>
-                <div style={{ height:7, background:"#f3f4f6", borderRadius:99 }}><div style={{ height:7, width:`${pct}%`, background:col, borderRadius:99, transition:"width .4s" }}/></div>
+      {/* Middle row: My Jobs Funnel + Auto Screening Results */}
+      <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16 }}>
+        {/* Item 4: My Jobs pipeline funnel */}
+        <Card title="My Jobs" sub="candidates in screening stages — live count">
+          {myJobsFunnel.length===0
+            ? <div style={{ textAlign:"center",padding:"32px 0",color:C.text3,fontSize:13 }}>
+                No jobs assigned to you with candidates in screening.<br/>
+                <span style={{ fontSize:12 }}>Set yourself as recruiter on a job to see it here.</span>
               </div>
-            );})}
-          </div>
-        </Card>
-
-        {/* AI Screening */}
-        <Card title="AI Screening Results">
-          {aiTotal===0 ? (
-            <div style={{ textAlign:"center", padding:"32px 0", color:C.text3, fontSize:13 }}>No AI screening data yet.<br/><span style={{ fontSize:12 }}>Screening results from Vercentic AI will appear here.</span></div>
-          ) : (
-            <>
-              <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}>
-                <PieChart width={150} height={150}><Pie data={aiPieData} cx={75} cy={75} innerRadius={40} outerRadius={65} dataKey="value" paddingAngle={3}>{aiPieData.map((e,i)=><Cell key={i} fill={e.color}/>)}</Pie><Tooltip formatter={(v,n)=>[v,n]} contentStyle={{ borderRadius:8, fontSize:12 }}/></PieChart>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                {[{label:"AI Approved",count:aiApproved.length,color:C.green},{label:"AI Rejected",count:aiRejected.length,color:"#e03131"},{label:"Pending Review",count:aiPending.length,color:C.amber}].map(item=>(
-                  <div key={item.label} style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}><div style={{ width:10, height:10, borderRadius:"50%", background:item.color }}/><span style={{ fontSize:12, color:C.text2 }}>{item.label}</span></div>
-                    <span style={{ fontSize:13, fontWeight:700 }}>{item.count}</span>
+            : <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
+                {myJobsFunnel.map(j=>(
+                  <div key={j.id} style={{ display:"flex",alignItems:"center",gap:12,padding:"8px 10px",
+                    borderRadius:10,background:"#fafafa",cursor:"pointer",border:`1px solid ${C.border}` }}
+                    onClick={()=>window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:j.id,objectId:j.object_id}}))}>
+                    <div style={{ flex:1,minWidth:0 }}>
+                      <div style={{ fontSize:13,fontWeight:600,color:C.text1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{j.name}</div>
+                      <div style={{ fontSize:11,color:C.text3,marginTop:2 }}>{j.total} linked · {j.count} in screening</div>
+                    </div>
+                    <div style={{ display:"flex",alignItems:"center",gap:6 }}>
+                      <div style={{ height:6,width:80,background:"#f3f4f6",borderRadius:99,overflow:"hidden" }}>
+                        <div style={{ height:6,width:`${j.total>0?Math.round((j.count/j.total)*100):0}%`,background:C.purple,borderRadius:99 }}/>
+                      </div>
+                      <span style={{ fontSize:13,fontWeight:800,color:C.purple,minWidth:28,textAlign:"right" }}>{j.count}</span>
+                    </div>
                   </div>
                 ))}
               </div>
-            </>
-          )}
+          }
         </Card>
 
-        {/* Source */}
-        <Card title="Candidates by Source">
-          {bySource.length===0 ? <div style={{ color:C.text3, fontSize:13, textAlign:"center", padding:"32px 0" }}>No source data</div> : (
-            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-              {bySource.map(s=>{ const pct=people.length>0?Math.round((s.count/people.length)*100):0; return (
-                <div key={s.source}>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}><span style={{ fontSize:12, fontWeight:600 }}>{s.source}</span><span style={{ fontSize:12, color:C.text3 }}>{s.count} · {pct}%</span></div>
-                  <div style={{ height:6, background:"#f3f4f6", borderRadius:99 }}><div style={{ height:6, width:`${pct}%`, background:s.color, borderRadius:99 }}/></div>
-                </div>
-              );})}
-            </div>
-          )}
+        {/* Item 5: Auto Screening Results */}
+        <Card title="Auto Screening Results"
+          sub="candidates auto-progressed or declined from screening question answers">
+          {autoResults.length===0
+            ? <div style={{ textAlign:"center",padding:"32px 0",color:C.text3,fontSize:13 }}>
+                No auto-screening results yet.<br/>
+                <span style={{ fontSize:12 }}>Configure AI screening on a workflow stage to see results here.</span>
+              </div>
+            : <div style={{ display:"flex",flexDirection:"column",gap:6,maxHeight:280,overflowY:"auto" }}>
+                {autoResults.slice(0,10).map(c=>(
+                  <div key={c.id} style={{ display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:9,
+                    background:"#fafafa",border:`1px solid ${C.border}`,cursor:"pointer" }}
+                    onClick={()=>{ window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:c.id,objectId:c.object_id}})); }}>
+                    <div style={{ width:32,height:32,borderRadius:9,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",
+                      background:c.auto_progressed?`${C.green}15`:`${C.red}15` }}>
+                      <Ic n={c.auto_progressed?"check":"x"} s={14} c={c.auto_progressed?C.green:C.red}/>
+                    </div>
+                    <div style={{ flex:1,minWidth:0 }}>
+                      <div style={{ fontSize:13,fontWeight:600,color:C.text1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{c.name}</div>
+                      <div style={{ fontSize:11,color:C.text3 }}>{c.jobName||c.role}</div>
+                    </div>
+                    <span style={{ fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:99,
+                      background:c.auto_progressed?`${C.green}15`:`${C.red}15`,
+                      color:c.auto_progressed?C.green:C.red }}>
+                      {c.auto_progressed?'Progressed':'Declined'}
+                    </span>
+                  </div>
+                ))}
+                {autoResults.length>10&&(
+                  <button onClick={()=>setModal({title:"Auto Screening Results",candidates:autoResults})}
+                    style={{ fontSize:12,color:C.accent,background:"none",border:`1px dashed ${C.accent}50`,
+                      borderRadius:8,padding:"6px",cursor:"pointer",fontFamily:F,fontWeight:600 }}>
+                    View all {autoResults.length} results →
+                  </button>
+                )}
+              </div>
+          }
         </Card>
       </div>
 
-      {/* Recent applications */}
-      <Card title="Recent Applications">
-        {recent.length===0 ? <div style={{ textAlign:"center", padding:"24px 0", color:C.text3, fontSize:13 }}>No candidates yet</div> : (
-          <table style={{ width:"100%", borderCollapse:"collapse" }}>
-            <thead><tr>{["Candidate","Current Role","Source","Status","AI Result","Applied"].map(h=><th key={h} style={{ textAlign:"left", fontSize:11, fontWeight:700, color:C.text3, padding:"6px 12px", textTransform:"uppercase", letterSpacing:"0.05em", borderBottom:`1px solid ${C.border}` }}>{h}</th>)}</tr></thead>
-            <tbody>{recent.map((r,i)=>(
-              <tr key={r.id} style={{ background:i%2===0?"transparent":"#fafafa", cursor:"pointer" }} onClick={()=>window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:r.id,objectId:r.object_id}}))}>
-                <td style={{ padding:"10px 12px", fontSize:13, fontWeight:600, color:C.accent }}>{r.name}</td>
-                <td style={{ padding:"10px 12px", fontSize:12, color:C.text2 }}>{r.role}</td>
-                <td style={{ padding:"10px 12px", fontSize:12, color:C.text3 }}>{r.source}</td>
-                <td style={{ padding:"10px 12px" }}><span style={{ fontSize:11, padding:"3px 9px", borderRadius:99, fontWeight:600, background:`${C.amber}15`, color:C.amber }}>{r.status}</span></td>
-                <td style={{ padding:"10px 12px" }}>{r.ai_result?<span style={{ fontSize:11, padding:"3px 9px", borderRadius:99, fontWeight:600, background:`${AI_COLORS[r.ai_result]||C.text3}15`, color:AI_COLORS[r.ai_result]||C.text3 }}>{r.ai_result}</span>:<span style={{ color:C.text3, fontSize:12 }}>—</span>}</td>
-                <td style={{ padding:"10px 12px", fontSize:12, color:C.text3 }}>{fmtDate(r.applied)}</td>
+      {/* Item 6: Recent Applications with Job column */}
+      <Card title="Recent Applications" sub="latest candidates — click to open record">
+        <table style={{ width:"100%",borderCollapse:"collapse" }}>
+          <thead><tr>
+            {["Candidate","Title","Company","Job Applied For","Status","Applied"].map(h=>(
+              <th key={h} style={{ textAlign:"left",fontSize:11,fontWeight:700,color:C.text3,
+                padding:"6px 12px",textTransform:"uppercase",letterSpacing:"0.05em",
+                borderBottom:`1px solid ${C.border}` }}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {recentApps.map((c,i)=>(
+              <tr key={c.id} style={{ background:i%2===0?"transparent":"#fafafa",cursor:"pointer" }}
+                onClick={()=>{ window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:c.id,objectId:c.object_id}})); }}
+                onMouseEnter={e=>e.currentTarget.style.background="#f0f4ff"}
+                onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"transparent":"#fafafa"}>
+                <td style={{ padding:"10px 12px",fontSize:13,fontWeight:600,color:C.accent }}>{c.name}</td>
+                <td style={{ padding:"10px 12px",fontSize:12,color:C.text2 }}>{c.role||'—'}</td>
+                <td style={{ padding:"10px 12px",fontSize:12,color:C.text3 }}>{c.company||'—'}</td>
+                <td style={{ padding:"10px 12px" }}>
+                  {c.jobName
+                    ? <button onClick={e=>{ e.stopPropagation(); window.dispatchEvent(new CustomEvent("talentos:openRecord",{detail:{recordId:c.jobId,objectId:jobsObj?.id}})); }}
+                        style={{ fontSize:12,color:C.accent,background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:F,fontWeight:600,textDecoration:"underline" }}>
+                        {c.jobName}
+                      </button>
+                    : <span style={{ color:C.text3,fontSize:12 }}>—</span>}
+                </td>
+                <td style={{ padding:"10px 12px" }}>
+                  <span style={{ fontSize:11,padding:"3px 9px",borderRadius:99,fontWeight:600,
+                    background:`${C.amber}15`,color:C.amber }}>{c.status}</span>
+                </td>
+                <td style={{ padding:"10px 12px",fontSize:12,color:C.text3 }}>{fmtDate(c.created_at)}</td>
               </tr>
-            ))}</tbody>
-          </table>
-        )}
+            ))}
+            {recentApps.length===0&&(
+              <tr><td colSpan={6} style={{ textAlign:"center",padding:"32px",color:C.text3,fontSize:13 }}>No candidates yet</td></tr>
+            )}
+          </tbody>
+        </table>
       </Card>
+
+      {/* Candidate list modal */}
+      {modal&&(
+        <CandidateListModal
+          title={modal.title}
+          candidates={modal.candidates}
+          jobs={allJobs}
+          onClose={()=>setModal(null)}
+          session={session}
+        />
+      )}
     </div>
   );
 }

@@ -241,7 +241,7 @@ export default function OfferDashboard({ environment, session, onNavigate }) {
                 const daysLeft = Math.ceil((new Date(o.expiry_date)-new Date())/86400000);
                 const urgent = daysLeft<=2;
                 return (
-                  <div key={o.id||i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:10,
+                  <div key={o.id||i} onClick={()=>{window.dispatchEvent(new CustomEvent("talentos:nav",{detail:"offers"}));setTimeout(()=>window.dispatchEvent(new CustomEvent("talentos:open-offer",{detail:{offerId:o.id}})),300);}} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:10,cursor:"pointer",
                     background:urgent?"#FEF2F2":"#FFFBEB",border:`1px solid ${urgent?C.red+"40":C.amber+"40"}`}}>
                     <div style={{width:34,height:34,borderRadius:9,background:urgent?`${C.red}14`:`${C.amber}14`,
                       display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
@@ -281,7 +281,7 @@ export default function OfferDashboard({ environment, session, onNavigate }) {
               {pending.slice(0,6).map((o,i)=>{
                 const age = Math.floor((new Date()-new Date(o.created_at))/86400000);
                 return (
-                  <div key={o.id||i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:10,
+                  <div key={o.id||i} onClick={()=>{window.dispatchEvent(new CustomEvent("talentos:nav",{detail:"offers"}));setTimeout(()=>window.dispatchEvent(new CustomEvent("talentos:open-offer",{detail:{offerId:o.id}})),300);}} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:10,cursor:"pointer",
                     background:`${C.amber}08`,border:`1px solid ${C.amber}30`}}>
                     <div style={{width:34,height:34,borderRadius:9,background:`${C.amber}14`,
                       display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>

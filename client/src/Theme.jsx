@@ -62,11 +62,12 @@ function loadGoogleFont(fontName) {
 }
 
 export const FONTS = {
-  geist:   { label: "Geist (Vercentic)", value: "'Plus Jakarta Sans', -apple-system, sans-serif" },
-  dm:      { label: "DM Sans",  value: "'Plus Jakarta Sans', -apple-system, sans-serif" },
-  inter:   { label: "Inter",    value: "'Inter', -apple-system, sans-serif" },
-  jakarta: { label: "Jakarta",  value: "'Plus Jakarta Sans', -apple-system, sans-serif" },
-  mono:    { label: "Mono",     value: "'JetBrains Mono', 'Fira Code', ui-monospace, monospace" },
+  geist:     { label: "Geist (Default)",  value: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
+  inter:     { label: "Inter",            value: "'Inter', 'Segoe UI', system-ui, sans-serif" },
+  system:    { label: "System UI",        value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
+  georgia:   { label: "Georgia (Serif)",  value: "Georgia, 'Times New Roman', Times, serif" },
+  mono:      { label: "Mono",             value: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace" },
+  dyslexic:  { label: "OpenDyslexic",     value: "'OpenDyslexic', 'Comic Sans MS', cursive, sans-serif" },
 };
 
 export const DENSITIES = {

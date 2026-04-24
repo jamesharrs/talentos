@@ -53,7 +53,7 @@ export default function CompanyDocuments({ environment }) {
   const envId = environment?.id;
 
   const load = useCallback(async () => {
-    if (!envId) return;
+    if (!envId) { setLoading(false); return; }
     setLoading(true);
     const data = await api.get(`/company-documents?environment_id=${envId}`);
     setDocs(Array.isArray(data) ? data : []);

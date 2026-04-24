@@ -101,7 +101,7 @@ export default function EmailTemplateBuilder({ environment }) {
   const envId = environment?.id;
 
   const load = useCallback(async () => {
-    if (!envId) return;
+    if (!envId) { setLoading(false); return; }
     const [rawT, bk] = await Promise.all([
       api.get(`/email-builder?environment_id=${envId}`),
       api.get(`/brand-kits?environment_id=${envId}`),

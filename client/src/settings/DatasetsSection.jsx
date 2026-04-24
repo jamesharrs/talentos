@@ -152,7 +152,7 @@ export default function DatasetsSection({ environment }) {
   const envId = environment?.id;
 
   const load = useCallback(async () => {
-    if (!envId) return;
+    if (!envId) { setLoading(false); return; }
     setLoading(true);
     const r = await api.get(`/datasets?environment_id=${envId}`);
     setDatasets(Array.isArray(r) ? r : []);

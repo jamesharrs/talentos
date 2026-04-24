@@ -85,7 +85,7 @@ export default function BrandKitSettings({ environment }) {
   const envId = environment?.id;
 
   const load = useCallback(async () => {
-    if (!envId) return;
+    if (!envId) { setLoading(false); return; }
     const data = await api.get(`/brand-kits?environment_id=${envId}`);
     setKits(Array.isArray(data) ? data : []);
     setLoading(false);

@@ -78,7 +78,7 @@ export default function StageCategoriesSection({ environment }) {
   const envId = environment?.id;
 
   const load = useCallback(async () => {
-    if (!envId) return;
+    if (!envId) { setLoading(false); return; }
     setLoading(true);
     try {
       const data = await api.get(`/stage-categories?environment_id=${envId}`);

@@ -258,7 +258,7 @@ export default function FeatureFlagsSettings({ environment }) {
   };
 
   const load = async (silent = false) => {
-    if (!environment?.id) return;
+    if (!environment?.id) { setLoading(false); return; }
     if (!silent) setLoading(true);
     try {
       // Load base flags (for the admin table)

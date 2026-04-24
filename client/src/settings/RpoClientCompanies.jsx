@@ -122,7 +122,7 @@ export default function RpoClientCompanies({ environment }) {
   const envId = environment?.id;
 
   useEffect(() => {
-    if (!envId) return;
+    if (!envId) { setLoading(false); return; }
     tFetch(`/api/rpo-clients?environment_id=${envId}`)
       .then(r=>r.ok?r.json():{clients:[],rpo_mode:false})
       .then(data=>{setClients(data.clients||[]);setRpoMode(data.rpo_mode||false);})

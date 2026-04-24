@@ -321,7 +321,7 @@ export default function AiGovernance({ environment }) {
   };
 
   const loadAudit = useCallback(async () => {
-    if (!environment?.id) return;
+    if (!environment?.id) { setAuditLoading(false); return; }
     setAuditLoading(true);
     try {
       const data = await api.get(`/agents/runs?environment_id=${environment.id}&limit=50`);

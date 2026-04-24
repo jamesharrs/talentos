@@ -209,6 +209,7 @@ function NewOfferModal({ environment, onClose, onCreated, prefillCandidate, pref
   const [errors, setErrors] = useState({});
   const [candidates, setCandidates] = useState([]);
   const [jobs,       setJobs]       = useState([]);
+  const [linkedJobs, setLinkedJobs] = useState([]); // jobs linked to selected candidate
   const [candSearch, setCandSearch] = useState(prefillCandidate?.name||"");
   const [jobSearch,  setJobSearch]  = useState(prefillJob?.name||"");
 
@@ -224,33 +225,47 @@ function NewOfferModal({ environment, onClose, onCreated, prefillCandidate, pref
 
   const set = (k, v) => { setForm(f=>({...f,[k]:v})); setErrors(e=>({...e,[k]:null})); };
 
+  // Candidate search — uses authenticated api client
   useEffect(() => {
-    if (!candSearch.trim() || !environment?.id) { setCandidates([]); return; }
-    const t = setTimeout(() => {
-      fetch(`/objects?environment_id=${environment.id}`)
-        .then(r=>r.json()).then(objs=>{
-          const ppl = (objs||[]).find(o=>o.slug==="people");
-          if (!ppl) return;
-          fetch(`/records?object_id=${ppl.id}&environment_id=${environment.id}&search=${encodeURIComponent(candSearch)}&limit=8`)
-            .then(r=>r.json()).then(d=>setCandidates(d.records||[]));
-        }).catch(()=>{});
-    }, 300);
+    if (!environment?.id) { setCandidates([]); return; }
+    if (!candSearch.trim()) { setCandidates([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const objs = await api.get(`/objects?environment_id=${environment.id}`);
+        const ppl  = (Array.isArray(objs) ? objs : []).find(o => o.slug === "people");
+        if (!ppl) return;
+        const d = await api.get(`/records?object_id=${ppl.id}&environment_id=${environment.id}&search=${encodeURIComponent(candSearch)}&limit=10`);
+        setCandidates(d?.records || []);
+      } catch { setCandidates([]); }
+    }, 280);
     return () => clearTimeout(t);
   }, [candSearch, environment?.id]);
 
+  // Job search — uses authenticated api client
   useEffect(() => {
-    if (!jobSearch.trim() || !environment?.id) { setJobs([]); return; }
-    const t = setTimeout(() => {
-      fetch(`/objects?environment_id=${environment.id}`)
-        .then(r=>r.json()).then(objs=>{
-          const jobObj = (objs||[]).find(o=>o.slug==="jobs");
-          if (!jobObj) return;
-          fetch(`/records?object_id=${jobObj.id}&environment_id=${environment.id}&search=${encodeURIComponent(jobSearch)}&limit=8`)
-            .then(r=>r.json()).then(d=>setJobs(d.records||[]));
-        });
-    }, 300);
+    if (!environment?.id) { setJobs([]); return; }
+    if (!jobSearch.trim()) { setJobs([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const objs   = await api.get(`/objects?environment_id=${environment.id}`);
+        const jobObj = (Array.isArray(objs) ? objs : []).find(o => o.slug === "jobs");
+        if (!jobObj) return;
+        const d = await api.get(`/records?object_id=${jobObj.id}&environment_id=${environment.id}&search=${encodeURIComponent(jobSearch)}&limit=10`);
+        setJobs(d?.records || []);
+      } catch { setJobs([]); }
+    }, 280);
     return () => clearTimeout(t);
   }, [jobSearch, environment?.id]);
+
+  // When a candidate is selected, fetch their linked jobs for prefill suggestions
+  useEffect(() => {
+    if (!form.candidate_id || !environment?.id) { setLinkedJobs([]); return; }
+    api.get(`/records/${form.candidate_id}/people-links`)
+      .then(links => {
+        if (!Array.isArray(links)) return;
+        setLinkedJobs(links.filter(l => l.title || l.object_name));
+      }).catch(() => setLinkedJobs([]));
+  }, [form.candidate_id, environment?.id]);
 
   const validate = () => {
     const e = {};
@@ -356,6 +371,20 @@ function NewOfferModal({ environment, onClose, onCreated, prefillCandidate, pref
                 <input value={jobSearch} onChange={e=>{ setJobSearch(e.target.value); set("job_id",""); set("job_name",""); }} placeholder="Search jobs…" style={inp("job_id")}/>
                 {form.job_id && !jobs.length && (
                   <div style={{marginTop:6,padding:"8px 12px",borderRadius:8,background:C.accentLight,border:`1px solid ${C.accent}30`,fontSize:12,color:C.accent,fontWeight:600}}>✓ {form.job_name}</div>
+                )}
+                {/* Linked jobs suggestion — shown when a candidate is selected and no job search is active */}
+                {!jobSearch.trim() && !form.job_id && linkedJobs.length > 0 && (
+                  <div style={{marginTop:6}}>
+                    <div style={{fontSize:10,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Linked roles</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                      {linkedJobs.map((lj,i) => (
+                        <button key={i} onClick={()=>{ set("job_id",lj.id||""); set("job_name",lj.title||""); set("job_department",""); setJobSearch(lj.title||""); }}
+                          style={{padding:"5px 10px",borderRadius:20,border:`1.5px solid ${C.accent}40`,background:C.accentLight,color:C.accent,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F}}>
+                          {lj.title || lj.object_name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
                 {jobs.length > 0 && (
                   <div style={{marginTop:4,borderRadius:8,border:`1px solid ${C.border}`,overflow:"hidden",maxHeight:160,overflowY:"auto"}}>
@@ -734,6 +763,7 @@ export default function OffersModule({ environment }) {
   const [loading,      setLoading]      = useState(true);
   const [selected,     setSelected]     = useState(null);
   const [showNew,      setShowNew]      = useState(false);
+  const [newPrefill,   setNewPrefill]   = useState(null); // { candidate, job }
   const [search,       setSearch]       = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -746,6 +776,17 @@ export default function OffersModule({ environment }) {
   };
 
   useEffect(() => { load(); }, [environment?.id]);
+
+  // Listen for cross-module create-offer trigger (e.g. from workflow stage move)
+  useEffect(() => {
+    const handler = (e) => {
+      const { candidate, job } = e.detail || {};
+      setNewPrefill({ candidate: candidate || null, job: job || null });
+      setShowNew(true);
+    };
+    window.addEventListener('talentos:create-offer', handler);
+    return () => window.removeEventListener('talentos:create-offer', handler);
+  }, []);
 
   const filtered = offers.filter(o => {
     const q = search.toLowerCase();
@@ -839,8 +880,10 @@ export default function OffersModule({ environment }) {
       {showNew && (
         <NewOfferModal
           environment={environment}
-          onClose={()=>setShowNew(false)}
-          onCreated={rec=>{ setOffers(os=>[rec,...os]); setSelected(rec.id); }}
+          prefillCandidate={newPrefill?.candidate || null}
+          prefillJob={newPrefill?.job || null}
+          onClose={()=>{ setShowNew(false); setNewPrefill(null); }}
+          onCreated={rec=>{ setOffers(os=>[rec,...os]); setSelected(rec.id); setNewPrefill(null); }}
         />
       )}
     </div>

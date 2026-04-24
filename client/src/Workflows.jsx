@@ -2639,6 +2639,23 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
       const msgs = res.step_run_log.map(r => `${r.action_type}: ${r.output}`).join("\n");
       const hasWarning = res.step_run_log.some(r => r.status === 'warning' || r.status === 'error');
       if (hasWarning) window.__toast?.alert(`⚠ Stage actions ran with issues:\n\n${msgs}`);
+
+      // Handle create_offer action — find the link to get candidate + job info
+      const hasOffer = res.step_run_log.some(r => r.type === 'create_offer' || r.action_type === 'create_offer');
+      if (hasOffer) {
+        const link = (peopleLinks || []).find(l => l.id === linkId);
+        const candidateId   = link?.person_record_id || link?.person_id || null;
+        const candidateName = link?.person_name || null;
+        const jobId         = link?.target_record_id || link?.record_id || null;
+        const jobTitle      = link?.target_title || null;
+        // Dispatch event so App.jsx/Offers page can open the create offer modal pre-filled
+        window.dispatchEvent(new CustomEvent('talentos:create-offer', {
+          detail: {
+            candidate: candidateId ? { id: candidateId, name: candidateName } : null,
+            job:       jobId       ? { id: jobId,       name: jobTitle }       : null,
+          }
+        }));
+      }
     }
   };
 

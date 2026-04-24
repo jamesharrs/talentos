@@ -947,11 +947,17 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
                   {rows.map(([skill, cnt], i) => {
                     const col = colors[i % colors.length];
                     return (
-                      <div key={skill} style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 10px",
-                        borderRadius:20, background:`${col}12`, border:`1px solid ${col}28` }}>
+                      <button key={skill}
+                        onClick={() => goTo("people", "skills", skill)}
+                        title={`See all candidates with skill: ${skill}`}
+                        style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 10px",
+                          borderRadius:20, background:`${col}12`, border:`1px solid ${col}28`,
+                          cursor:"pointer", fontFamily:"inherit", transition:"all .1s" }}
+                        onMouseEnter={e=>{ e.currentTarget.style.background=`${col}25`; e.currentTarget.style.borderColor=col; }}
+                        onMouseLeave={e=>{ e.currentTarget.style.background=`${col}12`; e.currentTarget.style.borderColor=`${col}28`; }}>
                         <span style={{ fontSize:11, fontWeight:700, color:col }}>{skill}</span>
                         <span style={{ fontSize:10, color:V.gray }}>{cnt}</span>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>

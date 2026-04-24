@@ -95,10 +95,26 @@ router.post('/:envId/run', (req, res) => {
   // Group by
   if (groupBy) {
     const groups = {};
+
+    // Helper: extract one or more group keys from a field value.
+    // Arrays (multi_select / skills) are "exploded" so each element
+    // is counted independently rather than the whole combination.
+    const keysFor = (val) => {
+      if (Array.isArray(val) && val.length > 0) return val.map(v => String(v));
+      const s = String(val ?? '(empty)');
+      // Comma-separated strings stored as text (legacy multi_select)
+      if (s.includes(',') && !s.includes(' ') && s.split(',').every(p => p.trim().length > 0)) {
+        return s.split(',').map(p => p.trim());
+      }
+      return [s || '(empty)'];
+    };
+
     projected.forEach(row => {
-      const key = String(row[groupBy] ?? '(empty)');
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(row);
+      const keys = keysFor(row[groupBy]);
+      keys.forEach(key => {
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(row);
+      });
     });
     projected = Object.entries(groups).map(([key, groupRows]) => {
       const agg = { [groupBy]: key, _count: groupRows.length };

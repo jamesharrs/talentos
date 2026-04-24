@@ -7250,6 +7250,10 @@ const ActivityPanel = memo(({ record, onViewAll }) => {
   const [search,   setSearch]   = useState("");
   const [category, setCategory] = useState("all");
   const [loading,  setLoading]  = useState(false);
+  const [aiQuery,  setAiQuery]  = useState("");
+  const [aiFilter, setAiFilter] = useState(null); // { label, ids: Set }
+  const [aiLoading,setAiLoading]= useState(false);
+  const [showAiBox,setShowAiBox]= useState(false);
 
   const load = useCallback(async () => {
     if (!record?.id) return;
@@ -7265,6 +7269,34 @@ const ActivityPanel = memo(({ record, onViewAll }) => {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [search, category]);
+
+  // AI filter — send activity items to Claude, get back matching item IDs
+  const runAiFilter = async () => {
+    if (!aiQuery.trim() || !items.length) return;
+    setAiLoading(true);
+    try {
+      const summary = items.slice(0, 60).map((a, i) => {
+        const ch = a.changes || {};
+        return `${i}|${a.action}|${ch.field_name || ch.subject || ""}|${a.created_at?.slice(0,10)||""}|${a.actor_name||""}`;
+      }).join("\n");
+      const prompt = `You are filtering an activity log. Return ONLY a JSON array of 0-based indices of matching items.\n\nQuery: "${aiQuery}"\n\nActivity items (format: index|action|detail|date|actor):\n${summary}\n\nReturn ONLY a JSON array like [0,2,5] — no other text.`;
+      const res = await api.post("/ai/chat", { messages: [{ role:"user", content: prompt }], max_tokens: 300 });
+      const txt = res?.content || res?.content?.[0]?.text || "";
+      const match = txt.match(/\[[\d,\s]*\]/);
+      if (match) {
+        const indices = JSON.parse(match[0]);
+        const matchedIds = new Set(indices.map(i => items[i]?.id).filter(Boolean));
+        setAiFilter({ label: aiQuery, ids: matchedIds });
+        setShowAiBox(false);
+        setAiQuery("");
+      } else {
+        setAiFilter(null);
+      }
+    } catch { /* silent */ }
+    setAiLoading(false);
+  };
+
+  const displayedItems = aiFilter ? items.filter(a => aiFilter.ids.has(a.id)) : items;
 
   const relTime = ts => {
     const s = (Date.now() - new Date(ts)) / 1000;
@@ -7323,25 +7355,65 @@ const ActivityPanel = memo(({ record, onViewAll }) => {
   return (
     <div style={{display:"flex",flexDirection:"column",gap:0}}>
 
-      {/* Search + categories */}
+      {/* Search + AI filter + categories */}
       <div style={{marginBottom:10}}>
-        <div style={{position:"relative",marginBottom:8}}>
-          <div style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}}>
-            <Ic n="search" s={12} c={C.text3}/>
+        <div style={{display:"flex",gap:6,marginBottom:8,alignItems:"center"}}>
+          <div style={{position:"relative",flex:1}}>
+            <div style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}}>
+              <Ic n="search" s={12} c={C.text3}/>
+            </div>
+            <input value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="Search activity…"
+              style={{width:"100%",boxSizing:"border-box",padding:"6px 10px 6px 28px",
+                borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:11.5,
+                fontFamily:F,background:"#f8f9fc",color:C.text1,outline:"none"}}/>
+            {search && (
+              <button onClick={()=>setSearch("")}
+                style={{position:"absolute",right:7,top:"50%",transform:"translateY(-50%)",
+                  background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}>
+                <Ic n="x" s={11} c={C.text3}/>
+              </button>
+            )}
           </div>
-          <input value={search} onChange={e=>setSearch(e.target.value)}
-            placeholder="Search activity…"
-            style={{width:"100%",boxSizing:"border-box",padding:"6px 10px 6px 28px",
-              borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:11.5,
-              fontFamily:F,background:"#f8f9fc",color:C.text1,outline:"none"}}/>
-          {search && (
-            <button onClick={()=>setSearch("")}
-              style={{position:"absolute",right:7,top:"50%",transform:"translateY(-50%)",
-                background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}>
-              <Ic n="x" s={11} c={C.text3}/>
-            </button>
-          )}
+          {/* AI smart filter button */}
+          <button onClick={()=>setShowAiBox(v=>!v)} title="AI smart filter"
+            style={{flexShrink:0,display:"flex",alignItems:"center",gap:4,padding:"6px 9px",
+              borderRadius:8,border:`1.5px solid ${showAiBox||aiFilter?C.accent:C.border}`,
+              background:showAiBox||aiFilter?C.accentLight:"#f8f9fc",
+              color:showAiBox||aiFilter?C.accent:C.text3,cursor:"pointer",fontFamily:F,
+              fontSize:11,fontWeight:600,transition:"all .1s"}}>
+            <Ic n="sparkles" s={11} c={showAiBox||aiFilter?C.accent:C.text3}/>
+            {aiFilter ? "✦ Filtered" : "AI"}
+          </button>
         </div>
+        {/* AI filter input box */}
+        {showAiBox && (
+          <div style={{marginBottom:8,padding:"8px 10px",borderRadius:9,background:C.accentLight,border:`1.5px solid ${C.accent}30`,display:"flex",gap:6,alignItems:"center"}}>
+            <input autoFocus value={aiQuery} onChange={e=>setAiQuery(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter")runAiFilter();if(e.key==="Escape")setShowAiBox(false);}}
+              placeholder='e.g. "show only emails" or "changes from this week"'
+              style={{flex:1,border:"none",background:"transparent",outline:"none",fontSize:12,fontFamily:F,color:C.text1}}/>
+            <button onClick={runAiFilter} disabled={aiLoading||!aiQuery.trim()}
+              style={{flexShrink:0,padding:"3px 10px",borderRadius:6,border:"none",
+                background:C.accent,color:"white",fontSize:11,fontWeight:700,
+                cursor:aiLoading||!aiQuery.trim()?"not-allowed":"pointer",fontFamily:F,opacity:aiLoading||!aiQuery.trim()?.5:1}}>
+              {aiLoading?"…":"Filter"}
+            </button>
+          </div>
+        )}
+        {/* Active AI filter chip */}
+        {aiFilter && !showAiBox && (
+          <div style={{marginBottom:8,display:"flex",alignItems:"center",gap:6,padding:"4px 10px",
+            borderRadius:20,background:C.accentLight,border:`1.5px solid ${C.accent}40`,
+            fontSize:11,color:C.accent,fontWeight:600,width:"fit-content"}}>
+            <Ic n="sparkles" s={10} c={C.accent}/>
+            {aiFilter.label} ({aiFilter.ids.size} shown)
+            <button onClick={()=>setAiFilter(null)}
+              style={{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",color:C.accent}}>
+              <Ic n="x" s={10} c={C.accent}/>
+            </button>
+          </div>
+        )}
         <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
           {ACTIVITY_CATEGORIES.map(cat => (
             <button key={cat.id} onClick={()=>setCategory(cat.id)}
@@ -7373,17 +7445,17 @@ const ActivityPanel = memo(({ record, onViewAll }) => {
       {/* Compact feed */}
       {loading ? (
         <div style={{padding:"18px 0",textAlign:"center",color:C.text3,fontSize:12}}>Loading…</div>
-      ) : items.length===0 ? (
+      ) : displayedItems.length===0 ? (
         <div style={{padding:"24px 0",textAlign:"center",color:C.text3,fontSize:12}}>
-          {search||category!=="all" ? "No matching activity" : "No activity yet"}
+          {aiFilter ? "No activity matches your filter" : search||category!=="all" ? "No matching activity" : "No activity yet"}
         </div>
       ) : (
         <div>
-          {items.map((event, idx) => {
+          {displayedItems.map((event, idx) => {
             const meta   = ACT_META[event.action] || ACT_META.updated;
             const label  = actionLabel(event);
             const detail = fmtDetail(event);
-            const isLast = idx===items.length-1;
+            const isLast = idx===displayedItems.length-1;
             return (
               <div key={event.id}
                 style={{display:"flex",alignItems:"center",gap:9,

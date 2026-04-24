@@ -137,7 +137,9 @@ router.get('/avatars', (req, res) => {
 router.get('/search', (req, res) => {
   const { q, environment_id, limit=6 } = req.query;
   if (!q || !environment_id || environment_id === 'undefined') return res.json([]);
-  const term = q.toLowerCase();
+  // Split into tokens so "james ha" matches "James Harrison" even though
+  // JSON.stringify has no space between field values
+  const tokens = q.toLowerCase().split(/\s+/).filter(Boolean);
   const lim  = parseInt(limit);
   const objects = query('objects', o => o.environment_id === environment_id);
 
@@ -147,7 +149,8 @@ router.get('/search', (req, res) => {
     const records = query('records', r => r.object_id === obj.id && r.environment_id === environment_id && !r.deleted_at);
     const hits = [];
     for (const r of records) {
-      if (JSON.stringify(r.data).toLowerCase().includes(term)) {
+      const hay = JSON.stringify(r.data).toLowerCase();
+      if (tokens.every(t => hay.includes(t))) {
         const d = r.data || {};
         const display_name = [d.first_name, d.last_name].filter(Boolean).join(' ')
           || d.job_title || d.pool_name || d.name || d.title || 'Untitled';

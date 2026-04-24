@@ -288,7 +288,10 @@ export default function SearchPage({ environment, onNavigateToRecord }) {
     for (const obj of objects) {
       let recs = recordMap[obj.id] || [];
       if (query.trim()) {
-        recs = recs.filter(r => JSON.stringify(r.data||{}).toLowerCase().includes(query.toLowerCase()));
+        recs = recs.filter(r => {
+          const hay = JSON.stringify(r.data||{}).toLowerCase();
+          return query.toLowerCase().split(/\s+/).filter(Boolean).every(t => hay.includes(t));
+        });
       }
       if (filters.length && activeObject?.id === obj.id) {
         recs = applyFilters(recs, filters, fields[obj.id]||[]);

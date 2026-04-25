@@ -836,6 +836,24 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
   const createRef = useRef(null);
   const timer     = useRef(null);
 
+  // ── Search history ──────────────────────────────────────────────────────────
+  const HISTORY_KEY = `vrc_search_history_${userId || 'anon'}`;
+  const [searchHistory, setSearchHistory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch { return []; }
+  });
+  const saveToHistory = (q) => {
+    if (!q || !q.trim()) return;
+    setSearchHistory(prev => {
+      const deduped = [q, ...prev.filter(h => h.toLowerCase() !== q.toLowerCase())].slice(0, 20);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(deduped));
+      return deduped;
+    });
+  };
+  const clearHistory = () => {
+    setSearchHistory([]);
+    localStorage.removeItem(HISTORY_KEY);
+  };
+
   useEffect(() => {
     const h = (e) => { if (dashRef.current && !dashRef.current.contains(e.target)) setDashOpen(false); };
     document.addEventListener("mousedown", h);
@@ -939,6 +957,7 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
 
   const handleAdvanced = () => {
     setOpen(false);
+    if (query.trim()) saveToHistory(query.trim());
     onNavigateToSearch(query);
   };
 
@@ -1001,7 +1020,7 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
         <input
           value={query}
           onChange={handleChange}
-          onFocus={() => query && setOpen(true)}
+          onFocus={() => setOpen(true)}
           placeholder="Search candidates, jobs, talent pools…"
           style={{ width: "100%", padding: "8px 36px 8px 36px", borderRadius: 10, border: `1.5px solid ${open ? "var(--t-accent)" : "var(--t-border)"}`, fontSize: 13, fontFamily: "var(--t-font, 'Geist', sans-serif)", outline: "none", background: "var(--t-surface2)", color: "var(--t-text1)", boxSizing: "border-box", transition: "border-color .15s" }}
         />
@@ -1010,15 +1029,56 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
         </span>
 
         {/* Dropdown */}
-        {open && query && (
+        {open && (
           <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: "var(--t-surface)", borderRadius: 12, border: "1px solid var(--t-border)", boxShadow: "0 8px 32px rgba(0,0,0,.15)", zIndex: 300, overflow: "hidden" }}>
-            {loading && (
+
+            {/* ── History panel (shown when input is empty) ── */}
+            {!query.trim() && (
+              <>
+                {searchHistory.length === 0 ? (
+                  <div style={{ padding: "14px 16px", fontSize: 12, color: "var(--t-text3)", textAlign: "center" }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ display: "block", margin: "0 auto 6px" }}><path d="M12 8v4l3 3M2 12a10 10 0 1 0 20 0 10 10 0 0 0-20 0"/></svg>
+                    No recent searches
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px 6px", borderBottom: "1px solid var(--t-border2)" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--t-text3)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Recent searches</span>
+                      <button onClick={clearHistory} style={{ fontSize: 11, color: "var(--t-text3)", background: "none", border: "none", cursor: "pointer", padding: "2px 4px", borderRadius: 4, fontFamily: "inherit" }}
+                        onMouseEnter={e => e.currentTarget.style.color = "var(--t-danger, #ef4444)"}
+                        onMouseLeave={e => e.currentTarget.style.color = "var(--t-text3)"}>
+                        Clear all
+                      </button>
+                    </div>
+                    {searchHistory.map((h, i) => (
+                      <div key={i}
+                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", cursor: "pointer", borderBottom: "1px solid var(--t-border2)", transition: "background .1s" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "var(--t-surface2)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "var(--t-surface)"}
+                        onClick={() => { setQuery(h); setOpen(true); search(h); }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t-text3)" strokeWidth="2" style={{ flexShrink: 0 }}><path d="M12 8v4l3 3M2 12a10 10 0 1 0 20 0 10 10 0 0 0-20 0"/></svg>
+                        <span style={{ fontSize: 13, color: "var(--t-text1)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h}</span>
+                        <button
+                          onClick={e => { e.stopPropagation(); setSearchHistory(prev => { const next = prev.filter((_, j) => j !== i); localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); return next; }); }}
+                          style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: "var(--t-text3)", borderRadius: 4, lineHeight: 1, fontFamily: "inherit", fontSize: 14 }}
+                          title="Remove"
+                          onMouseEnter={e => e.currentTarget.style.color = "var(--t-text1)"}
+                          onMouseLeave={e => e.currentTarget.style.color = "var(--t-text3)"}>×</button>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </>
+            )}
+
+            {/* ── Results (shown when query is non-empty) ── */}
+            {query.trim() && loading && (
               <div style={{ padding: "12px 16px", fontSize: 12, color: "var(--t-text3)" }}>Searching…</div>
             )}
-            {!loading && results.length === 0 && (
+            {query.trim() && !loading && results.length === 0 && (
               <div style={{ padding: "12px 16px", fontSize: 12, color: "var(--t-text3)" }}>No results for "{query}"</div>
             )}
-            {!loading && results.map((r) => {
+            {query.trim() && !loading && results.map((r) => {
               const color = r.object_color || OBJECT_COLORS[r.object_slug] || "#6366f1";
               const d = r.data || {};
               const name = r.display_name
@@ -1033,9 +1093,11 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
                   onMouseEnter={e => e.currentTarget.style.background = "var(--t-surface2)"}
                   onMouseLeave={e => e.currentTarget.style.background = "var(--t-surface)"}
                   onClick={() => {
+                    saveToHistory(query.trim());
                     setOpen(false);
                     setQuery("");
-                    onNavigateToRecord?.(r.id, r.object_id);                  }}>
+                    onNavigateToRecord?.(r.id, r.object_id);
+                  }}>
                   <div style={{ width: 30, height: 30, borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <span style={{ color: "white", fontSize: 11, fontWeight: 700 }}>{(name||"?").charAt(0).toUpperCase()}</span>
                   </div>
@@ -1047,7 +1109,8 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
                 </div>
               );
             })}
-            {/* Advanced search footer */}
+            {/* Advanced search footer — only shown when there's an active query */}
+            {query.trim() && (
             <div onClick={handleAdvanced} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", cursor: "pointer", background: "var(--t-surface2)", borderTop: "1px solid var(--t-border)", transition: "background .1s" }}
               onMouseEnter={e => e.currentTarget.style.background = "var(--t-accent-light)"}
               onMouseLeave={e => e.currentTarget.style.background = "var(--t-surface2)"}>
@@ -1055,6 +1118,7 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
               <span style={{ fontSize: 12, fontWeight: 600, color: "var(--t-accent)" }}>Advanced search for "{query}"</span>
               <svg style={{ marginLeft: "auto" }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t-text3)" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
             </div>
+            )}
           </div>
         )}
       </div>

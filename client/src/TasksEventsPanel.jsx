@@ -137,6 +137,7 @@ function AcknowledgeModal({ config, onConfirm, onClose }) {
 }
 
 // ── Quick task edit modal ─────────────────────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
 function QuickTaskModal({ task, defaultDate, envId, recId, recName, onDone }) {
   const [title,    setTitle]    = useState(task?.title    || "");
   const [due,      setDue]      = useState(task?.due_date || defaultDate || "");
@@ -186,12 +187,142 @@ function QuickTaskModal({ task, defaultDate, envId, recId, recName, onDone }) {
   , document.body);
 }
 
+// ── Inline form completion modal ──────────────────────────────────────────────
+function TaskFormModal({ task, config, onComplete, onClose }) {
+  const [form,     setForm]     = useState(null);
+  const [formData, setFormData] = useState({});
+  const [saving,   setSaving]   = useState(false);
+  const [error,    setError]    = useState('');
+
+  useEffect(() => {
+    if (!config.form_id) return;
+    tFetch(`/api/forms/${config.form_id}`).then(r=>r.json())
+      .then(d => { if (d.id) setForm(d); })
+      .catch(() => setError('Could not load form.'));
+  }, [config.form_id]);
+
+  const requiredFields = (form?.fields || []).filter(f => f.required);
+  const allFilled = requiredFields.every(f => {
+    const v = formData[f.api_key];
+    return v !== undefined && v !== '' && v !== null;
+  });
+
+  const handleSubmit = async () => {
+    if (!allFilled) { setError('Please fill in all required fields.'); return; }
+    setSaving(true);
+    try {
+      await tFetch(`/api/forms/${config.form_id}/responses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          record_id:      task.record_id,
+          environment_id: task.environment_id,
+          data:           formData,
+          submitted_by:   'task_completion',
+        }),
+      });
+      onComplete({ form_submitted: true, form_id: config.form_id, form_name: config.form_name || form?.name, submitted_at: new Date().toISOString() });
+    } catch(e) {
+      setError('Submission failed — please try again.');
+      setSaving(false);
+    }
+  };
+
+  return ReactDOM.createPortal(
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1400,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}
+      onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:'white',borderRadius:16,width:'100%',maxWidth:540,maxHeight:'85vh',
+        display:'flex',flexDirection:'column',boxShadow:'0 24px 64px rgba(0,0,0,0.2)',fontFamily:F}}
+        onMouseDown={e=>e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{padding:'18px 24px 14px',borderBottom:'1px solid #f0f0f0',display:'flex',alignItems:'center',gap:12}}>
+          <div style={{width:32,height:32,borderRadius:8,background:'#f5f3ff',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            <Ic n="form" s={16} c="#7c3aed"/>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:14,fontWeight:700,color:'#111827'}}>{config.form_name || form?.name || 'Complete Form'}</div>
+            {config.instructions && <div style={{fontSize:12,color:'#6b7280',marginTop:2}}>{config.instructions}</div>}
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:'#9ca3af',fontSize:20,padding:0,lineHeight:1}}>×</button>
+        </div>
+
+        {/* Body */}
+        <div style={{padding:'20px 24px',overflowY:'auto',flex:1}}>
+          {!form && !error && <div style={{textAlign:'center',color:'#9ca3af',padding:32}}>Loading form…</div>}
+          {error  && <div style={{padding:'10px 14px',borderRadius:8,background:'#fef2f2',border:'1px solid #fecaca',color:'#ef4444',fontSize:13}}>{error}</div>}
+          {form && (
+            <div style={{display:'flex',flexDirection:'column',gap:16}}>
+              {(form.fields||[]).map((field,i) => (
+                <TaskFormField key={field.id||i} field={field}
+                  value={formData[field.api_key] ?? ''}
+                  onChange={v => setFormData(prev => ({...prev, [field.api_key]: v}))}/>
+              ))}
+              {form.fields?.length === 0 && (
+                <div style={{textAlign:'center',color:'#9ca3af',padding:20,fontSize:13}}>This form has no fields configured.</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{padding:'14px 24px',borderTop:'1px solid #f0f0f0',display:'flex',gap:8,alignItems:'center'}}>
+          {requiredFields.length > 0 && (
+            <span style={{fontSize:11,color:'#9ca3af',flex:1}}>{requiredFields.length} required field{requiredFields.length!==1?'s':''}</span>
+          )}
+          <div style={{flex:1}}/>
+          <button onClick={onClose} style={{padding:'8px 18px',borderRadius:9,border:'1px solid #e5e7eb',background:'white',color:'#374151',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:F}}>Cancel</button>
+          <button onClick={handleSubmit} disabled={saving||!form}
+            style={{padding:'8px 22px',borderRadius:9,border:'none',fontSize:13,fontWeight:700,cursor:form?'pointer':'default',fontFamily:F,
+              background:allFilled&&form?'#7c3aed':'#e5e7eb',color:allFilled&&form?'white':'#9ca3af'}}>
+            {saving?'Submitting…':'Submit & Complete'}
+          </button>
+        </div>
+      </div>
+    </div>
+  , document.body);
+}
+
+// ── Form field renderer (for TaskFormModal) ───────────────────────────────────
+function TaskFormField({ field, value, onChange }) {
+  const base = { width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid #e5e7eb',
+    fontSize:13, fontFamily:F, outline:'none', boxSizing:'border-box', color:'#111827' };
+  const lbl = (
+    <div style={{fontSize:11,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:5}}>
+      {field.label||field.name} {field.required&&<span style={{color:'#ef4444'}}>*</span>}
+    </div>
+  );
+  switch (field.field_type) {
+    case 'text':     return <div>{lbl}<input value={value} onChange={e=>onChange(e.target.value)} placeholder={field.placeholder||''} style={base}/></div>;
+    case 'textarea': return <div>{lbl}<textarea value={value} onChange={e=>onChange(e.target.value)} rows={3} placeholder={field.placeholder||''} style={{...base,resize:'vertical'}}/></div>;
+    case 'number':   return <div>{lbl}<input type="number" value={value} onChange={e=>onChange(e.target.value)} style={base}/></div>;
+    case 'date':     return <div>{lbl}<input type="date" value={value} onChange={e=>onChange(e.target.value)} style={base}/></div>;
+    case 'email':    return <div>{lbl}<input type="email" value={value} onChange={e=>onChange(e.target.value)} style={base}/></div>;
+    case 'boolean':  return (
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <input type="checkbox" checked={!!value} onChange={e=>onChange(e.target.checked)} style={{width:16,height:16,accentColor:'#7c3aed',cursor:'pointer'}}/>
+        <span style={{fontSize:13,color:'#374151'}}>{field.label||field.name} {field.required&&<span style={{color:'#ef4444'}}>*</span>}</span>
+      </div>
+    );
+    case 'select': return (
+      <div>{lbl}
+        <select value={value} onChange={e=>onChange(e.target.value)} style={base}>
+          <option value="">Select…</option>
+          {(field.options||[]).map(o=><option key={o} value={o}>{o}</option>)}
+        </select>
+      </div>
+    );
+    default: return <div>{lbl}<input value={value} onChange={e=>onChange(e.target.value)} style={base}/></div>;
+  }
+}
+
 // ── Type-aware TaskRow ────────────────────────────────────────────────────────
 function TaskRow({ task, onRefresh }) {
   const [acting,    setActing]    = useState(false);  // uploading / submitting
   const [showSign,  setShowSign]  = useState(false);
   const [showAck,   setShowAck]   = useState(false);
   const [showEdit,  setShowEdit]  = useState(false);
+  const [showForm,  setShowForm]  = useState(false);
   const fileRef = useRef();
 
   const ct       = task.completion_type || 'checkbox';
@@ -278,7 +409,7 @@ function TaskRow({ task, onRefresh }) {
         else if (ct==='e_signature') setShowSign(true);
         else if (ct==='document_read') setShowAck(true);
         else if (ct==='external_link' && config.url) { window.open(config.url,'_blank'); complete({visited_at:new Date().toISOString()}); }
-        else if (ct==='form' && config.form_id) { /* TODO: open form inline */ complete({form_submitted:true}); }
+        else if (ct==='form' && config.form_id) { setShowForm(true); }
         else complete({});
       }} disabled={acting}
         style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:7,
@@ -343,6 +474,11 @@ function TaskRow({ task, onRefresh }) {
 
       {/* Read & Acknowledge modal */}
       {showAck && <AcknowledgeModal config={config} onConfirm={()=>{ setShowAck(false); complete({acknowledged_at:new Date().toISOString()}); }} onClose={()=>setShowAck(false)}/>}
+
+      {/* Form completion modal */}
+      {showForm && <TaskFormModal task={task} config={config}
+        onComplete={data=>{ setShowForm(false); complete(data); }}
+        onClose={()=>setShowForm(false)}/>}
 
       {/* Quick edit */}
       {showEdit && <TaskModal task={task} environmentId={task.environment_id}

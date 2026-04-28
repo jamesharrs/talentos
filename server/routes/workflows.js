@@ -668,6 +668,59 @@ router.post('/:id/run', async (req, res) => {
             const cur = offer_currency || cfg.currency || 'USD';
             actionOutput = `Offer created${sal ? ` (${cur} ${Number(sal).toLocaleString()})` : ''} — Draft`;
 
+          } else if (action.type === 'assign_task_group') {
+            if (!cfg.template_id) { actionOutput = '⚠ No task group template configured'; actionStatus = 'warning'; }
+            else {
+              const s = getStore();
+              const tpl = (s.task_group_templates || []).find(t => t.id === cfg.template_id && !t.deleted_at);
+              if (!tpl) { actionOutput = `⚠ Task group template not found`; actionStatus = 'warning'; }
+              else {
+                // Determine anchor date from a record field (e.g. start_date)
+                const anchorField = cfg.anchor_field || 'start_date';
+                const anchorDate  = record.data?.[anchorField] || cfg.anchor_date || null;
+                // POST to the task-groups assignment endpoint internally
+                const { router: tgRouter } = require('./task_groups');
+                const now = new Date().toISOString();
+                const assignmentId = require('uuid').v4();
+                if (!s.task_group_assignments) s.task_group_assignments = [];
+                if (!s.calendar_tasks) s.calendar_tasks = [];
+                const anchorMs = anchorDate ? new Date(anchorDate).getTime() : Date.now();
+                s.task_group_assignments.push({
+                  id: assignmentId, template_id: cfg.template_id, template_name: tpl.name,
+                  template_color: tpl.color, template_icon: tpl.icon,
+                  record_id, record_name: [record.data?.first_name, record.data?.last_name].filter(Boolean).join(' ') || record_id.slice(0,8),
+                  environment_id: record.environment_id, assigned_by: 'workflow',
+                  anchor_date: anchorDate, status: 'active',
+                  assigned_at: now, created_at: now, deleted_at: null,
+                });
+                let spawned = 0;
+                for (const [idx, def] of (tpl.task_definitions || []).entries()) {
+                  let dueDate = null;
+                  if (def.due_offset_days != null) {
+                    dueDate = new Date(anchorMs + def.due_offset_days * 86400000).toISOString().slice(0, 10);
+                  } else if (def.due_date) { dueDate = def.due_date; }
+                  s.calendar_tasks.push({
+                    id: require('uuid').v4(), environment_id: record.environment_id,
+                    title: def.title || `Task ${idx+1}`, description: def.description || '',
+                    task_type: def.task_type || 'other', priority: def.priority || 'medium',
+                    status: 'todo', due_date: dueDate, due_time: null,
+                    assignee_id: def.assignee_id || null, record_id,
+                    record_name: record.data?.first_name || record_id.slice(0,8),
+                    checklist: JSON.stringify(def.checklist || []), tags: '[]',
+                    estimated_minutes: def.estimated_minutes || null, completed_at: null,
+                    completion_type: def.completion_type || 'checkbox',
+                    completion_config: JSON.stringify(def.completion_config || {}),
+                    completion_data: null, task_group_id: cfg.template_id,
+                    group_assignment_id: assignmentId, created_by: 'workflow',
+                    created_at: now, updated_at: now, deleted_at: null,
+                  });
+                  spawned++;
+                }
+                require('../db/init').saveStore();
+                actionOutput = `Task group "${tpl.name}" assigned — ${spawned} task${spawned!==1?'s':''} created`;
+              }
+            }
+
           } else {
             actionOutput = `Unknown action: ${action.type}`;
             actionStatus = 'skipped';

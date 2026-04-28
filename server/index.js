@@ -311,6 +311,7 @@ app.use('/api/digest',            require('./routes/digest'));
 // Expose broadcast globally so any route can push updates without circular deps
 global.sseBroadcast = broadcast;
 app.use('/api/task-triggers',     require('./routes/task_triggers').router);
+app.use('/api/task-groups',       require('./routes/task_groups'));
 app.use('/api/onboarding',        require('./routes/onboarding'));
 app.use('/api/onboarding-progress', require('./routes/onboarding_progress'));
 app.use('/api/plan',              require('./middleware/plan_gates').router);

@@ -66,6 +66,7 @@ const AUTOMATION_TYPES = [
   { type:"run_agent",             label:"Run Agent",            icon:"zap",       color:"#7048e8", desc:"Execute an agent against this record (e.g. AI Interview)" },
   { type:"ai_interview",          label:"AI Interview",         icon:"cpu",       color:"#7048e8", desc:"Send candidate an AI voice interview link using questions from their linked job" },
   { type:"create_offer",          label:"Create Offer",         icon:"dollar",    color:"#0ca678", desc:"Create an offer for the candidate" },
+  { type:"assign_task_group",     label:"Assign Task Group",    icon:"check-square", color:"#7c3aed", desc:"Assign a task group template to the person" },
 ];
 
 // Keep STEP_TYPES as alias for display in run results etc.
@@ -864,6 +865,49 @@ const StepHubConfig = ({ step, onChange, personFields=[], recordFields=[] }) => 
   );
 };
 
+// ── Assign Task Group config component ────────────────────────────────────────
+function AssignTaskGroupConfig({ cfg, onChange, envId, fields }) {
+  const [templates, setTemplates] = useState([]);
+  useEffect(() => {
+    if (!envId) return;
+    fetch(`/api/task-groups/templates?environment_id=${envId}`)
+      .then(r=>r.json()).then(d=>setTemplates(Array.isArray(d)?d:[])).catch(()=>{});
+  }, [envId]);
+
+  const sel = templates.find(t=>t.id===cfg.template_id);
+  const dateFields = fields.filter(f=>f.field_type==='date'||f.api_key==='start_date'||f.api_key==='due_date');
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      <div>
+        <div style={{fontSize:11,fontWeight:600,color:"#6b7280",marginBottom:5}}>Task group template</div>
+        <select value={cfg.template_id||""} onChange={e=>{
+          const t=templates.find(x=>x.id===e.target.value);
+          onChange({template_id:e.target.value, template_name:t?.name||''});
+        }} style={{width:"100%",padding:"8px 10px",border:"1px solid #e5e7eb",borderRadius:8,fontSize:13,fontFamily:"inherit",outline:"none",background:"white"}}>
+          <option value="">Select a task group…</option>
+          {templates.map(t=><option key={t.id} value={t.id}>{t.name} ({(t.task_definitions||[]).length} tasks)</option>)}
+        </select>
+        {templates.length===0&&<div style={{fontSize:11,color:"#f59f00",marginTop:5,padding:"6px 10px",background:"#fffbeb",borderRadius:6,border:"1px solid #fde68a"}}>No task group templates found. Create one in Settings → Task Groups.</div>}
+      </div>
+      {sel&&(
+        <div style={{padding:"8px 12px",borderRadius:8,background:"#faf5ff",border:"1px solid #e9d5ff",fontSize:11,color:"#7c3aed"}}>
+          <strong>{sel.name}</strong> — {(sel.task_definitions||[]).length} task{(sel.task_definitions||[]).length!==1?'s':''}{sel.description?`: ${sel.description}`:''}
+        </div>
+      )}
+      <div>
+        <div style={{fontSize:11,fontWeight:600,color:"#6b7280",marginBottom:5}}>Anchor date field <span style={{fontWeight:400,color:"#9ca3af"}}>(for relative due dates)</span></div>
+        <select value={cfg.anchor_field||"start_date"} onChange={e=>onChange({...cfg,anchor_field:e.target.value})}
+          style={{width:"100%",padding:"8px 10px",border:"1px solid #e5e7eb",borderRadius:8,fontSize:13,fontFamily:"inherit",outline:"none",background:"white"}}>
+          <option value="start_date">start_date (default)</option>
+          {dateFields.map(f=><option key={f.api_key} value={f.api_key}>{f.name} ({f.api_key})</option>)}
+          <option value="">Today (no anchor)</option>
+        </select>
+      </div>
+    </div>
+  );
+}
+
 const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, onMoveDown, fields, visibilityFields, envId, allSteps=[] }) => {
   const step = migrateStep(rawStep);
   const actions = step.actions || [];
@@ -1220,6 +1264,10 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
                       ✦ Sends the candidate an AI interview link. Questions pulled from their linked job at runtime.
                       <br/><span style={{color:"#7048e8",fontWeight:600}}>Use "Run Agent" instead for full configuration options.</span>
                     </div>
+                  )}
+
+                  {action.type === "assign_task_group" && (
+                    <AssignTaskGroupConfig cfg={cfg} onChange={patch=>setActionConfigs(action.id, patch)} envId={envId} fields={fields}/>
                   )}
 
                 </div>

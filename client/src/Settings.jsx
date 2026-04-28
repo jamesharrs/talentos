@@ -7,6 +7,7 @@ import { usePermissions, Gate } from "./PermissionContext.jsx";
 import ReactDOM from "react-dom";
 import { TalentProfileBuilder } from "./TalentProfileView.jsx";
 import FileTypesSettings from "./settings/FileTypesSettings.jsx";
+import TaskGroupsSettings from "./settings/TaskGroupsSettings.jsx";
 import CompanyDocuments from "./settings/CompanyDocuments.jsx";
 import DuplicatesSettings from "./settings/DuplicatesSettings.jsx";
 import FieldModal from "./FieldModal.jsx";
@@ -157,6 +158,7 @@ const PATHS = {
   "filter":"M22 3H2l8 9.46V19l4 2v-8.54L22 3z",
   "git-branch":"M6 3v12M18 9a3 3 0 100-6 3 3 0 000 6zM6 21a3 3 0 100-6 3 3 0 000 6zM18 9a9 9 0 01-9 9",
   "user":"M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z",
+  "check-square":"M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11",
   "chevD":"M6 9l6 6 6-6",
   "info":"M12 22c5.5 0 10-4.5 10-10S17.5 2 12 2 2 6.5 2 12s4.5 10 10 10zM12 8h.01M12 12v4",
   "chevR":"M9 18l6-6-6-6",
@@ -2095,13 +2097,6 @@ function AppearanceSection() {
   const { prefs, update } = useTheme();
   const labelSt = { fontSize:11, fontWeight:800, color:C.text2, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 };
 
-  const handleLangSelect = async (code) => {
-    if (code === locale) return;
-    setGenStatus(s => ({ ...s, [code]: "loading" }));
-    const ok = await generateTranslations(code);
-    setGenStatus(s => ({ ...s, [code]: ok ? "done" : "error" }));
-  };
-
   return (
     <div style={{ maxWidth:540 }}>
       <h2 style={{ margin:"0 0 4px", fontSize:18, fontWeight:700, color:C.text1, fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.4px" }}>Appearance</h2>
@@ -2587,6 +2582,7 @@ const NAV_GROUPS = [
       { id:"datamodel",    icon:"database",    label:"Data model",        perm:"manage_settings" },
       { id:"duplicates",   icon:"users",       label:"Duplicates",        perm:"manage_settings" },
       { id:"file_types",   icon:"paperclip",   label:"File types",        perm:"manage_settings" },
+      { id:"task_groups",  icon:"check-square",label:"Task Groups",        perm:"manage_settings" },
       { id:"company_docs", icon:"file",        label:"Company Documents" },
       { id:"forms",        icon:"form",        label:"Forms",             perm:"manage_forms" },
       { id:"questions",    icon:"help-circle", label:"Question library" },
@@ -2800,7 +2796,8 @@ export default function SettingsPage({ currentUser, environment, initialSection,
         {activeSection==="audit"      && <AuditLogSection/>}
         {activeSection==="ai_governance" && <AiGovernance environment={environment}/>}
         {activeSection==="ai_matching"  && <AiMatchingSettings/>}
-        {activeSection==="file_types" && <FileTypesSettings environment={environment} objects={[]}/>}
+        {activeSection==="file_types"   && <FileTypesSettings environment={environment} objects={[]}/>}
+        {activeSection==="task_groups"  && <TaskGroupsSettings environment={environment}/>}
         {activeSection==="company_docs" && <CompanyDocuments environment={environment}/>}
         {activeSection==="duplicates" && <DuplicatesSettings environment={environment}/>}
         {activeSection==="forms"      && <FormsList environment={environment}/>}

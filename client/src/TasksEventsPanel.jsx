@@ -30,7 +30,13 @@ const C = { accent:"#4361EE", green:"#10b981", red:"#ef4444", amber:"#f59f00", p
   text1:"#111827", text2:"#374151", text3:"#9ca3af", border:"#f3f4f6", white:"#ffffff" };
 
 function safeJson(v, fallback) {
-  try { return typeof v==='string' ? JSON.parse(v) : (v ?? fallback); } catch { return fallback; }
+  try {
+    const parsed = typeof v === 'string' ? JSON.parse(v) : v;
+    if (parsed === null || parsed === undefined) return fallback;
+    // If caller expects an array, ensure we return one
+    if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
+    return parsed;
+  } catch { return fallback; }
 }
 
 function Badge({ children, color, bg }) {

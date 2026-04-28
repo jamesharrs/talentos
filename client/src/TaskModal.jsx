@@ -138,8 +138,12 @@ function computeReminderAt(dueDate, dueTime, val) {
   return mins ? new Date(base.getTime() - mins*60000).toISOString() : null;
 }
 function safeJson(v, fallback) {
-  try { return typeof v === 'string' ? JSON.parse(v) : (v ?? fallback); }
-  catch { return fallback; }
+  try {
+    const parsed = typeof v === 'string' ? JSON.parse(v) : v;
+    if (parsed === null || parsed === undefined) return fallback;
+    if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
+    return parsed;
+  } catch { return fallback; }
 }
 
 // ── Shared input components ───────────────────────────────────────────────────

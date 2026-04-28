@@ -6715,17 +6715,25 @@ const JobTasksPanel = ({ record, environment }) => {
   const [addingTask, setAddingTask] = useState(false);
   const [newTask,    setNewTask]    = useState({ title:'', description:'', priority:'medium', completion_type:'checkbox', due_offset_days:'' });
   const [saving,     setSaving]     = useState(false);
+  // Assign to person state
+  const [linkedPeople,   setLinkedPeople]   = useState([]);
+  const [showAssign,     setShowAssign]     = useState(false);
+  const [assigningTo,    setAssigningTo]    = useState(null);  // person id being assigned
+  const [anchorDate,     setAnchorDate]     = useState('');
+  const [assignResult,   setAssignResult]   = useState(null);  // { count, name }
 
   const load = useCallback(async () => {
     if (!record?.id) return;
     setLoading(true);
-    const [jobData, tpls] = await Promise.all([
+    const [jobData, tpls, people] = await Promise.all([
       api.get(`/task-groups/by-job/${record.id}`),
       api.get(`/task-groups/templates${environment?.id ? `?environment_id=${environment.id}` : ''}`),
+      api.get(`/task-groups/by-job/${record.id}/linked-people`),
     ]);
     setGroups(Array.isArray(jobData?.groups) ? jobData.groups : []);
     setSingles(Array.isArray(jobData?.singles) ? jobData.singles : []);
     setTemplates(Array.isArray(tpls) ? tpls : []);
+    setLinkedPeople(Array.isArray(people) ? people : []);
     setLoading(false);
   }, [record?.id, environment?.id]);
 
@@ -6762,6 +6770,30 @@ const JobTasksPanel = ({ record, environment }) => {
     if (!window.confirm('Remove this task from the job?')) return;
     await api.delete(`/task-groups/by-job/${record.id}/singles/${taskId}`);
     load();
+  };
+
+  const assignToPerson = async (personId) => {
+    if (!personId) return;
+    const person = linkedPeople.find(p => p.id === personId);
+    setAssigningTo(personId);
+    try {
+      const res = await api.post(`/task-groups/by-job/${record.id}/assign-to-person`, {
+        record_id:      personId,
+        record_name:    person?.name || '',
+        environment_id: environment?.id,
+        anchor_date:    anchorDate || null,
+        assigned_by:    'manual',
+      });
+      setAssignResult({ count: res.spawned, name: person?.name || 'candidate' });
+      setShowAssign(false);
+      setAnchorDate('');
+      // Fire update so person's task panel refreshes if open
+      window.dispatchEvent(new CustomEvent('talentos:tasks-updated'));
+    } catch (e) {
+      alert('Assignment failed. Please try again.');
+    } finally {
+      setAssigningTo(null);
+    }
   };
 
   const attachedIds = new Set(groups.map(g => g.template_id));
@@ -6924,14 +6956,88 @@ const JobTasksPanel = ({ record, environment }) => {
         </div>
       </div>
 
-      {/* Assign to person button — shown when there's something to assign */}
+      {/* Assign to person — shown when there are tasks and linked people */}
       {(groups.length > 0 || singles.length > 0) && (
-        <div style={{ marginTop:20, padding:'12px 16px', borderRadius:12, background:'#f0fdf4', border:'1px solid #86efac' }}>
-          <div style={{ fontSize:12, fontWeight:700, color:'#15803d', marginBottom:4 }}>
-            Ready to assign to a candidate?
-          </div>
-          <div style={{ fontSize:11, color:'#166534', lineHeight:1.5 }}>
-            These {groups.length + singles.length} task definition{(groups.length+singles.length)!==1?'s':''} can be pushed to any linked candidate from their <strong>Linked Records</strong> panel, or via a workflow step (<em>Assign Task Group</em>). When assigned, tasks appear on the candidate filtered under this job.
+        <div style={{ marginTop:20 }}>
+
+          {/* Success flash */}
+          {assignResult && (
+            <div style={{ padding:'10px 14px', borderRadius:10, background:'#f0fdf4', border:'1px solid #86efac', fontSize:12, color:'#15803d', marginBottom:10, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <span>✓ {assignResult.count} task{assignResult.count!==1?'s':''} assigned to <strong>{assignResult.name}</strong></span>
+              <button onClick={()=>setAssignResult(null)} style={{ background:'none',border:'none',cursor:'pointer',color:'#15803d',fontSize:16,padding:0,lineHeight:1 }}>×</button>
+            </div>
+          )}
+
+          <div style={{ padding:'14px 16px', borderRadius:12, background:'#f8fafc', border:`1.5px solid ${C.border}` }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: showAssign ? 12 : 0 }}>
+              <div>
+                <div style={{ fontSize:12, fontWeight:700, color:C.text1 }}>
+                  Assign tasks to a candidate
+                </div>
+                <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>
+                  {groups.length + singles.length} task definition{(groups.length+singles.length)!==1?'s':''} ready
+                  {linkedPeople.length > 0 ? ` · ${linkedPeople.length} linked candidate${linkedPeople.length!==1?'s':''}` : ' · no linked candidates yet'}
+                </div>
+              </div>
+              {linkedPeople.length > 0 && (
+                <button onClick={()=>setShowAssign(a=>!a)}
+                  style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', borderRadius:8, border:`1.5px solid ${C.accent}`, background: showAssign ? C.accentLight : 'white', color:C.accent, fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:F }}>
+                  <Ic n="user" s={11} c={C.accent}/> {showAssign ? 'Cancel' : 'Assign'}
+                </button>
+              )}
+            </div>
+
+            {showAssign && linkedPeople.length > 0 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                {/* Anchor date (optional) */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                  <div>
+                    <div style={{ fontSize:11, fontWeight:600, color:C.text3, marginBottom:4 }}>Anchor date (for relative due dates)</div>
+                    <input type="date" value={anchorDate} onChange={e=>setAnchorDate(e.target.value)}
+                      style={{ width:'100%', padding:'6px 10px', borderRadius:8, border:`1.5px solid ${C.border}`, fontSize:12, fontFamily:F, outline:'none', boxSizing:'border-box' }}/>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11, fontWeight:600, color:C.text3, marginBottom:4 }}>Leave blank to use today</div>
+                    <div style={{ padding:'6px 10px', background:'#f3f4f6', borderRadius:8, fontSize:11, color:C.text3, lineHeight:1.5 }}>
+                      Tasks with +day offsets will calculate from this date
+                    </div>
+                  </div>
+                </div>
+
+                {/* Person list */}
+                <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'.05em', marginTop:4 }}>Select candidate</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:200, overflowY:'auto' }}>
+                  {linkedPeople.map(person => (
+                    <div key={person.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', background:'white', border:`1.5px solid ${C.border}`, borderRadius:10 }}>
+                      <div style={{ width:32, height:32, borderRadius:'50%', background:C.accentLight, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                        <span style={{ fontSize:12, fontWeight:700, color:C.accent }}>{person.name.charAt(0).toUpperCase()}</span>
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:13, fontWeight:600, color:C.text1 }}>{person.name}</div>
+                        <div style={{ fontSize:11, color:C.text3 }}>
+                          {person.job_title || person.email || ''}
+                          {person.stage ? ` · ${person.stage}` : ''}
+                        </div>
+                      </div>
+                      <button onClick={()=>assignToPerson(person.id)} disabled={!!assigningTo}
+                        style={{ padding:'5px 12px', borderRadius:8, border:'none', background:assigningTo===person.id?'#e5e7eb':C.accent, color:assigningTo===person.id?C.text3:'white', fontSize:11, fontWeight:700, cursor:assigningTo?'default':'pointer', fontFamily:F, flexShrink:0 }}>
+                        {assigningTo===person.id ? 'Assigning…' : 'Assign'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ fontSize:11, color:C.text3, lineHeight:1.5 }}>
+                  Tasks will appear on the candidate's <strong>Tasks & Reminders</strong> panel, filtered under this job.
+                </div>
+              </div>
+            )}
+
+            {linkedPeople.length === 0 && (
+              <div style={{ fontSize:11, color:C.text3, marginTop:6, lineHeight:1.5 }}>
+                Link candidates to this job via the <strong>Pipeline</strong> panel, then assign tasks directly from here. You can also use a <strong>workflow step</strong> to auto-assign when a candidate reaches a stage.
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -367,4 +367,39 @@ router.post('/by-job/:jobId/assign-to-person', (req, res) => {
   res.status(201).json({ ok: true, spawned: totalSpawned });
 });
 
+// GET /task-groups/by-job/:jobId/linked-people — people linked to this job via people_links
+router.get('/by-job/:jobId/linked-people', (req, res) => {
+  const s = getStore();
+  const { jobId } = req.params;
+
+  // Find all pipeline links where this job/object is the target
+  const links = (s.people_links || []).filter(l =>
+    !l.deleted_at &&
+    (l.record_id === jobId || l.target_record_id === jobId)
+  );
+
+  // Resolve person records
+  const people = links.map(l => {
+    const personId = l.person_id || l.person_record_id;
+    const rec = (s.records || []).find(r => r.id === personId && !r.deleted_at);
+    if (!rec) return null;
+    const d = rec.data || {};
+    const name = [d.first_name, d.last_name].filter(Boolean).join(' ') || d.email || personId.slice(0, 8);
+    return {
+      id: rec.id,
+      name,
+      email:     d.email      || '',
+      job_title: d.job_title  || d.current_title || '',
+      stage:     l.stage_name || '',
+      link_id:   l.id,
+    };
+  }).filter(Boolean);
+
+  // Deduplicate (a person may have multiple links to the same job)
+  const seen = new Set();
+  const unique = people.filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; });
+
+  res.json(unique);
+});
+
 module.exports = router;

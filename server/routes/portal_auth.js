@@ -73,6 +73,79 @@ router.post('/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /api/portal-auth/tasks — tasks for the authenticated portal user's linked record
+router.get('/tasks', (req, res) => {
+  ensureCollections();
+  const user = getPortalUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthenticated' });
+
+  const s = getStore();
+
+  // Resolve the person record by matching email
+  const personRecord = (s.records || []).find(r =>
+    !r.deleted_at &&
+    r.data?.email?.toLowerCase() === user.email.toLowerCase()
+  );
+  const record_id = personRecord?.id || user.record_id || null;
+
+  if (!record_id) return res.json({ tasks: [], groups: [], record_id: null });
+
+  // Get all open tasks for this record
+  const tasks = (s.calendar_tasks || []).filter(t =>
+    !t.deleted_at && t.record_id === record_id
+  );
+
+  // Get group assignments for this record
+  const assignments = (s.task_group_assignments || []).filter(a =>
+    !a.deleted_at && a.record_id === record_id && a.status !== 'cancelled'
+  );
+
+  // Enrich assignments with their tasks and progress
+  const groupedAssignments = assignments.map(a => {
+    const groupTasks = tasks.filter(t => t.group_assignment_id === a.id);
+    const done = groupTasks.filter(t => t.status === 'done').length;
+    const tpl = (s.task_group_templates || []).find(t => t.id === a.template_id);
+    return {
+      ...a,
+      template_name:  tpl?.name  || a.template_name,
+      template_color: tpl?.color || a.template_color,
+      template_icon:  tpl?.icon  || a.template_icon,
+      tasks: groupTasks,
+      task_count: groupTasks.length,
+      tasks_done: done,
+      complete: groupTasks.length > 0 && done === groupTasks.length,
+    };
+  });
+
+  // Standalone tasks (not part of any group)
+  const standaloneTasks = tasks.filter(t => !t.group_assignment_id);
+
+  res.json({ tasks: standaloneTasks, groups: groupedAssignments, record_id });
+});
+
+// PATCH /api/portal-auth/tasks/:id — complete a task from the portal
+router.patch('/tasks/:id', async (req, res) => {
+  ensureCollections();
+  const user = getPortalUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthenticated' });
+
+  const s = getStore();
+  const task = (s.calendar_tasks || []).find(t => t.id === req.params.id && !t.deleted_at);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const { status, completion_data } = req.body;
+  if (status) task.status = status;
+  if (status === 'done' && !task.completed_at) task.completed_at = new Date().toISOString();
+  if (status === 'todo') task.completed_at = null;
+  if (completion_data !== undefined) {
+    task.completion_data = typeof completion_data === 'string'
+      ? completion_data : JSON.stringify(completion_data);
+  }
+  task.updated_at = new Date().toISOString();
+  saveStore();
+  res.json(task);
+});
+
 // GET /api/portal-auth/users
 router.get('/users', (req, res) => {
   ensureCollections();

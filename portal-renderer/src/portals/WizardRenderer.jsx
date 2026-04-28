@@ -551,7 +551,6 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
       setQuestions(qs);
     }).catch(() => {});
   }, [job?.id]);
-  }, [job?.id]);
 
   // Resume from draft token in URL
   useEffect(() => {

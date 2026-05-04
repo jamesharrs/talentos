@@ -4,6 +4,7 @@ import ReactDOM from "react-dom";
 import RichTextEditor from "./RichTextEditor.jsx";
 import { MatchingEngine } from "./AI.jsx";
 import CommunicationsPanel from "./Communications.jsx";
+import BiasScanner from "./BiasScanner.jsx";
 import { EngagementBadge, EngagementPanel } from "./EngagementScore.jsx";
 import SharePicker from "./SharePicker.jsx";
 import { RecordPipelinePanel, PeoplePipelineWidget, LinkedRecordsPanel } from "./Workflows.jsx";
@@ -116,6 +117,7 @@ const Ic = ({ n, s=16, c="currentColor" }) => {
     calendar:"M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z",
     listChecks:"M3 7l2 2 4-4M3 12l2 2 4-4M3 17l2 2 4-4M13 8h8M13 13h8M13 18h8",
     clipboardCheck:"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM9 12l2 2 4-4",
+    shield:"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
   };
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -7099,6 +7101,7 @@ export const PANEL_META = {
   interview_plan: { icon:"calendar",    label:"Interview Plan",      defaultOpen:true,  jobOnly:true  },
   insights:     { icon:"barChart",      label:"Insights",            defaultOpen:true,  jobOnly:true },
   engagement:   { icon:"activity",      label:"Engagement Score",    defaultOpen:true,  personOnly:true },
+  bias_scan:    { icon:"shield",        label:"Bias Scanner",        defaultOpen:false, jobOnly:true },
 };
 
 export const getDefaultPanelOrder = (objectName) => {
@@ -7107,7 +7110,7 @@ export const getDefaultPanelOrder = (objectName) => {
   if (["Person","Job"].includes(objectName)) base.push("match");
   if (objectName === "Person") base.push("assessments");
   if (objectName === "Person") base.push("engagement");
-  if (objectName === "Job") { base.unshift("interview_plan"); base.splice(base.indexOf("tasks") + 1, 0, "coordination"); base.push("questions"); base.push("job_tasks"); }
+  if (objectName === "Job") { base.unshift("interview_plan"); base.splice(base.indexOf("tasks") + 1, 0, "coordination"); base.push("questions"); base.push("job_tasks"); base.push("bias_scan"); }
   if (objectName === "Job" || objectName === "Jobs") base.unshift("insights");
 
   return base;
@@ -9990,6 +9993,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     if (id==="engagement") return <EngagementPanel recordId={record?.id}/>;
     if (id==="questions") return <JobQuestionsPanel record={record} environment={environment}/>;
     if (id==="job_tasks") return <JobTasksPanel record={record} environment={environment}/>;
+    if (id==="bias_scan") return <BiasScanner record={record} environment={environment}/>;
     // interview_plan and scorecard are handled earlier with ff.interviews gate
 
     if (id==="match") {

@@ -292,6 +292,7 @@ app.use('/api/notification-preferences', require('./routes/notification_preferen
 app.use('/api/ai',                require('./routes/ai-proxy'));
 app.use('/api/translate',         require('./routes/translate'));
 app.use('/api/cv-parse',          require('./routes/cv_parse'));
+app.use('/api/bias-scan',         require('./routes/bias_scan'));
 app.use('/api/doc-extract',       require('./routes/doc_extract'));
 app.use('/api/linkedin-search',   require('./routes/linkedin_search'));
 app.use('/api/company-research',  require('./routes/company_research'));

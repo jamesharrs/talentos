@@ -10168,7 +10168,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
   const FunctionalityBar = () => (
     <div style={{ display:"flex", alignItems:"center", gap:0, background:C.surface,
-      borderBottom:`1px solid ${C.border}`, flexShrink:0, position:"sticky", top:0, zIndex:90, minHeight:56, padding:"0 16px" }}>
+      borderBottom:`1px solid ${C.border}`, flexShrink:0, position:"sticky", top:0, zIndex:90, minHeight:62, padding:"0 16px" }}>
 
       {/* IDENTITY — back crumb + avatar + name + subtitle — grows naturally */}
       <div style={{ display:"flex", alignItems:"center", gap:0, flex:"1 1 0", minWidth:0 }}>
@@ -10193,25 +10193,23 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
           <input ref={photoInputRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handlePhotoUpload}/>
         </div>
 
-        {/* Name + subtitle — no artificial maxWidth, just natural truncation */}
-        <div style={{ minWidth:0, display:"flex", flexDirection:"column", gap:1 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"nowrap" }}>
-            <span style={{ fontSize:15, fontWeight:700, color:C.text1, whiteSpace:"nowrap",
-              overflow:"hidden", textOverflow:"ellipsis",
-              fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.3px" }}>{title}</span>
-            {status && statusField && (
-              <Badge color={STATUS_COLORS[status]||C.accent} light>{status}</Badge>
-            )}
-          </div>
+        {/* Name + subtitle — single line layout */}
+        <div style={{ minWidth:0, display:"flex", alignItems:"center", gap:10, flexWrap:"nowrap", overflow:"hidden" }}>
+          <span style={{ fontSize:17, fontWeight:700, color:C.text1, whiteSpace:"nowrap",
+            overflow:"hidden", textOverflow:"ellipsis",
+            fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.4px", flexShrink:0 }}>{title}</span>
+          {status && statusField && (
+            <Badge color={STATUS_COLORS[status]||C.accent} light>{status}</Badge>
+          )}
           {objectName === "Person" ? (() => {
             const jobLine = record?.data?.current_title || record?.data?.job_title || "";
             const company = record?.data?.current_company || "";
             const combined = [jobLine, company].filter(Boolean).join(" · ");
             return combined
-              ? <div style={{ fontSize:12, color:C.text2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{combined}</div>
+              ? <span style={{ fontSize:13, color:C.text2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{combined}</span>
               : null;
           })() : subtitle ? (
-            <div style={{ fontSize:11, color:C.text3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{subtitle}</div>
+            <span style={{ fontSize:13, color:C.text3, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{subtitle}</span>
           ) : null}
         </div>
       </div>

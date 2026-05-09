@@ -222,10 +222,10 @@ export default function SignupPage() {
       <p style={{ fontSize: 14, color: C.text3, marginBottom: 28, fontFamily: F }}>This will be the admin account for your Vercentic environment.</p>
       <Field label="Company name" value={form.company} onChange={v => setForm({...form,company:v})} placeholder="Acme Corp" error={errors.company} required/>
       <div style={{ display: "flex", gap: 12 }}>
-        <div style={{ flex: 1 }}><Field label="First name" value={form.firstName} onChange={v => setForm({...form,firstName:v})} placeholder="James" error={errors.firstName} required/></div>
-        <div style={{ flex: 1 }}><Field label="Last name" value={form.lastName} onChange={v => setForm({...form,lastName:v})} placeholder="Harrison" error={errors.lastName}/></div>
+        <div style={{ flex: 1 }}><Field label="First name" value={form.firstName} onChange={v => setForm({...form,firstName:v})} placeholder="Your first name" error={errors.firstName} required/></div>
+        <div style={{ flex: 1 }}><Field label="Last name" value={form.lastName} onChange={v => setForm({...form,lastName:v})} placeholder="Your last name" error={errors.lastName}/></div>
       </div>
-      <Field label="Work email" type="email" value={form.email} onChange={v => setForm({...form,email:v})} placeholder="james@acme.com" error={errors.email} required/>
+      <Field label="Work email" type="email" value={form.email} onChange={v => setForm({...form,email:v})} placeholder="you@company.com" error={errors.email} required/>
       <Field label="Password" type="password" value={form.password} onChange={v => setForm({...form,password:v})} placeholder="Min. 8 characters" error={errors.password} hint="At least 8 characters" required/>
       <Field label="Confirm password" type="password" value={form.confirmPassword} onChange={v => setForm({...form,confirmPassword:v})} placeholder="Repeat password" error={errors.confirmPassword} required/>
       <div style={{ display: "flex", gap: 12 }}>
@@ -258,7 +258,7 @@ export default function SignupPage() {
           <span style={{ fontSize: 12, color: C.green, fontWeight: 600, fontFamily: F }}>First charge after trial</span>
         </div>
       </div>
-      <Field label="Cardholder name" value={payment.name} onChange={v => setPayment({...payment,name:v})} placeholder="James Harrison" error={errors.name} required/>
+      <Field label="Cardholder name" value={payment.name} onChange={v => setPayment({...payment,name:v})} placeholder="Full name on card" error={errors.name} required/>
       <Field label="Card number" value={payment.card} onChange={v => setPayment({...payment,card:fmtCard(v)})} placeholder="1234 5678 9012 3456" error={errors.card} required/>
       <div style={{ display: "flex", gap: 12 }}>
         <div style={{ flex: 1 }}><Field label="Expiry" value={payment.expiry} onChange={v => setPayment({...payment,expiry:fmtExpiry(v)})} placeholder="MM/YY" error={errors.expiry} required/></div>

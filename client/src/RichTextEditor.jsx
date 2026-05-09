@@ -400,11 +400,14 @@ export default function RichTextEditor({ value, onChange, placeholder, autoFocus
   const handleEditorClick = useCallback((e) => {
     if (e.target.tagName === "IMG") {
       const el = e.target;
+      // Clear any previously selected image's class
+      editorRef.current?.querySelectorAll('img.rte-selected').forEach(img => img.classList.remove('rte-selected'));
+      el.classList.add('rte-selected');
       const rect = el.getBoundingClientRect();
       setSelectedImg({ el, rect });
     } else {
-      // Clicked outside an image — dismiss if click wasn't on the img toolbar
       if (!imgToolbarRef.current?.contains(e.target)) {
+        editorRef.current?.querySelectorAll('img.rte-selected').forEach(img => img.classList.remove('rte-selected'));
         setSelectedImg(null);
       }
     }
@@ -442,6 +445,7 @@ export default function RichTextEditor({ value, onChange, placeholder, autoFocus
 
   const deleteSelectedImg = useCallback(() => {
     if (!selectedImg) return;
+    selectedImg.el.classList.remove('rte-selected');
     selectedImg.el.remove();
     setSelectedImg(null);
     onChange(editorRef.current?.innerHTML || "");
@@ -518,20 +522,32 @@ export default function RichTextEditor({ value, onChange, placeholder, autoFocus
         const ml = selectedImg.el.style.marginLeft;
         const mr = selectedImg.el.style.marginRight;
         const currentAlign = (ml === "auto" && mr === "auto") ? "center" : (ml === "auto") ? "right" : "left";
+        const toolbarH = 42;
+        const toolbarW = 310;
+        const gap = 8;
+        // Prefer above image, fall back to below
+        const spaceAbove = rect.top;
+        const topPos = spaceAbove > toolbarH + gap
+          ? rect.top - toolbarH - gap
+          : rect.bottom + gap;
+        // Centre horizontally on image, clamped to viewport
+        const idealLeft = rect.left + rect.width / 2 - toolbarW / 2;
+        const leftPos = Math.max(8, Math.min(idealLeft, window.innerWidth - toolbarW - 8));
         return (
           <div ref={imgToolbarRef} style={{
             position:"fixed",
-            top: rect.top - 46,
-            left: rect.left + rect.width / 2,
-            transform:"translateX(-50%)",
-            zIndex:9999,
+            top: topPos,
+            left: leftPos,
+            zIndex:19999,
             background:"#1a1a2e",
             borderRadius:10,
             padding:"6px 10px",
             display:"flex",
             alignItems:"center",
             gap:4,
-            boxShadow:"0 4px 20px rgba(0,0,0,0.3)",
+            boxShadow:"0 6px 24px rgba(0,0,0,0.4)",
+            pointerEvents:"auto",
+            userSelect:"none",
           }}>
             {/* Size pills */}
             {IMAGE_SIZES.map(s=>(
@@ -575,8 +591,9 @@ export default function RichTextEditor({ value, onChange, placeholder, autoFocus
         [contenteditable] strong { font-weight:700; }
         [contenteditable] em { font-style:italic; }
         [contenteditable] hr { border:none; border-top:2px solid #e5e7eb; margin:10px 0; }
-        [contenteditable] img { max-width:100%; border-radius:6px; cursor:pointer; transition:outline .1s; }
-        [contenteditable] img:hover { outline:2px solid #4361EE60; }
+        [contenteditable] img { max-width:100%; border-radius:6px; cursor:pointer; }
+        [contenteditable] img:hover { outline:2px solid #4361EE60; outline-offset:2px; }
+        [contenteditable] img.rte-selected { outline:2.5px solid #4361EE; outline-offset:2px; }
       `}</style>
 
       {linkModal && (

@@ -100,10 +100,10 @@ export default function LoginPage({ onLogin }) {
             <span style={{ fontFamily:FW, fontSize:20, fontWeight:700, letterSpacing:"-0.5px", color:"white" }}>Vercentic</span>
           </div>
           <h1 style={{ fontFamily:FW, fontSize:"clamp(28px,3.5vw,48px)", fontWeight:700, letterSpacing:"-1.5px", lineHeight:1.05, color:"white", marginBottom:18 }}>
-            The modern<br/>people platform.
+            The Enterprise<br/>People Platform.
           </h1>
           <p style={{ fontSize:14, color:"rgba(255,255,255,0.6)", lineHeight:1.75, maxWidth:320, margin:"0 0 36px" }}>
-            Intelligence built in. Not bolted on. Configure, manage, report and deliver — in one continuous loop.
+            Intelligence, built in.
           </p>
           {[
             "100% AI-powered, infinitely configurable",
@@ -117,7 +117,7 @@ export default function LoginPage({ onLogin }) {
           ))}
         </div>
         <div style={{ position:"relative", zIndex:1, fontSize:12, color:"rgba(255,255,255,0.28)" }}>
-          Vercentic · The modern people platform · 2026
+          Vercentic · The Enterprise People Platform · 2026
         </div>
       </div>
 

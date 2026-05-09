@@ -615,6 +615,7 @@ const FieldValue = ({ field, value, allFieldValues = {} }) => {
       const html = sanitizeHtml(String(value));
       return (
         <div style={{ fontSize:13, lineHeight:1.65, color:"#111827" }}
+          className="rich-text-preview"
           dangerouslySetInnerHTML={{ __html: html }}/>
       );
     }
@@ -9756,9 +9757,14 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                                   {new Date(aiMeta.generated_at).toLocaleDateString()}
                                 </span>
                               </div>
-                              <div style={{ fontSize:13, color:"#111827", lineHeight:1.6, whiteSpace:"pre-wrap" }}>
-                                {val}
-                              </div>
+                              {field.field_type === 'rich_text' && typeof val === 'string' && val.trim().startsWith('<')
+                                ? <div style={{ fontSize:13, color:"#111827", lineHeight:1.6 }}
+                                    className="rich-text-preview"
+                                    dangerouslySetInnerHTML={{ __html: val }}/>
+                                : <div style={{ fontSize:13, color:"#111827", lineHeight:1.6, whiteSpace:"pre-wrap" }}>
+                                    {val}
+                                  </div>
+                              }
                             </div>
                           )
                           : <div onClick={()=>!isReadonly&&setEditing(e=>({...e,[field.api_key]:originalVal}))} style={{ cursor:isReadonly?"default":"text", minHeight:22 }}>
@@ -10167,7 +10173,17 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
   if (!fullPage) return (
     <>
-      <style>{`@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
+      <style>{`
+        @keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+        .rich-text-preview h1{font-size:1.35em;font-weight:800;margin:.5em 0 .3em;color:#111827;line-height:1.3}
+        .rich-text-preview h2{font-size:1.15em;font-weight:700;margin:.5em 0 .25em;color:#111827;line-height:1.3}
+        .rich-text-preview h3{font-size:1em;font-weight:700;margin:.4em 0 .2em;color:#374151}
+        .rich-text-preview p{margin:.3em 0;line-height:1.65}
+        .rich-text-preview ul,.rich-text-preview ol{margin:.3em 0 .3em 1.2em;padding:0}
+        .rich-text-preview li{margin:.15em 0;line-height:1.55}
+        .rich-text-preview strong{font-weight:700;color:#111827}
+        .rich-text-preview em{font-style:italic}
+      `}</style>
       <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.2)", zIndex:899 }} onClick={onClose}/>
       <div style={{ position:"fixed", top:0, right:0, bottom:0, width:600, background:C.surface, zIndex:900, display:"flex", flexDirection:"column", boxShadow:"-8px 0 40px rgba(0,0,0,.14)", animation:"slideIn .2s ease" }}>
         <SlideOutHeader title={title} subtitle={subtitle} objectColor={objectColor} status={status} statusField={statusField} record={record} onToggleFullPage={onToggleFullPage} onDelete={onDelete} onClose={onClose} photoUrl={record?.data?.profile_photo || record?.data?.photo_url}/>

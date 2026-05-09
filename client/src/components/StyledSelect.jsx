@@ -8,7 +8,7 @@ const F = "'Plus Jakarta Sans', -apple-system, sans-serif";
 export default function StyledSelect({
   value,
   onChange,
-  options = [],        // [{ value, label, color?, icon?, badge?, disabled? }]
+  options = [],        // [{ value, label, color?, icon?, badge?, badgeColor?, disabled? }]
   placeholder = "Select…",
   size = "md",         // "sm" | "md" | "lg"
   variant = "default", // "default" | "ghost" | "pill"
@@ -18,12 +18,17 @@ export default function StyledSelect({
   maxHeight = 280,
   disabled = false,
   allowClear = false,
+  searchable = false,  // show search input inside dropdown
 }) {
   const [open, setOpen]     = useState(false);
   const [pos,  setPos]      = useState({ top: 0, left: 0, width: 0 });
+  const [q,    setQ]        = useState('');
   const ref                 = useRef(null);
 
   const sel = options.find(o => String(o.value) === String(value));
+  const visibleOptions = (searchable && q)
+    ? options.filter(o => o.label.toLowerCase().includes(q.toLowerCase()))
+    : options;
 
   // Position the dropdown portal
   const openDropdown = (e) => {
@@ -35,7 +40,7 @@ export default function StyledSelect({
   };
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) { setQ(''); return; }
     const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
@@ -119,7 +124,25 @@ export default function StyledSelect({
             </>
           )}
 
-          {options.map((opt, i) => {
+          {searchable && (
+            <div style={{ padding: "8px 10px 4px", borderBottom: "1px solid #f3f4f6" }}>
+              <div style={{ position: "relative" }}>
+                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }}>
+                  <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input
+                  autoFocus
+                  value={q}
+                  onChange={e => setQ(e.target.value)}
+                  placeholder="Search…"
+                  onClick={e => e.stopPropagation()}
+                  style={{ width:"100%", boxSizing:"border-box", paddingLeft:26, paddingRight:8, paddingTop:5, paddingBottom:5, borderRadius:6, border:"1.5px solid #e5e7eb", fontSize:12, fontFamily:F, outline:"none", color:"#111827" }}
+                />
+              </div>
+            </div>
+          )}
+
+          {visibleOptions.map((opt, i) => {
             const isSelected = String(opt.value) === String(value);
             return (
               <button key={opt.value ?? i}
@@ -142,7 +165,7 @@ export default function StyledSelect({
 
                 {/* Label + badge */}
                 <span style={{ flex: 1 }}>{opt.label}</span>
-                {opt.badge && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 99, background: "#f3f4f6", color: "#6b7280", fontWeight: 600 }}>{opt.badge}</span>}
+                {opt.badge && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 99, background: opt.badgeColor ? opt.badgeColor + "18" : "#f3f4f6", color: opt.badgeColor || "#6b7280", fontWeight: 600 }}>{opt.badge}</span>}
 
                 {/* Checkmark */}
                 {isSelected && (

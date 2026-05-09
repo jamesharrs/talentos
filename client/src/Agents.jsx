@@ -718,42 +718,65 @@ function AgentConditionBuilder({ conditions, fields, onChange }) {
 }
 
 // ── UpdateFieldConfig ─────────────────────────────────────────────────────────
+// Field type → small badge colour
+const FIELD_TYPE_COLOR = { text:"#4361EE", number:"#7048E8", select:"#0CA678", multi_select:"#0CA678", boolean:"#F08C00", date:"#E03131", email:"#4361EE", url:"#4361EE", people:"#7048E8", rating:"#F08C00", currency:"#0CA678", textarea:"#4361EE" };
+
 function UpdateFieldConfig({ action, fields, onChange }) {
-  const [search, setSearch] = useState('');
-  const filtered = search ? fields.filter(f=>f.name.toLowerCase().includes(search.toLowerCase())) : fields;
-  const selectedField = fields.find(f=>f.api_key===action.field_key);
   const inp = {padding:"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:12,fontFamily:F,background:"white",color:C.text1,outline:"none",width:"100%",boxSizing:"border-box"};
+  const selectedField = fields.find(f => f.api_key === action.field_key);
+
+  const fieldOptions = fields.map(f => ({
+    value: f.api_key,
+    label: f.name,
+    badge: f.field_type,
+    badgeColor: FIELD_TYPE_COLOR[f.field_type] || "#6b7280",
+  }));
+
   return (
     <div style={{display:"flex",flexDirection:"column",gap:8}}>
-      <div style={{position:"relative"}}>
-        <div style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",display:"flex"}}><Ic n="search" s={11} c={C.text3}/></div>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search fields…" style={{...inp,paddingLeft:28}}/>
-      </div>
-      <select value={action.field_key||''} onChange={e=>{onChange('field_key',e.target.value);setSearch('');}}
-        style={{...inp}} size={Math.min(filtered.length+1,6)}>
-        <option value="">Select field…</option>
-        {filtered.map(f=><option key={f.id} value={f.api_key}>{f.name}{f.field_type?` (${f.field_type})`:''}</option>)}
-      </select>
-      {selectedField&&(
-        <div style={{fontSize:10,color:C.text3,fontStyle:"italic"}}>
-          Type: {selectedField.field_type}
-          {selectedField.options?.length?` · Options: ${selectedField.options.slice(0,5).join(', ')}${selectedField.options.length>5?'…':''}`:'' }
+      <StyledSelect
+        value={action.field_key || ''}
+        onChange={v => onChange('field_key', v)}
+        options={fieldOptions}
+        placeholder="Select field…"
+        size="md"
+        style={{width:"100%"}}
+        maxHeight={240}
+        allowClear={false}
+        searchable={fields.length > 6}
+      />
+      {selectedField && (
+        <div style={{fontSize:10,color:C.text3,fontStyle:"italic",paddingLeft:2}}>
+          Type: <strong>{selectedField.field_type}</strong>
+          {selectedField.options?.length ? ` · Options: ${selectedField.options.slice(0,5).join(', ')}${selectedField.options.length>5?'…':''}` : ''}
         </div>
       )}
-      <input value={action.field_value||''} onChange={e=>onChange('field_value',e.target.value)}
-        placeholder="Value (leave empty to use AI output)…" style={inp}/>
-      {selectedField?.field_type==='select'&&selectedField.options?.length>0&&(
-        <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-          {selectedField.options.map(o=>(
-            <button key={o} onClick={()=>onChange('field_value',o)}
-              style={{padding:"3px 9px",borderRadius:99,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F,
-                border:`1.5px solid ${action.field_value===o?C.accent:C.border}`,
-                background:action.field_value===o?C.accentLight:"transparent",
-                color:action.field_value===o?C.accent:C.text3}}>
-              {o}
-            </button>
-          ))}
+      {/* Select field → show option pills instead of free text */}
+      {selectedField?.field_type==='select' && selectedField.options?.length>0 ? (
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <div style={{fontSize:11,color:C.text3,fontWeight:500}}>Choose value (or leave empty to use AI output):</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+            {selectedField.options.map(o=>(
+              <button key={o} onClick={()=>onChange('field_value', action.field_value===o ? '' : o)}
+                style={{padding:"4px 10px",borderRadius:99,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:F,
+                  border:`1.5px solid ${action.field_value===o ? C.accent : C.border}`,
+                  background:action.field_value===o ? C.accentLight : "transparent",
+                  color:action.field_value===o ? C.accent : C.text2, transition:"all .12s"}}>
+                {o}
+              </button>
+            ))}
+            {action.field_value && (
+              <button onClick={()=>onChange('field_value','')}
+                style={{padding:"4px 10px",borderRadius:99,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:F,
+                  border:`1.5px solid ${C.border}`,background:"transparent",color:C.text3}}>
+                ✕ clear
+              </button>
+            )}
+          </div>
         </div>
+      ) : (
+        <input value={action.field_value||''} onChange={e=>onChange('field_value',e.target.value)}
+          placeholder="Value (leave empty to use AI output)…" style={inp}/>
       )}
     </div>
   );

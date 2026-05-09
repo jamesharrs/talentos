@@ -150,6 +150,7 @@ app.use(session({
     httpOnly: true,                                           // not accessible via JS — XSS safe
     secure:   process.env.NODE_ENV === 'production',          // HTTPS only in prod
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',  // cross-origin for Vercel↔Railway
+    domain:   process.env.NODE_ENV === 'production' ? (process.env.COOKIE_DOMAIN || '.vercentic.com') : undefined,
     maxAge:   8 * 60 * 60 * 1000,                            // 8 hours
   },
 }));

@@ -55,6 +55,7 @@ function attachCsrfCookie(req, res, next) {
       httpOnly: false,   // must be readable by JS (that's the point)
       secure:   process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      domain:   process.env.NODE_ENV === 'production' ? (process.env.COOKIE_DOMAIN || '.vercentic.com') : undefined,
       maxAge:   8 * 60 * 60 * 1000,  // matches session cookie lifetime
     });
   }

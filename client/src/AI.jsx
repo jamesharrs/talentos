@@ -2923,7 +2923,20 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       if(propAction)    setProposedAction(propAction);
 
     } catch(err){
-      const errMsg = err.message && err.message.length < 300 ? err.message : "AI service error — please try again.";
+      // Sanitise error — never expose internal provider names or billing details
+      const raw = err.message || '';
+      let errMsg;
+      if (raw.toLowerCase().includes('credit') || raw.toLowerCase().includes('billing') || raw.toLowerCase().includes('balance') || raw.toLowerCase().includes('quota') || raw.toLowerCase().includes('rate limit') || raw.toLowerCase().includes('429')) {
+        errMsg = "Your AI credits are running low. Please contact customer support to top up your allowance.";
+      } else if (raw.toLowerCase().includes('api key') || raw.toLowerCase().includes('unauthorized') || raw.toLowerCase().includes('401')) {
+        errMsg = "AI service is not configured. Please contact customer support.";
+      } else if (raw.toLowerCase().includes('timeout') || raw.toLowerCase().includes('network') || raw.toLowerCase().includes('fetch')) {
+        errMsg = "Connection timed out. Please check your internet connection and try again.";
+      } else {
+        errMsg = raw && raw.length < 200 ? raw : "Something went wrong with the AI service. Please try again or contact customer support.";
+      }
+      // Strip any remaining provider names
+      errMsg = errMsg.replace(/anthropic/gi, 'AI provider').replace(/openai/gi, 'AI provider').replace(/claude/gi, 'Vercentic AI');
       setMessages(m=>[...m,{role:"assistant",content:`I encountered an error: ${errMsg}`,ts:new Date(),error:true}]);
     }
     setLoading(false);

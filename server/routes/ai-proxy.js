@@ -26,14 +26,19 @@ router.post('/chat', async (req, res) => {
 
     const data = await response.json();
     if (data.error) {
-      console.error('[AI proxy] Anthropic error:', response.status, data.error);
-      const msg = data.error.message || 'AI service error';
-      const detail = response.status === 401
-        ? 'Invalid API key. Check ANTHROPIC_API_KEY in Railway environment variables.'
-        : response.status === 429
-        ? 'Rate limited or insufficient credits. Check your Anthropic account balance.'
-        : msg;
-      return res.status(response.status || 400).json({ error: detail, anthropic_status: response.status, raw: data.error.type });
+      console.error('[AI proxy] error:', response.status, data.error.type);
+      // Return sanitised user-facing message — never expose provider names or billing details
+      let detail;
+      if (response.status === 401 || data.error.type === 'authentication_error') {
+        detail = 'AI service is not configured. Please contact customer support.';
+      } else if (response.status === 429 || data.error.type === 'insufficient_quota' || (data.error.message||'').toLowerCase().includes('credit')) {
+        detail = 'Your AI credits are running low. Please contact customer support to top up your allowance.';
+      } else if (response.status === 529 || data.error.type === 'overloaded_error') {
+        detail = 'AI service is temporarily busy. Please try again in a moment.';
+      } else {
+        detail = 'AI service error — please try again or contact customer support.';
+      }
+      return res.status(response.status || 400).json({ error: detail });
     }
     // Track AI usage
     try {

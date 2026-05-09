@@ -920,7 +920,7 @@ function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
     is_active: agent?.is_active!==undefined?agent.is_active:1, schedule_time: agent?.schedule_time||'09:00',
     sharing: agent?.sharing || { visibility: 'private', user_ids: [], group_ids: [] },
     avatar_icon: agent?.avatar_icon || '', avatar_color: agent?.avatar_color || '',
-    agent_scope: agent?.agent_scope || 'all',       // 'all' | 'object' | 'none'
+    agent_scope: agent?.agent_scope || 'object',    // 'all' | 'object' | 'none'
     scope_object_id: agent?.scope_object_id || '',  // object id when agent_scope === 'object'
   });
 
@@ -1281,7 +1281,7 @@ function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
                 <div style={{fontSize:11,color:C.text3,marginBottom:10}}>Choose which records show this agent in their AI Agents panel</div>
                 <div style={{display:"flex",flexDirection:"column",gap:6}}>
                   {[
-                    {val:"all",  label:"All records", desc:"Shows in the Agents panel on every record type"},
+                    {val:"all",  label:"All record types", desc:"Shows on every record — use only for truly generic agents"},
                     {val:"object",label:"Specific object", desc:"Only shows on records of a chosen object"},
                     {val:"none", label:"General agent (hidden)", desc:"Does not appear in any record panel"},
                   ].map(opt=>(

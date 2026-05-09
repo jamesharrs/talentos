@@ -926,7 +926,11 @@ function AgentBuilderModal({ agent, environment, objects, onClose, onSave }) {
 
   useEffect(()=>{ api.get('/agents/meta').then(setMeta).catch(()=>{}); },[]);
   useEffect(()=>{ api.get('/question-bank/questions').then(d=>setQuestions(Array.isArray(d)?d:[])).catch(()=>{}); },[]);
-  useEffect(()=>{ if(form.target_object_id) api.get(`/fields?object_id=${form.target_object_id}`).then(d=>setFields(Array.isArray(d)?d:[])).catch(()=>{}); },[form.target_object_id]);
+  useEffect(()=>{
+    const objId = form.target_object_id || form.scope_object_id;
+    if(objId) api.get(`/fields?object_id=${objId}`).then(d=>setFields(Array.isArray(d)?d:[])).catch(()=>{});
+    else setFields([]);
+  },[form.target_object_id, form.scope_object_id]);
 
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
   const addCondition = () => set('conditions',[...form.conditions,{field:'',operator:'equals',value:''}]);

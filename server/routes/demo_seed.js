@@ -121,7 +121,7 @@ async function runSeed({ environmentId, clearFirst = false, progressCb = () => {
     const company   = pick(COMPANIES);
     const location  = pick(LOCATIONS);
     const yrsExp    = rand(1, 18);
-    const skills    = picks(SKILLS_POOL, rand(4, 9)).map(s => ({ name: s, level: pick(['Beginner','Intermediate','Expert']) }));
+    const skills    = picks(SKILLS_POOL, rand(4, 9)); // plain strings — renderer expects string array
     const langs     = picks(LANGS, rand(1, 3));
     const salaryExp = rand(60, 350) * 1000;
 
@@ -211,7 +211,7 @@ async function runSeed({ environmentId, clearFirst = false, progressCb = () => {
         headcount:       rand(1, 3),
         experience_min_years: tmpl.exp,
         education_level:      pick(ED_LEVELS),
-        required_skills: tmpl.skills.map(s => ({ name: s, level: 'Expert' })),
+        required_skills: tmpl.skills, // plain strings
         nice_to_have_skills:  picks(['Agile','Scrum','Leadership','Communication','Strategic Planning'], rand(1,3)),
         posting_status:  pick(POSTING_STATUS),
         career_site_visible: Math.random() > 0.3,

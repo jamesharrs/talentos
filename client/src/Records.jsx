@@ -6393,9 +6393,9 @@ const getActionInputs = (action) => {
   const inputs = [];
   if (action.type === 'ai_draft_email' && !action.email_purpose)
     inputs.push({ key: 'email_purpose', label: 'Email purpose', type: 'text', placeholder: 'e.g. Follow-up after interview' });
-  if (action.type === 'ai_analyse' && !action.criteria)
+  if (action.type === 'ai_analyse' && !action.criteria && !action.prompt)
     inputs.push({ key: 'criteria', label: 'Analysis criteria', type: 'textarea', placeholder: 'e.g. Evaluate fit for a senior engineering role' });
-  if (action.type === 'ai_score' && !action.criteria)
+  if (action.type === 'ai_score' && !action.criteria && !action.prompt)
     inputs.push({ key: 'criteria', label: 'Scoring criteria', type: 'textarea', placeholder: 'e.g. Score against communication, leadership, and technical depth' });
   if (action.type === 'webhook' && !action.webhook_url)
     inputs.push({ key: 'webhook_url', label: 'Webhook URL', type: 'text', placeholder: 'https://...' });

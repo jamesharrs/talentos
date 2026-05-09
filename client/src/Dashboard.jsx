@@ -431,11 +431,26 @@ function DashFilterBtn({ jobs = [], jobFields = [], session, value, onChange }) 
 
   const active = value && value.type !== "all";
 
+  // "My jobs" — check all people-type ownership fields for the logged-in user
   const myJobs = jobs.filter(j => {
     const d = j.data || {};
-    const owner = (d.owner || d.recruiter || d.hiring_manager || "").toLowerCase();
     const me = ((session?.first_name || "") + " " + (session?.last_name || "")).trim().toLowerCase();
-    return owner && me && owner.includes(me.split(" ")[0].toLowerCase());
+    if (!me) return false;
+    const firstName = me.split(" ")[0];
+    // Check text fields (legacy)
+    const textFields = [d.owner, d.recruiter_name, d.coordinator_name].filter(Boolean).map(v => v.toLowerCase());
+    if (textFields.some(v => v.includes(firstName))) return true;
+    // Check people-type fields (array of {id, name})
+    const peopleFields = ["hiring_manager","recruiter","coordinator","sourcing_partner","interviewers","approved_by","interviewer"];
+    return peopleFields.some(key => {
+      const v = d[key];
+      if (!v) return false;
+      const arr = Array.isArray(v) ? v : [v];
+      return arr.some(p => {
+        const name = typeof p === "object" ? (p.name || "") : String(p);
+        return name.toLowerCase().includes(firstName);
+      });
+    });
   });
   const departments = [...new Set(jobs.map(j => j.data?.department).filter(Boolean))].sort();
 
@@ -532,7 +547,7 @@ function DashFilterBtn({ jobs = [], jobFields = [], session, value, onChange }) 
 
             {/* Specific job */}
             <div style={{ fontSize:10, fontWeight:700, color:V.gray, textTransform:"uppercase",
-              letterSpacing:".05em", padding:"2px 6px 4px" }}>Specific job</div>
+              letterSpacing:".05em", padding:"2px 6px 4px" }}>Jump to job</div>
             <select value={value?.type==="job" ? value.jobId : ""}
               onChange={e => e.target.value
                 ? apply({ type:"job", jobId:e.target.value,

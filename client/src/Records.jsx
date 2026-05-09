@@ -6396,13 +6396,13 @@ const getAllRequiredInputs = (agent) => {
 };
 
 const AgentsRecordPanel = ({ record, environment }) => {
-  const [agents,   setAgents]   = useState([]);
-  const [runs,     setRuns]     = useState([]);
-  const [running,  setRunning]  = useState({});
-  const [loading,  setLoading]  = useState(true);
-  const [confirm,  setConfirm]  = useState(null);
-  const [inputs,   setInputs]   = useState({});
-  const [expanded, setExpanded] = useState({}); // run.id → bool, shows error detail
+  const [agents,    setAgents]   = useState([]);
+  const [runs,      setRuns]     = useState([]);
+  const [running,   setRunning]  = useState({});
+  const [loading,   setLoading]  = useState(true);
+  const [confirm,   setConfirm]  = useState(null);
+  const [inputs,    setInputs]   = useState({});
+  const [detailRun, setDetailRun] = useState(null); // selected run for detail drawer
 
   const load = useCallback(async () => {
     if (!environment?.id || !record?.id) return;
@@ -6411,29 +6411,21 @@ const AgentsRecordPanel = ({ record, environment }) => {
         api.get(`/agents?environment_id=${environment.id}`),
         api.get(`/agents/runs/by-record/${record.id}`),
       ]);
-      // Filter agents to those relevant to this record's object:
-      // - agent_scope === 'all' (or not set — legacy): show on all records
-      // - agent_scope === 'object' + scope_object_id matches this record's object: show
-      // - agent_scope === 'none': never show in record panels
       const allAgents = Array.isArray(a) ? a.filter(ag => ag.is_active !== 0 && ag.is_active !== false) : [];
-      const filtered = allAgents.filter(ag => {
+      setAgents(allAgents.filter(ag => {
         const scope = ag.agent_scope || 'all';
         if (scope === 'none') return false;
         if (scope === 'object') return ag.scope_object_id === record.object_id;
-        return true; // 'all'
-      });
-      setAgents(filtered);
-      setRuns(Array.isArray(r) ? r.slice(0, 10) : []);
+        return true;
+      }));
+      setRuns(Array.isArray(r) ? r.slice(0, 20) : []);
     } catch (_) {}
     setLoading(false);
   }, [record?.id, environment?.id]);
 
   useEffect(() => { load(); }, [load]);
 
-  const openConfirm = (agent) => {
-    setInputs({});
-    setConfirm(agent);
-  };
+  const openConfirm = (agent) => { setInputs({}); setConfirm(agent); };
 
   const runAgent = async (agent, runtimeInputs = {}) => {
     setConfirm(null);
@@ -6444,9 +6436,172 @@ const AgentsRecordPanel = ({ record, environment }) => {
         runtime_inputs: runtimeInputs,
       });
       const r = await api.get(`/agents/runs/by-record/${record.id}`);
-      if (Array.isArray(r)) setRuns(r.slice(0, 10));
+      if (Array.isArray(r)) setRuns(r.slice(0, 20));
     } catch (e) { console.error(e); }
     setRunning(r => ({ ...r, [agent.id]: false }));
+  };
+
+  const STATUS_COLORS = { completed:'#10b981', success:'#10b981', failed:'#ef4444', running:'#f59e0b', pending_approval:'#f59e0b', skipped:'#6b7280', pending:'#6b7280' };
+  const STATUS_BG     = { completed:'#f0fdf4', success:'#f0fdf4', failed:'#fef2f2', running:'#fffbeb', pending_approval:'#fffbeb', skipped:'#f9fafb', pending:'#f9fafb' };
+
+  // ── Step icon based on step metadata type
+  const StepIcon = ({ step }) => {
+    const type = step.type || (step.step?.toLowerCase().includes('ai') ? 'ai' : step.step?.toLowerCase().includes('load') ? 'data' : 'action');
+    const icons = { ai:'M12 2l1.6 6.1a2 2 0 001.4 1.4L21 11.2a.5.5 0 010 1l-6 1.7a2 2 0 00-1.4 1.4L12 21.3a.5.5 0 01-1 0l-1.6-6a2 2 0 00-1.4-1.4L2 12.2a.5.5 0 010-1l6-1.7A2 2 0 009.4 8L12 2z', data:'M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2', action:'M20 6L9 17l-5-5' };
+    const colors = { ai:'#8b5cf6', data:'#3b5bdb', action:'#10b981' };
+    return (
+      <div style={{ width:22, height:22, borderRadius:6, background:`${colors[type]||'#6b7280'}15`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+        <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={colors[type]||'#6b7280'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d={icons[type]||icons.action}/>
+        </svg>
+      </div>
+    );
+  };
+
+  // ── Run Detail Drawer ──────────────────────────────────────────────────────
+  const RunDetailDrawer = ({ run, onClose }) => {
+    const agent = agents.find(a => a.id === run.agent_id);
+    const statusColor = STATUS_COLORS[run.status] || '#6b7280';
+    const statusBg    = STATUS_BG[run.status]    || '#f9fafb';
+    const steps = run.steps || [];
+    const duration = run.updated_at && run.created_at
+      ? Math.round((new Date(run.updated_at) - new Date(run.created_at)) / 1000)
+      : null;
+
+    return ReactDOM.createPortal(
+      <div style={{ position:'fixed', inset:0, background:'rgba(15,23,41,.35)', zIndex:1800, display:'flex', justifyContent:'flex-end' }}
+        onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+        <div style={{ width:480, maxWidth:'95vw', background:C.surface, height:'100%', overflowY:'auto', display:'flex', flexDirection:'column', boxShadow:'-8px 0 40px rgba(0,0,0,.14)' }}>
+
+          {/* Header */}
+          <div style={{ padding:'20px 24px 16px', borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+            <div style={{ display:'flex', alignItems:'flex-start', gap:12, marginBottom:12 }}>
+              <div style={{ width:40, height:40, borderRadius:11, background: agent?.avatar_color || agent?.color || C.accent,
+                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2l1.6 6.1a2 2 0 001.4 1.4L21 11.2a.5.5 0 010 1l-6 1.7a2 2 0 00-1.4 1.4L12 21.3a.5.5 0 01-1 0l-1.6-6a2 2 0 00-1.4-1.4L2 12.2a.5.5 0 010-1l6-1.7A2 2 0 009.4 8L12 2z"/>
+                </svg>
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:3 }}>{run.agent_name || agent?.name || 'Agent Run'}</div>
+                <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                  <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'2px 8px', borderRadius:99, fontSize:11, fontWeight:700, background:statusBg, color:statusColor }}>
+                    <span style={{ width:6, height:6, borderRadius:'50%', background:statusColor, display:'inline-block' }}/>
+                    {run.status?.replace('_', ' ')}
+                  </span>
+                  <span style={{ fontSize:11, color:C.text3 }}>{new Date(run.created_at).toLocaleString('en-GB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}</span>
+                  {duration !== null && <span style={{ fontSize:11, color:C.text3 }}>· {duration}s</span>}
+                </div>
+              </div>
+              <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:C.text3, fontSize:22, padding:0, lineHeight:1, flexShrink:0 }}>×</button>
+            </div>
+
+            {/* Quick stat chips */}
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              <span style={{ fontSize:11, padding:'3px 9px', borderRadius:99, background:'#f1f5f9', color:C.text2, fontWeight:600 }}>
+                {steps.length} step{steps.length !== 1 ? 's' : ''}
+              </span>
+              {run.ai_output && (
+                <span style={{ fontSize:11, padding:'3px 9px', borderRadius:99, background:'#f5f3ff', color:'#7c3aed', fontWeight:600 }}>AI output generated</span>
+              )}
+              {run.data_snapshot && (
+                <span style={{ fontSize:11, padding:'3px 9px', borderRadius:99, background:'#eff6ff', color:'#1d4ed8', fontWeight:600 }}>Record data used</span>
+              )}
+              {run.skip_reason && (
+                <span style={{ fontSize:11, padding:'3px 9px', borderRadius:99, background:'#f9fafb', color:C.text3, fontWeight:600 }}>Skipped: {run.skip_reason}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Body */}
+          <div style={{ flex:1, overflowY:'auto', padding:'20px 24px' }}>
+
+            {/* Error */}
+            {run.status === 'failed' && run.error && (
+              <div style={{ marginBottom:20, padding:'12px 16px', background:'#fef2f2', border:'1.5px solid #fecaca', borderRadius:12 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#b91c1c', textTransform:'uppercase', letterSpacing:'.05em', marginBottom:5 }}>Error</div>
+                <div style={{ fontSize:13, color:'#b91c1c', lineHeight:1.5, wordBreak:'break-word', fontFamily:'ui-monospace, monospace' }}>{run.error}</div>
+              </div>
+            )}
+
+            {/* Step timeline */}
+            {steps.length > 0 && (
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:10 }}>Execution log</div>
+                <div style={{ position:'relative' }}>
+                  {/* Vertical line */}
+                  <div style={{ position:'absolute', left:10, top:11, bottom:11, width:1, background:C.border }}/>
+                  <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+                    {steps.map((step, i) => (
+                      <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'7px 0', position:'relative' }}>
+                        <StepIcon step={step}/>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:12, fontWeight:600, color:C.text1, lineHeight:1.4 }}>{step.step}</div>
+                          {step.output_preview && (
+                            <div style={{ marginTop:4, padding:'6px 8px', background:'#f5f3ff', borderRadius:7, fontSize:11, color:'#6d28d9', lineHeight:1.5, fontStyle:'italic' }}>
+                              "{step.output_preview}{step.output_preview.length >= 200 ? '…' : ''}"
+                            </div>
+                          )}
+                          {step.fields_count !== undefined && (
+                            <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>{step.fields_count} field{step.fields_count !== 1 ? 's' : ''} available</div>
+                          )}
+                          <div style={{ fontSize:10, color:C.text3, marginTop:2 }}>{new Date(step.timestamp).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' })}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Data used */}
+            {run.data_snapshot && (
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8 }}>Record data used</div>
+                <div style={{ background:'#f8fafc', border:`1px solid ${C.border}`, borderRadius:10, padding:'12px 14px', fontFamily:'ui-monospace, monospace', fontSize:11, color:C.text2, lineHeight:1.7, whiteSpace:'pre-wrap', maxHeight:200, overflowY:'auto' }}>
+                  {run.data_snapshot}
+                </div>
+              </div>
+            )}
+
+            {/* AI output */}
+            {run.ai_output && (
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8 }}>AI output</div>
+                <div style={{ background:'#f5f3ff', border:'1.5px solid #ede9fe', borderRadius:10, padding:'14px 16px', fontSize:13, color:'#3b0764', lineHeight:1.7, whiteSpace:'pre-wrap', maxHeight:300, overflowY:'auto' }}>
+                  {run.ai_output}
+                </div>
+              </div>
+            )}
+
+            {/* Actions taken */}
+            {(run.pending_actions || []).filter(a => !a.queued).length > 0 && (
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8 }}>Actions taken</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  {(run.pending_actions || []).filter(a => !a.queued).map((pa, i) => (
+                    <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', borderRadius:9, background:'#f8f9fc', border:`1px solid ${C.border}` }}>
+                      <div style={{ width:20, height:20, borderRadius:5, background:C.accentLight, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                        <span style={{ fontSize:10, fontWeight:800, color:C.accent }}>{i + 1}</span>
+                      </div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:12, fontWeight:600, color:C.text1 }}>{pa.action?.type?.replace(/_/g, ' ')}</div>
+                        {pa.approved !== undefined && (
+                          <div style={{ fontSize:11, color: pa.approved ? '#10b981' : '#ef4444', fontWeight:600 }}>
+                            {pa.approved ? '✓ Approved' : '✗ Rejected'}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
   };
 
   if (loading) return <div style={{ padding:16, color:C.text3, fontSize:13 }}>Loading…</div>;
@@ -6461,117 +6616,63 @@ const AgentsRecordPanel = ({ record, environment }) => {
     </div>
   );
 
-  const STATUS_COLORS = { success:'#10b981', error:'#ef4444', running:'#f59e0b', pending:'#6b7280' };
   const requiredInputs = confirm ? getAllRequiredInputs(confirm) : [];
   const hasInputs = requiredInputs.length > 0;
   const inputsComplete = requiredInputs.every(inp => inputs[inp.key]?.trim());
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-      {/* ── Confirmation / Input modal ── */}
+      {/* Run detail drawer */}
+      {detailRun && <RunDetailDrawer run={detailRun} onClose={() => setDetailRun(null)}/>}
+
+      {/* Confirm / Input modal */}
       {confirm && (
-        <div
-          onClick={() => setConfirm(null)}
-          style={{ position:'fixed', inset:0, background:'rgba(15,23,41,0.5)', zIndex:1200,
-            display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{ background:'white', borderRadius:16, width:'100%', maxWidth:420,
-              boxShadow:'0 24px 60px rgba(0,0,0,0.22)', fontFamily:F, overflow:'hidden' }}>
-            {/* Header */}
+        <div onClick={() => setConfirm(null)} style={{ position:'fixed', inset:0, background:'rgba(15,23,41,0.5)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:'white', borderRadius:16, width:'100%', maxWidth:420, boxShadow:'0 24px 60px rgba(0,0,0,0.22)', fontFamily:F, overflow:'hidden' }}>
             <div style={{ padding:'18px 20px 14px', borderBottom:`1px solid ${C.border}` }}>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <div style={{ width:36, height:36, borderRadius:10,
-                  background: confirm.avatar_color || confirm.color || C.accent,
-                  display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <div style={{ width:36, height:36, borderRadius:10, background: confirm.avatar_color || confirm.color || C.accent, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                   <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 2l1.6 6.1a2 2 0 001.4 1.4L21 11.2a.5.5 0 010 1l-6 1.7a2 2 0 00-1.4 1.4L12 21.3a.5.5 0 01-1 0l-1.6-6a2 2 0 00-1.4-1.4L2 12.2a.5.5 0 010-1l6-1.7A2 2 0 009.4 8L12 2z"/>
                   </svg>
                 </div>
                 <div>
                   <div style={{ fontSize:15, fontWeight:700, color:C.text1 }}>{confirm.name}</div>
-                  {confirm.description && (
-                    <div style={{ fontSize:12, color:C.text3, marginTop:1 }}>{confirm.description}</div>
-                  )}
+                  {confirm.description && <div style={{ fontSize:12, color:C.text3, marginTop:1 }}>{confirm.description}</div>}
                 </div>
               </div>
             </div>
-
-            {/* What this agent will do */}
             <div style={{ padding:'14px 20px' }}>
-              <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase',
-                letterSpacing:'.06em', marginBottom:8 }}>This agent will</div>
+              <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8 }}>This agent will</div>
               <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                 {(confirm.actions || []).map((action, i) => (
-                  <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:8,
-                    padding:'7px 10px', borderRadius:8, background:'#f8f9fc',
-                    border:`1px solid ${C.border}` }}>
-                    <div style={{ width:20, height:20, borderRadius:5, background:C.accentLight,
-                      display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:1 }}>
+                  <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:8, padding:'7px 10px', borderRadius:8, background:'#f8f9fc', border:`1px solid ${C.border}` }}>
+                    <div style={{ width:20, height:20, borderRadius:5, background:C.accentLight, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:1 }}>
                       <span style={{ fontSize:10, fontWeight:800, color:C.accent }}>{i + 1}</span>
                     </div>
-                    <div style={{ fontSize:12, color:C.text2, lineHeight:1.5 }}>
-                      {describeAction(action)}
-                    </div>
+                    <div style={{ fontSize:12, color:C.text2, lineHeight:1.5 }}>{describeAction(action)}</div>
                   </div>
                 ))}
               </div>
             </div>
-
-            {/* Runtime inputs — only shown if needed */}
             {hasInputs && (
               <div style={{ padding:'0 20px 14px', borderTop:`1px solid ${C.border}`, paddingTop:14 }}>
-                <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase',
-                  letterSpacing:'.06em', marginBottom:10 }}>Additional information needed</div>
+                <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:10 }}>Additional information needed</div>
                 {requiredInputs.map(inp => (
                   <div key={inp.key} style={{ marginBottom:10 }}>
-                    <label style={{ display:'block', fontSize:12, fontWeight:600, color:C.text2, marginBottom:4 }}>
-                      {inp.label}
-                    </label>
-                    {inp.type === 'textarea' ? (
-                      <textarea
-                        placeholder={inp.placeholder}
-                        value={inputs[inp.key] || ''}
-                        onChange={e => setInputs(prev => ({ ...prev, [inp.key]: e.target.value }))}
-                        rows={3}
-                        style={{ width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:8,
-                          border:`1.5px solid ${C.border}`, fontSize:12, fontFamily:F,
-                          resize:'vertical', outline:'none', color:C.text1 }}
-                      />
-                    ) : (
-                      <input
-                        type="text"
-                        placeholder={inp.placeholder}
-                        value={inputs[inp.key] || ''}
-                        onChange={e => setInputs(prev => ({ ...prev, [inp.key]: e.target.value }))}
-                        style={{ width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:8,
-                          border:`1.5px solid ${C.border}`, fontSize:12, fontFamily:F,
-                          outline:'none', color:C.text1 }}
-                      />
-                    )}
+                    <label style={{ display:'block', fontSize:12, fontWeight:600, color:C.text2, marginBottom:4 }}>{inp.label}</label>
+                    {inp.type === 'textarea'
+                      ? <textarea placeholder={inp.placeholder} value={inputs[inp.key] || ''} onChange={e => setInputs(prev => ({ ...prev, [inp.key]: e.target.value }))} rows={3} style={{ width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:8, border:`1.5px solid ${C.border}`, fontSize:12, fontFamily:F, resize:'vertical', outline:'none', color:C.text1 }}/>
+                      : <input type="text" placeholder={inp.placeholder} value={inputs[inp.key] || ''} onChange={e => setInputs(prev => ({ ...prev, [inp.key]: e.target.value }))} style={{ width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:8, border:`1.5px solid ${C.border}`, fontSize:12, fontFamily:F, outline:'none', color:C.text1 }}/>
+                    }
                   </div>
                 ))}
               </div>
             )}
-
-            {/* Actions */}
-            <div style={{ padding:'12px 20px 16px', borderTop:`1px solid ${C.border}`,
-              display:'flex', gap:8 }}>
-              <button
-                onClick={() => setConfirm(null)}
-                style={{ flex:1, padding:'9px 0', borderRadius:9, border:`1px solid ${C.border}`,
-                  background:'transparent', fontSize:13, fontWeight:600, cursor:'pointer',
-                  fontFamily:F, color:C.text2 }}>
-                Cancel
-              </button>
-              <button
-                onClick={() => runAgent(confirm, inputs)}
-                disabled={hasInputs && !inputsComplete}
-                style={{ flex:2, padding:'9px 0', borderRadius:9, border:'none',
-                  background: (hasInputs && !inputsComplete) ? C.border : C.accent,
-                  color: (hasInputs && !inputsComplete) ? C.text3 : 'white',
-                  fontSize:13, fontWeight:700, cursor: (hasInputs && !inputsComplete) ? 'default' : 'pointer',
-                  fontFamily:F, transition:'all .15s' }}>
+            <div style={{ padding:'12px 20px 16px', borderTop:`1px solid ${C.border}`, display:'flex', gap:8 }}>
+              <button onClick={() => setConfirm(null)} style={{ flex:1, padding:'9px 0', borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:F, color:C.text2 }}>Cancel</button>
+              <button onClick={() => runAgent(confirm, inputs)} disabled={hasInputs && !inputsComplete}
+                style={{ flex:2, padding:'9px 0', borderRadius:9, border:'none', background:(hasInputs && !inputsComplete) ? C.border : C.accent, color:(hasInputs && !inputsComplete) ? C.text3 : 'white', fontSize:13, fontWeight:700, cursor:(hasInputs && !inputsComplete) ? 'default' : 'pointer', fontFamily:F }}>
                 ✦ Run agent
               </button>
             </div>
@@ -6579,18 +6680,14 @@ const AgentsRecordPanel = ({ record, environment }) => {
         </div>
       )}
 
-      {/* ── Agent cards ── */}
+      {/* Agent cards */}
       {agents.map(agent => {
-        const lastRun = runs.filter(r => r.agent_id === agent.id)[0];
+        const lastRun = runs.find(r => r.agent_id === agent.id);
         const isRunning = !!running[agent.id];
+        const statusColor = STATUS_COLORS[lastRun?.status] || '#6b7280';
         return (
-          <div key={agent.id} style={{
-            padding:'10px 12px', borderRadius:10, border:`1.5px solid ${C.border}`,
-            background: C.surface, display:'flex', alignItems:'center', gap:10,
-          }}>
-            <div style={{ width:32, height:32, borderRadius:8,
-              background: agent.avatar_color || agent.color || C.accent,
-              display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+          <div key={agent.id} style={{ padding:'10px 12px', borderRadius:10, border:`1.5px solid ${C.border}`, background:C.surface, display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ width:32, height:32, borderRadius:8, background:agent.avatar_color || agent.color || C.accent, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
               <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2l1.6 6.1a2 2 0 001.4 1.4L21 11.2a.5.5 0 010 1l-6 1.7a2 2 0 00-1.4 1.4L12 21.3a.5.5 0 01-1 0l-1.6-6a2 2 0 00-1.4-1.4L2 12.2a.5.5 0 010-1l6-1.7A2 2 0 009.4 8L12 2z"/>
               </svg>
@@ -6598,77 +6695,57 @@ const AgentsRecordPanel = ({ record, environment }) => {
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontSize:13, fontWeight:600, color:C.text1 }}>{agent.name}</div>
               {lastRun ? (
-                <div style={{ marginTop:2 }}>
-                  <div style={{ fontSize:11, color: lastRun.status === 'failed' ? '#ef4444' : C.text3, display:'flex', alignItems:'center', gap:4 }}>
-                    <span style={{ width:6, height:6, borderRadius:'50%', background:STATUS_COLORS[lastRun.status]||'#6b7280', flexShrink:0, display:'inline-block' }}/>
-                    {lastRun.status} · {new Date(lastRun.created_at).toLocaleDateString('en',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
-                    {lastRun.status === 'failed' && lastRun.error && (
-                      <button type="button" onClick={e => { e.stopPropagation(); setExpanded(p => ({ ...p, [lastRun.id]: !p[lastRun.id] })); }}
-                        style={{ marginLeft:4, background:'none', border:'none', cursor:'pointer', color:'#ef4444', fontSize:11, fontWeight:700, padding:0, textDecoration:'underline', fontFamily:F }}>
-                        {expanded[lastRun.id] ? 'hide' : 'why?'}
-                      </button>
-                    )}
+                <button type="button" onClick={() => setDetailRun(lastRun)}
+                  style={{ background:'none', border:'none', padding:0, cursor:'pointer', textAlign:'left', fontFamily:F }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
+                    <span style={{ width:6, height:6, borderRadius:'50%', background:statusColor, display:'inline-block', flexShrink:0 }}/>
+                    <span style={{ fontSize:11, color:lastRun.status === 'failed' ? '#ef4444' : C.text3 }}>
+                      {lastRun.status?.replace('_',' ')} · {new Date(lastRun.created_at).toLocaleDateString('en',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
+                    </span>
+                    <span style={{ fontSize:10, color:C.accent, fontWeight:600, textDecoration:'underline', textDecorationStyle:'dotted' }}>view →</span>
                   </div>
-                  {lastRun.status === 'failed' && lastRun.error && expanded[lastRun.id] && (
-                    <div style={{ marginTop:5, padding:'7px 10px', borderRadius:7, background:'#fef2f2', border:'1px solid #fecaca', fontSize:11, color:'#b91c1c', lineHeight:1.5, wordBreak:'break-word' }}>
-                      <strong>Error:</strong> {lastRun.error}
-                    </div>
-                  )}
-                </div>
+                </button>
               ) : (
                 <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>Never run on this record</div>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => !isRunning && openConfirm(agent)}
-              disabled={isRunning}
-              style={{
-                padding:'5px 12px', borderRadius:8,
-                border:`1.5px solid ${isRunning ? C.border : C.accent}`,
-                background: isRunning ? C.surface2 : C.accentLight,
-                color: isRunning ? C.text3 : C.accent,
-                fontSize:11, fontWeight:700, cursor: isRunning ? 'default' : 'pointer',
-                fontFamily:F, flexShrink:0, transition:'all .15s',
-              }}>
+            <button type="button" onClick={() => !isRunning && openConfirm(agent)} disabled={isRunning}
+              style={{ padding:'5px 12px', borderRadius:8, border:`1.5px solid ${isRunning ? C.border : C.accent}`, background:isRunning ? '#f9fafb' : C.accentLight, color:isRunning ? C.text3 : C.accent, fontSize:11, fontWeight:700, cursor:isRunning ? 'default' : 'pointer', fontFamily:F, flexShrink:0 }}>
               {isRunning ? 'Running…' : 'Run'}
             </button>
           </div>
         );
       })}
 
-      {/* ── Recent run history ── */}
+      {/* Recent runs — all clickable */}
       {runs.length > 0 && (
-        <div style={{ marginTop:4, padding:'8px 0', borderTop:`1px solid ${C.border}` }}>
+        <div style={{ marginTop:4, padding:'10px 0 0', borderTop:`1px solid ${C.border}` }}>
           <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'.05em', marginBottom:6 }}>Recent runs</div>
-          {runs.slice(0, 5).map(run => (
-            <div key={run.id} style={{ marginBottom: run.status === 'failed' && run.error ? 4 : 0 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0', fontSize:12 }}>
-                <span style={{ width:6, height:6, borderRadius:'50%', background:STATUS_COLORS[run.status]||'#6b7280', flexShrink:0, display:'inline-block' }}/>
-                <span style={{ color: run.status === 'failed' ? '#b91c1c' : C.text2, flex:1, fontWeight: run.status === 'failed' ? 600 : 400 }}>
+          {runs.slice(0, 8).map(run => {
+            const statusColor = STATUS_COLORS[run.status] || '#6b7280';
+            return (
+              <button type="button" key={run.id} onClick={() => setDetailRun(run)}
+                style={{ width:'100%', display:'flex', alignItems:'center', gap:8, padding:'5px 6px', borderRadius:8, border:'none', background:'none', cursor:'pointer', fontFamily:F, textAlign:'left', transition:'background .1s' }}
+                onMouseEnter={e => e.currentTarget.style.background = C.accentLight}
+                onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                <span style={{ width:7, height:7, borderRadius:'50%', background:statusColor, flexShrink:0, display:'inline-block' }}/>
+                <span style={{ color:run.status === 'failed' ? '#b91c1c' : C.text2, flex:1, fontSize:12, fontWeight:run.status === 'failed' ? 600 : 400, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                   {run.agent_name || run.agent_id}
                 </span>
-                <span style={{ color:C.text3, fontSize:11 }}>{new Date(run.created_at).toLocaleDateString('en',{day:'numeric',month:'short'})}</span>
-                {run.status === 'failed' && run.error && (
-                  <button type="button"
-                    onClick={() => setExpanded(p => ({ ...p, [run.id]: !p[run.id] }))}
-                    style={{ background:'none', border:'none', cursor:'pointer', color:'#ef4444', fontSize:11, fontWeight:700, padding:'0 2px', fontFamily:F, textDecoration:'underline' }}>
-                    {expanded[run.id] ? 'hide' : 'why?'}
-                  </button>
-                )}
-              </div>
-              {run.status === 'failed' && run.error && expanded[run.id] && (
-                <div style={{ margin:'2px 14px 6px', padding:'7px 10px', borderRadius:7, background:'#fef2f2', border:'1px solid #fecaca', fontSize:11, color:'#b91c1c', lineHeight:1.5, wordBreak:'break-word' }}>
-                  <strong>Error:</strong> {run.error}
-                </div>
-              )}
-            </div>
-          ))}
+                {run.ai_output && <span style={{ fontSize:10, color:'#8b5cf6', fontWeight:600, flexShrink:0 }}>AI</span>}
+                <span style={{ color:C.text3, fontSize:11, flexShrink:0 }}>{new Date(run.created_at).toLocaleDateString('en',{day:'numeric',month:'short'})}</span>
+                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={C.text3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
+                  <path d="M9 18l6-6-6-6"/>
+                </svg>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
   );
 };
+
 
 // ─── Job Tasks Panel ──────────────────────────────────────────────────────────
 // Shown on Job records. Lets admins attach task group templates and single tasks.

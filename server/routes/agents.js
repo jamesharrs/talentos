@@ -394,13 +394,22 @@ router.post('/runs/:run_id/approve', async (req, res) => {
 async function executeAgent(agent, run, record_id) {
   const s = getStore();
   const runIdx = s.agent_runs.findIndex(r => r.id === run.id);
-  const addStep = (step) => { s.agent_runs[runIdx].steps.push({ step, timestamp: new Date().toISOString() }); saveStore(); };
+  const addStep = (step, meta = {}) => {
+    s.agent_runs[runIdx].steps.push({ step, timestamp: new Date().toISOString(), ...meta });
+    saveStore();
+  };
   try {
     addStep('Agent started');
     let record = null, fields = [];
     if (record_id) {
       record = query('records', r => r.id === record_id)[0] || null;
-      if (record) { fields = query('fields', f => f.object_id === record.object_id); addStep(`Loaded record: ${record_id}`); }
+      if (record) {
+        fields = query('fields', f => f.object_id === record.object_id);
+        const recName = record.data?.first_name
+          ? [record.data.first_name, record.data.last_name].filter(Boolean).join(' ')
+          : record.data?.job_title || record.data?.name || record_id;
+        addStep(`Loaded record: ${recName}`, { type:'data', fields_count: fields.length });
+      }
     }
     if (agent.conditions && agent.conditions.length > 0) {
       if (!evaluateConditions(agent.conditions, record)) {
@@ -428,6 +437,8 @@ async function executeAgent(agent, run, record_id) {
           .join('\n');
       }
       if (!recordContext) recordContext = `Record ID: ${record.id} (no field data available)`;
+      s.agent_runs[runIdx].data_snapshot = recordContext.slice(0, 2000);
+      saveStore();
     }
     let aiOutput = null;
     const pendingActions = [];
@@ -438,14 +449,14 @@ async function executeAgent(agent, run, record_id) {
         aiOutput = await runAiAction(action, recordContext, record, fields, aiOutput);
         s.agent_runs[runIdx].ai_output = aiOutput; saveStore();
         logAiActivity({ record_id, environment_id: agent.environment_id, agent_name: agent.name, action_type: action.type, summary: aiOutput?.slice(0, 120) });
-        addStep(`AI action completed`);
+        addStep(`AI action completed`, { type:'ai', output_preview: aiOutput?.slice(0,200) });
       } else if (action.type === 'human_review') {
         pendingActions.push({ action, action_index: pendingActions.length, ai_output: aiOutput, record_preview: recordContext.slice(0,300), approved: undefined, created_at: new Date().toISOString() });
         addStep('Paused — awaiting human approval');
       } else {
         const lastPending = pendingActions[pendingActions.length - 1];
         if (lastPending && lastPending.approved === undefined) { pendingActions.push({ action, action_index: pendingActions.length, queued: true }); }
-        else { await executeAction(action, record_id, agent.environment_id, aiOutput, undefined, addStep); addStep(`Action executed: ${action.type}`); }
+        else { await executeAction(action, record_id, agent.environment_id, aiOutput, undefined, addStep); addStep(`Action completed: ${action.type}`, { type:'action', action_type: action.type }); }
       }
     }
     const hasPending = pendingActions.some(a => a.approved === undefined);

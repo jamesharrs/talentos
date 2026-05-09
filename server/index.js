@@ -422,7 +422,7 @@ app.get('/api/setup-status', (req, res) => {
       env = ms?.environments?.find(e => e.id === environment_id || e.tenant_slug === tenant_slug);
     }
     if (!env) return res.json({ ready: false, found: false });
-    res.json({ ready: env.setup_complete === true, environment_id: env.id });
+    res.json({ ready: env.setup_complete === true, environment_id: env.id, data_path: process.env.DATA_PATH || 'default' });
   } catch (e) {
     res.json({ ready: false, error: e.message });
   }

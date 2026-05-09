@@ -9115,8 +9115,13 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     if (serialize(oldValue) === serialize(newValue)) { setEditing(e=>{ const n={...e}; delete n[key]; return n; }); return; }
     setSaving(true);
     const fieldDef = fields.find(f=>f.api_key===key);
+    // If this field had AI-generated content, clear the __ai_meta tag so the
+    // field renders as a normal user-edited field (not the purple AI card).
+    const hadAiMeta = !!record.data?.[key + '__ai_meta'];
+    const patchData = { [key]: newValue };
+    if (hadAiMeta) patchData[key + '__ai_meta'] = null;
     const updated = await api.patch(`/records/${record.id}`, {
-      data: { [key]: newValue },
+      data: patchData,
       updated_by: "Admin",
       field_changes: [{ field_key:key, field_name:fieldDef?.name||key, old_value:oldValue, new_value:newValue }]
     });
@@ -9747,8 +9752,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                           : aiMeta
                           ? (
                             <div style={{ background:"#F5F3FF", borderRadius:10, padding:"10px 12px",
-                              border:"1px solid #7048E830", marginTop:2, cursor:"text" }}
-                              onClick={()=>!isReadonly&&setEditing(e=>({...e,[field.api_key]:originalVal}))}>
+                              border:"1px solid #7048E830", marginTop:2 }}>
                               <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
                                 <Avatar name="Agent" size={18} color="#7048E8"/>
                                 <span style={{ fontSize:11, fontWeight:600, color:"#6b7280" }}>Agent</span>
@@ -9756,6 +9760,16 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
                                 <span style={{ fontSize:11, color:"#9ca3af", marginLeft:"auto" }}>
                                   {new Date(aiMeta.generated_at).toLocaleDateString()}
                                 </span>
+                                {!isReadonly && (
+                                  <button
+                                    onClick={()=>setEditing(e=>({...e,[field.api_key]:originalVal}))}
+                                    title="Edit — your changes will replace the AI content"
+                                    style={{ display:"flex", alignItems:"center", gap:3, padding:"2px 7px", borderRadius:5,
+                                      border:"1px solid #7048E840", background:"white", cursor:"pointer",
+                                      fontSize:10, fontWeight:700, color:"#7048E8", fontFamily:F, flexShrink:0 }}>
+                                    <Ic n="edit" s={9} c="#7048E8"/> Edit
+                                  </button>
+                                )}
                               </div>
                               {field.field_type === 'rich_text' && typeof val === 'string' && val.trim().startsWith('<')
                                 ? <div style={{ fontSize:13, color:"#111827", lineHeight:1.6 }}

@@ -636,7 +636,10 @@ router.patch('/:id', validate(patchRecordSchema), (req, res) => {
   // Sanitise rich_text HTML in the patch data before merging into stored record
   const objFields  = query('fields', f => f.object_id === record.object_id);
   const cleanData  = sanitizeRecordData(data, objFields);
-  const updated = update('records', r=>r.id===req.params.id, {data:{...record.data,...cleanData},updated_at:new Date().toISOString()});
+  // Merge patch data, then remove keys explicitly set to null (used to clear AI meta flags)
+  const mergedData = { ...record.data, ...cleanData };
+  Object.keys(mergedData).forEach(k => { if (mergedData[k] === null) delete mergedData[k]; });
+  const updated = update('records', r=>r.id===req.params.id, {data:mergedData,updated_at:new Date().toISOString()});
   // If frontend sends rich field_changes array, log one event per field; otherwise log a generic updated event
   if (field_changes && Array.isArray(field_changes) && field_changes.length > 0) {
     for (const fc of field_changes) {

@@ -1,539 +1,325 @@
 /**
- * Vercentic Demo Data Seeder
- * server/routes/demo_seed.js
+ * Vercentic Demo Data Seeder — v2
+ * Targets the canonical object/field model from the local data store.
+ * People object: ee66d95d-c20b-4c58-8b17-14151a944d01
+ * Jobs  object:  ea9c6169-...  (looked up at runtime by slug)
  */
 
 const express = require('express');
 const router  = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { getStore, saveStore, storeCache, tenantStorage, listTenants, loadTenantStore } = require('../db/init');
+const { getStore, saveStore, saveStoreNow, storeCache, tenantStorage, listTenants, loadTenantStore } = require('../db/init');
 
+// ── helpers ────────────────────────────────────────────────────────────────
+const pick  = arr => arr[Math.floor(Math.random() * arr.length)];
+const rand  = (lo, hi) => Math.floor(Math.random() * (hi - lo + 1)) + lo;
+const picks = (arr, n) => [...arr].sort(() => 0.5 - Math.random()).slice(0, n);
+const now   = () => new Date().toISOString();
+const daysAgo = n => new Date(Date.now() - n * 86400000).toISOString().split('T')[0];
+const daysAhead = n => new Date(Date.now() + n * 86400000).toISOString().split('T')[0];
+
+// ── People seed data ────────────────────────────────────────────────────────
+const FIRST_NAMES = ['Sarah','Ahmed','Priya','James','Fatima','Marcus','Aisha','Liam','Nour','David','Emma','Khalid','Sofia','Omar','Yuki','Isabella','Mohammed','Charlotte','Ravi','Amina','Lucas','Zara','Benjamin','Leila','Daniel','Hana','Samuel','Mia','Ali','Clara','Noah','Yasmin','Ethan','Sana','Jack','Layla','Oliver','Nadia','Hugo','Carmen'];
+const LAST_NAMES  = ['Al-Rashidi','Chen','Patel','Harrison','Al-Mansouri','Johnson','Ibrahim','Williams','Hassan','Thompson','Kowalski','Al-Farsi','Rodriguez','Kim','Nakamura','Mueller','Singh','Laurent','Okonkwo','Martinez','Andersen','Gupta','Fernandez','Ali','Johansson','Nakashima','Dubois','Svensson','Petrov','Costa'];
+const LOCATIONS   = ['Dubai, UAE','Abu Dhabi, UAE','Riyadh, Saudi Arabia','Doha, Qatar','London, UK','New York, USA','Singapore','Mumbai, India','Toronto, Canada','Sydney, Australia','Berlin, Germany','Amsterdam, Netherlands','Paris, France','Cairo, Egypt','Nairobi, Kenya'];
+const TITLES      = ['Senior Software Engineer','Product Manager','Data Scientist','UX Designer','Financial Analyst','Marketing Manager','Sales Director','HR Business Partner','DevOps Engineer','Business Development Manager','Customer Success Manager','Legal Counsel','Operations Manager','Brand Manager','Talent Acquisition Specialist','Cloud Architect','AI/ML Engineer','Scrum Master','CFO','Chief of Staff'];
+const COMPANIES   = ['Google','Microsoft','Amazon','HSBC','McKinsey & Co','Emirates NBD','Accenture','Deloitte','PwC','KPMG','Salesforce','Meta','Apple','SAP','Oracle','Mastercard','Visa','Goldman Sachs','JP Morgan','Citibank'];
+const SKILLS_POOL = ['Python','JavaScript','TypeScript','React','Node.js','SQL','AWS','Azure','GCP','Docker','Kubernetes','Java','Go','C++','Machine Learning','Data Analysis','Project Management','Agile','Scrum','Product Strategy','UX Research','Figma','Adobe Suite','Financial Modelling','CRM','Salesforce','PowerBI','Tableau','Excel','Communication','Leadership','Negotiation','Stakeholder Management','Strategic Planning','Digital Marketing','SEO/SEM','Content Strategy','Risk Management','Compliance','M&A'];
+const LANGS       = ['English','Arabic','French','Spanish','German','Mandarin','Hindi','Urdu','Portuguese','Dutch','Japanese','Korean','Italian','Russian'];
+const UNIVERSITIES = ['MIT','Stanford University','Harvard University','University of Oxford','University of Cambridge','INSEAD','London Business School','IE Business School','American University of Beirut','University of Dubai','IIT Delhi','National University of Singapore','University of Toronto','University of Sydney','TU Munich'];
+
+// ── Jobs seed data ──────────────────────────────────────────────────────────
 const JOB_TEMPLATES = [
-  { title:'Senior Software Engineer',        dept:'Engineering', salary_min:120000, salary_max:160000, location:'San Francisco, USA',  work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Staff Engineer',                  dept:'Engineering', salary_min:160000, salary_max:220000, location:'New York, USA',        work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Frontend Engineer',               dept:'Engineering', salary_min:100000, salary_max:140000, location:'London, UK',           work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Backend Engineer',                dept:'Engineering', salary_min:110000, salary_max:150000, location:'Dubai, UAE',           work_type:'On-site', employment_type:'Full-time' },
-  { title:'DevOps Engineer',                 dept:'Engineering', salary_min:115000, salary_max:155000, location:'Singapore',            work_type:'Remote',  employment_type:'Full-time' },
-  { title:'Data Engineer',                   dept:'Data',        salary_min:105000, salary_max:145000, location:'London, UK',           work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'ML Engineer',                     dept:'Data',        salary_min:130000, salary_max:175000, location:'San Francisco, USA',   work_type:'Remote',  employment_type:'Full-time' },
-  { title:'Engineering Manager',             dept:'Engineering', salary_min:155000, salary_max:200000, location:'New York, USA',        work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'VP of Engineering',               dept:'Engineering', salary_min:220000, salary_max:300000, location:'San Francisco, USA',   work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Principal Engineer',              dept:'Engineering', salary_min:180000, salary_max:240000, location:'London, UK',           work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Product Manager',                 dept:'Product',     salary_min:120000, salary_max:165000, location:'Singapore',            work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Senior Product Manager',          dept:'Product',     salary_min:145000, salary_max:190000, location:'Dubai, UAE',           work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Mobile Engineer (iOS)',           dept:'Engineering', salary_min:110000, salary_max:150000, location:'Sydney, Australia',    work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Mobile Engineer (Android)',       dept:'Engineering', salary_min:110000, salary_max:150000, location:'London, UK',           work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Security Engineer',               dept:'Engineering', salary_min:125000, salary_max:170000, location:'New York, USA',        work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Site Reliability Engineer',       dept:'Engineering', salary_min:130000, salary_max:175000, location:'San Francisco, USA',   work_type:'Remote',  employment_type:'Full-time' },
-  { title:'Data Scientist',                  dept:'Data',        salary_min:115000, salary_max:160000, location:'Toronto, Canada',      work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'QA Engineer',                     dept:'Engineering', salary_min:85000,  salary_max:120000, location:'Dubai, UAE',           work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Solutions Architect',             dept:'Engineering', salary_min:150000, salary_max:200000, location:'Singapore',            work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'CTO',                             dept:'Engineering', salary_min:280000, salary_max:400000, location:'San Francisco, USA',   work_type:'On-site', employment_type:'Full-time' },
-  { title:'Investment Banking Analyst',      dept:'Finance',     salary_min:95000,  salary_max:130000, location:'London, UK',           work_type:'On-site', employment_type:'Full-time' },
-  { title:'Investment Banking Associate',    dept:'Finance',     salary_min:140000, salary_max:200000, location:'New York, USA',        work_type:'On-site', employment_type:'Full-time' },
-  { title:'Vice President – M&A',           dept:'Finance',     salary_min:200000, salary_max:280000, location:'London, UK',           work_type:'On-site', employment_type:'Full-time' },
-  { title:'Managing Director – DCM',        dept:'Finance',     salary_min:320000, salary_max:500000, location:'Dubai, UAE',           work_type:'On-site', employment_type:'Full-time' },
-  { title:'Quantitative Analyst',            dept:'Finance',     salary_min:130000, salary_max:180000, location:'New York, USA',        work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Risk Manager',                    dept:'Finance',     salary_min:110000, salary_max:160000, location:'Singapore',            work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Chief Risk Officer',              dept:'Finance',     salary_min:250000, salary_max:380000, location:'London, UK',           work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Financial Analyst',               dept:'Finance',     salary_min:70000,  salary_max:100000, location:'Toronto, Canada',      work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'FP&A Manager',                   dept:'Finance',     salary_min:115000, salary_max:155000, location:'Dubai, UAE',           work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Compliance Officer',              dept:'Finance',     salary_min:95000,  salary_max:140000, location:'London, UK',           work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Head of Compliance',             dept:'Finance',     salary_min:165000, salary_max:230000, location:'Singapore',            work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Portfolio Manager',              dept:'Finance',     salary_min:160000, salary_max:250000, location:'New York, USA',        work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Credit Risk Analyst',            dept:'Finance',     salary_min:85000,  salary_max:125000, location:'Dubai, UAE',           work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'CFO',                            dept:'Finance',     salary_min:300000, salary_max:450000, location:'New York, USA',        work_type:'On-site', employment_type:'Full-time' },
-  { title:'Finance Business Partner',       dept:'Finance',     salary_min:90000,  salary_max:130000, location:'Singapore',            work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Senior Accountant',              dept:'Finance',     salary_min:65000,  salary_max:95000,  location:'Toronto, Canada',      work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Tax Manager',                    dept:'Finance',     salary_min:110000, salary_max:155000, location:'London, UK',           work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Internal Auditor',               dept:'Finance',     salary_min:75000,  salary_max:110000, location:'Sydney, Australia',    work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Talent Acquisition Partner',     dept:'HR',          salary_min:70000,  salary_max:100000, location:'London, UK',           work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Senior Recruiter',               dept:'HR',          salary_min:80000,  salary_max:115000, location:'New York, USA',        work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Head of Talent Acquisition',     dept:'HR',          salary_min:130000, salary_max:180000, location:'San Francisco, USA',   work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'HR Business Partner',            dept:'HR',          salary_min:80000,  salary_max:120000, location:'Dubai, UAE',           work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Total Rewards Manager',          dept:'HR',          salary_min:105000, salary_max:150000, location:'Singapore',            work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'L&D Manager',                   dept:'HR',          salary_min:90000,  salary_max:130000, location:'London, UK',           work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Chief People Officer',           dept:'HR',          salary_min:250000, salary_max:350000, location:'New York, USA',        work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'HR Operations Manager',          dept:'HR',          salary_min:85000,  salary_max:120000, location:'Sydney, Australia',    work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'Diversity & Inclusion Lead',     dept:'HR',          salary_min:95000,  salary_max:135000, location:'San Francisco, USA',   work_type:'Hybrid',  employment_type:'Full-time' },
-  { title:'People Analytics Manager',       dept:'HR',          salary_min:110000, salary_max:155000, location:'London, UK',           work_type:'Hybrid',  employment_type:'Full-time' },
+  { title:'Senior Software Engineer',        dept:'Engineering',  salary_min:120000, salary_max:180000, exp:5, skills:['Python','JavaScript','AWS','Docker','SQL'],           work_type:'Hybrid',   priority:'High',     reason:'New Role'   },
+  { title:'Staff Engineer',                  dept:'Engineering',  salary_min:160000, salary_max:240000, exp:8, skills:['Go','Kubernetes','System Design','AWS','Python'],     work_type:'Hybrid',   priority:'Critical', reason:'New Role'   },
+  { title:'Frontend Engineer',               dept:'Engineering',  salary_min:100000, salary_max:150000, exp:3, skills:['React','TypeScript','CSS','Figma','JavaScript'],      work_type:'Remote',   priority:'Medium',   reason:'Backfill'   },
+  { title:'Backend Engineer',                dept:'Engineering',  salary_min:110000, salary_max:165000, exp:4, skills:['Python','Java','PostgreSQL','AWS','Docker'],           work_type:'Hybrid',   priority:'High',     reason:'Expansion'  },
+  { title:'DevOps Engineer',                 dept:'Engineering',  salary_min:115000, salary_max:170000, exp:4, skills:['AWS','Kubernetes','Terraform','Docker','CI/CD'],       work_type:'Hybrid',   priority:'High',     reason:'New Role'   },
+  { title:'AI/ML Engineer',                  dept:'Data',         salary_min:140000, salary_max:210000, exp:5, skills:['Python','Machine Learning','PyTorch','SQL','AWS'],    work_type:'Hybrid',   priority:'Critical', reason:'New Role'   },
+  { title:'Data Scientist',                  dept:'Data',         salary_min:110000, salary_max:165000, exp:3, skills:['Python','Machine Learning','SQL','Tableau','R'],      work_type:'Hybrid',   priority:'High',     reason:'New Role'   },
+  { title:'Data Engineer',                   dept:'Data',         salary_min:105000, salary_max:155000, exp:3, skills:['Python','SQL','Spark','AWS','Airflow'],                work_type:'Hybrid',   priority:'Medium',   reason:'Expansion'  },
+  { title:'Product Manager',                 dept:'Product',      salary_min:120000, salary_max:175000, exp:4, skills:['Product Strategy','Agile','Scrum','Data Analysis','Stakeholder Management'], work_type:'Hybrid', priority:'High', reason:'New Role' },
+  { title:'Senior Product Manager',          dept:'Product',      salary_min:150000, salary_max:210000, exp:6, skills:['Product Strategy','Leadership','Agile','UX Research','SQL'], work_type:'Hybrid', priority:'High', reason:'Backfill' },
+  { title:'UX Designer',                     dept:'Design',       salary_min:90000,  salary_max:135000, exp:3, skills:['Figma','UX Research','Adobe Suite','Prototyping'],   work_type:'Hybrid',   priority:'Medium',   reason:'New Role'   },
+  { title:'Product Designer',                dept:'Design',       salary_min:100000, salary_max:150000, exp:4, skills:['Figma','UX Research','Design Systems','Adobe Suite'],'work_type':'Hybrid', priority:'High',   reason:'New Role'   },
+  { title:'Financial Analyst',               dept:'Finance',      salary_min:70000,  salary_max:110000, exp:2, skills:['Financial Modelling','Excel','PowerBI','SQL'],        work_type:'On-site',  priority:'Medium',   reason:'Backfill'   },
+  { title:'FP&A Manager',                    dept:'Finance',      salary_min:120000, salary_max:175000, exp:6, skills:['Financial Modelling','Excel','PowerBI','Leadership'], work_type:'Hybrid',   priority:'High',     reason:'New Role'   },
+  { title:'VP of Finance',                   dept:'Finance',      salary_min:200000, salary_max:300000, exp:10,skills:['M&A','Financial Modelling','Leadership','Strategic Planning'], work_type:'Hybrid', priority:'Critical', reason:'New Role' },
+  { title:'Sales Director',                  dept:'Sales',        salary_min:150000, salary_max:230000, exp:8, skills:['Salesforce','CRM','Negotiation','Leadership'],       work_type:'Hybrid',   priority:'High',     reason:'New Role'   },
+  { title:'Account Executive',               dept:'Sales',        salary_min:80000,  salary_max:130000, exp:3, skills:['CRM','Salesforce','Negotiation','Communication'],    work_type:'Hybrid',   priority:'Medium',   reason:'Expansion'  },
+  { title:'Business Development Manager',    dept:'Sales',        salary_min:100000, salary_max:160000, exp:5, skills:['Negotiation','Strategic Planning','CRM','Communication'], work_type:'Hybrid', priority:'High', reason:'New Role' },
+  { title:'Marketing Manager',               dept:'Marketing',    salary_min:90000,  salary_max:140000, exp:4, skills:['Digital Marketing','SEO/SEM','Content Strategy','Salesforce'], work_type:'Hybrid', priority:'Medium', reason:'Backfill' },
+  { title:'Head of Talent Acquisition',      dept:'HR',           salary_min:120000, salary_max:180000, exp:6, skills:['Talent Acquisition Specialist','Leadership','Stakeholder Management','Communication'], work_type:'Hybrid', priority:'High', reason:'New Role' },
+  { title:'HR Business Partner',             dept:'HR',           salary_min:90000,  salary_max:135000, exp:4, skills:['Communication','Stakeholder Management','Leadership'], work_type:'Hybrid', priority:'Medium', reason:'Replacement' },
+  { title:'Engineering Manager',             dept:'Engineering',  salary_min:160000, salary_max:230000, exp:7, skills:['Leadership','Python','Agile','System Design','Stakeholder Management'], work_type:'Hybrid', priority:'High', reason:'New Role' },
+  { title:'Chief of Staff',                  dept:'Operations',   salary_min:140000, salary_max:200000, exp:6, skills:['Strategic Planning','Communication','Leadership','Project Management'], work_type:'Hybrid', priority:'High', reason:'New Role' },
+  { title:'Customer Success Manager',        dept:'Customer Success', salary_min:80000, salary_max:125000, exp:3, skills:['CRM','Communication','Salesforce'],              work_type:'Hybrid',   priority:'Medium',   reason:'Expansion'  },
+  { title:'Legal Counsel',                   dept:'Legal',        salary_min:130000, salary_max:200000, exp:5, skills:['Compliance','Risk Management','Communication'],     work_type:'On-site',  priority:'High',     reason:'New Role'   },
 ];
 
-const WORKFLOW_TEMPLATES = [
-  { name:'Standard Application Process', description:'Default hiring pipeline for most roles', steps:['Applied','CV Review','Phone Screen','Technical Interview','Final Interview','Offer','Hired','Rejected'] },
-  { name:'Executive Track',              description:'Senior leadership hiring process',        steps:['Identified','Initial Briefing','Long List','Short List','1st Interview','2nd Interview','Board Interview','Offer','Placed','Withdrawn'] },
-  { name:'Technical Engineering Process',description:'Engineering roles with tech assessment',  steps:['Applied','CV Screen','Recruiter Call','Technical Screen','Take-Home Task','Technical Interview','Culture Fit','Offer','Hired','Rejected'] },
-  { name:'Graduate Scheme',              description:'Entry-level and graduate hiring',         steps:['Applied','Application Review','Online Assessment','Group Exercise','Video Interview','Assessment Centre','Offer','Accepted','Rejected'] },
-];
+const BENEFITS = ['Health Insurance','Dental & Vision','Annual Bonus','Stock Options','Remote Work','Flexible Hours','Learning Budget','Gym Membership','Life Insurance','Pension/401k','Travel Allowance','Parental Leave'];
+const JOB_BOARDS = ['LinkedIn','Indeed','Glassdoor','Bayt','Naukrigulf','Monster','Reed'];
 
-const RECRUITER_NOTES = [
-  'Excellent communicator, very structured answers in interview.',
-  'Strong technical background, bit light on leadership experience.',
-  'Culturally aligned, enthusiastic about the mission.',
-  'Salary expectations slightly above band — flagged to hiring manager.',
-  'Currently on notice period, available in 4 weeks.',
-  'Referenced by a current employee — warm intro.',
-  'Very impressive portfolio, recommend fast-tracking to technical round.',
-  'Needs visa sponsorship — check with HR before progressing.',
-  'Outstanding presentation skills. Panel unanimously positive.',
-  'Counter-offered by current employer, considering options.',
-  'Start date flexibility is a concern — needs to be negotiated.',
-  'Excellent references from previous manager.',
-  'Met at GITEX conference — proactively reached out.',
-];
+// ── Core seed logic ─────────────────────────────────────────────────────────
+async function runSeed({ environmentId, clearFirst = false, progressCb = () => {} }) {
+  const s = getStore();
 
-const EMAIL_SUBJECTS = [
-  'Application Confirmation – {job_title}',
-  'Interview Invitation – {job_title}',
-  'Thank you for your application',
-  'Next Steps: Technical Interview',
-  'Offer Letter – {job_title}',
-  'Following up on your application',
-];
+  // Resolve People and Jobs objects
+  const peopleObj = s.objects?.find(o => o.slug === 'people' && o.environment_id === environmentId);
+  const jobsObj   = s.objects?.find(o => o.slug === 'jobs'   && o.environment_id === environmentId);
+  if (!peopleObj || !jobsObj) throw new Error(`Objects not found for environment ${environmentId}. Found: ${s.objects?.map(o=>o.slug).join(',')}`);
 
-const EMAIL_BODIES = [
-  'Thank you for applying. We have reviewed your application and would love to schedule an initial call.',
-  'Following our conversation, I am delighted to invite you to the next stage of the process.',
-  'We were impressed by your background and would like to move forward with a technical assessment.',
-  'After careful consideration, we would like to progress you to the final stage.',
-  'I am pleased to confirm that we would like to extend a formal offer.',
-  'Thank you for taking the time to interview with us. We will be in touch shortly with feedback.',
-];
+  const PEOPLE_OBJ = peopleObj.id;
+  const JOBS_OBJ   = jobsObj.id;
 
-const SKILLS_BY_DEPT = {
-  Engineering: ['React','Node.js','TypeScript','Python','AWS','Kubernetes','GraphQL','PostgreSQL','Docker','CI/CD','Go','Java'],
-  Data:        ['Python','SQL','Spark','dbt','Airflow','TensorFlow','Snowflake','BigQuery','Tableau','R'],
-  Finance:     ['Financial Modelling','Excel','Bloomberg','DCM','M&A','Valuation','VBA','SQL','Risk Management','IFRS'],
-  HR:          ['Talent Acquisition','LinkedIn Recruiter','Workday','SAP SuccessFactors','L&D','HRBP','Compensation'],
-  Product:     ['Product Strategy','Roadmapping','JIRA','Figma','A/B Testing','SQL','User Research','OKRs'],
-};
+  // Get People fields
+  const peopleFields = (s.fields || []).filter(f => f.object_id === PEOPLE_OBJ);
+  const jobFields    = (s.fields || []).filter(f => f.object_id === JOBS_OBJ);
 
-const SOURCES   = ['LinkedIn','Direct Application','Referral','Job Board','Agency','Proactive Outreach','Career Site','Event'];
-const STATUSES  = ['Active','Active','Active','Active','Passive','Passive','Placed','Declined'];
-const PTYPES    = ['Candidate','Candidate','Candidate','Candidate','Contact'];
+  const fieldOptions = (objectId, apiKey) => {
+    const fields = objectId === PEOPLE_OBJ ? peopleFields : jobFields;
+    const f = fields.find(f => f.api_key === apiKey);
+    return f?.options || [];
+  };
 
-const pick    = arr => arr[Math.floor(Math.random() * arr.length)];
-const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-const isoNow  = () => new Date().toISOString();
-const isoAgo  = days => new Date(Date.now() - days * 86400000).toISOString();
-const fmt     = (str, vars) => str.replace(/\{(\w+)\}/g, (_, k) => vars[k] || '');
+  // Remove existing demo/incomplete records
+  const before = (s.records || []).length;
+  s.records = (s.records || []).filter(r => {
+    if (r.environment_id !== environmentId) return true;
+    if (r._demo) return false; // previously seeded demo record
+    // Remove records clearly incomplete (no first_name AND no job_title)
+    if (r.object_id === PEOPLE_OBJ) {
+      const d = r.data || {};
+      if (!d.first_name && !d.last_name) return false;
+    }
+    if (r.object_id === JOBS_OBJ) {
+      const d = r.data || {};
+      if (!d.job_title) return false;
+    }
+    return !clearFirst || r.environment_id !== environmentId;
+  });
+  const removed = before - (s.records || []).length;
+  progressCb({ step:'clear', removed });
 
-// Find which tenant store contains a given environment_id
-// Returns null for the master store, or the tenant slug string
-function findTenantForEnv(environmentId) {
-  // IMPORTANT: Do NOT use getStore() here — if the HTTP request already has
-  // X-Tenant-Slug set (e.g. from DemoDataManager sending tenantHeaders()),
-  // getStore() returns the tenant's store, not master. We must read storeCache
-  // directly to bypass the AsyncLocalStorage context.
-  const master = storeCache['master'] || loadTenantStore(null);
+  const created_at = now();
+  const results = { people: 0, jobs: 0, pools: 0 };
 
-  if ((master.environments || []).find(e => e.id === environmentId)) return null;
+  // ── Seed 30 People ──────────────────────────────────────────────────────
+  progressCb({ step:'people', message:'Seeding candidates and professionals…' });
 
-  // Check master store's client_environments (provisioned tenant environments)
-  const clientEnv = (master.client_environments || []).find(e => e.id === environmentId && !e.deleted_at);
-  if (clientEnv) {
-    const client = (master.clients || []).find(c => c.id === clientEnv.client_id && !c.deleted_at);
-    if (client?.tenant_slug) {
-      const ts = loadTenantStore(client.tenant_slug);
-      if (!(ts.environments || []).find(e => e.id === environmentId)) {
-        if (!ts.environments) ts.environments = [];
-        ts.environments.push(clientEnv);
-        saveStore(client.tenant_slug);
+  const STATUSES_P  = fieldOptions(PEOPLE_OBJ, 'status')  || ['Active','Passive','Placed'];
+  const SOURCES_P   = fieldOptions(PEOPLE_OBJ, 'source')   || ['LinkedIn','Referral','Job Board'];
+  const NOTICES     = fieldOptions(PEOPLE_OBJ, 'notice_period') || ['1 month','2 months','3 months'];
+  const WORK_AUTH   = fieldOptions(PEOPLE_OBJ, 'work_authorisation') || ['Citizen','Work Visa'];
+  const WORK_TYPES  = fieldOptions(PEOPLE_OBJ, 'work_type_preference') || ['Hybrid','Remote'];
+  const GENDERS     = fieldOptions(PEOPLE_OBJ, 'gender') || ['Male','Female'];
+
+  for (let i = 0; i < 30; i++) {
+    const firstName = pick(FIRST_NAMES);
+    const lastName  = pick(LAST_NAMES);
+    const title     = pick(TITLES);
+    const company   = pick(COMPANIES);
+    const location  = pick(LOCATIONS);
+    const yrsExp    = rand(1, 18);
+    const skills    = picks(SKILLS_POOL, rand(4, 9)).map(s => ({ name: s, level: pick(['Beginner','Intermediate','Expert']) }));
+    const langs     = picks(LANGS, rand(1, 3));
+    const salaryExp = rand(60, 350) * 1000;
+
+    const person = {
+      id: uuidv4(), object_id: PEOPLE_OBJ, environment_id: environmentId,
+      _demo: true, created_at, updated_at: created_at,
+      data: {
+        first_name:      firstName,
+        last_name:       lastName,
+        email:           `${firstName.toLowerCase()}.${lastName.toLowerCase().replace(/[^a-z]/g,'').replace(/\s/g,'')}.${rand(10,99)}@example.com`,
+        phone:           `+971 5${rand(0,9)} ${rand(100,999)} ${rand(1000,9999)}`,
+        location,
+        current_title:   title,
+        current_company: company,
+        status:          pick(STATUSES_P),
+        source:          pick(SOURCES_P),
+        rating:          rand(2, 5),
+        years_experience: yrsExp,
+        skills,
+        languages:       langs,
+        notice_period:   pick(NOTICES),
+        salary_expectation: salaryExp,
+        work_type_preference: picks(WORK_TYPES, rand(1,2)),
+        work_authorisation:   pick(WORK_AUTH),
+        summary:         `${firstName} is an experienced ${title} with ${yrsExp} years in ${title.split(' ').pop()}. Based in ${location}, they bring a strong track record at ${company} and beyond.`,
+        linkedin_url:    `https://linkedin.com/in/${firstName.toLowerCase()}-${lastName.toLowerCase().replace(/[^a-z]/g,'')}`,
+        source_detail:   `Sourced via ${pick(['LinkedIn Recruiter','Employee referral','Direct application','Agency submission'])}`,
+        gdpr_consent:    true,
+        gdpr_consent_date: daysAgo(rand(1, 60)),
+        gender:          pick(GENDERS),
+        country:         location.split(', ').pop(),
+        education: [
+          { degree: pick(['B.Sc','M.Sc','MBA','BEng','LLB','PhD']), field: pick(['Computer Science','Business Administration','Engineering','Finance','Marketing','Law','Data Science']), institution: pick(UNIVERSITIES), year: String(rand(2000, 2020)) }
+        ],
+        work_history: [
+          { company, title, from: daysAgo(rand(365, 2190)), to: '', current: true, description: `Leading ${title.split(' ').pop()} initiatives and cross-functional collaboration.` },
+          { company: pick(COMPANIES), title: pick(TITLES), from: daysAgo(rand(2200, 4000)), to: daysAgo(rand(400, 730)), current: false, description: 'Delivered key projects and managed stakeholder relationships.' }
+        ],
+        person_type: 'Candidate',
       }
-      return client.tenant_slug;
+    };
+    s.records = s.records || [];
+    s.records.push(person);
+    results.people++;
+  }
+
+  progressCb({ step:'people_done', count: results.people });
+
+  // ── Seed 20 Jobs ───────────────────────────────────────────────────────
+  progressCb({ step:'jobs', message:'Seeding job openings…' });
+
+  const STATUSES_J = fieldOptions(JOBS_OBJ, 'status')  || ['Open','Draft','On Hold','Filled'];
+  const CURRENCIES = fieldOptions(JOBS_OBJ, 'salary_currency') || ['AED','USD','GBP'];
+  const APPR_STATUS = fieldOptions(JOBS_OBJ, 'approval_status') || ['Approved','Pending'];
+  const POSTING_STATUS = fieldOptions(JOBS_OBJ, 'posting_status') || ['Live','Not Posted','Draft'];
+  const ED_LEVELS  = fieldOptions(JOBS_OBJ, 'education_level') || ['Degree','Masters','Any'];
+
+  const jobSubset = picks(JOB_TEMPLATES, Math.min(20, JOB_TEMPLATES.length));
+
+  for (const tmpl of jobSubset) {
+    const openDays = rand(5, 120);
+    const currency = pick(CURRENCIES);
+    const multiplier = currency === 'AED' ? 3.67 : currency === 'GBP' ? 0.79 : 1;
+    const status = pick([...STATUSES_J.slice(0,2), ...STATUSES_J.slice(0,2), 'On Hold']); // bias Open/Draft
+    const benefits = picks(BENEFITS, rand(4, 8));
+
+    const job = {
+      id: uuidv4(), object_id: JOBS_OBJ, environment_id: environmentId,
+      _demo: true, created_at, updated_at: created_at,
+      data: {
+        job_title:       tmpl.title,
+        department:      tmpl.dept,
+        location:        pick(LOCATIONS),
+        work_type:       tmpl.work_type,
+        employment_type: 'Full-time',
+        status,
+        priority:        tmpl.priority,
+        salary_currency: currency,
+        salary_min:      Math.round(tmpl.salary_min * multiplier / 1000) * 1000,
+        salary_max:      Math.round(tmpl.salary_max * multiplier / 1000) * 1000,
+        pay_frequency:   'Annual',
+        bonus_percent:   pick([0, 0, 5, 10, 15, 20]),
+        equity:          Math.random() > 0.6,
+        visa_sponsorship: Math.random() > 0.5,
+        benefits,
+        reason_for_hire: tmpl.reason,
+        headcount:       rand(1, 3),
+        experience_min_years: tmpl.exp,
+        education_level:      pick(ED_LEVELS),
+        required_skills: tmpl.skills.map(s => ({ name: s, level: 'Expert' })),
+        nice_to_have_skills:  picks(['Agile','Scrum','Leadership','Communication','Strategic Planning'], rand(1,3)),
+        posting_status:  pick(POSTING_STATUS),
+        career_site_visible: Math.random() > 0.3,
+        internal_only:   Math.random() > 0.8,
+        job_boards:      picks(JOB_BOARDS, rand(2, 4)),
+        approval_status: pick(APPR_STATUS),
+        open_date:       daysAgo(openDays),
+        target_close_date: daysAhead(rand(14, 90)),
+        posted_date:     daysAgo(openDays - rand(1, 5)),
+        time_to_fill_target: rand(20, 60),
+        cost_centre:     `CC-${rand(1000,9999)}`,
+      }
+    };
+    s.records.push(job);
+    results.jobs++;
+  }
+
+  progressCb({ step:'jobs_done', count: results.jobs });
+
+  // ── Seed 5 Talent Pools ────────────────────────────────────────────────
+  progressCb({ step:'pools', message:'Seeding talent pools…' });
+
+  const poolObj = s.objects?.find(o => o.slug === 'talent-pools' && o.environment_id === environmentId);
+  if (poolObj) {
+    const POOLS = [
+      { name:'Senior Engineers — MENA',   category:'Passive Talent', desc:'Senior engineers in the MENA region with 5+ years experience. Actively monitored for open roles.' },
+      { name:'Product Leaders',            category:'Executive',      desc:'Director-level and above product leaders across all geographies.' },
+      { name:'Finance Talent — Global',    category:'Passive Talent', desc:'CFA and finance professionals across key markets.' },
+      { name:'Design Talent',              category:'Pipeline',       desc:'UX and Product Designers with strong portfolios. Building pipeline for Q3 growth.' },
+      { name:'Sales — Enterprise',         category:'Active Talent',  desc:'Enterprise sales professionals with SaaS backgrounds, pre-qualified.' },
+    ];
+    const poolFields = (s.fields || []).filter(f => f.object_id === poolObj.id);
+    const poolCats   = poolFields.find(f => f.api_key === 'category')?.options || ['Pipeline','Active Talent','Passive Talent','Executive'];
+
+    for (const p of POOLS) {
+      s.records.push({
+        id: uuidv4(), object_id: poolObj.id, environment_id: environmentId,
+        _demo: true, created_at, updated_at: created_at,
+        data: { pool_name: p.name, description: p.desc, category: poolCats.includes(p.category) ? p.category : poolCats[0], status: 'Active', tags: picks(['Tech','Finance','Product','Sales','MENA','Global','Senior','Leadership'], 2) }
+      });
+      results.pools++;
     }
   }
 
-  // Check all tenant store files directly
-  for (const slug of listTenants()) {
-    const ts = loadTenantStore(slug);
-    if ((ts.environments || []).find(e => e.id === environmentId)) return slug;
-  }
+  saveStoreNow();
+  progressCb({ step:'complete', results });
+  return results;
+}
+
+// ── Helper: find which tenant owns an environment ──────────────────────────
+function findTenantForEnv(environmentId) {
+  try {
+    const tenants = listTenants ? listTenants() : [];
+    for (const slug of tenants) {
+      try {
+        const ts = loadTenantStore(slug);
+        if (ts?.environments?.some(e => e.id === environmentId)) return slug;
+      } catch {}
+    }
+  } catch {}
   return null;
 }
 
-async function runSeed({ environmentId, clearFirst, progressCb }) {
-  // Resolve which store holds this environment (master or a tenant file)
-  const tenantSlug = findTenantForEnv(environmentId);
-  const store = tenantSlug ? loadTenantStore(tenantSlug) : getStore();
-  const save  = () => saveStore(tenantSlug); // always saves to the right store
-
-  progressCb({ step:'init', message:'Resolving environment and objects…', pct:2 });
-
-  const env = store.environments?.find(e => e.id === environmentId);
-  if (!env) throw new Error(`Environment ${environmentId} not found in ${tenantSlug ? `tenant:${tenantSlug}` : 'master'} store`);
-
-  const allObjects = store.objects || store.object_definitions || [];
-  const objects    = allObjects.filter(o => o.environment_id === environmentId);
-  const peopleObj  = objects.find(o =>
-    ['people','persons','person','candidates'].includes(o.slug?.toLowerCase()) ||
-    o.name?.toLowerCase().includes('people') || o.name?.toLowerCase().includes('person')
-  );
-  const jobsObj = objects.find(o =>
-    ['jobs','job','positions','vacancies','roles'].includes(o.slug?.toLowerCase()) ||
-    o.name?.toLowerCase().includes('job') || o.name?.toLowerCase().includes('position')
-  );
-
-  if (!peopleObj) throw new Error(`People object not found — available: ${objects.map(o=>o.slug).join(', ')}`);
-  if (!jobsObj)   throw new Error(`Jobs object not found — available: ${objects.map(o=>o.slug).join(', ')}`);
-
-  if (clearFirst) {
-    progressCb({ step:'clear', message:'Clearing previous demo data…', pct:4 });
-    ['records','workflows','workflow_steps','record_workflow_assignments',
-     'people_links','notes','communications'].forEach(table => {
-      if (store[table]) store[table] = store[table].filter(r => !(r._demo && r.environment_id === environmentId));
-    });
-    save();
-  }
-
-  // ── Fetch 300 real profiles ──────────────────────────────────────────────
-  progressCb({ step:'fetch', message:'Fetching 300 profiles from randomuser.me…', pct:8 });
-  let randomUsers = [];
-  try {
-    const res  = await fetch('https://randomuser.me/api/?results=300&nat=us,gb,ae,au,ca,sg&inc=name,email,phone,location,picture,dob&noinfo');
-    const data = await res.json();
-    randomUsers = data.results || [];
-  } catch {
-    progressCb({ step:'fetch_warn', message:'randomuser.me unavailable — using generated names', pct:8 });
-    const fn = ['James','Emma','Mohammed','Sarah','David','Priya','Lucas','Aisha','Tom','Sofia','Alex','Yuki','Marcus','Amara','Oliver'];
-    const ln = ['Chen','Johnson','Al-Rashid','Williams','Kumar','Smith','Okonkwo','Mueller','Tanaka','Andersen','Moreau','Nakamura','Reyes'];
-    for (let i = 0; i < 300; i++) {
-      randomUsers.push({ name:{first:pick(fn),last:pick(ln)}, email:`candidate${i+1}@demo.talentos.io`,
-        phone:`+1${randInt(2000000000,9999999999)}`,
-        location:{city:pick(['New York','London','Dubai','Singapore','Sydney','Toronto'])},
-        picture:{medium:null}, dob:{age:randInt(22,55)} });
-    }
-  }
-
-  // ── Create 50 jobs ───────────────────────────────────────────────────────
-  progressCb({ step:'jobs', message:'Creating 50 job records…', pct:15 });
-  if (!store.records) store.records = [];
-  const jobStatuses = ['Open','Open','Open','Open','Interviewing','Interviewing','On Hold','Filled'];
-  const jobRecords  = [];
-  for (const tmpl of JOB_TEMPLATES) {
-    const id  = uuidv4();
-    const rec = {
-      id, object_id:jobsObj.id, environment_id:environmentId,
-      data:{ job_title:tmpl.title, department:tmpl.dept, location:tmpl.location,
-             work_type:tmpl.work_type, employment_type:tmpl.employment_type,
-             salary_min:tmpl.salary_min, salary_max:tmpl.salary_max,
-             salary_currency:'USD', status:pick(jobStatuses),
-             requisition_id:`REQ-${randInt(1000,9999)}`,
-             date_opened:isoAgo(randInt(5,180)) },
-      created_at:isoAgo(randInt(5,180)), updated_at:isoNow(),
-      created_by:'demo_seed', _demo:true,
-    };
-    store.records.push(rec);
-    jobRecords.push(rec);
-  }
-  save();
-
-  // ── Create 4 workflows ───────────────────────────────────────────────────
-  progressCb({ step:'workflows', message:'Creating workflows and stages…', pct:22 });
-  if (!store.workflows)      store.workflows      = [];
-  if (!store.workflow_steps) store.workflow_steps = [];
-  const wfRecords = [];
-  for (const wt of WORKFLOW_TEMPLATES) {
-    const wfId = uuidv4();
-    store.workflows.push({ id:wfId, name:wt.name, description:wt.description,
-      workflow_type:'linked_person', object_id:jobsObj.id,
-      environment_id:environmentId, is_active:1, created_at:isoAgo(30), updated_at:isoNow(), _demo:true });
-    const steps = [];
-    wt.steps.forEach((name,i) => {
-      const st = { id:uuidv4(), workflow_id:wfId, name, step_order:i+1,
-                   automation_type:null, created_at:isoAgo(30), _demo:true };
-      store.workflow_steps.push(st);
-      steps.push(st);
-    });
-    wfRecords.push({ wf:store.workflows[store.workflows.length-1], steps });
-  }
-  save();
-
-  // ── Assign workflows to jobs ─────────────────────────────────────────────
-  progressCb({ step:'assign', message:'Assigning workflows to jobs…', pct:26 });
-  if (!store.record_workflow_assignments) store.record_workflow_assignments = [];
-  const execTitles = ['CTO','CFO','Chief People Officer','VP of Engineering','Managing Director – DCM','Chief Risk Officer'];
-  const gradTitles = ['Financial Analyst','Talent Acquisition Partner','QA Engineer','Senior Accountant'];
-  const execJobs   = jobRecords.filter(j => execTitles.includes(j.data.job_title));
-  const techJobs   = jobRecords.filter(j => j.data.department === 'Engineering' || j.data.department === 'Data');
-  const gradJobs   = jobRecords.filter(j => gradTitles.includes(j.data.job_title));
-  const assigned   = new Set([...execJobs, ...techJobs.slice(0,10), ...gradJobs].map(j=>j.id));
-
-  const assign = (jobs, wfIdx) => jobs.forEach(job => {
-    store.record_workflow_assignments.push({ id:uuidv4(), record_id:job.id,
-      workflow_id:wfRecords[wfIdx].wf.id, assignment_type:'linked_person',
-      environment_id:environmentId, created_at:isoAgo(15), _demo:true });
-  });
-  assign(execJobs, 1);
-  assign(techJobs.slice(0,10), 2);
-  assign(gradJobs, 3);
-  assign(jobRecords.filter(j => !assigned.has(j.id)), 0);
-  save();
-
-  // ── Create 300 candidates ────────────────────────────────────────────────
-  progressCb({ step:'candidates', message:'Creating 300 candidate profiles…', pct:30 });
-  const candidateRecords = [];
-  for (let i = 0; i < 300; i++) {
-    const u      = randomUsers[i];
-    const dept   = pick(['Engineering','Engineering','Data','Finance','Finance','HR','Product']);
-    const skills = (SKILLS_BY_DEPT[dept] || SKILLS_BY_DEPT.Engineering)
-      .sort(()=>Math.random()-0.5).slice(0, randInt(3,7));
-    const age    = u.dob?.age || randInt(22,55);
-    const id     = uuidv4();
-    const rec = {
-      id, object_id:peopleObj.id, environment_id:environmentId,
-      data:{ first_name:u.name.first, last_name:u.name.last, email:u.email,
-             phone:u.phone||'', location:u.location?.city||'London',
-             person_type:pick(PTYPES), status:pick(STATUSES), source:pick(SOURCES),
-             skills, years_experience:Math.max(1,age-22),
-             current_title:`${pick(['Senior','Lead','Principal','Staff','Junior',''])} ${pick(['Engineer','Analyst','Manager','Consultant','Specialist'])}`.trim(),
-             rating:randInt(2,5), profile_photo:u.picture?.medium||null, department:dept },
-      created_at:isoAgo(randInt(1,365)), updated_at:isoNow(),
-      created_by:'demo_seed', _demo:true,
-    };
-    store.records.push(rec);
-    candidateRecords.push(rec);
-    if (i % 50 === 0) progressCb({ step:'candidates', message:`Creating candidates… ${i}/300`, pct:30+Math.floor((i/300)*25) });
-  }
-  save();
-
-  // ── Link candidates to jobs ──────────────────────────────────────────────
-  progressCb({ step:'links', message:'Linking candidates to jobs via pipelines…', pct:55 });
-  if (!store.people_links) store.people_links = [];
-  for (const job of jobRecords) {
-    const asgn = store.record_workflow_assignments.find(a => a.record_id === job.id);
-    if (!asgn) continue;
-    const wfRec = wfRecords.find(w => w.wf.id === asgn.workflow_id);
-    if (!wfRec) continue;
-    const numC = randInt(2,12);
-    const chosen = [...candidateRecords].sort(()=>Math.random()-0.5).slice(0,numC);
-    chosen.forEach((c,ci) => {
-      const stageIdx = Math.min(wfRec.steps.length-1, Math.floor(ci*wfRec.steps.length/chosen.length));
-      const stage    = wfRec.steps[stageIdx];
-      store.people_links.push({ id:uuidv4(), person_id:c.id, record_id:job.id,
-        workflow_id:wfRec.wf.id, current_stage_id:stage.id, current_stage_name:stage.name,
-        environment_id:environmentId, person_data:c.data,
-        linked_at:isoAgo(randInt(1,120)), updated_at:isoNow(), _demo:true });
-    });
-  }
-  save();
-
-  // ── Notes ────────────────────────────────────────────────────────────────
-  progressCb({ step:'notes', message:'Adding recruiter notes…', pct:68 });
-  if (!store.notes) store.notes = [];
-  for (const c of candidateRecords) {
-    for (let n = 0; n < randInt(1,3); n++) {
-      store.notes.push({ id:uuidv4(), record_id:c.id, object_id:peopleObj.id,
-        environment_id:environmentId, content:pick(RECRUITER_NOTES),
-        author:'Admin User', created_at:isoAgo(randInt(1,90)), _demo:true });
-    }
-  }
-  save();
-
-  // ── Communications ───────────────────────────────────────────────────────
-  progressCb({ step:'comms', message:'Adding email communications…', pct:78 });
-  if (!store.communications) store.communications = [];
-  for (const c of candidateRecords) {
-    const link = store.people_links.find(l => l.person_id === c.id);
-    const job  = link ? jobRecords.find(j => j.id === link.record_id) : null;
-    for (let n = 0; n < randInt(1,4); n++) {
-      const dir = n === 0 ? 'inbound' : pick(['outbound','outbound','inbound']);
-      store.communications.push({ id:uuidv4(), record_id:c.id, object_id:peopleObj.id,
-        environment_id:environmentId, type:pick(['email','email','email','sms']), direction:dir,
-        subject:fmt(pick(EMAIL_SUBJECTS),{job_title:job?.data.job_title||'the role'}),
-        body:pick(EMAIL_BODIES), status:'delivered',
-        from_address:dir==='inbound'?c.data.email:'recruiter@talentos.io',
-        to_address:dir==='inbound'?'recruiter@talentos.io':c.data.email,
-        sent_at:isoAgo(randInt(1,120)), created_at:isoAgo(randInt(1,120)), _demo:true });
-    }
-  }
-  save();
-
-  // ── Interviews ─────────────────────────────────────────────────────────────
-  progressCb({ step:'interviews', message:'Scheduling interviews…', pct:82 });
-  if (!store.interviews) store.interviews = [];
-  const INT_TYPES  = ['Phone Screen','Video Interview','Technical Assessment','Panel Interview','Final Interview'];
-  const INT_FMTS   = ['video','phone','in_person','panel'];
-  const INT_OUTS   = ['Strong Yes','Yes','Yes','No','Strong No'];
-  const INT_STATS_PAST = ['completed','completed','cancelled'];
-  for (let i = 0; i < Math.min(candidateRecords.length, 30); i++) {
-    const cand = candidateRecords[i];
-    const job  = jobRecords[i % jobRecords.length];
-    const dOff = randInt(-21, 28);
-    const isPast = dOff < 0;
-    const status = isPast ? pick(INT_STATS_PAST) : 'scheduled';
-    const intDate = new Date(Date.now() + dOff*86400000).toISOString().slice(0,10);
-    store.interviews.push({
-      id:uuidv4(), environment_id:environmentId,
-      candidate_id:cand.id,
-      candidate_name:`${cand.data.first_name} ${cand.data.last_name}`,
-      job_id:job.id, job_title:job.data.job_title,
-      type_name:pick(INT_TYPES), date:intDate,
-      time:`${String(randInt(9,17)).padStart(2,'0')}:00`,
-      duration_minutes:pick([30,45,60]), format:pick(INT_FMTS),
-      status, outcome:status==='completed'?pick(INT_OUTS):null,
-      notes:status==='completed'?'Interview completed.':null,
-      created_at:isoAgo(randInt(1,30)), updated_at:new Date().toISOString(), _demo:true
-    });
-  }
-  save();
-
-  // ── Offers ─────────────────────────────────────────────────────────────────
-  progressCb({ step:'offers', message:'Creating offers…', pct:90 });
-  if (!store.offers) store.offers = [];
-  const OFF_STATS = ['draft','pending_approval','sent','sent','accepted','accepted','accepted','declined','expired'];
-  const completedCands = candidateRecords.filter((_,i)=>i<20);
-  for (let i = 0; i < Math.min(completedCands.length, 18); i++) {
-    const cand = completedCands[i];
-    const job  = jobRecords[i % jobRecords.length];
-    const status = pick(OFF_STATS);
-    const sal  = (job.data.salary_min||80000) + randInt(0, (job.data.salary_max||120000)-(job.data.salary_min||80000));
-    const startDate = new Date(Date.now()+randInt(14,90)*86400000).toISOString().slice(0,10);
-    store.offers.push({
-      id:uuidv4(), environment_id:environmentId,
-      candidate_id:cand.id,
-      candidate_name:`${cand.data.first_name} ${cand.data.last_name}`,
-      job_id:job.id, job_title:job.data.job_title,
-      status, currency:'USD', base_salary:sal,
-      bonus:Math.round(sal*0.1), start_date:startDate,
-      expiry_date:new Date(Date.now()+randInt(7,21)*86400000).toISOString().slice(0,10),
-      approvers:[], notes:'Demo offer.',
-      data:{ start_date:startDate, docs_status:status==='accepted'?pick(['complete','pending']):'pending', job_title:job.data.job_title },
-      created_at:isoAgo(randInt(1,45)), updated_at:new Date().toISOString(), _demo:true
-    });
-  }
-  save();
-
-  progressCb({ step:'done', message:'Demo data ready!', pct:100 });
-  return {
-    jobs: jobRecords.length, candidates: candidateRecords.length,
-    workflows: wfRecords.length,
-    interviews: store.interviews.filter(i=>i._demo&&i.environment_id===environmentId).length,
-    offers: store.offers.filter(o=>o._demo&&o.environment_id===environmentId).length,
-    links: store.people_links.filter(l=>l._demo&&l.environment_id===environmentId).length,
-    notes: store.notes.filter(n=>n._demo&&n.environment_id===environmentId).length,
-    communications: store.communications.filter(c=>c._demo&&c.environment_id===environmentId).length,
-  };
-}
-
-// ── Routes ─────────────────────────────────────────────────────────────────────
-
+// ── API routes ──────────────────────────────────────────────────────────────
 router.get('/environments', (req, res) => {
-  const { getStore: _getStore, tenantStorage, listTenants, loadTenantStore } = require('../db/init');
-
-  // Master store first
-  const masterStore = _getStore();
-  const allClients  = masterStore.clients || [];
-  const allClientEnvs = masterStore.client_environments || [];
-
-  // Map: env_id → result entry (deduplicate — tenant store wins over master for same env_id)
-  const envMap = new Map();
-
-  const addEnvsFromStore = (store, tenantSlug) => {
-    const envs = store.environments || [];
-    for (const e of envs) {
-      const clientEnv = allClientEnvs.find(ce => ce.id === e.id);
-      const clientId  = clientEnv?.client_id || e.client_id || null;
-      const client    = clientId ? allClients.find(c => c.id === clientId) : null;
-      const entry = {
-        id:           e.id,
-        name:         e.name,
-        client_name:  client?.name || null,
-        tenant_slug:  tenantSlug,   // null = master store
-        is_default:   e.is_default,
-        record_count: (store.records || []).filter(r => r.environment_id === e.id).length,
-        demo_count:   (store.records || []).filter(r => r.environment_id === e.id && r._demo).length,
-      };
-      // Tenant store entry always wins (it's the authoritative store for that client)
-      if (!envMap.has(e.id) || tenantSlug !== null) {
-        envMap.set(e.id, entry);
-      }
-    }
-  };
-
-  addEnvsFromStore(masterStore, null);
-
-  // Scan each provisioned tenant store
-  const tenants = listTenants ? listTenants() : [];
-  for (const slug of tenants) {
-    try {
-      const tenantStore = loadTenantStore(slug);
-      if (tenantStore) addEnvsFromStore(tenantStore, slug);
-    } catch { /* skip broken tenant stores */ }
-  }
-
-  const result = Array.from(envMap.values());
-
-  // Sort: master Production first, then by client name + env name
-  result.sort((a, b) => {
-    if (!a.tenant_slug && a.name === 'Production') return -1;
-    if (!b.tenant_slug && b.name === 'Production') return 1;
-    const aLabel = a.client_name || a.name;
-    const bLabel = b.client_name || b.name;
-    return aLabel.localeCompare(bLabel);
-  });
-
-  res.json(result);
+  const s = getStore();
+  res.json((s.environments || []).map(e => ({ id: e.id, name: e.name, slug: e.slug })));
 });
 
 router.get('/status', (req, res) => {
-  const { environment_id } = req.query;
-  const tenantSlug = findTenantForEnv(environment_id);
-  const store = tenantSlug ? loadTenantStore(tenantSlug) : getStore();
-  const demoRecs  = (store.records||[]).filter(r=>r._demo&&r.environment_id===environment_id);
-  const demoLinks = (store.people_links||[]).filter(l=>l._demo&&l.environment_id===environment_id);
-  res.json({
-    has_demo_data: demoRecs.length > 0,
-    counts:{
-      records:demoRecs.length,
-      links:demoLinks.length,
-      notes:(store.notes||[]).filter(n=>n._demo&&n.environment_id===environment_id).length,
-      communications:(store.communications||[]).filter(c=>c._demo&&c.environment_id===environment_id).length,
-    },
-  });
+  const s = getStore();
+  const records = s.records || [];
+  const demo = records.filter(r => r._demo);
+  res.json({ total: records.length, demo: demo.length });
 });
 
 router.post('/seed', async (req, res) => {
-  const { environment_id, clear_first=false } = req.body;
-  if (!environment_id) return res.status(400).json({ error:'environment_id required' });
+  const { environment_id, clear_first = false } = req.body;
+  if (!environment_id) return res.status(400).json({ error: 'environment_id required' });
 
-  res.setHeader('Content-Type','text/event-stream');
-  res.setHeader('Cache-Control','no-cache');
-  res.setHeader('Connection','keep-alive');
-  res.setHeader('X-Accel-Buffering','no');
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
 
   const send = data => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
   try {
-    // Find which tenant store this environment lives in
     const tenantSlug = findTenantForEnv(environment_id);
     const contextKey = tenantSlug || 'master';
-
-    // Run the seed inside the correct tenant's AsyncLocalStorage context
     await tenantStorage.run(contextKey, async () => {
-      const results = await runSeed({ environmentId:environment_id, clearFirst:clear_first, progressCb:send });
-      send({ step:'complete', results });
+      const results = await runSeed({ environmentId: environment_id, clearFirst: clear_first, progressCb: send });
+      send({ step: 'complete', results });
     });
   } catch (err) {
-    send({ step:'error', message:err.message });
+    send({ step: 'error', message: err.message });
   }
   res.end();
 });
 
 router.delete('/clear', (req, res) => {
   const { environment_id } = req.body;
-  if (!environment_id) return res.status(400).json({ error:'environment_id required' });
+  if (!environment_id) return res.status(400).json({ error: 'environment_id required' });
   const tenantSlug = findTenantForEnv(environment_id);
-  const store = tenantSlug ? loadTenantStore(tenantSlug) : getStore();
-  let removed = 0;
-  ['records','workflows','workflow_steps','record_workflow_assignments',
-   'people_links','notes','communications','interviews','offers'].forEach(table => {
-    if (store[table]) {
-      const before = store[table].length;
-      store[table] = store[table].filter(r => !(r._demo && r.environment_id === environment_id));
-      removed += before - store[table].length;
-    }
-  });
+  const s = tenantSlug ? loadTenantStore(tenantSlug) : getStore();
+  const before = (s.records || []).length;
+  s.records = (s.records || []).filter(r => !(r._demo && r.environment_id === environment_id));
+  const removed = before - (s.records || []).length;
   saveStore(tenantSlug);
   res.json({ removed });
 });

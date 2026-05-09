@@ -537,7 +537,11 @@ const FieldValue = ({ field, value, allFieldValues = {} }) => {
     }
     case "multi_select": {
       const arr = Array.isArray(value) ? value : (typeof value==="string"?value.split(","):[]);
-      return <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{arr.map(v=><FilterPill key={v} label={v} color={STATUS_COLORS[v]||C.accent} fieldKey={field.api_key} fieldName={field.name}/>)}</div>;
+      return <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{arr.map((v,i)=>{
+        const label = typeof v==="object"&&v!==null?(v.name||v.label||String(v)):String(v||"");
+        if (!label) return null;
+        return <FilterPill key={`${label}-${i}`} label={label} color={STATUS_COLORS[label]||C.accent} fieldKey={field.api_key} fieldName={field.name}/>;
+      })}</div>;
     }
     case "boolean": return <FilterPill label={value?"Yes":"No"} color={value?"#0ca678":"#868e96"} fieldKey={field.api_key} fieldName={field.name}/>;
     case "url":     return <a href={value} target="_blank" rel="noreferrer" style={{color:C.accent,fontSize:13,textDecoration:"none"}}>{value}</a>;
@@ -654,7 +658,12 @@ const FieldValue = ({ field, value, allFieldValues = {} }) => {
       const arr = Array.isArray(value) ? value : (value ? [value] : []);
       if (!arr.length) return <span style={{color:C.text3,fontSize:12}}>—</span>;
       return <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-        {arr.map(v=><span key={v} style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:99,background:"#F59F0018",border:"1px solid #F59F0028",fontSize:11,fontWeight:600,color:"#F59F00"}}>⚡ {v}</span>)}
+        {arr.map((v,i)=>{
+          // Handle both plain strings and legacy {name, level} objects
+          const label = typeof v === "object" && v !== null ? (v.name || "") : String(v || "");
+          if (!label) return null;
+          return <span key={`${label}-${i}`} style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:99,background:"#F59F0018",border:"1px solid #F59F0028",fontSize:11,fontWeight:600,color:"#F59F00"}}>⚡ {label}</span>;
+        })}
       </div>;
     }
     case "table":     return <TableFieldValue field={field} value={value}/>;

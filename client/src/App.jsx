@@ -1764,6 +1764,8 @@ function App({ onEnvReady }) {
     if (seg1 && seg1.length > 8) {
       const obj = objects.find(o => o.slug === seg0);
       if (obj) return `record_${seg1}_${obj.id}`;
+      // Objects not loaded yet — return a pending state so we can resolve once loaded
+      if (!objects.length) return `pending_${seg0}_${seg1}`;
     }
     // /:objectSlug  (list view)
     const obj = objects.find(o => o.slug === seg0);
@@ -1959,6 +1961,12 @@ function App({ onEnvReady }) {
         });
         const resolved = navFromPath(window.location.pathname, objs.length > 0 ? objs : []);
         if (objs.length > 0 && resolved !== activeNavRef.current) setActiveNav(resolved);
+        // Resolve any pending UUID deep-links now that we have objects
+        if (objs.length > 0 && activeNavRef.current?.startsWith('pending_')) {
+          const [, slug, recordId] = activeNavRef.current.split('_');
+          const obj = objs.find(o => o.slug === slug);
+          if (obj) setActiveNav(`record_${recordId}_${obj.id}`);
+        }
         // If still empty and we have retries left, try again
         if (objs.length === 0 && retries > 0) {
           setTimeout(() => attempt(retries - 1, Math.min(delay * 2, 5000)), delay);
@@ -2659,6 +2667,11 @@ function App({ onEnvReady }) {
           </Suspense>
           );
         })()
+        : activeNav.startsWith("pending_") ? (
+          <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <div style={{width:32,height:32,borderRadius:"50%",border:"3px solid #e5e7eb",borderTopColor:"#8B7EC8",animation:"spin 0.8s linear infinite"}}/>
+          </div>
+        )
         : activeNav.startsWith("record_") ? (() => {
           const parts = activeNav.split("_"); const recordId = parts[1]; const objectId = parts[2];
           const obj = navObjects.find(o => o.id === objectId);

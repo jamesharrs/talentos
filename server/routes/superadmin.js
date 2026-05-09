@@ -161,4 +161,29 @@ router.post('/fix-permissions', (req, res) => {
   res.json({ ok: true, stores_fixed: results.length, results });
 });
 
+// Mark an environment's setup as complete
+router.post('/mark-setup-complete', (req, res) => {
+  const { environment_id, tenant_slug } = req.body;
+  if (!environment_id && !tenant_slug) return res.status(400).json({ error: 'environment_id or tenant_slug required' });
+  const { getStore, saveStoreNow, loadTenantStore } = require('../db/init');
+  let updated = 0;
+  // Update master store
+  try {
+    const ms = getStore();
+    const env = ms.environments?.find(e => e.id === environment_id || e.tenant_slug === tenant_slug);
+    if (env) { env.setup_complete = true; env.updated_at = new Date().toISOString(); updated++; }
+    saveStoreNow('master');
+  } catch {}
+  // Update tenant store
+  if (tenant_slug) {
+    try {
+      const ts = loadTenantStore(tenant_slug);
+      const env = ts.environments?.find(e => !environment_id || e.id === environment_id);
+      if (env) { env.setup_complete = true; env.updated_at = new Date().toISOString(); updated++; }
+      saveStoreNow(tenant_slug);
+    } catch {}
+  }
+  res.json({ ok: true, updated });
+});
+
 module.exports = router;

@@ -133,6 +133,7 @@ export default function SignupPage() {
   const [plan,     setPlan]     = useState("growth");
   const [form,     setForm]     = useState({ company: "", firstName: "", lastName: "", email: "", password: "", confirmPassword: "" });
   const [payment,  setPayment]  = useState({ card: "", expiry: "", cvc: "", name: "" });
+  const [loadDemo, setLoadDemo] = useState(true);
   const [errors,   setErrors]   = useState({});
   const [loading,  setLoading]  = useState(false);
   const [result,   setResult]   = useState(null);
@@ -185,6 +186,7 @@ export default function SignupPage() {
           email:       form.email.trim().toLowerCase(),
           password:    form.password,
           plan:        plan,
+          load_demo:   loadDemo,
           // Fake payment token — replace with Stripe paymentMethodId later
           payment_token: `fake_${Date.now()}`,
         }),
@@ -261,6 +263,29 @@ export default function SignupPage() {
       <div style={{ display: "flex", gap: 12 }}>
         <div style={{ flex: 1 }}><Field label="Expiry" value={payment.expiry} onChange={v => setPayment({...payment,expiry:fmtExpiry(v)})} placeholder="MM/YY" error={errors.expiry} required/></div>
         <div style={{ flex: 1 }}><Field label="CVC" value={payment.cvc} onChange={v => setPayment({...payment,cvc:v.replace(/\D/g,"").slice(0,4)})} placeholder="123" error={errors.cvc} required/></div>
+      </div>
+
+      {/* Demo data option */}
+      <div onClick={() => setLoadDemo(v => !v)} style={{ display:"flex", alignItems:"center", gap:14, padding:"14px 16px",
+        borderRadius:12, border:`2px solid ${loadDemo ? C.accent : C.border}`,
+        background: loadDemo ? "#F4EEFF" : "#FAFAFA",
+        cursor:"pointer", marginBottom:20, transition:"all .15s", userSelect:"none" }}>
+        <div style={{ width:40, height:22, borderRadius:99, background:loadDemo?"#6941C6":"#D1D5DB",
+          position:"relative", flexShrink:0, transition:"background .15s" }}>
+          <div style={{ position:"absolute", top:3, left:loadDemo?20:3, width:16, height:16, borderRadius:"50%",
+            background:"white", transition:"left .15s", boxShadow:"0 1px 3px rgba(0,0,0,.2)" }}/>
+        </div>
+        <div style={{ flex:1 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:14, fontWeight:700, color:C.text1, fontFamily:F }}>Load sample data</span>
+            <span style={{ fontSize:11, padding:"2px 8px", borderRadius:99,
+              background:loadDemo?"#6941C620":"#F3F4F6", color:loadDemo?C.accent:C.text3,
+              fontWeight:700, fontFamily:F }}>Recommended</span>
+          </div>
+          <p style={{ fontSize:12, color:C.text3, margin:"3px 0 0", fontFamily:F, lineHeight:1.5 }}>
+            Pre-load your environment with example candidates, jobs, talent pools, and workflows so you can explore immediately.
+          </p>
+        </div>
       </div>
       {serverErr && (
         <div style={{ padding: "10px 14px", borderRadius: 8, background: "#FEF2F2", border: "1px solid #FECACA",

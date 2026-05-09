@@ -9,6 +9,7 @@ const crypto   = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const { getStore, saveStore, saveStoreNow, tenantStorage, storeCache, loadTenantStore, provisionTenant } = require('../db/init');
 const { applyStarterConfig } = require('../data/starter_config');
+const { runSeed, findTenantForEnv } = require('./demo_seed');
 
 const PLAN_LIMITS = {
   starter: { max_users: 5,  max_records: 500,   label: 'Starter', price: 49  },
@@ -59,7 +60,7 @@ function hashPwd(pwd) {
 }
 
 router.post('/', async (req, res) => {
-  const { company, firstName, lastName, email, password, plan = 'growth', payment_token } = req.body;
+  const { company, firstName, lastName, email, password, plan = 'growth', payment_token, load_demo = false } = req.body;
 
   if (!company || !email || !password) return res.status(400).json({ error: 'company, email, and password are required' });
   if (password.length < 8)             return res.status(400).json({ error: 'Password must be at least 8 characters' });
@@ -213,6 +214,18 @@ router.post('/', async (req, res) => {
     } catch (cfgErr) {
       // Non-fatal — tenant is usable, config can be re-applied via admin
       console.error(`[Signup] ⚠️ Starter config failed for ${tenantSlug}:`, cfgErr.message);
+    }
+
+    // Seed demo data if requested
+    if (load_demo) {
+      try {
+        await tenantStorage.run(tenantSlug, async () => {
+          await runSeed({ environmentId: envId, clearFirst: false, progressCb: () => {} });
+        });
+        console.log(`[Signup] ✅ Demo data seeded for ${tenantSlug}`);
+      } catch (seedErr) {
+        console.error(`[Signup] ⚠️ Demo seed failed for ${tenantSlug}:`, seedErr.message);
+      }
     }
 
     // Invalidate tenant cache so the new slug is recognised immediately

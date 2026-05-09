@@ -539,3 +539,5 @@ router.delete('/clear', (req, res) => {
 });
 
 module.exports = router;
+module.exports.runSeed = runSeed;
+module.exports.findTenantForEnv = findTenantForEnv;

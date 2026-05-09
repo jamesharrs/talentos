@@ -15,19 +15,19 @@ const C = {
 
 const PLANS = [
   {
-    id: "starter", name: "Starter", price: 49, period: "mo",
+    id: "starter", name: "Starter", price: 500, period: "mo",
     desc: "Perfect for small teams getting started",
     features: ["Up to 5 users", "500 candidate records", "Core ATS features", "Email support"],
     color: "#3B82F6", popular: false,
   },
   {
-    id: "growth", name: "Growth", price: 149, period: "mo",
+    id: "growth", name: "Growth", price: 1500, period: "mo",
     desc: "For growing recruitment teams",
     features: ["Up to 20 users", "5,000 candidates", "AI Copilot & matching", "Workflows & automation", "Priority support"],
     color: "#6941C6", popular: true,
   },
   {
-    id: "pro", name: "Pro", price: 399, period: "mo",
+    id: "pro", name: "Pro", price: 4000, period: "mo",
     desc: "Full platform for large teams",
     features: ["Unlimited users", "Unlimited records", "All AI features", "Custom portals", "Dedicated onboarding"],
     color: "#059669", popular: false,

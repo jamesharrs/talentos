@@ -1228,7 +1228,12 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
               (data?.people?.records || []).forEach(p => {
                 const skills = p.data?.skills || [];
                 const arr = Array.isArray(skills) ? skills : (typeof skills === "string" ? skills.split(",") : []);
-                arr.forEach(s => { const t = s.trim(); if (t) skillCounts[t] = (skillCounts[t]||0)+1; });
+                arr.forEach(s => {
+                  // Handle both string skills and legacy {name, level} object format
+                  const raw = typeof s === "object" && s !== null ? (s.name || "") : String(s || "");
+                  const t = raw.trim();
+                  if (t) skillCounts[t] = (skillCounts[t]||0)+1;
+                });
               });
               const rows = Object.entries(skillCounts).sort((a,b)=>b[1]-a[1]).slice(0, 10);
               const colors = [V.teal, V.purple, V.rose, V.amber, V.purpleL];

@@ -6645,9 +6645,9 @@ const AgentsRecordPanel = ({ record, environment }) => {
       {/* Run detail drawer */}
       {detailRun && <RunDetailDrawer run={detailRun} onClose={() => setDetailRun(null)}/>}
 
-      {/* Confirm / Input modal */}
-      {confirm && (
-        <div onClick={() => setConfirm(null)} style={{ position:'fixed', inset:0, background:'rgba(15,23,41,0.5)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+      {/* Confirm / Input modal — portaled to escape panel overflow */}
+      {confirm && ReactDOM.createPortal(
+        <div onClick={() => setConfirm(null)} style={{ position:'fixed', inset:0, background:'rgba(15,23,41,0.5)', zIndex:4000, display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
           <div onClick={e => e.stopPropagation()} style={{ background:'white', borderRadius:16, width:'100%', maxWidth:420, boxShadow:'0 24px 60px rgba(0,0,0,0.22)', fontFamily:F, overflow:'hidden' }}>
             <div style={{ padding:'18px 20px 14px', borderBottom:`1px solid ${C.border}` }}>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -6698,7 +6698,7 @@ const AgentsRecordPanel = ({ record, environment }) => {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Agent cards */}
       {agents.map(agent => {

@@ -457,7 +457,7 @@ function RunAgentModal({ agent, environment, onClose, onRun }) {
 }
 
 
-function AgentCard({ agent, onEdit, onDelete, onRun, onRunWithOptions, environment, onSelect, selected }) {
+function AgentCard({ agent, onEdit, onDelete, onRun, onRunWithOptions, environment, onSelect, selected, objectName }) {
   const [running, setRunning]     = useState(false);
   const [showRunModal, setShowRunModal] = useState(false);
   const handleRun = (e) => { e.stopPropagation(); setShowRunModal(true); };
@@ -474,7 +474,17 @@ function AgentCard({ agent, onEdit, onDelete, onRun, onRunWithOptions, environme
           <AgentAvatar agent={agent} size={36}/>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:14,fontWeight:700,color:C.text1,marginBottom:2}}>{agent.name}</div>
-            {agent.description&&<div style={{fontSize:12,color:C.text3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{agent.description}</div>}
+            <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+              {agent.description&&<div style={{fontSize:12,color:C.text3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{agent.description}</div>}
+              {objectName && (
+                <span style={{fontSize:10,padding:'1px 7px',borderRadius:99,background:`${C.accent}12`,color:C.accent,fontWeight:700,flexShrink:0,whiteSpace:'nowrap'}}>
+                  {objectName}
+                </span>
+              )}
+              {!objectName && agent.agent_scope === 'all' && (
+                <span style={{fontSize:10,padding:'1px 7px',borderRadius:99,background:'#f3f4f6',color:C.text3,fontWeight:600,flexShrink:0}}>All objects</span>
+              )}
+            </div>
           </div>
           {/* Trigger type badge — informational only */}
           {AUTO_TRIGGERS.has(agent.trigger_type) ? (
@@ -1619,7 +1629,13 @@ export default function AgentsModule({ environment }) {
   };
   const handleEdit = (agent) => { setEditAgent(agent); setShowBuilder(true); };
 
-  const filtered = agents.filter(a => !search || a.name.toLowerCase().includes(search.toLowerCase()) || (a.description||'').toLowerCase().includes(search.toLowerCase()));
+  const [objFilter, setObjFilter] = useState('all'); // 'all' | object_id
+
+  const filtered = agents.filter(a => {
+    const matchSearch = !search || a.name.toLowerCase().includes(search.toLowerCase()) || (a.description||'').toLowerCase().includes(search.toLowerCase());
+    const matchObj = objFilter === 'all' || a.scope_object_id === objFilter || (objFilter === '__all_objects' && a.agent_scope === 'all');
+    return matchSearch && matchObj;
+  });
 
   // ── Sparkline bar helper
   const Spark = ({ data }) => {
@@ -1656,7 +1672,7 @@ export default function AgentsModule({ environment }) {
       </div>
 
       {/* ── View tabs ── */}
-      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:'wrap'}}>
         <div style={{display:"flex",background:"white",borderRadius:10,border:`1.5px solid ${C.border}`,padding:3}}>
           {[{id:'agents',label:'All Agents'},{id:'approvals',label:`Approvals${pendingCount>0?` (${pendingCount})`:''}`}].map(v=>(
             <button key={v.id} onClick={()=>setView(v.id)} style={{padding:"6px 16px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:F,fontSize:13,fontWeight:view===v.id?700:500,background:view===v.id?C.accent:"transparent",color:view===v.id?"white":C.text3}}>
@@ -1665,6 +1681,16 @@ export default function AgentsModule({ environment }) {
           ))}
         </div>
         {view==='agents'&&<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search agents…" style={{flex:1,maxWidth:300,padding:"8px 12px",borderRadius:10,border:`1.5px solid ${C.border}`,fontSize:13,fontFamily:F}}/>}
+        {view==='agents' && objects.length > 0 && (
+          <div style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center'}}>
+            {[{id:'all',label:'All'},...objects.map(o=>({id:o.id,label:o.plural_name||o.name})),{id:'__all_objects',label:'All objects'}].map(opt=>(
+              <button key={opt.id} onClick={()=>setObjFilter(opt.id)}
+                style={{padding:'4px 11px',borderRadius:99,fontSize:11,fontWeight:objFilter===opt.id?700:500,cursor:'pointer',fontFamily:F,border:`1.5px solid ${objFilter===opt.id?C.accent:C.border}`,background:objFilter===opt.id?C.accentLight:'transparent',color:objFilter===opt.id?C.accent:C.text3,transition:'all .12s'}}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── DASHBOARD VIEW ── */}
@@ -1686,9 +1712,14 @@ export default function AgentsModule({ environment }) {
               </div>
             ) : (
               <div style={{display:"grid",gridTemplateColumns:selectedAgent?"1fr":"repeat(auto-fill,minmax(340px,1fr))",gap:10}}>
-                {filtered.map(a=>(
-                  <AgentCard key={a.id} agent={a} onEdit={handleEdit} onDelete={handleDelete} onRun={handleRun} environment={environment} onSelect={setSelectedAgent} selected={selectedAgent?.id===a.id}/>
-                ))}
+                {filtered.map(a=>{
+                  const objName = a.agent_scope === 'object'
+                    ? (objects.find(o => o.id === a.scope_object_id)?.plural_name || objects.find(o => o.id === a.scope_object_id)?.name)
+                    : null;
+                  return (
+                    <AgentCard key={a.id} agent={a} onEdit={handleEdit} onDelete={handleDelete} onRun={handleRun} environment={environment} onSelect={setSelectedAgent} selected={selectedAgent?.id===a.id} objectName={objName}/>
+                  );
+                })}
               </div>
             )}
           </div>

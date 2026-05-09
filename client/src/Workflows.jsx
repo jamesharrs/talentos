@@ -908,6 +908,85 @@ function AssignTaskGroupConfig({ cfg, onChange, envId, fields }) {
   );
 }
 
+// ── CategoryPicker — styled dropdown for workflow stage category assignment ──
+function CategoryPicker({ categories, value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const selCat = categories.find(c => c.id === value);
+
+  useEffect(() => {
+    if (!open) return;
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position:"relative", flexShrink:0 }} onClick={e => e.stopPropagation()}>
+      <button onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
+        style={{ display:"flex", alignItems:"center", gap:5,
+          border: selCat ? `1.5px solid ${selCat.color}50` : `1px solid ${C.border}`,
+          borderRadius: 99, padding: "3px 8px 3px 7px", fontSize: 11, fontWeight: 600,
+          color: selCat ? selCat.color : C.text3,
+          background: selCat ? `${selCat.color}12` : "#f9fafb",
+          cursor: "pointer", fontFamily: F, whiteSpace:"nowrap" }}>
+        {selCat
+          ? <span style={{ width:7, height:7, borderRadius:"50%", background:selCat.color, flexShrink:0, display:"inline-block" }}/>
+          : null}
+        {selCat ? selCat.name : "Category…"}
+        <svg width={9} height={9} viewBox="0 0 10 10" style={{ opacity:0.55 }}>
+          <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+        </svg>
+      </button>
+      {open && createPortal(
+        <div style={{
+          position:"fixed",
+          top: ref.current ? ref.current.getBoundingClientRect().bottom + 4 : 0,
+          left: ref.current ? ref.current.getBoundingClientRect().left : 0,
+          zIndex:9900, background:"white", border:`1.5px solid ${C.border}`,
+          borderRadius:12, boxShadow:"0 8px 28px rgba(0,0,0,.14)",
+          minWidth:200, maxHeight:300, overflowY:"auto", padding:"4px 0",
+          fontFamily:F,
+        }}>
+          <button onClick={() => { onChange(""); setOpen(false); }}
+            style={{ width:"100%", display:"flex", alignItems:"center", gap:9, padding:"8px 14px",
+              border:"none", background:"none", cursor:"pointer", fontSize:12,
+              color:C.text3, textAlign:"left", fontFamily:F }}
+            onMouseEnter={e=>e.currentTarget.style.background="#f9fafb"}
+            onMouseLeave={e=>e.currentTarget.style.background="none"}>
+            <span style={{ width:8, height:8, borderRadius:"50%", background:"#d1d5db", display:"inline-block", flexShrink:0 }}/>
+            No category
+          </button>
+          <div style={{ height:1, background:C.border, margin:"2px 0" }}/>
+          {categories.map(c => (
+            <button key={c.id} onClick={() => { onChange(c.id); setOpen(false); }}
+              style={{ width:"100%", display:"flex", alignItems:"center", gap:9, padding:"8px 14px",
+                border:"none", cursor:"pointer", fontFamily:F, fontSize:12, textAlign:"left",
+                background: value === c.id ? `${c.color}10` : "none",
+                color: value === c.id ? c.color : "#111827",
+                fontWeight: value === c.id ? 700 : 400,
+              }}
+              onMouseEnter={e=>{ e.currentTarget.style.background=`${c.color}10`; e.currentTarget.style.color=c.color; }}
+              onMouseLeave={e=>{ e.currentTarget.style.background=value===c.id?`${c.color}10`:"none"; e.currentTarget.style.color=value===c.id?c.color:"#111827"; }}>
+              <span style={{ width:9, height:9, borderRadius:"50%", background:c.color, display:"inline-block", flexShrink:0 }}/>
+              <span style={{ flex:1 }}>{c.name}</span>
+              {c.is_terminal && (
+                <span style={{ fontSize:9, color:"#92400E", background:"#FEF3C7", padding:"1px 5px", borderRadius:99, fontWeight:700 }}>end</span>
+              )}
+              {value === c.id && (
+                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M20 6L9 17l-5-5"/>
+                </svg>
+              )}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
 const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, onMoveDown, fields, visibilityFields, envId, allSteps=[] }) => {
   const step = migrateStep(rawStep);
   const actions = step.actions || [];
@@ -1025,21 +1104,14 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
           onClick={e => e.stopPropagation()}
           style={{ flex: 1, border: "none", outline: "none", fontSize: 13, fontWeight: 700, color: C.text1, background: "transparent", fontFamily: F, minWidth: 0 }}/>
 
-        {/* Category picker */}
-        {categories.length > 0 && (() => {
-          const selCat = categories.find(c => c.id === step.category_id);
-          return (
-            <select value={step.category_id || ""} onChange={e => { e.stopPropagation(); setCategory(e.target.value); }}
-              onClick={e => e.stopPropagation()}
-              style={{ border: selCat ? `1.5px solid ${selCat.color}40` : `1px solid ${C.border}`,
-                borderRadius: 99, padding: "2px 10px 2px 8px", fontSize: 11, fontWeight: 600,
-                color: selCat ? selCat.color : C.text3, background: selCat ? `${selCat.color}12` : "#f9fafb",
-                cursor: "pointer", outline: "none", fontFamily: F, flexShrink: 0, maxWidth: 130 }}>
-              <option value="">Category…</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          );
-        })()}
+        {/* Category picker — custom styled dropdown */}
+        {categories.length > 0 && (
+          <CategoryPicker
+            categories={categories}
+            value={step.category_id}
+            onChange={setCategory}
+          />
+        )}
 
         {/* Action count badge */}
         {actions.length > 0 && (

@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import apiClient from "../apiClient.js";
 
-const C = { accent: '#4361EE', text1: '#111827', text2: '#374151', text3: '#6B7280', bg: '#EEF2FF', white: 'white', border: '#E5E7EB', red: '#EF4444' };
+const C = { accent: '#4361EE', text1: '#111827', text2: '#374151', text3: '#6B7280', bg: '#EEF2FF', white: 'white', border: '#E5E7EB', red: '#EF4444', accentLight: '#EEF2FF' };
 const F = "'Space Grotesk', 'DM Sans', system-ui, sans-serif";
 
 const api = {
-  get: async (path) => { const r = await fetch(path); return r.json(); },
-  post: async (path, body) => { const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return r.json(); },
-  patch: async (path, body) => { const r = await fetch(path, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return r.json(); },
-  delete: async (path) => { const r = await fetch(path, { method: 'DELETE' }); return r.json(); },
+  get:    (path)        => apiClient.get(path),
+  post:   (path, body)  => apiClient.post(path, body),
+  patch:  (path, body)  => apiClient.patch(path, body),
+  delete: (path)        => apiClient.delete(path),
 };
 
 const PRESET_COLORS = ['#3B82F6','#F59E0B','#8B5CF6','#06B6D4','#10B981','#EF4444','#6B7280','#F97316','#EC4899','#14B8A6'];

@@ -6403,6 +6403,7 @@ const AgentsRecordPanel = ({ record, environment }) => {
   const [confirm,   setConfirm]  = useState(null);
   const [inputs,    setInputs]   = useState({});
   const [detailRun, setDetailRun] = useState(null); // selected run for detail drawer
+  const [showAllRuns, setShowAllRuns] = useState(false);
 
   const load = useCallback(async () => {
     if (!environment?.id || !record?.id) return;
@@ -6717,30 +6718,36 @@ const AgentsRecordPanel = ({ record, environment }) => {
         );
       })}
 
-      {/* Recent runs — all clickable */}
+      {/* Recent runs — all clickable, truncated to 5 with expand */}
       {runs.length > 0 && (
         <div style={{ marginTop:4, padding:'10px 0 0', borderTop:`1px solid ${C.border}` }}>
-          <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'.05em', marginBottom:6 }}>Recent runs</div>
-          {runs.slice(0, 8).map(run => {
-            const statusColor = STATUS_COLORS[run.status] || '#6b7280';
-            return (
-              <button type="button" key={run.id} onClick={() => setDetailRun(run)}
-                style={{ width:'100%', display:'flex', alignItems:'center', gap:8, padding:'5px 6px', borderRadius:8, border:'none', background:'none', cursor:'pointer', fontFamily:F, textAlign:'left', transition:'background .1s' }}
-                onMouseEnter={e => e.currentTarget.style.background = C.accentLight}
-                onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-                <span style={{ width:7, height:7, borderRadius:'50%', background:statusColor, flexShrink:0, display:'inline-block' }}/>
-                <span style={{ color:run.status === 'failed' ? '#b91c1c' : C.text2, flex:1, fontSize:12, fontWeight:run.status === 'failed' ? 600 : 400, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                  {run.agent_name || run.agent_id}
-                </span>
-                {run.ai_output && <span style={{ fontSize:10, color:'#8b5cf6', fontWeight:600, flexShrink:0 }}>AI</span>}
-                <span style={{ color:C.text3, fontSize:11, flexShrink:0 }}>{new Date(run.created_at).toLocaleDateString('en',{day:'numeric',month:'short'})}</span>
-                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={C.text3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
-                  <path d="M9 18l6-6-6-6"/>
-                </svg>
+            <div style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'.05em', marginBottom:6 }}>Recent runs</div>
+            {(showAllRuns ? runs : runs.slice(0, 5)).map(run => {
+              const statusColor = STATUS_COLORS[run.status] || '#6b7280';
+              return (
+                <button type="button" key={run.id} onClick={() => setDetailRun(run)}
+                  style={{ width:'100%', display:'flex', alignItems:'center', gap:8, padding:'5px 6px', borderRadius:8, border:'none', background:'none', cursor:'pointer', fontFamily:F, textAlign:'left', transition:'background .1s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = C.accentLight}
+                  onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                  <span style={{ width:7, height:7, borderRadius:'50%', background:statusColor, flexShrink:0, display:'inline-block' }}/>
+                  <span style={{ color:run.status === 'failed' ? '#b91c1c' : C.text2, flex:1, fontSize:12, fontWeight:run.status === 'failed' ? 600 : 400, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    {run.agent_name || run.agent_id}
+                  </span>
+                  {run.ai_output && <span style={{ fontSize:10, color:'#8b5cf6', fontWeight:600, flexShrink:0 }}>AI</span>}
+                  <span style={{ color:C.text3, fontSize:11, flexShrink:0 }}>{new Date(run.created_at).toLocaleDateString('en',{day:'numeric',month:'short'})}</span>
+                  <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={C.text3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
+                    <path d="M9 18l6-6-6-6"/>
+                  </svg>
+                </button>
+              );
+            })}
+            {runs.length > 5 && (
+              <button onClick={() => setShowAllRuns(v => !v)}
+                style={{ width:'100%', padding:'5px 6px', borderRadius:8, border:'none', background:'none', cursor:'pointer', fontFamily:F, fontSize:11, fontWeight:600, color:C.accent, textAlign:'left', marginTop:2 }}>
+                {showAllRuns ? '↑ Show less' : `+ ${runs.length - 5} more`}
               </button>
-            );
-          })}
-        </div>
+            )}
+          </div>
       )}
     </div>
   );

@@ -202,38 +202,85 @@ const ImageModal = ({ onConfirm, onClose }) => {
 /* ─── Video modal ─────────────────────────────────────────────────────────── */
 const VideoModal = ({ onConfirm, onClose }) => {
   const [url, setUrl] = useState('');
+  const [autoplay, setAutoplay] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [loop, setLoop] = useState(false);
+  const [controls, setControls] = useState(true);
   const ref = useRef(null);
   useEffect(()=>{ setTimeout(()=>ref.current?.focus(), 50); }, []);
+
   const getEmbed = (raw) => {
     if (!raw) return null;
     try {
       const url = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
-      // YouTube — any domain (youtube.com, youtu.be, youtube-nocookie.com)
       if (url.hostname.includes('youtube') || url.hostname.includes('youtu.be')) {
         const id = url.searchParams.get('v') || url.pathname.replace(/^\//, '').split('/')[0];
-        if (id && id.length > 5) return `https://www.youtube-nocookie.com/embed/${id}`;
+        if (id && id.length > 5) {
+          const params = new URLSearchParams();
+          if (autoplay) params.set('autoplay','1');
+          if (muted || autoplay) params.set('mute','1'); // autoplay requires mute
+          if (loop) { params.set('loop','1'); params.set('playlist',id); }
+          if (!controls) params.set('controls','0');
+          const qs = params.toString();
+          return `https://www.youtube-nocookie.com/embed/${id}${qs?'?'+qs:''}`;
+        }
       }
-      // Vimeo
       if (url.hostname.includes('vimeo')) {
         const id = url.pathname.replace(/^\//, '').split('/')[0];
-        if (id) return `https://player.vimeo.com/video/${id}`;
+        if (id) {
+          const params = new URLSearchParams();
+          if (autoplay) params.set('autoplay','1');
+          if (muted || autoplay) params.set('muted','1');
+          if (loop) params.set('loop','1');
+          if (!controls) params.set('controls','0');
+          const qs = params.toString();
+          return `https://player.vimeo.com/video/${id}${qs?'?'+qs:''}`;
+        }
       }
-      // Already an embed URL
       if (raw.includes('/embed/') || raw.includes('player.vimeo')) return raw;
     } catch (_) {}
     return null;
   };
+
   const embed = getEmbed(url);
+
+  const Toggle = ({ label, value, onChange, note }) => (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 0", borderBottom:"1px solid #f3f4f6" }}>
+      <div>
+        <span style={{ fontSize:13, color:"#374151", fontWeight:500 }}>{label}</span>
+        {note && <span style={{ fontSize:11, color:"#9ca3af", marginLeft:6 }}>{note}</span>}
+      </div>
+      <button type="button" onClick={()=>onChange(!value)}
+        style={{ width:36, height:20, borderRadius:99, border:"none", cursor:"pointer", padding:0,
+          background:value?"#3b5bdb":"#d1d5db", position:"relative", transition:"background .15s", flexShrink:0 }}>
+        <span style={{ position:"absolute", top:2, left:value?18:2, width:16, height:16, borderRadius:"50%",
+          background:"white", transition:"left .15s", boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }}/>
+      </button>
+    </div>
+  );
+
   return (
-    <div style={{...card, width:360}}>
+    <div style={{...card, width:380}}>
       <div style={{ fontSize:14, fontWeight:700, color:"#111827", marginBottom:4 }}>Embed video</div>
-      <div style={{ fontSize:12, color:"#9ca3af", marginBottom:12 }}>Paste a YouTube or Vimeo URL</div>
+      <div style={{ fontSize:12, color:"#9ca3af", marginBottom:10 }}>YouTube or Vimeo URL</div>
       <input ref={ref} value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/watch?v=…" style={inp}
         onKeyDown={e=>{ if(e.key==="Enter"&&embed){e.preventDefault();onConfirm(embed);} if(e.key==="Escape") onClose(); }}/>
       {url && !embed && <div style={{ fontSize:12, color:"#ef4444", marginBottom:10 }}>Not a recognised YouTube or Vimeo URL</div>}
+
+      {/* Options */}
+      <div style={{ marginBottom:14, background:"#f9fafb", borderRadius:8, padding:"2px 12px" }}>
+        <Toggle label="Autoplay" value={autoplay} onChange={setAutoplay} note="mutes automatically"/>
+        <Toggle label="Muted" value={muted||autoplay} onChange={v=>{ if(!autoplay) setMuted(v); }}/>
+        <Toggle label="Loop" value={loop} onChange={setLoop}/>
+        <Toggle label="Show controls" value={controls} onChange={setControls}/>
+      </div>
+
       <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
         <button onClick={onClose} style={btnL}>Cancel</button>
-        <button onClick={()=>embed&&onConfirm(embed)} disabled={!embed} style={{...btnR, background:embed?"#3b5bdb":"#e5e7eb", color:embed?"white":"#9ca3af", cursor:embed?"pointer":"default"}}>Embed</button>
+        <button onClick={()=>embed&&onConfirm(embed)} disabled={!embed}
+          style={{...btnR, background:embed?"#3b5bdb":"#e5e7eb", color:embed?"white":"#9ca3af", cursor:embed?"pointer":"default"}}>
+          Embed
+        </button>
       </div>
     </div>
   );

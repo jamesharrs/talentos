@@ -22,17 +22,19 @@ const RICH_TEXT_CONFIG = {
     'blockquote','pre','code',
     'table','thead','tbody','tr','th','td',
     'a','span','div','hr',
-    'img',  // allow images (src is sanitised below)
+    'img',   // allow images (src is sanitised below)
+    'iframe', // allow video embeds from trusted sources
   ],
   ALLOWED_ATTR: [
-    'href','target','rel',   // links
-    'src','alt','width','height',  // images
-    'style','class',         // formatting
-    'colspan','rowspan',     // tables
+    'href','target','rel',                    // links
+    'src','alt','width','height',             // images + iframes
+    'style','class',                          // formatting
+    'colspan','rowspan',                      // tables
+    'allowfullscreen','loading','frameborder', // iframes
+    'allow',                                  // iframe permissions policy
   ],
-  // Force links to open safely
   FORCE_HTTPS: true,
-  ADD_ATTR: ['target'],
+  ADD_ATTR: ['target','allowfullscreen'],
 };
 
 /** Copilot / AI messages — same as rich text but also allow <table> constructs
@@ -61,6 +63,12 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
       const val = node.getAttribute(attr).trim().toLowerCase();
       if (val.startsWith('javascript:') || val.startsWith('data:text')) {
         node.removeAttribute(attr);
+      }
+      // Restrict iframe src to trusted video domains only
+      if (node.tagName === 'IFRAME' && attr === 'src') {
+        const SAFE_VIDEO_DOMAINS = ['youtube.com', 'youtube-nocookie.com', 'youtu.be', 'vimeo.com', 'player.vimeo.com', 'loom.com'];
+        const isSafe = SAFE_VIDEO_DOMAINS.some(d => val.includes(d));
+        if (!isSafe) node.removeAttribute('src');
       }
     }
   });

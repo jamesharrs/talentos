@@ -1,5 +1,6 @@
 // client/src/Agents.jsx
 import AgentLibrary from "./AgentLibrary.jsx";
+import StyledSelect from "./components/StyledSelect.jsx";
 import SharePicker from "./SharePicker.jsx";
 import { useState, useEffect, useCallback } from "react";
 import AiBadge from "./AiBadge.jsx";
@@ -299,10 +300,12 @@ function RunAgentModal({ agent, environment, onClose, onRun }) {
             {/* Object + Record picker */}
             <div style={{marginBottom:16}}>
               <label style={LBL}>Run on object</label>
-              <select value={selectedObj?.id||''} onChange={e=>setSelectedObj(objects.find(o=>o.id===e.target.value)||null)}
-                style={{...INP,background:'white'}}>
-                {objects.map(o=><option key={o.id} value={o.id}>{o.plural_name||o.name}</option>)}
-              </select>
+              <StyledSelect
+                value={selectedObj?.id||''}
+                onChange={v => setSelectedObj(objects.find(o=>o.id===v)||null)}
+                placeholder="Choose object…"
+                options={objects.map(o=>({value:o.id, label:o.plural_name||o.name}))}
+              />
             </div>
 
             {selectedObj && (<>

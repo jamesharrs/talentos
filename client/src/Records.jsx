@@ -4,6 +4,7 @@ import ReactDOM from "react-dom";
 import RichTextEditor from "./RichTextEditor.jsx";
 import { MatchingEngine } from "./AI.jsx";
 import CommunicationsPanel from "./Communications.jsx";
+import StyledSelect from "./components/StyledSelect.jsx";
 import BiasScanner from "./BiasScanner.jsx";
 import { EngagementBadge, EngagementPanel } from "./EngagementScore.jsx";
 import SharePicker from "./SharePicker.jsx";
@@ -2423,9 +2424,8 @@ const ColumnFilterPopover = ({ field, filterId, initialOp, initialVal, rect, onA
       </div>
       <div style={{ marginBottom:8 }}>
         <label style={{ fontSize:10, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:5 }}>Condition</label>
-        <select value={op} onChange={e=>setOp(e.target.value)} style={{ ...inputStyle, padding:"7px 10px" }}>
-          {ops.map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
+        <StyledSelect value={op} onChange={v=>setOp(v)} size="sm"
+          options={ops.map(o=>({value:o, label:o}))}/>
       </div>
       {needsVal && (
         <div style={{ marginBottom:12 }}>
@@ -3043,17 +3043,19 @@ const FilterRow = ({ filt, idx, ownGroup, linkedGroups, onUpdate, onRemove }) =>
               onSelect={v => onUpdate(filt.id, { value: v })}
             />
           : opts.length > 0
-            ? <select value={filt.value} onChange={e => onUpdate(filt.id, { value: e.target.value })}
-                style={{ ...sel, flex:1 }}
-                onFocus={e=>e.target.style.borderColor=C.accent}
-                onBlur={e=>e.target.style.borderColor=C.border}>
-                <option value="">Select…</option>
-                {opts.map(o => {
+            ? <StyledSelect
+                value={filt.value}
+                onChange={v => onUpdate(filt.id, { value: v })}
+                placeholder="Select…"
+                size="sm"
+                allowClear
+                style={{ flex:1 }}
+                options={opts.map(o => {
                   const v = typeof o === "object" ? o.value : o;
                   const l = typeof o === "object" ? o.label : o;
-                  return <option key={v} value={v}>{l}</option>;
+                  return { value: v, label: l };
                 })}
-              </select>
+              />
             : field?.field_type === "date"
               ? <input type="date" value={filt.value}
                   onChange={e => onUpdate(filt.id, { value: e.target.value })}
@@ -3522,16 +3524,11 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
             />
             {chosenField && (
               chosenField.field_type === "select" ? (
-                <select value={editValue} onChange={e => setEditValue(e.target.value)} style={selSt}>
-                  <option value="">— clear —</option>
-                  {(chosenField.options||[]).map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
+                <StyledSelect value={editValue} onChange={v => setEditValue(v)} size="sm" allowClear
+                  options={(chosenField.options||[]).map(o=>({value:o,label:o}))}/>
               ) : chosenField.field_type === "boolean" ? (
-                <select value={editValue} onChange={e => setEditValue(e.target.value)} style={selSt}>
-                  <option value="">— clear —</option>
-                  <option value="true">True</option>
-                  <option value="false">False</option>
-                </select>
+                <StyledSelect value={editValue} onChange={v => setEditValue(v)} size="sm" allowClear
+                  options={[{value:"true",label:"True"},{value:"false",label:"False"}]}/>
               ) : (
                 <input value={editValue} onChange={e => setEditValue(e.target.value)}
                   placeholder={`New value for ${chosenField.name}…`}
@@ -3700,11 +3697,15 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
                 <div style={{ display:"flex", gap:8, padding:"10px 14px", borderBottom:`1px solid ${C.border}` }}>
                   <input autoFocus value={linkSearch} onChange={e => setLinkSearch(e.target.value)} placeholder="Search records…"
                     style={{ flex:1, padding:"7px 10px", border:`1.5px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none" }}/>
-                  <select value={linkObjFilter} onChange={e => setLinkObjFilter(e.target.value)}
-                    style={{ padding:"7px 10px", border:`1.5px solid ${C.border}`, borderRadius:8, fontSize:12, fontFamily:F, outline:"none", background:"white", color:C.text2 }}>
-                    <option value="">All types</option>
-                    {[...new Set(linkTargets.map(r => r.object_name))].map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
+                  <StyledSelect
+                    value={linkObjFilter}
+                    onChange={v => setLinkObjFilter(v)}
+                    placeholder="All types"
+                    size="sm"
+                    allowClear
+                    style={{ minWidth:110 }}
+                    options={[...(new Set(linkTargets.map(r => r.object_name)))].map(n => ({ value:n, label:n }))}
+                  />
                 </div>
 
                 {/* Record list */}

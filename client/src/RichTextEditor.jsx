@@ -393,12 +393,71 @@ export default function RichTextEditor({ value, onChange, placeholder, autoFocus
     onChange(editorRef.current?.innerHTML || "");
   }, [onChange, restoreSelection]);
 
+  const [selectedImg, setSelectedImg] = useState(null); // { el, rect }
+  const imgToolbarRef = useRef(null);
+
+  // Click on an <img> inside the editor → select it and show the toolbar
+  const handleEditorClick = useCallback((e) => {
+    if (e.target.tagName === "IMG") {
+      const el = e.target;
+      const rect = el.getBoundingClientRect();
+      setSelectedImg({ el, rect });
+    } else {
+      // Clicked outside an image — dismiss if click wasn't on the img toolbar
+      if (!imgToolbarRef.current?.contains(e.target)) {
+        setSelectedImg(null);
+      }
+    }
+    updateActiveFormats();
+  }, [updateActiveFormats]);
+
+  // Update selected image position on scroll/resize
+  useEffect(() => {
+    if (!selectedImg) return;
+    const update = () => {
+      const rect = selectedImg.el.getBoundingClientRect();
+      setSelectedImg(s => s ? { ...s, rect } : null);
+    };
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => { window.removeEventListener('scroll', update, true); window.removeEventListener('resize', update); };
+  }, [selectedImg]);
+
+  // Apply size/align changes to the selected image
+  const applyImageStyle = useCallback((size, align) => {
+    if (!selectedImg) return;
+    const el = selectedImg.el;
+    el.style.width = size;
+    el.style.maxWidth = "100%";
+    el.style.height = "auto";
+    el.style.display = "block";
+    if (align === "center") { el.style.marginLeft = "auto"; el.style.marginRight = "auto"; }
+    else if (align === "right") { el.style.marginLeft = "auto"; el.style.marginRight = "0"; }
+    else { el.style.marginLeft = "0"; el.style.marginRight = "auto"; }
+    onChange(editorRef.current?.innerHTML || "");
+    // Update rect
+    const rect = el.getBoundingClientRect();
+    setSelectedImg(s => s ? { ...s, rect } : null);
+  }, [selectedImg, onChange]);
+
+  const deleteSelectedImg = useCallback(() => {
+    if (!selectedImg) return;
+    selectedImg.el.remove();
+    setSelectedImg(null);
+    onChange(editorRef.current?.innerHTML || "");
+  }, [selectedImg, onChange]);
+
   const handleInput = useCallback(() => {
     onChange(editorRef.current?.innerHTML || "");
     updateActiveFormats();
   }, [onChange, updateActiveFormats]);
 
   const handleKeyDown = useCallback((e) => {
+    // Delete selected image with Backspace/Delete
+    if (selectedImg && (e.key === "Backspace" || e.key === "Delete")) {
+      e.preventDefault(); deleteSelectedImg(); return;
+    }
+    if (selectedImg && e.key === "Escape") { setSelectedImg(null); return; }
     if (e.metaKey || e.ctrlKey) {
       if (e.key==="b") { e.preventDefault(); execCmd("bold"); }
       if (e.key==="i") { e.preventDefault(); execCmd("italic"); }
@@ -406,7 +465,7 @@ export default function RichTextEditor({ value, onChange, placeholder, autoFocus
       if (e.key==="k") { e.preventDefault(); execCmd("_link"); }
     }
     updateActiveFormats();
-  }, [execCmd, updateActiveFormats]);
+  }, [execCmd, updateActiveFormats, selectedImg, deleteSelectedImg]);
 
   const handlePaste = useCallback((e) => {
     e.preventDefault();
@@ -437,6 +496,7 @@ export default function RichTextEditor({ value, onChange, placeholder, autoFocus
         <div ref={editorRef} contentEditable suppressContentEditableWarning
           onInput={handleInput} onKeyDown={handleKeyDown}
           onKeyUp={updateActiveFormats} onMouseUp={updateActiveFormats}
+          onClick={handleEditorClick}
           onPaste={handlePaste} onSelect={updateActiveFormats}
           style={{ minHeight, padding:"10px 12px",
             border:"1.5px solid #d1d5db", borderTop:"none",
@@ -451,6 +511,60 @@ export default function RichTextEditor({ value, onChange, placeholder, autoFocus
         )}
       </div>
 
+      {/* Image selection toolbar */}
+      {selectedImg && (() => {
+        const { rect } = selectedImg;
+        const currentWidth = selectedImg.el.style.width || "100%";
+        const ml = selectedImg.el.style.marginLeft;
+        const mr = selectedImg.el.style.marginRight;
+        const currentAlign = (ml === "auto" && mr === "auto") ? "center" : (ml === "auto") ? "right" : "left";
+        return (
+          <div ref={imgToolbarRef} style={{
+            position:"fixed",
+            top: rect.top - 46,
+            left: rect.left + rect.width / 2,
+            transform:"translateX(-50%)",
+            zIndex:9999,
+            background:"#1a1a2e",
+            borderRadius:10,
+            padding:"6px 10px",
+            display:"flex",
+            alignItems:"center",
+            gap:4,
+            boxShadow:"0 4px 20px rgba(0,0,0,0.3)",
+          }}>
+            {/* Size pills */}
+            {IMAGE_SIZES.map(s=>(
+              <button key={s.value} onMouseDown={e=>{ e.preventDefault(); applyImageStyle(s.value, currentAlign); }}
+                style={{ padding:"3px 8px", borderRadius:6, border:`1.5px solid ${currentWidth===s.value?"#4361EE":"#ffffff30"}`,
+                  background:currentWidth===s.value?"#4361EE":"transparent",
+                  color:"white", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                {s.label}
+              </button>
+            ))}
+            <div style={{ width:1, height:16, background:"#ffffff30", margin:"0 3px" }}/>
+            {/* Align */}
+            {[{v:"left",l:"←"},{v:"center",l:"↔"},{v:"right",l:"→"}].map(a=>(
+              <button key={a.v} onMouseDown={e=>{ e.preventDefault(); applyImageStyle(currentWidth, a.v); }}
+                title={a.v}
+                style={{ width:26, height:26, borderRadius:6, border:`1.5px solid ${currentAlign===a.v?"#4361EE":"#ffffff30"}`,
+                  background:currentAlign===a.v?"#4361EE":"transparent",
+                  color:"white", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                {a.l}
+              </button>
+            ))}
+            <div style={{ width:1, height:16, background:"#ffffff30", margin:"0 3px" }}/>
+            {/* Delete */}
+            <button onMouseDown={e=>{ e.preventDefault(); deleteSelectedImg(); }}
+              title="Delete image"
+              style={{ width:26, height:26, borderRadius:6, border:"1.5px solid #ef444450",
+                background:"transparent", color:"#ef4444", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+              ✕
+            </button>
+          </div>
+        );
+      })()}
+
       <style>{`
         [contenteditable] h1 { font-size:1.4em; font-weight:800; margin:.4em 0; }
         [contenteditable] h2 { font-size:1.15em; font-weight:700; margin:.35em 0; }
@@ -461,7 +575,8 @@ export default function RichTextEditor({ value, onChange, placeholder, autoFocus
         [contenteditable] strong { font-weight:700; }
         [contenteditable] em { font-style:italic; }
         [contenteditable] hr { border:none; border-top:2px solid #e5e7eb; margin:10px 0; }
-        [contenteditable] img { max-width:100%; border-radius:6px; }
+        [contenteditable] img { max-width:100%; border-radius:6px; cursor:pointer; transition:outline .1s; }
+        [contenteditable] img:hover { outline:2px solid #4361EE60; }
       `}</style>
 
       {linkModal && (

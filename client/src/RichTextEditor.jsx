@@ -6,6 +6,7 @@
  */
 
 import { useRef, useEffect, useCallback, useState } from "react";
+import ReactDOM from "react-dom";
 
 /* ─── Toolbar button definitions ─────────────────────────────────────────── */
 const FORMATS = [
@@ -515,8 +516,8 @@ export default function RichTextEditor({ value, onChange, placeholder, autoFocus
         )}
       </div>
 
-      {/* Image selection toolbar */}
-      {selectedImg && (() => {
+      {/* Image selection toolbar — portaled to document.body to escape overflow clipping */}
+      {selectedImg && ReactDOM.createPortal((() => {
         const { rect } = selectedImg;
         const currentWidth = selectedImg.el.style.width || "100%";
         const ml = selectedImg.el.style.marginLeft;
@@ -579,7 +580,7 @@ export default function RichTextEditor({ value, onChange, placeholder, autoFocus
             </button>
           </div>
         );
-      })()}
+      })(), document.body)}
 
       <style>{`
         [contenteditable] h1 { font-size:1.4em; font-weight:800; margin:.4em 0; }

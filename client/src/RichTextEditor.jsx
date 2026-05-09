@@ -107,23 +107,45 @@ const LinkModal = ({ onConfirm, onClose, initialUrl="" }) => {
 const ImageModal = ({ onConfirm, onClose }) => {
   const [url, setUrl] = useState('');
   const [alt, setAlt] = useState('');
+  const [previewOk, setPreviewOk] = useState(false);
+  const [previewTried, setPreviewTried] = useState(false);
   const ref = useRef(null);
   useEffect(()=>{ setTimeout(()=>ref.current?.focus(), 50); }, []);
+
+  // Check if URL looks like a direct image link
+  const looksLikeImage = url && /\.(jpe?g|png|gif|webp|svg|bmp|avif)(\?.*)?$/i.test(url.trim());
+  const canInsert = url && (looksLikeImage || previewOk);
+
+  const fullUrl = url.startsWith('http') ? url.trim() : `https://${url.trim()}`;
+
   return (
-    <div style={{...card, width:340}}>
-      <div style={{ fontSize:14, fontWeight:700, color:"#111827", marginBottom:12 }}>Insert image</div>
-      <input ref={ref} value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://example.com/image.jpg" style={inp}
-        onKeyDown={e=>{ if(e.key==="Enter"&&url){e.preventDefault();onConfirm(url,alt);} if(e.key==="Escape") onClose(); }}/>
+    <div style={{...card, width:360}}>
+      <div style={{ fontSize:14, fontWeight:700, color:"#111827", marginBottom:4 }}>Insert image</div>
+      <div style={{ fontSize:12, color:"#9ca3af", marginBottom:10 }}>Paste a direct image URL (ending in .jpg, .png, .svg etc.)</div>
+      <input ref={ref} value={url} onChange={e=>{ setUrl(e.target.value); setPreviewOk(false); setPreviewTried(false); }}
+        placeholder="https://example.com/photo.jpg" style={inp}
+        onKeyDown={e=>{ if(e.key==="Enter"&&canInsert){e.preventDefault();onConfirm(fullUrl,alt);} if(e.key==="Escape") onClose(); }}/>
       <input value={alt} onChange={e=>setAlt(e.target.value)} placeholder="Alt text (optional)" style={inp}
-        onKeyDown={e=>{ if(e.key==="Enter"&&url){e.preventDefault();onConfirm(url,alt);} if(e.key==="Escape") onClose(); }}/>
+        onKeyDown={e=>{ if(e.key==="Enter"&&canInsert){e.preventDefault();onConfirm(fullUrl,alt);} if(e.key==="Escape") onClose(); }}/>
       {url && (
-        <div style={{ marginBottom:12, borderRadius:8, overflow:"hidden", maxHeight:100, display:"flex", justifyContent:"center", background:"#f9fafb", border:"1px solid #e5e7eb" }}>
-          <img src={url} alt={alt} style={{ maxHeight:100, maxWidth:"100%", objectFit:"contain" }} onError={e=>e.target.style.display="none"}/>
+        <div style={{ marginBottom:12, borderRadius:8, overflow:"hidden", minHeight:60, display:"flex", alignItems:"center", justifyContent:"center", background:"#f9fafb", border:"1px solid #e5e7eb" }}>
+          <img src={fullUrl} alt={alt}
+            style={{ maxHeight:120, maxWidth:"100%", objectFit:"contain", display:"block" }}
+            onLoad={()=>{ setPreviewOk(true); setPreviewTried(true); }}
+            onError={()=>{ setPreviewOk(false); setPreviewTried(true); }}/>
+        </div>
+      )}
+      {url && previewTried && !previewOk && (
+        <div style={{ fontSize:12, color:"#ef4444", marginBottom:10, lineHeight:1.5 }}>
+          ⚠ Can't load this image. Make sure it's a direct link to an image file (not a webpage). Try right-clicking an image and choosing "Copy image address".
         </div>
       )}
       <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
         <button onClick={onClose} style={btnL}>Cancel</button>
-        <button onClick={()=>onConfirm(url,alt)} disabled={!url} style={{...btnR, background:url?"#3b5bdb":"#e5e7eb", color:url?"white":"#9ca3af", cursor:url?"pointer":"default"}}>Insert image</button>
+        <button onClick={()=>canInsert&&onConfirm(fullUrl,alt)} disabled={!canInsert}
+          style={{...btnR, background:canInsert?"#3b5bdb":"#e5e7eb", color:canInsert?"white":"#9ca3af", cursor:canInsert?"pointer":"default"}}>
+          Insert image
+        </button>
       </div>
     </div>
   );

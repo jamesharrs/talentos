@@ -13,7 +13,7 @@ const api = {
 
 const PRESET_COLORS = ['#3B82F6','#F59E0B','#8B5CF6','#06B6D4','#10B981','#EF4444','#6B7280','#F97316','#EC4899','#14B8A6'];
 
-function CategoryModal({ cat, onSave, onClose }) {
+function CategoryModal({ cat, linkedSteps = [], onSave, onClose }) {
   const [form, setForm] = useState({
     name: cat?.name || '',
     color: cat?.color || '#6B7280',
@@ -22,48 +22,137 @@ function CategoryModal({ cat, onSave, onClose }) {
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const hasSteps = linkedSteps.length > 0;
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ background: C.white, borderRadius: 14, padding: 24, width: 400, fontFamily: F }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: C.text1, marginBottom: 20 }}>
-          {cat ? 'Edit Category' : 'New Category'}
+      alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+      <div style={{ background: C.white, borderRadius: 16, width: '100%',
+        maxWidth: hasSteps ? 720 : 440, maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+        fontFamily: F, boxShadow: '0 24px 60px rgba(0,0,0,.2)', overflow: 'hidden' }}>
+
+        {/* Header */}
+        <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${C.border}`, flexShrink: 0,
+          display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: `${form.color}18`,
+            border: `2px solid ${form.color}40`, flexShrink: 0 }}/>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text1 }}>
+              {cat ? `Edit — ${cat.name}` : 'New Category'}
+            </div>
+            {cat?.description && <div style={{ fontSize: 12, color: C.text3, marginTop: 1 }}>{cat.description}</div>}
+          </div>
+          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none',
+            cursor: 'pointer', color: C.text3, fontSize: 20, lineHeight: 1, padding: 0 }}>×</button>
         </div>
 
-        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 4 }}>Name</label>
-        <input value={form.name} onChange={e => set('name', e.target.value)}
-          style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '8px 10px',
-            fontSize: 13, fontFamily: F, outline: 'none', boxSizing: 'border-box', marginBottom: 14 }} />
+        {/* Body — two column when steps exist */}
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', gap: 0 }}>
 
-        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 8 }}>Colour</label>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-          {PRESET_COLORS.map(c => (
-            <div key={c} onClick={() => set('color', c)}
-              style={{ width: 28, height: 28, borderRadius: '50%', background: c, cursor: 'pointer',
-                border: form.color === c ? `3px solid ${C.text1}` : '3px solid transparent',
-                outline: form.color === c ? `2px solid ${c}` : 'none', transition: 'all .1s' }} />
-          ))}
-          <input type="color" value={form.color} onChange={e => set('color', e.target.value)}
-            style={{ width: 28, height: 28, border: 'none', borderRadius: '50%', cursor: 'pointer', padding: 0 }} />
+          {/* Left — edit form */}
+          <div style={{ flex: '0 0 380px', padding: '20px 24px', borderRight: hasSteps ? `1px solid ${C.border}` : 'none' }}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: C.text3,
+              textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>Name</label>
+            <input value={form.name} onChange={e => set('name', e.target.value)}
+              style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '8px 10px',
+                fontSize: 13, fontFamily: F, outline: 'none', boxSizing: 'border-box', marginBottom: 16 }} />
+
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: C.text3,
+              textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>Colour</label>
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 16 }}>
+              {PRESET_COLORS.map(c => (
+                <div key={c} onClick={() => set('color', c)}
+                  style={{ width: 26, height: 26, borderRadius: '50%', background: c, cursor: 'pointer',
+                    border: form.color === c ? `3px solid ${C.text1}` : '2px solid transparent',
+                    outline: form.color === c ? `2px solid ${c}` : 'none', transition: 'all .1s' }} />
+              ))}
+              <input type="color" value={form.color} onChange={e => set('color', e.target.value)}
+                style={{ width: 26, height: 26, border: 'none', borderRadius: '50%', cursor: 'pointer', padding: 0 }} />
+            </div>
+
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: C.text3,
+              textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>Description</label>
+            <input value={form.description} onChange={e => set('description', e.target.value)}
+              placeholder="What does this category represent?"
+              style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '8px 10px',
+                fontSize: 13, fontFamily: F, outline: 'none', boxSizing: 'border-box', marginBottom: 16 }} />
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 4,
+              padding: '10px 12px', borderRadius: 9, border: `1.5px solid ${C.border}`,
+              background: form.is_terminal ? '#FEF3C7' : '#f9fafb' }}>
+              <input type="checkbox" checked={form.is_terminal} onChange={e => set('is_terminal', e.target.checked)}
+                style={{ accentColor: '#92400E' }}/>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: form.is_terminal ? '#92400E' : C.text2 }}>Terminal stage</div>
+                <div style={{ fontSize: 11, color: C.text3, marginTop: 1 }}>End of the workflow process</div>
+              </div>
+            </label>
+          </div>
+
+          {/* Right — linked workflow steps (audit panel) */}
+          {hasSteps && (
+            <div style={{ flex: 1, padding: '20px 20px', minWidth: 0 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, textTransform: 'uppercase',
+                letterSpacing: '.06em', marginBottom: 10 }}>
+                Linked workflow steps · {linkedSteps.length}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {linkedSteps.map((s, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 11px',
+                    borderRadius: 9, border: `1.5px solid ${C.border}`, background: '#f9fafb' }}>
+                    {/* Step colour bar */}
+                    <div style={{ width: 3, height: 32, borderRadius: 2,
+                      background: form.color, flexShrink: 0 }}/>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: C.text1,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {s.stepName || 'Unnamed step'}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.text3, marginTop: 1,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {s.workflowName}
+                      </div>
+                    </div>
+                    {s.automation_type && (
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 99,
+                        background: '#EEF2FF', color: C.accent, fontWeight: 700, flexShrink: 0 }}>
+                        {s.automation_type.replace(/_/g, ' ')}
+                      </span>
+                    )}
+                    <span style={{ fontSize: 10, color: C.text3, flexShrink: 0 }}>
+                      Step {s.order + 1}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {linkedSteps.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: C.text3, fontSize: 13 }}>
+                  No workflow steps assigned to this category yet.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* No steps — show hint in form area */}
+          {!hasSteps && cat && (
+            <div style={{ display: 'none' }}/>
+          )}
         </div>
 
-        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 4 }}>Description</label>
-        <input value={form.description} onChange={e => set('description', e.target.value)}
-          placeholder="What does this category represent?"
-          style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '8px 10px',
-            fontSize: 13, fontFamily: F, outline: 'none', boxSizing: 'border-box', marginBottom: 14 }} />
-
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 20 }}>
-          <input type="checkbox" checked={form.is_terminal} onChange={e => set('is_terminal', e.target.checked)} />
-          <span style={{ fontSize: 13, color: C.text2 }}>Terminal stage (end of workflow process)</span>
-        </label>
-
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '9px', borderRadius: 8, border: `1px solid ${C.border}`,
+        {/* Footer */}
+        <div style={{ padding: '14px 24px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: 10, flexShrink: 0 }}>
+          {!hasSteps && cat && (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.text3 }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 8v4M12 16h.01"/></svg>
+              No workflow steps use this category yet
+            </div>
+          )}
+          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 9, border: `1px solid ${C.border}`,
             background: 'transparent', color: C.text2, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: F }}>Cancel</button>
           <button onClick={() => onSave(form)} disabled={!form.name.trim()}
-            style={{ flex: 2, padding: '9px', borderRadius: 8, border: 'none', background: C.accent,
-              color: C.white, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: F }}>Save</button>
+            style={{ padding: '9px 24px', borderRadius: 9, border: 'none', background: C.accent,
+              color: C.white, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: F,
+              opacity: !form.name.trim() ? 0.5 : 1 }}>Save</button>
         </div>
       </div>
     </div>
@@ -71,10 +160,11 @@ function CategoryModal({ cat, onSave, onClose }) {
 }
 
 export default function StageCategoriesSection({ environment }) {
-  const [cats, setCats] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null); // null | 'new' | cat object
-  const [saving, setSaving] = useState(false);
+  const [cats, setCats]           = useState([]);
+  const [workflows, setWorkflows] = useState([]); // all workflows + steps for this env
+  const [loading, setLoading]     = useState(true);
+  const [editing, setEditing]     = useState(null); // null | 'new' | cat object
+  const [saving, setSaving]       = useState(false);
 
   const envId = environment?.id;
 
@@ -82,8 +172,12 @@ export default function StageCategoriesSection({ environment }) {
     if (!envId) { setLoading(false); return; }
     setLoading(true);
     try {
-      const data = await api.get(`/stage-categories?environment_id=${envId}`);
+      const [data, wfData] = await Promise.all([
+        api.get(`/stage-categories?environment_id=${envId}`),
+        api.get(`/workflows?environment_id=${envId}`),
+      ]);
       setCats(Array.isArray(data) ? data : []);
+      setWorkflows(Array.isArray(wfData) ? wfData : []);
     } catch (err) {
       console.warn('[StageCats] load error:', err?.message || err);
       setCats([]);
@@ -91,6 +185,29 @@ export default function StageCategoriesSection({ environment }) {
       setLoading(false);
     }
   }, [envId]);
+
+  // Build a lookup of category_id → [{stepName, workflowName, order, automation_type}]
+  const stepsByCatId = useCallback(() => {
+    const map = {};
+    workflows.forEach(wf => {
+      (wf.steps || []).forEach(step => {
+        if (!step.category_id) return;
+        if (!map[step.category_id]) map[step.category_id] = [];
+        map[step.category_id].push({
+          stepName:      step.name || 'Unnamed step',
+          workflowName:  wf.name || 'Unnamed workflow',
+          order:         step.order ?? 0,
+          automation_type: step.automation_type || null,
+          workflowId:    wf.id,
+        });
+      });
+    });
+    // Sort by workflow name then step order within each category
+    Object.values(map).forEach(arr => arr.sort((a, b) =>
+      a.workflowName.localeCompare(b.workflowName) || a.order - b.order
+    ));
+    return map;
+  }, [workflows]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -159,13 +276,25 @@ export default function StageCategoriesSection({ environment }) {
             <div style={{ width: 12, height: 40, borderRadius: 4, background: cat.color, flexShrink: 0 }} />
             {/* Info */}
             <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>{cat.name}</span>
-                {cat.is_system && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99,
-                  background: '#F3F4F6', color: C.text3, fontWeight: 600 }}>system</span>}
-                {cat.is_terminal && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99,
-                  background: '#FEF3C7', color: '#92400E', fontWeight: 600 }}>terminal</span>}
-              </div>
+              {(() => {
+              const stepCount = (stepsByCatId()[cat.id] || []).length;
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>{cat.name}</span>
+                  {cat.is_system && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99,
+                    background: '#F3F4F6', color: C.text3, fontWeight: 600 }}>system</span>}
+                  {cat.is_terminal && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99,
+                    background: '#FEF3C7', color: '#92400E', fontWeight: 600 }}>terminal</span>}
+                  {stepCount > 0 && (
+                    <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 99,
+                      background: `${cat.color}18`, color: cat.color, fontWeight: 700,
+                      border: `1px solid ${cat.color}30` }}>
+                      {stepCount} step{stepCount !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
               {cat.description && <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>{cat.description}</div>}
             </div>
             {/* Sort order */}
@@ -194,6 +323,7 @@ export default function StageCategoriesSection({ environment }) {
       {editing && (
         <CategoryModal
           cat={editing === 'new' ? null : editing}
+          linkedSteps={editing !== 'new' ? (stepsByCatId()[editing.id] || []) : []}
           onSave={handleSave}
           onClose={() => setEditing(null)}
         />

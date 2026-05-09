@@ -3373,7 +3373,6 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
   const [editFieldId,      setEditFieldId]      = useState("");
   const [editValue,        setEditValue]        = useState("");
   const [confirming,       setConfirming]       = useState(false);
-  const [showComms,        setShowComms]        = useState(false);
   const [showNoteModal,    setShowNoteModal]    = useState(false);
   const [showLinkModal,    setShowLinkModal]    = useState(false);
   const [noteText,         setNoteText]         = useState("");
@@ -3384,9 +3383,7 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
   const [linkStaging,      setLinkStaging]      = useState(null); // { record, steps } — stage picker open for this record
   const [linkStageId,      setLinkStageId]      = useState("");  // selected starting stage id
   const commsRef   = useRef(null);
-  const commsBtnRef = useRef(null);
   const editBtnRef  = useRef(null);
-  const [commsPos,  setCommsPos]  = useState(null);
   const [editPos,   setEditPos]   = useState(null);
   const isPeople = objectSlug === "people";
 
@@ -3401,16 +3398,6 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
     if (left + panelWidth > window.innerWidth - margin) left = window.innerWidth - margin - panelWidth;
     return { bottom: window.innerHeight - r.top + 6, left };
   };
-
-  // Close dropdowns on outside click
-  useEffect(() => {
-    if (!showComms) return;
-    const h = e => {
-      if (showComms && commsBtnRef.current && !commsBtnRef.current.contains(e.target)) setShowComms(false);
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [showComms]);
 
   // Load all linkable records — only those with a people_link workflow that has steps
   useEffect(() => {
@@ -3560,33 +3547,9 @@ const BulkActionBar = ({ count, total, fields, onSelectAll, onClearAll, onDelete
         )}
       </div>
       {isPeople && <>
-        <div>
-          <BtnDark ref={commsBtnRef} onClick={() => { setCommsPos(posAboveBtn(commsBtnRef)); setShowComms(s => !s); }}>
+        <BtnDark onClick={() => onBulkAction?.("communicate", { type: null })}>
             <Ic n="mail" s={12} c="white"/> Communicate
-            <Ic n="chevD" s={10} c="rgba(255,255,255,0.6)"/>
           </BtnDark>
-          {showComms && commsPos && ReactDOM.createPortal(
-            <div style={{ position:"fixed", bottom:commsPos.bottom, left:commsPos.left, zIndex:9700,
-              background:"white", border:`1px solid ${C.border}`, borderRadius:10,
-              boxShadow:"0 8px 24px rgba(0,0,0,.15)", overflow:"hidden", minWidth:170 }}>
-              {[
-                { type:"email", icon:"mail", label:"Send Email" },
-                { type:"sms", icon:"message", label:"Send SMS" },
-                { type:"whatsapp", icon:"phone", label:"WhatsApp" },
-              ].map(({ type, icon, label }) => (
-                <button key={type} onClick={() => { onBulkAction?.("communicate", { type }); setShowComms(false); }}
-                  style={{ width:"100%", display:"flex", alignItems:"center", gap:9, padding:"9px 14px",
-                    border:"none", background:"transparent", cursor:"pointer", fontFamily:F,
-                    fontSize:12, fontWeight:600, color:C.text1, textAlign:"left" }}
-                  onMouseEnter={e => e.currentTarget.style.background = C.accentLight}
-                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <Ic n={icon} s={13} c={C.accent}/>{label}
-                </button>
-              ))}
-            </div>,
-            document.body
-          )}
-        </div>
         <BtnDark onClick={() => setShowNoteModal(true)}><Ic n="edit" s={12} c="white"/> Add note</BtnDark>
         <BtnDark onClick={() => onBulkAction?.("interview", {})}><Ic n="calendar" s={12} c="white"/> Interview</BtnDark>
         <BtnDark onClick={() => setShowLinkModal(true)}><Ic n="link" s={12} c="white"/> Link to</BtnDark>
@@ -11208,9 +11171,10 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
   const handleBulkPeopleAction = async (action, payload) => {
     const ids = [...selectedIds];
     if (action === "communicate") {
-      // Fire event — keep selection so user knows who was targeted
+      // Fire event with full recipient records so the modal can render names/emails
+      const recipientRecords = records.filter(r => ids.includes(r.id));
       window.dispatchEvent(new CustomEvent("talentos:bulkCommunicate", {
-        detail: { recordIds: ids, type: payload.type, object }
+        detail: { recordIds: ids, recipients: recipientRecords, type: payload.type || null, object }
       }));
       return; // don't clear selection
     } else if (action === "note") {

@@ -140,253 +140,409 @@ No markdown, no preamble, just the JSON object.`;
 }
 
 // ─── Compose Modal (Email / SMS / WhatsApp / Call log) ──────────────────────
-function ComposeModal({ type, record, environment, onSave, onClose, defaultRelatedRecordId }) {
-  const [subject, setSubject]   = useState("");
-  const [body, setBody]         = useState("");
-  const [to, setTo]             = useState(() => {
+// ─── Compose Modal (fully rewritten) ─────────────────────────────────────────
+// Single modal for email/sms/whatsapp/call, with type-picker, scratch/AI/template modes,
+// branding preview, and bulk-recipients support.
+
+const COMPOSE_MODES = [
+  { id:"scratch",  label:"Write",     icon:"edit"    },
+  { id:"template", label:"Template",  icon:"file"    },
+  { id:"ai",       label:"AI Compose", icon:"sparkles" },
+];
+
+export function ComposeModal({
+  type: initialType,   // if provided, skip the type-picker
+  record,              // single record (or null for bulk)
+  recipients,          // [{ id, name, email, phone }] for bulk
+  environment,
+  onSave,
+  onClose,
+  defaultRelatedRecordId,
+}) {
+  const isBulk = Array.isArray(recipients) && recipients.length > 1;
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [type,      setType]      = useState(initialType || "email");
+  const [mode,      setMode]      = useState("scratch");   // scratch | template | ai
+  const [subject,   setSubject]   = useState("");
+  const [body,      setBody]      = useState("");
+  const [to,        setTo]        = useState(() => {
+    if (isBulk) return "";
     const d = record?.data || {};
-    if (type === "email")     return d.email || d.email_address || "";
-    if (type === "sms")       return d.mobile || d.phone || d.phone_number || "";
-    if (type === "whatsapp")  return d.mobile || d.whatsapp || d.phone || "";
+    if ((initialType||"email") === "email")    return d.email || d.email_address || "";
+    if ((initialType||"email") === "sms")      return d.mobile || d.phone || d.phone_number || "";
+    if ((initialType||"email") === "whatsapp") return d.mobile || d.whatsapp || d.phone || "";
     return "";
   });
-  const [direction, setDir]     = useState(type==="call" ? "logged" : "outbound");
-  const [duration, setDuration] = useState("");
-  const [outcome, setOutcome]   = useState("");
+  const [direction, setDir]       = useState((initialType||"email") === "call" ? "logged" : "outbound");
+  const [duration,  setDuration]  = useState("");
+  const [outcome,   setOutcome]   = useState("");
   const [templates, setTemplates] = useState([]);
-  const [showAI, setShowAI]     = useState(false);
-  const [saving, setSaving]     = useState(false);
-  const [providerStatus, setProviderStatus] = useState(null);
-  // Related job — pre-selected from job context bar, or chosen manually
+  const [selTpl,    setSelTpl]    = useState(null);      // selected template object
+  const [preview,   setPreview]   = useState(false);     // branding preview toggle
+  const [aiLoading, setAiLoading] = useState(false);
+  const [saving,    setSaving]    = useState(false);
   const [linkedJobs, setLinkedJobs] = useState([]);
   const [relatedRecordId, setRelatedRecordId] = useState(defaultRelatedRecordId || "");
+  const [providerStatus, setProviderStatus] = useState(null);
+  const [brandColor, setBrandColor] = useState("#4361EE");
+  const [brandLogo,  setBrandLogo]  = useState("");
+
   const meta = TYPE_META[type] || {};
 
+  // ── Effects ────────────────────────────────────────────────────────────────
   useEffect(() => {
     api.get('/comms/status').then(s => setProviderStatus(s)).catch(() => {});
   }, []);
 
-  // Load jobs this person is linked to (pipeline links)
   useEffect(() => {
     if (!record?.id || !environment?.id) return;
-    // Fetch people_links for this person, then get job record names
     tFetch(`/api/records/linked-jobs?person_id=${record.id}&environment_id=${environment.id}`)
-      .then(r => r.json())
-      .then(d => setLinkedJobs(Array.isArray(d) ? d : []))
-      .catch(() => setLinkedJobs([]));
+      .then(r => r.json()).then(d => setLinkedJobs(Array.isArray(d) ? d : [])).catch(() => {});
   }, [record?.id, environment?.id]);
 
   useEffect(() => {
-    if (type==="email" && environment?.id) {
-      api.get(`/email-templates?environment_id=${environment.id}`).then(r => setTemplates(Array.isArray(r)?r:[]));
+    if (type === "email" && environment?.id) {
+      api.get(`/email-templates?environment_id=${environment.id}`)
+        .then(r => { setTemplates(Array.isArray(r) ? r : []); });
     }
   }, [type, environment?.id]);
 
-  const applyTemplate = (t) => {
+  // Sync `to` when type changes
+  useEffect(() => {
+    if (isBulk) return;
+    const d = record?.data || {};
+    if (type === "email")    setTo(d.email || d.email_address || "");
+    else if (type === "sms") setTo(d.mobile || d.phone || d.phone_number || "");
+    else if (type === "whatsapp") setTo(d.mobile || d.whatsapp || d.phone || "");
+    else setTo("");
+  }, [type]); // eslint-disable-line
+
+  // ── Template helpers ───────────────────────────────────────────────────────
+  const buildVars = () => {
     const d = record?.data || {};
     const selectedJob = linkedJobs.find(j => j.id === relatedRecordId) || linkedJobs[0];
     const jd = selectedJob?.data || {};
-
-    // Build substitution map from all common variable names
-    const vars = {
-      // Candidate / person
-      candidate_name:    [d.first_name, d.last_name].filter(Boolean).join(" ") || d.name || "Candidate",
-      first_name:        d.first_name || d.name?.split(" ")[0] || "Candidate",
-      last_name:         d.last_name || "",
-      full_name:         [d.first_name, d.last_name].filter(Boolean).join(" ") || d.name || "Candidate",
-      email:             d.email || d.email_address || "",
-      phone:             d.phone || d.mobile || "",
-      current_title:     d.current_title || d.job_title || "",
-      location:          d.location || d.city || "",
-      // Job
-      job_title:         jd.job_title || jd.title || jd.name || "",
-      job_location:      jd.location || jd.city || "",
-      department:        jd.department || "",
-      // Company (from job or branding)
-      company_name:      jd.company || jd.entity || d.company || "",
-      // Recruiter (logged-in user — not easily available here, leave as hint)
-      recruiter_name:    "",
+    return {
+      candidate_name: [d.first_name, d.last_name].filter(Boolean).join(" ") || "Candidate",
+      first_name: d.first_name || "Candidate", last_name: d.last_name || "",
+      full_name: [d.first_name, d.last_name].filter(Boolean).join(" ") || "Candidate",
+      email: d.email || d.email_address || "", phone: d.phone || d.mobile || "",
+      current_title: d.current_title || d.job_title || "", location: d.location || "",
+      job_title: jd.job_title || jd.title || jd.name || "", job_location: jd.location || "",
+      department: jd.department || "", company_name: jd.company || jd.entity || "",
+      recruiter_name: "",
     };
+  };
+  const substitute = (text) =>
+    (text || "").replace(/\{\{(\w+)\}\}/g, (m, k) => { const v = buildVars(); return v[k] !== undefined ? v[k] : m; });
 
-    const substitute = (text) =>
-      (text || "").replace(/\{\{(\w+)\}\}/g, (match, key) =>
-        vars[key] !== undefined ? vars[key] : match
-      );
-
-    setSubject(substitute(t.subject || ""));
-    setBody(substitute(t.body || ""));
+  const applyTemplate = (tpl) => {
+    if (!tpl) return;
+    setSelTpl(tpl);
+    setSubject(substitute(tpl.subject || ""));
+    setBody(substitute(tpl.body || ""));
   };
 
+  // ── AI compose ─────────────────────────────────────────────────────────────
+  const handleAiCompose = async () => {
+    setAiLoading(true);
+    const d = record?.data || {};
+    const name = [d.first_name, d.last_name].filter(Boolean).join(" ") || "the candidate";
+    const prompt = type === "email"
+      ? `Write a professional outreach ${type} to ${name} (${d.current_title || "professional"} in ${d.location || "their location"}). Keep it concise, warm and personalised. Return JSON: {"subject":"...","body":"..."}`
+      : `Write a brief, friendly ${type} message to ${name}. Keep it under 160 chars for SMS. Return JSON: {"body":"..."}`;
+    try {
+      const res = await tFetch("/api/ai/chat", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [{ role: "user", content: prompt }], max_tokens: 600 }),
+      });
+      const data = await res.json();
+      const text = data?.content || "";
+      const clean = text.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      if (parsed.subject) setSubject(parsed.subject);
+      if (parsed.body)    setBody(parsed.body);
+      setMode("scratch"); // switch to scratch view to show the result
+    } catch { /* ignore */ }
+    setAiLoading(false);
+  };
+
+  // ── Save ───────────────────────────────────────────────────────────────────
   const save = async () => {
     setSaving(true);
-    const payload = {
-      record_id: record.id,
-      environment_id: environment?.id,
-      type,
-      direction,
-      to: to || undefined,
-      subject: subject || undefined,
-      body,
-      duration_seconds: duration ? Number(duration) : undefined,
-      outcome: outcome || undefined,
-      from_label: direction==="inbound" ? "External" : "Me",
-      related_record_id: relatedRecordId || undefined,
-      context: relatedRecordId ? 'application' : 'general',
-    };
-    await api.post("/comms", payload);
+    const targets = isBulk ? recipients : [record];
+    await Promise.all(targets.map(rec => {
+      const d = rec?.data || rec || {};
+      const recTo = isBulk
+        ? (type === "email" ? (d.email || d.email_address || "") : (d.mobile || d.phone || ""))
+        : to;
+      return api.post("/comms", {
+        record_id: rec.id, environment_id: environment?.id,
+        type, direction, to: recTo || undefined,
+        subject: subject || undefined, body,
+        duration_seconds: duration ? Number(duration) : undefined,
+        outcome: outcome || undefined,
+        from_label: direction === "inbound" ? "External" : "Me",
+        related_record_id: relatedRecordId || undefined,
+        context: relatedRecordId ? "application" : "general",
+      });
+    }));
     setSaving(false);
     onSave();
   };
 
   const isSimulated = providerStatus && type !== "call" && direction === "outbound" && providerStatus[type] === "simulation";
+  const canSend = type === "call" ? true : !!body.trim();
+
+  // ── Type selector (only shown if no initialType) ───────────────────────────
+  const TypeSelector = () => (
+    <div style={{ display:"flex", gap:6, padding:"10px 20px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+      {["email","sms","whatsapp","call"].map(t => {
+        const m = TYPE_META[t] || {};
+        return (
+          <button key={t} onClick={() => setType(t)}
+            style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4,
+              padding:"8px 6px", borderRadius:10,
+              border:`1.5px solid ${type === t ? m.color || C.accent : C.border}`,
+              background: type === t ? `${m.color || C.accent}12` : "transparent",
+              cursor:"pointer", transition:"all .12s" }}>
+            <TypeIcon type={t} size={18} color={type === t ? m.color : C.text3}/>
+            <span style={{ fontSize:10, fontWeight:700,
+              color: type === t ? m.color || C.accent : C.text3 }}>{m.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  // ── Mode tabs (scratch / template / ai) — only for non-call ───────────────
+  const ModeTabs = () => (
+    <div style={{ display:"flex", gap:2, padding:"0 20px 10px", flexShrink:0 }}>
+      {COMPOSE_MODES.filter(m => type === "call" ? m.id === "scratch" : true).map(m => (
+        <button key={m.id} onClick={() => { setMode(m.id); if (m.id === "ai") handleAiCompose(); }}
+          style={{ flex:1, padding:"7px 8px", borderRadius:8, border:"none",
+            background: mode === m.id ? C.accentLight : "transparent",
+            color: mode === m.id ? C.accent : C.text3,
+            fontSize:12, fontWeight: mode === m.id ? 700 : 500,
+            cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:5 }}>
+          {m.id === "ai" && aiLoading ? "Generating…" : m.label}
+          {m.id === "ai" && aiLoading && (
+            <span style={{ display:"inline-block", width:10, height:10, border:`2px solid ${C.accent}`, borderTopColor:"transparent", borderRadius:"50%", animation:"spin .7s linear infinite" }}/>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+
+  // ── Template list (shown when mode === "template") ─────────────────────────
+  const TemplateList = () => (
+    <div style={{ flex:1, overflowY:"auto", padding:"0 20px 16px" }}>
+      {templates.length === 0
+        ? <div style={{ textAlign:"center", color:C.text3, fontSize:13, padding:"28px 0" }}>No email templates yet.<br/><span style={{ fontSize:11 }}>Create them in Settings → Email Templates.</span></div>
+        : templates.map(tpl => (
+          <button key={tpl.id} onClick={() => { applyTemplate(tpl); setMode("scratch"); }}
+            style={{ width:"100%", textAlign:"left", padding:"10px 14px", borderRadius:10, marginBottom:6,
+              border:`1.5px solid ${selTpl?.id === tpl.id ? C.accent : C.border}`,
+              background: selTpl?.id === tpl.id ? C.accentLight : "#f8f9fc",
+              cursor:"pointer", fontFamily:"inherit" }}>
+            <div style={{ fontSize:13, fontWeight:700, color:C.text1, marginBottom:2 }}>{tpl.name}</div>
+            {tpl.subject && <div style={{ fontSize:11, color:C.text3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{tpl.subject}</div>}
+          </button>
+        ))
+      }
+    </div>
+  );
+
+  // ── Email branding preview ─────────────────────────────────────────────────
+  const EmailPreview = () => (
+    <div style={{ flex:1, overflowY:"auto", padding:"0 20px 16px" }}>
+      <div style={{ marginBottom:10, display:"flex", alignItems:"center", gap:8 }}>
+        <label style={{ fontSize:11, fontWeight:700, color:C.text3 }}>Brand colour</label>
+        <input type="color" value={brandColor} onChange={e => setBrandColor(e.target.value)}
+          style={{ width:28, height:22, border:"none", borderRadius:4, cursor:"pointer", padding:0 }}/>
+        <label style={{ fontSize:11, fontWeight:700, color:C.text3, marginLeft:8 }}>Logo URL</label>
+        <input value={brandLogo} onChange={e => setBrandLogo(e.target.value)} placeholder="https://…"
+          style={{ flex:1, padding:"4px 8px", border:`1px solid ${C.border}`, borderRadius:6, fontSize:11, outline:"none" }}/>
+      </div>
+      {/* Preview email */}
+      <div style={{ border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden", fontSize:13, fontFamily:"sans-serif" }}>
+        <div style={{ background:brandColor, padding:"18px 24px", textAlign:"center" }}>
+          {brandLogo
+            ? <img src={brandLogo} alt="Logo" style={{ maxHeight:36, maxWidth:160, objectFit:"contain" }}/>
+            : <div style={{ color:"white", fontWeight:800, fontSize:18, letterSpacing:"-0.5px" }}>Your Company</div>
+          }
+        </div>
+        <div style={{ padding:"24px 28px", background:"white", color:"#111827", lineHeight:1.7 }}>
+          {subject && <div style={{ fontWeight:700, fontSize:15, marginBottom:12 }}>{subject}</div>}
+          <div style={{ whiteSpace:"pre-wrap", color:"#374151" }}>{body || <span style={{ color:"#9ca3af" }}>Your message will appear here…</span>}</div>
+        </div>
+        <div style={{ background:"#f8f9fc", padding:"12px 24px", textAlign:"center", fontSize:11, color:"#9ca3af", borderTop:`1px solid ${C.border}` }}>
+          Sent via Vercentic · <span style={{ textDecoration:"underline", cursor:"pointer" }}>Unsubscribe</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── Compose body (scratch mode) ────────────────────────────────────────────
+  const ScratchBody = () => (
+    <div style={{ flex:1, overflowY:"auto", padding:"0 20px 16px", display:"flex", flexDirection:"column", gap:10 }}>
+
+      {/* Simulation badge */}
+      {isSimulated && (
+        <div style={{ padding:"7px 12px", background:"#fffbeb", border:`1.5px solid #fde68a`, borderRadius:9, fontSize:12, color:"#92400e", display:"flex", alignItems:"center", gap:7 }}>
+          ⚡ <span><strong>Simulation mode</strong> — saved but not sent. Add Twilio/SendGrid credentials in Integrations to go live.</span>
+        </div>
+      )}
+
+      {/* Bulk recipients summary */}
+      {isBulk && (
+        <div style={{ padding:"7px 12px", background:"#eef1ff", border:`1.5px solid ${C.accent}40`, borderRadius:9, fontSize:12, color:C.accent, fontWeight:600 }}>
+          Sending to {recipients.length} people
+        </div>
+      )}
+
+      {/* Related to */}
+      {linkedJobs.length > 0 && (
+        <div>
+          <label style={{ fontSize:11, fontWeight:700, color:C.text3, textTransform:"uppercase", letterSpacing:"0.05em", display:"block", marginBottom:4 }}>Related to</label>
+          <select value={relatedRecordId} onChange={e => setRelatedRecordId(e.target.value)}
+            style={{ width:"100%", padding:"8px 10px", border:`1.5px solid ${relatedRecordId ? C.accent : C.border}`, borderRadius:9, fontSize:13, background:relatedRecordId ? C.accentLight : C.bg, outline:"none", cursor:"pointer" }}>
+            <option value="">General (not job-specific)</option>
+            {linkedJobs.map(j => <option key={j.id} value={j.id}>{j.title || j.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      {/* To field */}
+      {type !== "call" && direction === "outbound" && !isBulk && (
+        <input value={to} onChange={e => setTo(e.target.value)}
+          placeholder={type === "email" ? "Recipient email" : "Phone e.g. +971501234567"}
+          style={{ width:"100%", padding:"8px 10px", border:`1.5px solid ${C.border}`, borderRadius:9, fontSize:13, boxSizing:"border-box", outline:"none", background:C.bg }}/>
+      )}
+
+      {/* Direction */}
+      {type !== "call" && (
+        <div style={{ display:"flex", gap:6 }}>
+          {["outbound","inbound"].map(d => (
+            <button key={d} onClick={() => setDir(d)}
+              style={{ flex:1, padding:"6px 10px", borderRadius:20, border:`1.5px solid ${direction === d ? C.accent : C.border}`, background:direction === d ? C.accentLight : "none", color:direction === d ? C.accent : C.text2, fontSize:12, fontWeight:600, cursor:"pointer" }}>
+              {DIR_META[d].badge} {DIR_META[d].label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Subject */}
+      {type === "email" && (
+        <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Subject"
+          style={{ width:"100%", padding:"8px 10px", border:`1.5px solid ${C.border}`, borderRadius:9, fontSize:13, boxSizing:"border-box", outline:"none", background:C.bg }}/>
+      )}
+
+      {/* Body */}
+      {type !== "call" && (
+        <textarea value={body} onChange={e => setBody(e.target.value)}
+          placeholder={type === "email" ? "Write your message…" : `${meta.label} message…`}
+          style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${C.border}`, borderRadius:9, fontSize:13, resize:"vertical", minHeight: type === "email" ? 160 : 100, boxSizing:"border-box", outline:"none", background:C.bg, lineHeight:1.6 }}/>
+      )}
+
+      {/* Call fields */}
+      {type === "call" && (
+        <>
+          <div style={{ display:"flex", gap:10 }}>
+            <div style={{ flex:1 }}>
+              <label style={{ fontSize:11, fontWeight:700, color:C.text3 }}>Duration (seconds)</label>
+              <input type="number" value={duration} onChange={e => setDuration(e.target.value)} placeholder="e.g. 300"
+                style={{ width:"100%", marginTop:4, padding:"8px 10px", border:`1.5px solid ${C.border}`, borderRadius:9, fontSize:13, boxSizing:"border-box", outline:"none", background:C.bg }}/>
+            </div>
+            <div style={{ flex:1 }}>
+              <label style={{ fontSize:11, fontWeight:700, color:C.text3 }}>Outcome</label>
+              <select value={outcome} onChange={e => setOutcome(e.target.value)}
+                style={{ width:"100%", marginTop:4, padding:"8px 10px", border:`1.5px solid ${C.border}`, borderRadius:9, fontSize:13, background:C.bg, outline:"none", cursor:"pointer" }}>
+                <option value="">Select…</option>
+                <option value="connected">Connected</option>
+                <option value="voicemail">Left Voicemail</option>
+                <option value="no_answer">No Answer</option>
+                <option value="busy">Busy</option>
+                <option value="wrong_number">Wrong Number</option>
+              </select>
+            </div>
+          </div>
+          <textarea value={body} onChange={e => setBody(e.target.value)} placeholder="Call notes…"
+            style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${C.border}`, borderRadius:9, fontSize:13, resize:"vertical", minHeight:100, boxSizing:"border-box", outline:"none", background:C.bg }}/>
+        </>
+      )}
+    </div>
+  );
 
   return ReactDOM.createPortal(
-    <div style={{ position:"fixed", inset:0, zIndex:9000, pointerEvents:"none" }}>
-      {/* Backdrop — only dims slightly, doesn't block the record panel */}
-      <div style={{ position:"absolute", inset:0, background:"rgba(15,23,41,.25)", pointerEvents:"auto" }} onClick={onClose}/>
+    <div style={{ position:"fixed", inset:0, background:"rgba(15,23,41,.45)", zIndex:9000, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ width:"100%", maxWidth: mode === "preview" ? 680 : 520, maxHeight:"90vh", background:C.surface,
+        borderRadius:16, boxShadow:"0 24px 64px rgba(0,0,0,.28), 0 0 0 1px rgba(0,0,0,.06)",
+        display:"flex", flexDirection:"column", overflow:"hidden" }}
+        onMouseDown={e => e.stopPropagation()}>
 
-      {/* Floating popout window — bottom-right, above the panel */}
-      <div style={{
-        position:"absolute", bottom:24, right:24,
-        width:520, maxHeight:"80vh",
-        background:C.surface, borderRadius:16,
-        boxShadow:"0 20px 60px rgba(0,0,0,.28), 0 0 0 1px rgba(0,0,0,.06)",
-        display:"flex", flexDirection:"column",
-        pointerEvents:"auto", overflow:"hidden",
-      }}>
-        {showAI && <AIComposeModal type={type} record={record} objectName="Person" onUse={({subject:s,body:b})=>{if(s)setSubject(s);setBody(b);setShowAI(false); applyTemplate({subject:s,body:b});}} onClose={()=>setShowAI(false)}/>}
-
-        {/* Popout title bar */}
-        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"14px 18px", borderBottom:`1px solid ${C.border}`, background:"#f8f9fc", flexShrink:0 }}>
-          <div style={{ width:32, height:32, borderRadius:9, background:meta.color||C.accent, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-            <TypeIcon type={type} size={15} color="#fff"/>
+        {/* ── Header ── */}
+        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"16px 20px 10px", flexShrink:0 }}>
+          <div style={{ width:36, height:36, borderRadius:10, background:`${meta.color || C.accent}18`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            <TypeIcon type={type} size={18} color={meta.color || C.accent}/>
           </div>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontWeight:700, fontSize:14, color:C.text1 }}>{type==="call" ? "Log Call" : `New ${meta.label}`}</div>
-            {record?.data && <div style={{ fontSize:11, color:C.text3, marginTop:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              {[record.data.first_name, record.data.last_name].filter(Boolean).join(" ") || record.data.job_title || ""}
-            </div>}
-          </div>
-          <div style={{ display:"flex", gap:4 }}>
-            <button onClick={onClose} style={{ width:28, height:28, borderRadius:7, border:`1px solid ${C.border}`, background:"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:C.text3, fontSize:18, lineHeight:1 }}>×</button>
-          </div>
-        </div>
-
-        {/* Scrollable body */}
-        <div style={{ flex:1, overflowY:"auto", padding:"18px 20px" }}>
-
-
-        {/* Simulation mode badge */}
-        {isSimulated && (
-          <div style={{ marginBottom:16, padding:"8px 12px", background:"#fffbeb", border:"1.5px solid #fde68a", borderRadius:10, fontSize:12, color:"#92400e", display:"flex", alignItems:"center", gap:8 }}>
-            <span>⚡</span>
-            <span><strong>Simulation mode</strong> — message will be saved but not sent. Add Twilio credentials in Settings to enable live sending.</span>
-          </div>
-        )}
-
-        {/* Related to — job context */}
-        {linkedJobs.length > 0 && (
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 11, fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 5 }}>Related to</label>
-            <select value={relatedRecordId} onChange={e => setRelatedRecordId(e.target.value)}
-              style={{ width: '100%', padding: '8px 10px', border: `1.5px solid ${relatedRecordId ? C.accent : C.border}`, borderRadius: 10, fontSize: 13, color: C.text1, background: relatedRecordId ? C.accentLight : C.bg, outline: 'none', cursor: 'pointer' }}>
-              <option value="">General (not job-specific)</option>
-              {linkedJobs.map(j => <option key={j.id} value={j.id}>{j.title || j.name}</option>)}
-            </select>
-          </div>
-        )}
-
-        {/* To field (outbound SMS / WhatsApp / Email) */}
-        {type !== "call" && direction === "outbound" && (
-          <input value={to} onChange={e=>setTo(e.target.value)}
-            placeholder={type==="email" ? "Recipient email address" : "Recipient phone e.g. +971501234567"}
-            style={{ width:"100%", marginBottom:12, padding:"9px 12px", border:`1.5px solid ${C.border}`, borderRadius:10, fontSize:13, boxSizing:"border-box", outline:"none", background:C.bg }}/>
-        )}
-        {type !== "call" && (
-          <div style={{ display:"flex", gap:6, marginBottom:16 }}>
-            {["outbound","inbound"].map(d=>(
-              <button key={d} onClick={()=>setDir(d)}
-                style={{ padding:"6px 14px", borderRadius:20, border:`1.5px solid ${direction===d?C.accent:C.border}`, background:direction===d?C.accentLight:"none", color:direction===d?C.accent:C.text2, fontSize:12, fontWeight:600, cursor:"pointer" }}>
-                {DIR_META[d].badge} {DIR_META[d].label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Template picker (email only) */}
-        {type==="email" && templates.length>0 && (
-          <div style={{ marginBottom:14 }}>
-            <select onChange={e=>{ const t=templates.find(x=>x.id===e.target.value); if(t)applyTemplate(t); }}
-              defaultValue=""
-              style={{ width:"100%", padding:"8px 12px", border:`1.5px solid ${C.border}`, borderRadius:10, fontSize:13, color:C.text2, background:C.bg, cursor:"pointer", outline:"none" }}>
-              <option value="" disabled>📋 Apply template…</option>
-              {templates.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </div>
-        )}
-
-        {/* AI button (email / sms / whatsapp) */}
-        {type !== "call" && (
-          <button onClick={()=>setShowAI(true)}
-            style={{ marginBottom:14, padding:"7px 16px", border:`1.5px solid ${C.accent}`, borderRadius:10, background:C.accentLight, color:C.accent, fontSize:13, fontWeight:600, cursor:"pointer" }}>
-            ✨ AI Compose
-          </button>
-        )}
-
-        {/* Subject (email) */}
-        {type==="email" && (
-          <input value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Subject"
-            style={{ width:"100%", marginBottom:10, padding:"9px 12px", border:`1.5px solid ${C.border}`, borderRadius:10, fontSize:13, boxSizing:"border-box", outline:"none", background:C.bg }}/>
-        )}
-
-        {/* Body */}
-        {type !== "call" && (
-          <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={`${meta.label} message…`}
-            style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${C.border}`, borderRadius:10, fontSize:13, resize:"vertical", minHeight:140, boxSizing:"border-box", outline:"none", background:C.bg }}/>
-        )}
-
-        {/* Call fields */}
-        {type==="call" && (
-          <>
-            <div style={{ display:"flex", gap:10, marginBottom:10 }}>
-              <div style={{ flex:1 }}>
-                <label style={{ fontSize:12, color:C.text3, fontWeight:600 }}>Duration (seconds)</label>
-                <input type="number" value={duration} onChange={e=>setDuration(e.target.value)} placeholder="e.g. 300"
-                  style={{ width:"100%", marginTop:4, padding:"9px 12px", border:`1.5px solid ${C.border}`, borderRadius:10, fontSize:13, boxSizing:"border-box", outline:"none", background:C.bg }}/>
-              </div>
-              <div style={{ flex:1 }}>
-                <label style={{ fontSize:12, color:C.text3, fontWeight:600 }}>Outcome</label>
-                <select value={outcome} onChange={e=>setOutcome(e.target.value)}
-                  style={{ width:"100%", marginTop:4, padding:"9px 12px", border:`1.5px solid ${C.border}`, borderRadius:10, fontSize:13, background:C.bg, outline:"none", cursor:"pointer" }}>
-                  <option value="">Select…</option>
-                  <option value="connected">Connected</option>
-                  <option value="voicemail">Left Voicemail</option>
-                  <option value="no_answer">No Answer</option>
-                  <option value="busy">Busy</option>
-                  <option value="wrong_number">Wrong Number</option>
-                </select>
-              </div>
+            <div style={{ fontWeight:700, fontSize:15, color:C.text1 }}>
+              {type === "call" ? "Log Call" : `New ${meta.label}`}
+              {isBulk && <span style={{ marginLeft:8, fontSize:11, fontWeight:600, color:C.accent, background:C.accentLight, padding:"1px 7px", borderRadius:99 }}>{recipients.length} people</span>}
             </div>
-            <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder="Call notes…"
-              style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${C.border}`, borderRadius:10, fontSize:13, resize:"vertical", minHeight:100, boxSizing:"border-box", outline:"none", background:C.bg }}/>
-          </>
-        )}
-
-        </div>{/* end scrollable body */}
-
-        {/* Sticky footer */}
-        <div style={{ padding:"12px 20px", borderTop:`1px solid ${C.border}`, background:"#f8f9fc", display:"flex", gap:8, justifyContent:"flex-end", flexShrink:0 }}>
-          <button onClick={onClose} style={{ padding:"8px 18px", border:`1.5px solid ${C.border}`, borderRadius:9, background:"transparent", cursor:"pointer", fontSize:13, fontWeight:600, color:C.text2 }}>Cancel</button>
-          <button onClick={save} disabled={saving || (!body && type!=="call")}
-            style={{ padding:"8px 20px", background:C.accent, color:"#fff", border:"none", borderRadius:9, cursor:"pointer", fontWeight:700, fontSize:13, opacity:(saving||(!body&&type!=="call"))?0.5:1 }}>
-            {saving ? "Saving…" : type==="call" ? "Log Call" : direction==="outbound" ? (isSimulated ? `Save (Simulated)` : `Send ${meta.label}`) : "Save"}
-          </button>
+            {!isBulk && record?.data && (
+              <div style={{ fontSize:11, color:C.text3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {[record.data.first_name, record.data.last_name].filter(Boolean).join(" ") || record.data.job_title || ""}
+              </div>
+            )}
+          </div>
+          {/* Preview toggle (email only, scratch mode) */}
+          {type === "email" && mode === "scratch" && (
+            <button onClick={() => setMode(m => m === "preview" ? "scratch" : "preview")}
+              style={{ padding:"4px 10px", borderRadius:7, border:`1px solid ${C.border}`, background: mode === "preview" ? C.accentLight : "transparent", color: mode === "preview" ? C.accent : C.text3, fontSize:11, fontWeight:600, cursor:"pointer" }}>
+              {mode === "preview" ? "← Back" : "Preview"}
+            </button>
+          )}
+          <button onClick={onClose}
+            style={{ width:28, height:28, borderRadius:7, border:`1px solid ${C.border}`, background:"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:C.text3, fontSize:18, lineHeight:1 }}>×</button>
         </div>
-      </div>{/* end popout window */}
+
+        {/* ── Type picker (if no initialType) ── */}
+        {!initialType && <TypeSelector/>}
+
+        {/* ── Mode tabs ── */}
+        {type !== "call" && mode !== "preview" && <ModeTabs/>}
+
+        {/* ── Content area ── */}
+        {mode === "scratch"  && <ScratchBody/>}
+        {mode === "template" && <TemplateList/>}
+        {mode === "preview"  && <EmailPreview/>}
+
+        {/* ── Footer ── */}
+        {(mode === "scratch" || mode === "preview") && (
+          <div style={{ padding:"12px 20px", borderTop:`1px solid ${C.border}`, background:"#f8f9fc", display:"flex", gap:8, alignItems:"center", justifyContent:"flex-end", flexShrink:0 }}>
+            {type === "email" && mode === "scratch" && (
+              <button onClick={() => setMode("preview")} style={{ marginRight:"auto", padding:"7px 12px", borderRadius:8, border:`1px solid ${C.border}`, background:"transparent", fontSize:12, fontWeight:600, color:C.text3, cursor:"pointer" }}>
+                Preview branding ↗
+              </button>
+            )}
+            <button onClick={onClose} style={{ padding:"8px 18px", border:`1.5px solid ${C.border}`, borderRadius:9, background:"transparent", cursor:"pointer", fontSize:13, fontWeight:600, color:C.text2 }}>Cancel</button>
+            <button onClick={save} disabled={saving || !canSend}
+              style={{ padding:"8px 22px", background:meta.color || C.accent, color:"#fff", border:"none", borderRadius:9, cursor:"pointer", fontWeight:700, fontSize:13, opacity:(saving || !canSend) ? 0.5 : 1 }}>
+              {saving ? "Saving…" : type === "call" ? "Log Call" : isBulk ? `Send to ${recipients.length}` : direction === "outbound" ? (isSimulated ? "Save (Simulated)" : `Send ${meta.label}`) : "Save"}
+            </button>
+          </div>
+        )}
+      </div>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>,
     document.body
   );
 }
+
 
 // ─── Detail Drawer ────────────────────────────────────────────────────────────
 function CommDetail({ item, onClose, onDelete }) {

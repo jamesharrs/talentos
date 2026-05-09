@@ -75,6 +75,7 @@ const IntegrationsPage  = lazyWithRetry(() => import("./IntegrationsSettings.jsx
 const HelpPage          = lazyWithRetry(() => import("./Help.jsx"));
 const CompanySetupWizard = lazyWithRetry(() => import("./CompanySetupWizard.jsx"));
 import GettingStarted, { WelcomeModal } from "./GettingStarted";
+import { ComposeModal } from "./Communications.jsx";
 const MatchingEngine    = lazyWithRetry(() => import("./AI.jsx").then(m => ({ default: m.MatchingEngine })));
 const useInboxUnreadCount = () => 0; // lightweight stub until Inbox lazy-loads
 const useIsMobile       = () => typeof window !== 'undefined' && window.innerWidth < 768;
@@ -2295,6 +2296,17 @@ function App({ onEnvReady }) {
     return () => window.removeEventListener("talentos:open-people-list", handler);
   }, []);
 
+  // Global bulk communicate handler
+  const [bulkCompose, setBulkCompose] = useState(null); // { recipients, type }
+  useEffect(() => {
+    const handler = (e) => {
+      const { recipients, type } = e.detail || {};
+      setBulkCompose({ recipients: recipients || [], type: type || null });
+    };
+    window.addEventListener("talentos:bulkCommunicate", handler);
+    return () => window.removeEventListener("talentos:bulkCommunicate", handler);
+  }, []);
+
   // Show login page if no session
   if (!session) {
     return <LoginPage onLogin={(s) => setSession(s)} />;
@@ -2744,6 +2756,16 @@ function App({ onEnvReady }) {
             </span>
           )}
         </div>
+      )}
+      {/* Global bulk compose modal — triggered from list Communicate button */}
+      {bulkCompose && (
+        <ComposeModal
+          type={bulkCompose.type}
+          recipients={bulkCompose.recipients}
+          environment={selectedEnv}
+          onSave={() => setBulkCompose(null)}
+          onClose={() => setBulkCompose(null)}
+        />
       )}
     </PermissionProvider>
   );

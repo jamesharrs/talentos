@@ -21,12 +21,34 @@ const V = {
 const F  = "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif";
 const FD = "'Geist', 'DM Sans', -apple-system, sans-serif";
 
+// Auth-aware API client — attaches session headers so CSRF/auth middleware passes
+function getAuthHeaders(extra = {}) {
+  try {
+    const sess = JSON.parse(localStorage.getItem('talentos_session') || 'null');
+    const slug = sess?.tenant_slug || window.location.hostname.split('.')[0] || null;
+    const userId = sess?.user?.id || null;
+    const csrf = (document.cookie.match(/vercentic_csrf=([^;]+)/)||[])[1] || '';
+    const h = { 'Content-Type': 'application/json', ...extra };
+    if (slug && slug !== 'www' && slug !== 'app') h['X-Tenant-Slug'] = slug;
+    if (userId) h['X-User-Id'] = userId;
+    if (csrf) h['X-CSRF-Token'] = csrf;
+    return h;
+  } catch { return { 'Content-Type': 'application/json' }; }
+}
+
 const api = {
   base: "/api",
-  async get(p) { try { const r = await fetch(this.base + p); return r.json(); } catch { return {}; } },
+  async get(p) {
+    try {
+      const r = await fetch(this.base + p, { credentials: 'include', headers: getAuthHeaders({}) });
+      if (!r.ok) return {};
+      return r.json();
+    } catch { return {}; }
+  },
   async post(p, body) {
     try {
-      const r = await fetch(this.base + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const r = await fetch(this.base + p, { method: "POST", credentials: 'include', headers: getAuthHeaders(), body: JSON.stringify(body) });
+      if (!r.ok) return { error: r.status };
       return r.json();
     } catch { return {}; }
   },
@@ -343,7 +365,22 @@ const CandidateDetail = ({ record }) => {
 // ── CANDIDATES SCREEN ─────────────────────────────────────────────────────────
 const CandidatesScreen = ({ environment }) => {
   const [records, setRecords] = useState([]); const [loading, setLoading] = useState(true); const [search, setSearch] = useState(""); const [sel, setSel] = useState(null);
-  useEffect(() => { if (!environment?.id) return; api.get(`/objects?environment_id=${environment.id}`).then(objs => { const o = (objs || []).find(o => o.slug === "people" || o.name?.toLowerCase().includes("people")); if (o) return api.get(`/records?object_id=${o.id}&environment_id=${environment.id}&limit=50`); }).then(d => { setRecords(d?.records || []); setLoading(false); }).catch(() => setLoading(false)); }, [environment?.id]);
+  useEffect(() => {
+    if (!environment?.id) return;
+    let cancelled = false;
+    async function load() {
+      try {
+        const objs = await api.get(`/objects?environment_id=${environment.id}`);
+        const o = (Array.isArray(objs) ? objs : []).find(o => o.slug === "people" || o.name?.toLowerCase().includes("people"));
+        if (!o || cancelled) return;
+        const d = await api.get(`/records?object_id=${o.id}&environment_id=${environment.id}&limit=50&sort=updated_at&order=desc`);
+        if (!cancelled) setRecords(d?.records || []);
+      } catch {}
+      if (!cancelled) setLoading(false);
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [environment?.id]);
   const getName = r => [r.data?.first_name, r.data?.last_name].filter(Boolean).join(" ") || r.data?.email || "Unnamed";
   const palette = [V.lavender, V.rose, V.sage, V.lilac, "#C8A87E"];
   const colorFor = n => { let h = 0; for (let c of n) h += c.charCodeAt(0); return palette[h % palette.length]; };
@@ -387,7 +424,21 @@ const CandidatesScreen = ({ environment }) => {
 // ── INTERVIEWS SCREEN ─────────────────────────────────────────────────────────
 const InterviewsScreen = ({ environment }) => {
   const [items, setItems] = useState([]); const [loading, setLoading] = useState(true); const [filter, setFilter] = useState("today"); const [sel, setSel] = useState(null);
-  useEffect(() => { if (!environment?.id) return; api.get(`/interviews?environment_id=${environment.id}&limit=50`).then(d => { setItems(d?.items || []); setLoading(false); }).catch(() => setLoading(false)); }, [environment?.id]);
+  useEffect(() => {
+    if (!environment?.id) return;
+    let cancelled = false;
+    async function load() {
+      try {
+        const d = await api.get(`/interviews?environment_id=${environment.id}&limit=50`);
+        // Interviews route returns a plain array
+        const items = Array.isArray(d) ? d : (d?.items || d?.interviews || d?.data || []);
+        if (!cancelled) setItems(items);
+      } catch {}
+      if (!cancelled) setLoading(false);
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [environment?.id]);
   const today = new Date().toDateString(); const tom = new Date(Date.now() + 86400000).toDateString();
   const filtered = items.filter(i => { const d = new Date(i.date).toDateString(); if (filter === "today") return d === today; if (filter === "tomorrow") return d === tom; if (filter === "upcoming") return new Date(i.date) >= new Date(); return true; });
   const fmtTime = (dt, t) => t || new Date(dt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -447,7 +498,22 @@ const InterviewsScreen = ({ environment }) => {
 // ── JOBS SCREEN ───────────────────────────────────────────────────────────────
 const JobsScreen = ({ environment }) => {
   const [jobs, setJobs] = useState([]); const [loading, setLoading] = useState(true); const [search, setSearch] = useState(""); const [sel, setSel] = useState(null);
-  useEffect(() => { if (!environment?.id) return; api.get(`/objects?environment_id=${environment.id}`).then(objs => { const o = (objs || []).find(o => o.slug === "jobs" || o.name?.toLowerCase().includes("job")); if (o) return api.get(`/records?object_id=${o.id}&environment_id=${environment.id}&limit=50`); }).then(d => { setJobs(d?.records || []); setLoading(false); }).catch(() => setLoading(false)); }, [environment?.id]);
+  useEffect(() => {
+    if (!environment?.id) return;
+    let cancelled = false;
+    async function load() {
+      try {
+        const objs = await api.get(`/objects?environment_id=${environment.id}`);
+        const o = (Array.isArray(objs) ? objs : []).find(o => o.slug === "jobs" || o.name?.toLowerCase().includes("job"));
+        if (!o || cancelled) return;
+        const d = await api.get(`/records?object_id=${o.id}&environment_id=${environment.id}&limit=50&sort=updated_at&order=desc`);
+        if (!cancelled) setJobs(d?.records || []);
+      } catch {}
+      if (!cancelled) setLoading(false);
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [environment?.id]);
   const getTitle = j => j.data?.job_title || j.data?.title || "Untitled Role";
   const getStatus = j => j.data?.status || "Open";
   const filtered = jobs.filter(j => { const t = getTitle(j).toLowerCase(); const dep = (j.data?.department || "").toLowerCase(); const q = search.toLowerCase(); return !q || t.includes(q) || dep.includes(q); });

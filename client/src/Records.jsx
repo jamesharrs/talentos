@@ -552,15 +552,29 @@ const FieldValue = ({ field, value, allFieldValues = {} }) => {
     case "multi_lookup": {
       const people = Array.isArray(value) ? value : (value ? [value] : []);
       if (!people.length) return <span style={{color:C.text3,fontSize:12}}>—</span>;
+      const fmt = field?.people_display_format || "name"; // "name" | "avatar_name" | "avatar_name_title"
       return (
         <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
           {people.map((p,i) => {
-            const name = typeof p === "object" ? (p.name || p.label || p.id) : String(p);
-            const initials = name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+            const name    = typeof p === "object" ? (p.name || p.label || p.id) : String(p);
+            const title   = typeof p === "object" ? (p.title || p.current_title || p.job_title || "") : "";
+            const initials = name.split(" ").filter(Boolean).map(w=>w[0]).join("").slice(0,2).toUpperCase();
+            if (fmt === "name") {
+              return (
+                <span key={i} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"2px 8px 2px 4px",borderRadius:99,background:`${C.accent}12`,border:`1px solid ${C.accent}28`,fontSize:12,fontWeight:600,color:C.accent}}>
+                  <span style={{width:16,height:16,borderRadius:"50%",background:C.accent,color:"#fff",fontSize:8,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{initials}</span>
+                  {name}
+                </span>
+              );
+            }
+            // avatar_name or avatar_name_title
             return (
-              <span key={i} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"2px 8px 2px 4px",borderRadius:99,background:`${C.accent}12`,border:`1px solid ${C.accent}28`,fontSize:12,fontWeight:600,color:C.accent}}>
-                <span style={{width:18,height:18,borderRadius:"50%",background:C.accent,color:"#fff",fontSize:9,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{initials}</span>
-                {name}
+              <span key={i} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"3px 9px 3px 4px",borderRadius:99,background:`${C.accent}12`,border:`1px solid ${C.accent}28`,fontSize:12,fontWeight:600,color:C.accent}}>
+                <span style={{width:20,height:20,borderRadius:"50%",background:C.accent,color:"#fff",fontSize:9,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{initials}</span>
+                <span>
+                  {name}
+                  {fmt === "avatar_name_title" && title && <span style={{fontWeight:400,color:C.text3,marginLeft:4,fontSize:11}}>{title}</span>}
+                </span>
               </span>
             );
           })}
@@ -860,6 +874,8 @@ let _currentEnvId = null;
 
 // Module-level cache so PeoplePicker doesn't re-fetch on every open
 const _pickerCache = {};
+// Called by Settings after a field is saved so the picker re-fetches with new config
+export const clearPickerCache = () => { Object.keys(_pickerCache).forEach(k => delete _pickerCache[k]); };
 // Module-level cache for dataset options and skills
 const _datasetCache = {};
 const _skillsCache = {};
@@ -905,7 +921,9 @@ const PeoplePicker = ({ field, value, onChange }) => {
       : field.people_selection_mode === "saved_list"
       ? `_list_${field.people_saved_list_id||''}`
       : field.people_filter_field ? `_${field.people_filter_field}_${field.people_filter_value}` : '';
-    const cacheKey = `${field.lookup_object_id||field.related_object_slug||'people'}_${envId}${filterSuffix}`;
+    // Include field.id + filter config in key so cache busts when field settings change
+    const fieldConfigHash = `_fid${field.id||''}_mode${field.people_selection_mode||''}_fmt${field.people_display_format||''}`;
+    const cacheKey = `${field.lookup_object_id||field.related_object_slug||'people'}_${envId}${filterSuffix}${fieldConfigHash}`;
     if (_pickerCache[cacheKey]) { setOptions(_pickerCache[cacheKey]); setLoaded(true); return; }
     if (loaded) return;
 

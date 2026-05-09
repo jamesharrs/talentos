@@ -104,45 +104,92 @@ const LinkModal = ({ onConfirm, onClose, initialUrl="" }) => {
 };
 
 /* ─── Image modal ─────────────────────────────────────────────────────────── */
+const IMAGE_SIZES = [
+  { label:"Small",  value:"25%"  },
+  { label:"Medium", value:"50%"  },
+  { label:"Large",  value:"75%"  },
+  { label:"Full",   value:"100%" },
+];
+
 const ImageModal = ({ onConfirm, onClose }) => {
-  const [url, setUrl] = useState('');
-  const [alt, setAlt] = useState('');
-  const [previewOk, setPreviewOk] = useState(false);
+  const [url, setUrl]           = useState('');
+  const [alt, setAlt]           = useState('');
+  const [size, setSize]         = useState("100%");
+  const [align, setAlign]       = useState("left");
+  const [previewOk, setPreviewOk]       = useState(false);
   const [previewTried, setPreviewTried] = useState(false);
   const ref = useRef(null);
   useEffect(()=>{ setTimeout(()=>ref.current?.focus(), 50); }, []);
 
-  // Check if URL looks like a direct image link
   const looksLikeImage = url && /\.(jpe?g|png|gif|webp|svg|bmp|avif)(\?.*)?$/i.test(url.trim());
   const canInsert = url && (looksLikeImage || previewOk);
-
   const fullUrl = url.startsWith('http') ? url.trim() : `https://${url.trim()}`;
 
+  const ALIGNS = [
+    { value:"left",   label:"←", title:"Left" },
+    { value:"center", label:"↔", title:"Centre" },
+    { value:"right",  label:"→", title:"Right" },
+  ];
+
   return (
-    <div style={{...card, width:360}}>
+    <div style={{...card, width:390}}>
       <div style={{ fontSize:14, fontWeight:700, color:"#111827", marginBottom:4 }}>Insert image</div>
-      <div style={{ fontSize:12, color:"#9ca3af", marginBottom:10 }}>Paste a direct image URL (ending in .jpg, .png, .svg etc.)</div>
+      <div style={{ fontSize:12, color:"#9ca3af", marginBottom:10 }}>Paste a direct image URL (.jpg, .png, .svg etc.)</div>
       <input ref={ref} value={url} onChange={e=>{ setUrl(e.target.value); setPreviewOk(false); setPreviewTried(false); }}
         placeholder="https://example.com/photo.jpg" style={inp}
-        onKeyDown={e=>{ if(e.key==="Enter"&&canInsert){e.preventDefault();onConfirm(fullUrl,alt);} if(e.key==="Escape") onClose(); }}/>
-      <input value={alt} onChange={e=>setAlt(e.target.value)} placeholder="Alt text (optional)" style={inp}
-        onKeyDown={e=>{ if(e.key==="Enter"&&canInsert){e.preventDefault();onConfirm(fullUrl,alt);} if(e.key==="Escape") onClose(); }}/>
+        onKeyDown={e=>{ if(e.key==="Enter"&&canInsert){e.preventDefault();onConfirm(fullUrl,alt,size,align);} if(e.key==="Escape") onClose(); }}/>
+      <input value={alt} onChange={e=>setAlt(e.target.value)} placeholder="Alt text (optional)" style={{...inp,marginBottom:12}}
+        onKeyDown={e=>{ if(e.key==="Enter"&&canInsert){e.preventDefault();onConfirm(fullUrl,alt,size,align);} if(e.key==="Escape") onClose(); }}/>
+
+      {/* Size + align row */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+        <div style={{ fontSize:11, fontWeight:600, color:"#9ca3af", flexShrink:0 }}>Size</div>
+        <div style={{ display:"flex", gap:4, flex:1 }}>
+          {IMAGE_SIZES.map(s=>(
+            <button key={s.value} type="button" onClick={()=>setSize(s.value)}
+              style={{ flex:1, padding:"5px 0", borderRadius:7,
+                border:`1.5px solid ${size===s.value?"#3b5bdb":"#e5e7eb"}`,
+                background:size===s.value?"#eff6ff":"transparent",
+                color:size===s.value?"#3b5bdb":"#374151",
+                fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize:11, fontWeight:600, color:"#9ca3af", flexShrink:0 }}>Align</div>
+        <div style={{ display:"flex", gap:3 }}>
+          {ALIGNS.map(a=>(
+            <button key={a.value} type="button" onClick={()=>setAlign(a.value)} title={a.title}
+              style={{ width:28, height:28, borderRadius:6,
+                border:`1.5px solid ${align===a.value?"#3b5bdb":"#e5e7eb"}`,
+                background:align===a.value?"#eff6ff":"transparent",
+                color:align===a.value?"#3b5bdb":"#374151",
+                fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+              {a.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Live preview */}
       {url && (
-        <div style={{ marginBottom:12, borderRadius:8, overflow:"hidden", minHeight:60, display:"flex", alignItems:"center", justifyContent:"center", background:"#f9fafb", border:"1px solid #e5e7eb" }}>
+        <div style={{ marginBottom:12, borderRadius:8, padding:8, minHeight:60, display:"flex",
+          alignItems:"center", justifyContent:align==="center"?"center":align==="right"?"flex-end":"flex-start",
+          background:"#f9fafb", border:"1px solid #e5e7eb" }}>
           <img src={fullUrl} alt={alt}
-            style={{ maxHeight:120, maxWidth:"100%", objectFit:"contain", display:"block" }}
+            style={{ width:size, maxWidth:"100%", height:"auto", objectFit:"contain", borderRadius:4, display:"block" }}
             onLoad={()=>{ setPreviewOk(true); setPreviewTried(true); }}
             onError={()=>{ setPreviewOk(false); setPreviewTried(true); }}/>
         </div>
       )}
       {url && previewTried && !previewOk && (
         <div style={{ fontSize:12, color:"#ef4444", marginBottom:10, lineHeight:1.5 }}>
-          ⚠ Can't load this image. Make sure it's a direct link to an image file (not a webpage). Try right-clicking an image and choosing "Copy image address".
+          ⚠ Can't load this image. Make sure it's a direct link to an image file. Try right-clicking an image and choosing "Copy image address".
         </div>
       )}
       <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
         <button onClick={onClose} style={btnL}>Cancel</button>
-        <button onClick={()=>canInsert&&onConfirm(fullUrl,alt)} disabled={!canInsert}
+        <button onClick={()=>canInsert&&onConfirm(fullUrl,alt,size,align)} disabled={!canInsert}
           style={{...btnR, background:canInsert?"#3b5bdb":"#e5e7eb", color:canInsert?"white":"#9ca3af", cursor:canInsert?"pointer":"default"}}>
           Insert image
         </button>
@@ -317,14 +364,14 @@ export default function RichTextEditor({ value, onChange, placeholder, autoFocus
     onChange(editorRef.current?.innerHTML || "");
   }, [onChange, restoreSelection]);
 
-  const handleImageConfirm = useCallback((url, alt) => {
+  const handleImageConfirm = useCallback((url, alt, size="100%", align="left") => {
     setImageModal(false);
     if (!url) return;
     restoreSelection();
     editorRef.current?.focus();
-    const src = url.startsWith("http") ? url : `https://${url}`;
+    const alignStyle = align==="center" ? "display:block;margin:4px auto;" : align==="right" ? "display:block;margin:4px 0 4px auto;" : "display:block;margin:4px 0;";
     document.execCommand("insertHTML", false,
-      `<img src="${src}" alt="${alt||''}" style="max-width:100%;border-radius:6px;margin:4px 0;" />`);
+      `<img src="${url}" alt="${alt||''}" style="width:${size};max-width:100%;height:auto;border-radius:6px;${alignStyle}" />`);
     onChange(editorRef.current?.innerHTML || "");
   }, [onChange, restoreSelection]);
 

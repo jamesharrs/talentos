@@ -420,156 +420,213 @@ function ActionBtn({ label, color, iconPath, onClick }) {
 }
 
 // ── Main Dashboard ────────────────────────────────────────────────────────
-// ── Dashboard Filter Bar ──────────────────────────────────────────────────────
-// Lets users scope all dashboard metrics to: their own jobs, a specific job, a dept,
-// or any job field value (advanced).
-function DashFilterBar({ jobs = [], jobFields = [], session, value, onChange }) {
-  const [showAdv, setShowAdv]   = useState(false);
-  const [advField, setAdvField] = useState("");
-  const [advVal,   setAdvVal]   = useState("");
-  const advRef = useRef(null);
-
-  // Close advanced panel on outside click
-  useEffect(() => {
-    if (!showAdv) return;
-    const h = e => { if (advRef.current && !advRef.current.contains(e.target)) setShowAdv(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [showAdv]);
+// ── Dashboard Filter Button + Panel ──────────────────────────────────────────
+// Compact icon in the header — opens a panel showing filter options.
+// When active, shows a small pill next to the button with the active filter label.
+function DashFilterBtn({ jobs = [], jobFields = [], session, value, onChange }) {
+  const [open,     setOpen]     = useState(false);
+  const [advField, setAdvField] = useState(value?.type === "advanced" ? value.field : "");
+  const [advVal,   setAdvVal]   = useState(value?.type === "advanced" ? value.val   : "");
+  const panelRef = useRef(null);
 
   const active = value && value.type !== "all";
+
   const myJobs = jobs.filter(j => {
     const d = j.data || {};
     const owner = (d.owner || d.recruiter || d.hiring_manager || "").toLowerCase();
-    const me = (session?.first_name + " " + session?.last_name).trim().toLowerCase();
+    const me = ((session?.first_name || "") + " " + (session?.last_name || "")).trim().toLowerCase();
     return owner && me && owner.includes(me.split(" ")[0].toLowerCase());
   });
-
-  const presets = [
-    { id:"all",    label:"All jobs",    count: jobs.length },
-    myJobs.length > 0 ? { id:"mine",   label:"My jobs",     count: myJobs.length } : null,
-  ].filter(Boolean);
-
   const departments = [...new Set(jobs.map(j => j.data?.department).filter(Boolean))].sort();
 
-  const apply = (filter) => { onChange(filter); setShowAdv(false); };
-  const clear  = ()      => { onChange({ type: "all" }); setAdvField(""); setAdvVal(""); };
+  useEffect(() => {
+    if (!open) return;
+    const h = e => { if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+
+  const apply  = f  => { onChange(f); setOpen(false); };
+  const clear  = () => { onChange({ type:"all" }); setAdvField(""); setAdvVal(""); setOpen(false); };
+
+  const activeLabel = active
+    ? (value.type === "mine"     ? "My jobs"
+     : value.type === "job"      ? (value.label || "Job")
+     : value.type === "dept"     ? value.dept
+     : value.type === "advanced" ? (value.label || "Custom filter")
+     : "Filtered")
+    : null;
 
   return (
-    <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:18,
-      padding:"10px 14px", borderRadius:12, background:"white",
-      border:`1.5px solid ${active ? V.purple + "60" : "rgba(0,0,0,.06)"}`,
-      boxShadow: active ? `0 0 0 3px ${V.purple}12` : "none",
-      transition:"all .2s", fontFamily:"'DM Sans',-apple-system,sans-serif" }}>
-
-      {/* Filter icon + label */}
-      <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:12, fontWeight:700,
-        color: active ? V.purple : "#888780", flexShrink:0 }}>
-        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <div ref={panelRef} style={{ position:"relative", display:"inline-flex", alignItems:"center", gap:6 }}>
+      {/* Compact icon button */}
+      <button onClick={() => setOpen(o => !o)}
+        title="Filter dashboard"
+        style={{
+          width: 32, height: 32, borderRadius: 9, display:"flex", alignItems:"center", justifyContent:"center",
+          border: active ? `1.5px solid ${V.purple}60` : "1.5px solid rgba(0,0,0,.09)",
+          background: active ? `${V.purple}10` : "white",
+          cursor:"pointer", transition:"all .15s", flexShrink:0,
+          boxShadow: open ? `0 0 0 3px ${V.purple}18` : "none",
+        }}>
+        <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+          stroke={active ? V.purple : V.gray} strokeWidth="2" strokeLinecap="round">
           <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          {active && <circle cx="18" cy="18" r="5" fill={V.purple} stroke="none"/>}
         </svg>
-        {active ? "Filtered" : "Filter dashboard"}
-      </div>
+      </button>
 
-      <div style={{ width:1, height:16, background:"rgba(0,0,0,.08)", flexShrink:0 }}/>
-
-      {/* Preset pills */}
-      {presets.map(p => (
-        <button key={p.id} onClick={() => apply({ type: p.id })}
-          style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:700, cursor:"pointer",
-            border:`1.5px solid ${value?.type===p.id ? V.purple : "rgba(0,0,0,.1)"}`,
-            background: value?.type===p.id ? `${V.purple}14` : "transparent",
-            color: value?.type===p.id ? V.purple : "#374151", transition:"all .12s" }}>
-          {p.label}
-          {p.count != null && <span style={{ marginLeft:5, fontSize:10, opacity:0.7 }}>({p.count})</span>}
-        </button>
-      ))}
-
-      {/* Specific job picker */}
-      <select value={value?.type==="job" ? value.jobId : ""}
-        onChange={e => e.target.value ? apply({ type:"job", jobId: e.target.value, label: jobs.find(j=>j.id===e.target.value)?.data?.job_title || "Job" }) : apply({ type:"all" })}
-        style={{ padding:"4px 10px", borderRadius:20, fontSize:11, fontWeight:600, cursor:"pointer",
-          border:`1.5px solid ${value?.type==="job" ? V.rose+"80" : "rgba(0,0,0,.1)"}`,
-          background: value?.type==="job" ? `${V.rose}10` : "transparent",
-          color: value?.type==="job" ? V.rose : "#374151", outline:"none",
-          maxWidth:180 }}>
-        <option value="">Specific job…</option>
-        {jobs.map(j => <option key={j.id} value={j.id}>{j.data?.job_title || j.id}</option>)}
-      </select>
-
-      {/* Department picker */}
-      {departments.length > 0 && (
-        <select value={value?.type==="dept" ? value.dept : ""}
-          onChange={e => e.target.value ? apply({ type:"dept", dept: e.target.value }) : apply({ type:"all" })}
-          style={{ padding:"4px 10px", borderRadius:20, fontSize:11, fontWeight:600, cursor:"pointer",
-            border:`1.5px solid ${value?.type==="dept" ? V.teal+"80" : "rgba(0,0,0,.1)"}`,
-            background: value?.type==="dept" ? `${V.teal}10` : "transparent",
-            color: value?.type==="dept" ? V.teal : "#374151", outline:"none",
-            maxWidth:160 }}>
-          <option value="">Department…</option>
-          {departments.map(d => <option key={d} value={d}>{d}</option>)}
-        </select>
+      {/* Active filter pill — visible beside button when filter is on */}
+      {active && (
+        <div style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 8px 3px 9px",
+          borderRadius:20, background:`${V.purple}10`, border:`1px solid ${V.purple}30`,
+          fontSize:11, fontWeight:700, color:V.purple, whiteSpace:"nowrap" }}>
+          {activeLabel}
+          <button onClick={e => { e.stopPropagation(); clear(); }}
+            style={{ background:"none", border:"none", cursor:"pointer", color:V.purple,
+              opacity:0.7, padding:"0 0 0 2px", lineHeight:1, fontSize:14, display:"flex", alignItems:"center" }}>
+            ×
+          </button>
+        </div>
       )}
 
-      {/* Advanced filter */}
-      <div ref={advRef} style={{ position:"relative" }}>
-        <button onClick={() => setShowAdv(v => !v)}
-          style={{ padding:"4px 11px", borderRadius:20, fontSize:11, fontWeight:700, cursor:"pointer",
-            border:`1.5px solid ${value?.type==="advanced" ? V.amber+"80" : "rgba(0,0,0,.1)"}`,
-            background: value?.type==="advanced" ? `${V.amber}12` : "transparent",
-            color: value?.type==="advanced" ? V.amber : "#374151" }}>
-          ⚙ Advanced
-        </button>
-        {showAdv && (
-          <div style={{ position:"absolute", top:"calc(100% + 8px)", left:0, zIndex:800,
-            background:"white", border:"1.5px solid rgba(0,0,0,.1)", borderRadius:12,
-            boxShadow:"0 8px 28px rgba(0,0,0,.14)", padding:16, minWidth:280, fontFamily:"inherit" }}>
-            <div style={{ fontSize:12, fontWeight:700, color:"#374151", marginBottom:10 }}>Advanced filter — Job field</div>
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              <select value={advField} onChange={e=>{setAdvField(e.target.value);setAdvVal("");}}
-                style={{ width:"100%", padding:"7px 10px", borderRadius:8, border:"1.5px solid rgba(0,0,0,.1)",
-                  fontSize:12, outline:"none", background:"white" }}>
-                <option value="">Choose field…</option>
-                {jobFields.map(f => <option key={f.api_key} value={f.api_key}>{f.name}</option>)}
-              </select>
-              {advField && (
-                <input value={advVal} onChange={e=>setAdvVal(e.target.value)}
-                  placeholder="Filter value…"
-                  style={{ width:"100%", padding:"7px 10px", borderRadius:8,
-                    border:"1.5px solid rgba(0,0,0,.1)", fontSize:12, outline:"none",
-                    boxSizing:"border-box" }}/>
-              )}
-              <button onClick={() => {
-                  if (advField && advVal) apply({ type:"advanced", field:advField, val:advVal,
-                    label:`${jobFields.find(f=>f.api_key===advField)?.name||advField}: ${advVal}` });
-                }}
-                disabled={!advField || !advVal}
-                style={{ width:"100%", padding:"7px", borderRadius:8, border:"none",
-                  background: (!advField||!advVal) ? "#f3f4f6" : V.purple,
-                  color: (!advField||!advVal) ? "#9ca3af" : "white",
-                  fontSize:12, fontWeight:700, cursor:(!advField||!advVal)?"default":"pointer" }}>
-                Apply filter
+      {/* Dropdown panel */}
+      {open && (
+        <div style={{
+          position:"absolute", top:"calc(100% + 8px)", right:0,
+          width: 300, background:"white",
+          border:"1.5px solid rgba(0,0,0,.09)", borderRadius:14,
+          boxShadow:"0 12px 36px rgba(0,0,0,.13)", zIndex:900,
+          fontFamily:"'DM Sans',-apple-system,sans-serif", overflow:"hidden",
+        }}>
+          {/* Header */}
+          <div style={{ padding:"12px 16px 10px", borderBottom:"1px solid rgba(0,0,0,.06)",
+            display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div style={{ fontSize:12, fontWeight:700, color:"#374151" }}>Filter dashboard</div>
+            {active && (
+              <button onClick={clear}
+                style={{ fontSize:11, fontWeight:600, color:V.purple, background:"none",
+                  border:"none", cursor:"pointer", padding:0 }}>
+                Clear filter
               </button>
-            </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Active filter label + clear */}
-      {active && (
-        <>
-          <div style={{ flex:1 }}/>
-          <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:11, color:V.purple, fontWeight:600 }}>
-            <span style={{ padding:"3px 9px", borderRadius:99, background:`${V.purple}12`,
-              border:`1px solid ${V.purple}30` }}>
-              {value.label || (value.type==="mine"?"My jobs":value.type==="job"?value.label:value.type==="dept"?value.dept:value.type==="advanced"?value.label:"Filtered")}
-            </span>
-            <button onClick={clear}
-              style={{ background:"none", border:"none", cursor:"pointer", color:V.gray, fontSize:16, lineHeight:1, padding:0 }}>×</button>
+          <div style={{ padding:"10px 12px", display:"flex", flexDirection:"column", gap:3 }}>
+            {/* All jobs */}
+            <FilterOption
+              label="All jobs" count={jobs.length}
+              selected={!active}
+              onClick={() => apply({ type:"all" })}/>
+
+            {/* My jobs */}
+            {myJobs.length > 0 && (
+              <FilterOption
+                label="My jobs" count={myJobs.length}
+                selected={value?.type === "mine"}
+                onClick={() => apply({ type:"mine", label:"My jobs" })}/>
+            )}
+
+            {/* Divider */}
+            <div style={{ height:1, background:"rgba(0,0,0,.06)", margin:"4px 0" }}/>
+
+            {/* Specific job */}
+            <div style={{ fontSize:10, fontWeight:700, color:V.gray, textTransform:"uppercase",
+              letterSpacing:".05em", padding:"2px 6px 4px" }}>Specific job</div>
+            <select value={value?.type==="job" ? value.jobId : ""}
+              onChange={e => e.target.value
+                ? apply({ type:"job", jobId:e.target.value,
+                    label: jobs.find(j=>j.id===e.target.value)?.data?.job_title || "Job" })
+                : apply({ type:"all" })}
+              style={{ width:"100%", padding:"7px 10px", borderRadius:8,
+                border:`1.5px solid ${value?.type==="job" ? V.purple+"60" : "rgba(0,0,0,.1)"}`,
+                fontSize:12, outline:"none", background:"white", cursor:"pointer",
+                color: value?.type==="job" ? V.purple : "#374151", fontFamily:"inherit" }}>
+              <option value="">Choose a job…</option>
+              {jobs.map(j => <option key={j.id} value={j.id}>{j.data?.job_title || j.id}</option>)}
+            </select>
+
+            {/* Department */}
+            {departments.length > 0 && <>
+              <div style={{ fontSize:10, fontWeight:700, color:V.gray, textTransform:"uppercase",
+                letterSpacing:".05em", padding:"6px 6px 4px" }}>Department</div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+                {departments.map(d => (
+                  <button key={d} onClick={() => apply({ type:"dept", dept:d, label:d })}
+                    style={{ padding:"4px 10px", borderRadius:20, fontSize:11, fontWeight:600, cursor:"pointer",
+                      border:`1.5px solid ${value?.type==="dept" && value.dept===d ? V.teal+"80" : "rgba(0,0,0,.1)"}`,
+                      background: value?.type==="dept" && value.dept===d ? `${V.teal}12` : "#f9fafb",
+                      color: value?.type==="dept" && value.dept===d ? V.teal : "#374151" }}>
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </>}
+
+            {/* Advanced */}
+            <div style={{ fontSize:10, fontWeight:700, color:V.gray, textTransform:"uppercase",
+              letterSpacing:".05em", padding:"6px 6px 4px" }}>Advanced — any job field</div>
+            <select value={advField} onChange={e => { setAdvField(e.target.value); setAdvVal(""); }}
+              style={{ width:"100%", padding:"7px 10px", borderRadius:8,
+                border:"1.5px solid rgba(0,0,0,.1)", fontSize:12, outline:"none",
+                background:"white", fontFamily:"inherit" }}>
+              <option value="">Choose field…</option>
+              {jobFields.map(f => <option key={f.api_key} value={f.api_key}>{f.name}</option>)}
+            </select>
+            {advField && (
+              <input value={advVal} onChange={e => setAdvVal(e.target.value)}
+                placeholder="Filter value…" autoFocus
+                onKeyDown={e => { if (e.key === "Enter" && advVal.trim()) apply({
+                  type:"advanced", field:advField, val:advVal,
+                  label:`${jobFields.find(f=>f.api_key===advField)?.name||advField}: ${advVal}`
+                }); }}
+                style={{ width:"100%", padding:"7px 10px", borderRadius:8,
+                  border:"1.5px solid rgba(0,0,0,.1)", fontSize:12, outline:"none",
+                  boxSizing:"border-box", fontFamily:"inherit" }}/>
+            )}
+            {advField && advVal && (
+              <button onClick={() => apply({
+                  type:"advanced", field:advField, val:advVal,
+                  label:`${jobFields.find(f=>f.api_key===advField)?.name||advField}: ${advVal}`
+                })}
+                style={{ width:"100%", padding:"7px", borderRadius:8, border:"none",
+                  background:V.purple, color:"white", fontSize:12, fontWeight:700,
+                  cursor:"pointer", fontFamily:"inherit" }}>
+                Apply
+              </button>
+            )}
           </div>
-        </>
+        </div>
       )}
     </div>
+  );
+}
+
+// Simple option row used inside the filter panel
+function FilterOption({ label, count, selected, onClick }) {
+  return (
+    <button onClick={onClick}
+      style={{ display:"flex", alignItems:"center", gap:8, width:"100%", padding:"7px 8px",
+        borderRadius:8, border:"none", background: selected ? `${V.purple}10` : "transparent",
+        cursor:"pointer", textAlign:"left", fontFamily:"inherit", transition:"background .1s" }}
+      onMouseEnter={e => { if (!selected) e.currentTarget.style.background = "#f9fafb"; }}
+      onMouseLeave={e => { e.currentTarget.style.background = selected ? `${V.purple}10` : "transparent"; }}>
+      <div style={{ width:8, height:8, borderRadius:"50%", flexShrink:0,
+        background: selected ? V.purple : "rgba(0,0,0,.15)" }}/>
+      <span style={{ flex:1, fontSize:12, fontWeight: selected ? 700 : 500,
+        color: selected ? V.purple : "#374151" }}>{label}</span>
+      {count != null && (
+        <span style={{ fontSize:10, fontWeight:600, color: selected ? V.purple : V.gray,
+          background: selected ? `${V.purple}15` : "rgba(0,0,0,.06)",
+          padding:"1px 6px", borderRadius:99 }}>{count}</span>
+      )}
+      {selected && (
+        <svg width={11} height={11} viewBox="0 0 24 24" fill="none"
+          stroke={V.purple} strokeWidth="2.5" strokeLinecap="round">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>
+      )}
+    </button>
   );
 }
 
@@ -815,22 +872,21 @@ export default function Dashboard({ environment, session, onNavigate, onOpenReco
               </button>
             );
           })}
+          <DashFilterBtn
+            jobs={allJobRecords}
+            jobFields={jobFields}
+            session={session}
+            value={dashFilter}
+            onChange={f => setDashFilter(f)}
+          />
           <button onClick={() => { _cache = null; load(true); }}
-            style={{ fontSize: 11, padding: "6px 12px", borderRadius: 20, border: `0.5px solid ${V.border}`,
-              background: V.card, color: V.gray, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ width:32, height:32, borderRadius:9, border:`1.5px solid rgba(0,0,0,.09)`,
+              background:"white", color:V.gray, cursor:"pointer", fontFamily:"inherit",
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:14 }}>
             ↻
           </button>
         </div>
       </div>
-
-      {/* ── Dashboard filter bar ── */}
-      <DashFilterBar
-        jobs={allJobRecords}
-        jobFields={jobFields}
-        session={session}
-        value={dashFilter}
-        onChange={f => setDashFilter(f)}
-      />
 
       {/* ── 4 KPI cards ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 16 }}>

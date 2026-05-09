@@ -136,11 +136,21 @@ const VideoModal = ({ onConfirm, onClose }) => {
   useEffect(()=>{ setTimeout(()=>ref.current?.focus(), 50); }, []);
   const getEmbed = (raw) => {
     if (!raw) return null;
-    const yt = raw.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
-    if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
-    const vm = raw.match(/vimeo\.com\/(\d+)/);
-    if (vm) return `https://player.vimeo.com/video/${vm[1]}`;
-    if (raw.includes("embed")) return raw;
+    try {
+      const url = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
+      // YouTube — any domain (youtube.com, youtu.be, youtube-nocookie.com)
+      if (url.hostname.includes('youtube') || url.hostname.includes('youtu.be')) {
+        const id = url.searchParams.get('v') || url.pathname.replace(/^\//, '').split('/')[0];
+        if (id && id.length > 5) return `https://www.youtube-nocookie.com/embed/${id}`;
+      }
+      // Vimeo
+      if (url.hostname.includes('vimeo')) {
+        const id = url.pathname.replace(/^\//, '').split('/')[0];
+        if (id) return `https://player.vimeo.com/video/${id}`;
+      }
+      // Already an embed URL
+      if (raw.includes('/embed/') || raw.includes('player.vimeo')) return raw;
+    } catch (_) {}
     return null;
   };
   const embed = getEmbed(url);

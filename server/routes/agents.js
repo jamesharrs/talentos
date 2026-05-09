@@ -521,13 +521,32 @@ function evaluateConditions(conditions, record) {
 async function runAiAction(action, recordContext, record, fields, previousAiOutput) {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
   if (!ANTHROPIC_API_KEY) return '[AI unavailable — no API key]';
-  let prompt = action.prompt || `Analyse this record:\n${recordContext}`;
+
+  // Always include record context. Custom prompt goes first, then the data.
+  const customPrompt = action.prompt || '';
+  let prompt;
   switch(action.type) {
-    case 'ai_analyse': prompt = action.prompt || `Analyse this record and provide a concise assessment:\n\n${recordContext}`; break;
-    case 'ai_draft_email': prompt = `Draft a professional, personalised email. Subject on first line prefixed "Subject: ".\nRecord: ${recordContext}\nPurpose: ${action.email_purpose||'follow up'}\nTone: ${action.tone||'professional'}`; break;
-    case 'ai_summarise': prompt = `Write a concise 2-3 sentence summary of this record for a recruiter:\n\n${recordContext}`; break;
-    case 'ai_score': prompt = `Score this candidate 0-100. Return ONLY JSON: {"score":85,"reasoning":"...","strengths":["..."],"gaps":["..."]}\nCriteria: ${action.criteria||'overall suitability'}\nData:\n${recordContext}`; break;
-    default: break;
+    case 'ai_analyse':
+      prompt = customPrompt
+        ? `${customPrompt}\n\nRecord data:\n${recordContext}`
+        : `Analyse this record and provide a concise assessment:\n\n${recordContext}`;
+      break;
+    case 'ai_draft_email':
+      prompt = `Draft a professional, personalised email. Subject on first line prefixed "Subject: ".\nRecord: ${recordContext}\nPurpose: ${action.email_purpose||'follow up'}\nTone: ${action.tone||'professional'}`;
+      break;
+    case 'ai_summarise':
+      prompt = customPrompt
+        ? `${customPrompt}\n\nRecord data:\n${recordContext}`
+        : `Write a concise 2-3 sentence summary of this record for a recruiter:\n\n${recordContext}`;
+      break;
+    case 'ai_score':
+      prompt = `Score this candidate 0-100. Return ONLY JSON: {"score":85,"reasoning":"...","strengths":["..."],"gaps":["..."]}\nCriteria: ${action.criteria || customPrompt || 'overall suitability'}\nData:\n${recordContext}`;
+      break;
+    default:
+      prompt = customPrompt
+        ? `${customPrompt}\n\nRecord data:\n${recordContext}`
+        : `Analyse this record:\n${recordContext}`;
+      break;
   }
   if (previousAiOutput) prompt += `\n\nPrevious AI analysis:\n${previousAiOutput}`;
   const response = await fetch('https://api.anthropic.com/v1/messages', {

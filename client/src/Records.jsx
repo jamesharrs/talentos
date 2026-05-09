@@ -6447,6 +6447,8 @@ const AgentsRecordPanel = ({ record, environment }) => {
 
   const openConfirm = (agent) => { setInputs({}); setConfirm(agent); };
 
+  const [justUpdated, setJustUpdated] = useState(null); // agent id that just finished → flash green
+
   const runAgent = async (agent, runtimeInputs = {}) => {
     setConfirm(null);
     setRunning(r => ({ ...r, [agent.id]: true }));
@@ -6457,6 +6459,11 @@ const AgentsRecordPanel = ({ record, environment }) => {
       });
       const r = await api.get(`/agents/runs/by-record/${record.id}`);
       if (Array.isArray(r)) setRuns(r.slice(0, 20));
+      // Notify the parent list to re-fetch this record so field updates appear live
+      window.dispatchEvent(new CustomEvent('talentos:recordUpdated', { detail: { recordId: record.id } }));
+      // Flash the agent row green briefly
+      setJustUpdated(agent.id);
+      setTimeout(() => setJustUpdated(null), 2500);
     } catch (e) { console.error(e); }
     setRunning(r => ({ ...r, [agent.id]: false }));
   };
@@ -6706,7 +6713,7 @@ const AgentsRecordPanel = ({ record, environment }) => {
         const isRunning = !!running[agent.id];
         const statusColor = STATUS_COLORS[lastRun?.status] || '#6b7280';
         return (
-          <div key={agent.id} style={{ padding:'10px 12px', borderRadius:10, border:`1.5px solid ${C.border}`, background:C.surface, display:'flex', alignItems:'center', gap:10 }}>
+          <div key={agent.id} style={{ padding:'10px 12px', borderRadius:10, border:`1.5px solid ${justUpdated===agent.id?'#10b981':C.border}`, background:justUpdated===agent.id?'#f0fdf4':C.surface, display:'flex', alignItems:'center', gap:10, transition:'border-color .3s, background .3s' }}>
             <div style={{ width:32, height:32, borderRadius:8, background:agent.avatar_color || agent.color || C.accent, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
               <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2l1.6 6.1a2 2 0 001.4 1.4L21 11.2a.5.5 0 010 1l-6 1.7a2 2 0 00-1.4 1.4L12 21.3a.5.5 0 01-1 0l-1.6-6a2 2 0 00-1.4-1.4L2 12.2a.5.5 0 010-1l6-1.7A2 2 0 009.4 8L12 2z"/>
@@ -6729,10 +6736,17 @@ const AgentsRecordPanel = ({ record, environment }) => {
                 <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>Never run on this record</div>
               )}
             </div>
-            <button type="button" onClick={() => !isRunning && openConfirm(agent)} disabled={isRunning}
-              style={{ padding:'5px 12px', borderRadius:8, border:`1.5px solid ${isRunning ? C.border : C.accent}`, background:isRunning ? '#f9fafb' : C.accentLight, color:isRunning ? C.text3 : C.accent, fontSize:11, fontWeight:700, cursor:isRunning ? 'default' : 'pointer', fontFamily:F, flexShrink:0 }}>
-              {isRunning ? 'Running…' : 'Run'}
-            </button>
+            {justUpdated === agent.id ? (
+              <span style={{ padding:'5px 12px', borderRadius:8, fontSize:11, fontWeight:700, color:'#10b981', display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
+                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+                Updated
+              </span>
+            ) : (
+              <button type="button" onClick={() => !isRunning && openConfirm(agent)} disabled={isRunning}
+                style={{ padding:'5px 12px', borderRadius:8, border:`1.5px solid ${isRunning ? C.border : C.accent}`, background:isRunning ? '#f9fafb' : C.accentLight, color:isRunning ? C.text3 : C.accent, fontSize:11, fontWeight:700, cursor:isRunning ? 'default' : 'pointer', fontFamily:F, flexShrink:0 }}>
+                {isRunning ? 'Running…' : 'Run'}
+              </button>
+            )}
           </div>
         );
       })}
@@ -11125,8 +11139,6 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
 
   // Re-trigger load when the server comes back online after a restart.
   // App.jsx fires 'talentos:server-online' when apiOnline flips false → true.
-  // This ensures the list reloads automatically rather than staying blank
-  // after a nodemon restart wipes the in-memory session store.
   useEffect(() => {
     const handler = () => { setReloadKey(k => k + 1); };
     window.addEventListener('talentos:server-online', handler);

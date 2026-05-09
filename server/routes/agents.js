@@ -4,6 +4,43 @@ const router = express.Router();
 const { query, insert, update, remove, getStore, saveStore } = require('../db/init');
 const { v4: uuidv4 } = require('uuid');
 
+// ── Markdown → HTML converter (lightweight, no dependencies) ─────────────────
+function markdownToHtml(md) {
+  if (!md) return '';
+  let html = md
+    // Escape bare < > that aren't already tags
+    .replace(/&/g, '&amp;')
+    // Headings: ## Heading → <h2>, # Heading → <h1>, ### → <h3>
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm,  '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm,   '<h1>$1</h1>')
+    // Bold: **text** or __text__
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/__(.+?)__/g,     '<strong>$1</strong>')
+    // Italic: *text* or _text_
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/_(.+?)_/g,   '<em>$1</em>')
+    // Unordered lists: lines starting with - or *
+    .replace(/^[\-\*] (.+)$/gm, '<li>$1</li>')
+    // Ordered lists: lines starting with 1. 2. etc
+    .replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+
+  // Wrap consecutive <li> blocks in <ul>
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`);
+
+  // Paragraphs: blank-line-separated blocks that aren't headings or lists
+  const blocks = html.split(/\n{2,}/);
+  html = blocks.map(block => {
+    block = block.trim();
+    if (!block) return '';
+    if (/^<(h[1-6]|ul|ol|li|blockquote)/.test(block)) return block;
+    // Convert single newlines within a paragraph to <br>
+    return `<p>${block.replace(/\n/g, '<br>')}</p>`;
+  }).join('\n');
+
+  return html;
+}
+
 // ── AI Activity Logger ────────────────────────────────────────────────────────
 function logAiActivity({ record_id, environment_id, agent_name, action_type, summary, ai_output }) {
   if (!record_id) return;
@@ -549,10 +586,15 @@ async function runAiAction(action, recordContext, record, fields, previousAiOutp
       break;
   }
   if (previousAiOutput) prompt += `\n\nPrevious AI analysis:\n${previousAiOutput}`;
+
+  // System instruction: always format with markdown headings/bold/paragraphs
+  // so the markdownToHtml converter produces proper rich text in the editor.
+  const systemPrompt = 'Format your response using markdown: use ## for section headings, **bold** for emphasis, and separate paragraphs with blank lines. Use bullet lists (- item) where appropriate. Do not use raw HTML tags.';
+
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] }),
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 2000, system: systemPrompt, messages: [{ role: 'user', content: prompt }] }),
   });
   const data = await response.json();
   return data.content?.[0]?.text || '[No response]';
@@ -571,7 +613,13 @@ async function executeAction(action, record_id, environment_id, aiOutput, modifi
       if (!record_id || !action.field_key) break;
       const idx = s.records.findIndex(r => r.id === record_id);
       if (idx !== -1) {
-        const value = action.field_value || aiOutput || '';
+        let value = action.field_value || aiOutput || '';
+        // If saving into a rich_text field, convert markdown to HTML so the editor renders it properly
+        const record = s.records[idx];
+        const fieldDef = s.fields ? s.fields.find(f => f.api_key === action.field_key && f.object_id === record.object_id) : null;
+        if (fieldDef?.field_type === 'rich_text' && value && !value.trim().startsWith('<')) {
+          value = markdownToHtml(value);
+        }
         s.records[idx].data = {
           ...s.records[idx].data,
           [action.field_key]: value,

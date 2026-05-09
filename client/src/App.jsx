@@ -1648,6 +1648,46 @@ function App({ onEnvReady }) {
   const isMobile = useIsMobile();
   const userId = session?.user?.id || null;
 
+  // ── Setup screen: poll until provisioning is complete on first login ──────
+  const [setupReady, setSetupReady]   = useState(null); // null=unchecked, true=ready, false=pending
+  const [setupStage, setSetupStage]   = useState(0);
+  const setupPollRef = useRef(null);
+  const SETUP_STAGES = [
+    "Configuring your environment…",
+    "Setting up objects and fields…",
+    "Loading sample data…",
+    "Applying workflow templates…",
+    "Almost ready…",
+  ];
+  useEffect(() => {
+    if (!session) return;
+    const slug = session.tenant_slug || session.user?.tenant_slug;
+    if (!slug) { setSetupReady(true); return; }
+    let cancelled = false;
+    let stageTimer;
+    async function check() {
+      try {
+        const r = await fetch(`/api/setup-status?tenant_slug=${slug}`);
+        const d = await r.json();
+        if (cancelled) return;
+        if (d.ready) { setSetupReady(true); return; }
+        setSetupReady(false);
+        // Cycle through stages every 8s
+        stageTimer = setInterval(() => setSetupStage(s => (s + 1) % SETUP_STAGES.length), 8000);
+        // Poll every 3s
+        setupPollRef.current = setInterval(async () => {
+          try {
+            const r2 = await fetch(`/api/setup-status?tenant_slug=${slug}`);
+            const d2 = await r2.json();
+            if (d2.ready && !cancelled) { setSetupReady(true); clearInterval(setupPollRef.current); clearInterval(stageTimer); }
+          } catch {}
+        }, 3000);
+      } catch { setSetupReady(true); } // on error, just let them in
+    }
+    check();
+    return () => { cancelled = true; clearInterval(setupPollRef.current); clearInterval(stageTimer); };
+  }, [session?.tenant_slug, session?.user?.tenant_slug]);
+
   // Handle ?impersonate=TOKEN — exchange for a real session then strip the param from the URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -2310,6 +2350,47 @@ function App({ onEnvReady }) {
   // Show login page if no session
   if (!session) {
     return <LoginPage onLogin={(s) => setSession(s)} />;
+  }
+
+  // Show setup screen while provisioning is in progress
+  if (setupReady === false) {
+    return (
+      <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#1a1033 0%,#2d1b69 50%,#1a1033 100%)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Space Grotesk',sans-serif" }}>
+        <div style={{ textAlign:"center", maxWidth:480, padding:"0 24px" }}>
+          {/* Logo */}
+          <svg width="52" height="52" viewBox="0 0 52 52" fill="none" style={{ marginBottom:32 }}>
+            <rect width="52" height="52" rx="14" fill="#6941C6"/>
+            <path d="M26 10L38 20V32L26 42L14 32V20L26 10Z" fill="white" fillOpacity="0.15"/>
+            <path d="M26 14L35 22V30L26 38L17 30V22L26 14Z" fill="white" fillOpacity="0.25"/>
+            <path d="M26 18L32 24V28L26 34L20 28V24L26 18Z" fill="white"/>
+          </svg>
+          {/* Spinner */}
+          <div style={{ position:"relative", width:64, height:64, margin:"0 auto 32px" }}>
+            <div style={{ position:"absolute", inset:0, borderRadius:"50%", border:"3px solid rgba(255,255,255,0.1)" }}/>
+            <div style={{ position:"absolute", inset:0, borderRadius:"50%", border:"3px solid transparent", borderTopColor:"#8B7EC8",
+              animation:"spin 1s linear infinite" }}/>
+          </div>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadeMsg{0%{opacity:0;transform:translateY(6px)}100%{opacity:1;transform:translateY(0)}}`}</style>
+          <h1 style={{ color:"white", fontSize:26, fontWeight:700, margin:"0 0 12px", letterSpacing:"-0.5px" }}>
+            Getting your environment ready
+          </h1>
+          <p key={setupStage} style={{ color:"rgba(255,255,255,0.6)", fontSize:15, margin:"0 0 40px", animation:"fadeMsg .4s ease" }}>
+            {SETUP_STAGES[setupStage]}
+          </p>
+          {/* Step indicators */}
+          <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:40 }}>
+            {SETUP_STAGES.map((_, i) => (
+              <div key={i} style={{ width: i === setupStage ? 24 : 8, height:8, borderRadius:99,
+                background: i <= setupStage ? "#8B7EC8" : "rgba(255,255,255,0.15)",
+                transition:"all .4s ease" }}/>
+            ))}
+          </div>
+          <p style={{ color:"rgba(255,255,255,0.35)", fontSize:12 }}>
+            This usually takes less than a minute. You'll be taken in automatically.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   // Auto-detect mobile and serve the mobile recruiter shell

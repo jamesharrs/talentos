@@ -115,7 +115,7 @@ router.post('/', async (req, res) => {
         created_at: now, updated_at: now, deleted_at: null,
       });
       // Cross-reference in master environments so demo seed picker finds it
-      s.environments.push({ id: envId, name: 'Production', slug: 'production', client_id: clientId, tenant_slug: tenantSlug, is_default: 1, color: '#6941C6', created_at: now, updated_at: now });
+      s.environments.push({ id: envId, name: 'Production', slug: 'production', client_id: clientId, tenant_slug: tenantSlug, is_default: 1, color: '#6941C6', setup_complete: false, created_at: now, updated_at: now });
       saveStore('master');
     });
 
@@ -123,7 +123,7 @@ router.post('/', async (req, res) => {
     await tenantStorage.run(tenantSlug, () => {
       const ts = provisionTenant(tenantSlug);
 
-      ts.environments = [{ id: envId, name: 'Production', slug: 'production', is_default: 1, color: '#6941C6', created_at: now, updated_at: now }];
+      ts.environments = [{ id: envId, name: 'Production', slug: 'production', is_default: 1, color: '#6941C6', setup_complete: false, created_at: now, updated_at: now }];
 
       // Seed objects + fields
       ts.objects = []; ts.fields = [];
@@ -226,6 +226,25 @@ router.post('/', async (req, res) => {
       } catch (seedErr) {
         console.error(`[Signup] ⚠️ Demo seed failed for ${tenantSlug}:`, seedErr.message);
       }
+    }
+
+    // Mark environment setup as complete (both master + tenant store)
+    try {
+      await tenantStorage.run('master', () => {
+        const ms = getStore();
+        const masterEnv = ms.environments?.find(e => e.id === envId);
+        if (masterEnv) { masterEnv.setup_complete = true; masterEnv.updated_at = new Date().toISOString(); }
+        saveStoreNow('master');
+      });
+      await tenantStorage.run(tenantSlug, () => {
+        const ts = getStore();
+        const tEnv = ts.environments?.find(e => e.id === envId);
+        if (tEnv) { tEnv.setup_complete = true; tEnv.updated_at = new Date().toISOString(); }
+        saveStoreNow();
+      });
+      console.log(`[Signup] ✅ setup_complete=true for ${tenantSlug}`);
+    } catch (e) {
+      console.error('[Signup] ⚠️ Could not mark setup complete:', e.message);
     }
 
     // Invalidate tenant cache so the new slug is recognised immediately

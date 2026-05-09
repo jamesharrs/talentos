@@ -199,6 +199,7 @@ const AUTH_EXEMPT = [
   '/screening/job',      // wizard fetches screening rules for portal screening block
   '/tenant-reset', '/cleanup-seeds', '/seed-dashboards',
   '/signup',        // public self-serve signup — no auth needed
+  '/setup-status',  // polled before first login to check if provisioning is complete
   '/error-logs', '/ai', '/translate', '/linkedin-search',
   '/chrome-import',
   '/hub/request-link', '/hub/verify', '/hub/portal-branding',
@@ -399,6 +400,32 @@ app.use('/api/sequencer',         require('./routes/email_sequencer').router);
 app.use('/api/superadmin/demo',   require('./routes/demo_seed'));
 app.use('/api/tenant-reset',      require('./routes/admin_reset'));
 app.use('/api/signup',            require('./routes/signup'));
+
+// Setup status — polled by client on first login until provisioning is complete
+app.get('/api/setup-status', (req, res) => {
+  const { tenant_slug, environment_id } = req.query;
+  if (!tenant_slug && !environment_id) return res.status(400).json({ error: 'tenant_slug or environment_id required' });
+  try {
+    const { tenantStorage, getStore, loadTenantStore } = require('./db/init');
+    let env = null;
+    // Try tenant store first
+    if (tenant_slug) {
+      try {
+        const ts = loadTenantStore(tenant_slug);
+        env = ts?.environments?.find(e => !environment_id || e.id === environment_id);
+      } catch {}
+    }
+    // Fall back to master store
+    if (!env) {
+      const ms = getStore();
+      env = ms?.environments?.find(e => e.id === environment_id || e.tenant_slug === tenant_slug);
+    }
+    if (!env) return res.json({ ready: false, found: false });
+    res.json({ ready: env.setup_complete === true, environment_id: env.id });
+  } catch (e) {
+    res.json({ ready: false, error: e.message });
+  }
+});
 app.use('/api/chrome-import',     require('./routes/chrome_import'));
 
 // Run post-load migrations

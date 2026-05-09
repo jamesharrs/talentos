@@ -234,12 +234,13 @@ router.post('/login', validate(loginSchema), (req, res) => {
   let u = findOne('users', u => u.email === email);
   let resolvedTenantSlug = (() => { const t = getCurrentTenant(); return (t && t !== 'master') ? t : null; })();
 
-  // If not found in current store, search all tenant stores
-  if (!u) {
+  // Search all tenant stores if no tenant resolved yet (e.g. localhost with no subdomain)
+  // or if user wasn't found in the current (master) store
+  if (!resolvedTenantSlug || !u) {
     const tenants = listTenants ? listTenants() : [];
     for (const slug of tenants) {
       const ts = loadTenantStore(slug);
-      const found = (ts.users || []).find(u => u.email === email);
+      const found = (ts.users || []).find(tu => tu.email === email);
       if (found) { u = found; resolvedTenantSlug = slug; break; }
     }
   }

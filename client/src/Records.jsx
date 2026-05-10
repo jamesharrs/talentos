@@ -11149,7 +11149,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
     await load();
     setShowForm(false);
     // Open the newly created record immediately
-    if (created?.id) onOpenRecord?.(created.id, object.id);
+    if (created?.id) onOpenRecord?.(created.id, object.id, created.record_number);
   };
 
   const handleUpdate = async (data) => {
@@ -11795,7 +11795,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
           <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:C.text3 }}>Loading…</div>
         ) : (
           <TableView records={displayedRecords} fields={fields} visibleFieldIds={visibleFieldIds} objectColor={object.color||C.accent}
-            onProfile={r=>onOpenRecord?.(r.id, object.id)}
+            onProfile={r=>onOpenRecord?.(r.id, object.id, r.record_number)}
             onSelect={r=>{setSelected(r);}}
             onEdit={can("edit") ? r=>setEditRecord(r) : null}
             onDelete={can("delete") ? handleDelete : null}
@@ -11855,7 +11855,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
           objectColor={object.color||C.accent}
           fullPage={false}
           onClose={()=>setSelected(null)}
-          onToggleFullPage={()=>onOpenRecord?.(selected.id, object.id)}
+          onToggleFullPage={()=>onOpenRecord?.(selected.id, object.id, selected.record_number)}
           onUpdate={handleDetailUpdate}
           onDelete={handleDelete}
           onNavigate={onOpenRecord}

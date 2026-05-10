@@ -2129,7 +2129,7 @@ function App({ onEnvReady }) {
     api.get(`/records/by-number?object_slug=${slug}&number=${number}&environment_id=${selectedEnv.id}`)
       .then(rec => {
         if (!rec?.id) { setActiveNav('dashboard'); return; }
-        openRecord(rec.id, rec.object_id);
+        openRecord(rec.id, rec.object_id, rec.record_number);
       })
       .catch(() => setActiveNav('dashboard'));
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2146,8 +2146,8 @@ function App({ onEnvReady }) {
   // Global event listener — anything can fire talentos:openRecord to navigate to a record page
   useEffect(() => {
     const handler = (e) => {
-      const { recordId, objectId } = e.detail || {};
-      if (recordId && objectId) openRecordRef.current(recordId, objectId);
+      const { recordId, objectId, recordNumber } = e.detail || {};
+      if (recordId && objectId) openRecordRef.current(recordId, objectId, recordNumber);
     };
     window.addEventListener("talentos:openRecord", handler);
     return () => window.removeEventListener("talentos:openRecord", handler);

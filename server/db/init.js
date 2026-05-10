@@ -43,6 +43,23 @@ function loadTenantStore(slug) {
     console.log(`Error loading store for ${key}:`, e.message);
     storeCache[key] = base;
   }
+  // Lazy backfill: assign record_number to any records missing it (runs once per tenant load)
+  const store = storeCache[key];
+  if (store.records?.some(r => !r.deleted_at && !r.record_number)) {
+    const byObj = {};
+    store.records.filter(r => !r.deleted_at && typeof r.record_number === 'number')
+      .forEach(r => { byObj[r.object_id] = Math.max(byObj[r.object_id] || 0, r.record_number); });
+    let changed = 0;
+    store.records.filter(r => !r.deleted_at && !r.record_number).forEach(r => {
+      byObj[r.object_id] = (byObj[r.object_id] || 0) + 1;
+      r.record_number = byObj[r.object_id];
+      changed++;
+    });
+    if (changed > 0) {
+      try { fs.writeFileSync(file, JSON.stringify(store, null, 2)); } catch {}
+      console.log(`✅ Lazy-backfilled record_number for ${changed} records (tenant: ${key})`);
+    }
+  }
   return storeCache[key];
 }
 

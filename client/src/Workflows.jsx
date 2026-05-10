@@ -870,8 +870,8 @@ function AssignTaskGroupConfig({ cfg, onChange, envId, fields }) {
   const [templates, setTemplates] = useState([]);
   useEffect(() => {
     if (!envId) return;
-    fetch(`/api/task-groups/templates?environment_id=${envId}`)
-      .then(r=>r.json()).then(d=>setTemplates(Array.isArray(d)?d:[])).catch(()=>{});
+    api.get(`/task-groups/templates?environment_id=${envId}`)
+      .then(d=>setTemplates(Array.isArray(d)?d:[])).catch(()=>{});
   }, [envId]);
 
   const sel = templates.find(t=>t.id===cfg.template_id);

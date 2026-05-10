@@ -1650,7 +1650,8 @@ function App({ onEnvReady }) {
 
     fetch('/api/users/exchange-impersonation', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': (() => { const m = document.cookie.match(/vercentic_csrf=([^;]+)/); return m ? decodeURIComponent(m[1]) : ''; })() },
       body: JSON.stringify({ token: impToken }),
     })
       .then(r => r.json())
@@ -2125,8 +2126,7 @@ function App({ onEnvReady }) {
     if (!selectedEnv || !navObjects?.length) return;
     const [, slug, number] = activeNav.split('_');
     if (!slug || !number) { setActiveNav('dashboard'); return; }
-    fetch(`/api/records/by-number?object_slug=${slug}&number=${number}&environment_id=${selectedEnv.id}`)
-      .then(r => r.ok ? r.json() : null)
+    api.get(`/records/by-number?object_slug=${slug}&number=${number}&environment_id=${selectedEnv.id}`)
       .then(rec => {
         if (!rec?.id) { setActiveNav('dashboard'); return; }
         openRecord(rec.id, rec.object_id);

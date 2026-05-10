@@ -3888,12 +3888,7 @@ const CompareModal = ({ records, fields, objectColor, onClose, onOpen }) => {
 
       const prompt = `You are comparing ${records.length} candidates. Provide a concise 3-5 sentence summary highlighting the key differences and similarities between them. Focus on what matters most for a hiring decision. Be specific about standout strengths and notable gaps. End with a one-sentence recommendation if a clear preference exists.\n\nCandidates:\n${profileLines}`;
 
-      const res = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: prompt, context: "" }),
-      });
-      const data = await res.json();
+      const data = await api.post("/ai/chat", { message: prompt, context: "" });
       setAiSummary(data.response || data.message || "Unable to generate summary.");
     } catch {
       setAiSummary("Unable to generate summary — check your AI configuration.");

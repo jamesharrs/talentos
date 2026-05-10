@@ -1065,7 +1065,7 @@ const AuditLogSection = () => {
 
   const exportCsv = async () => {
     try {
-      const res = await fetch("/api/security-audit/export", { headers: { "X-User-Id": JSON.parse(localStorage.getItem("talentos_session")||"{}").userId } });
+      const res = await fetch("/api/security-audit/export", { credentials: "include", headers: (() => { const s=JSON.parse(localStorage.getItem("talentos_session")||"null"); const m=document.cookie.match(/vercentic_csrf=([^;]+)/); return { "X-User-Id": s?.user?.id||"", "X-CSRF-Token": m ? decodeURIComponent(m[1]) : "" }; })() });
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a"); a.href = url; a.download = `security-audit-${new Date().toISOString().slice(0,10)}.csv`; a.click();

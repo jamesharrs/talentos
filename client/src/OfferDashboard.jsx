@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "./apiClient.js";
+import { DashFilterBtn } from "./Dashboard.jsx";
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, FunnelChart, Funnel, LabelList } from "recharts";
 
 const F = "'Geist', -apple-system, sans-serif";
@@ -68,6 +69,9 @@ const STATUS_LABELS = {
 export default function OfferDashboard({ environment, session, onNavigate }) {
   const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(true);
+    const [dashFilter, setDashFilter] = useState({ type: 'all' });
+  const [jobRecords, setJobRecords]   = useState([]);
+  const [jobFields,  setJobFields]    = useState([]);
   const [refreshed, setRefreshed] = useState(null);
 
   const load = useCallback(async () => {
@@ -167,6 +171,7 @@ export default function OfferDashboard({ environment, session, onNavigate }) {
               <span style={{width:6,height:6,borderRadius:"50%",background:color,flexShrink:0}}/>{label}
             </button>
           ))}
+          <DashFilterBtn jobs={jobRecords} jobFields={jobFields} session={session} value={dashFilter} onChange={setDashFilter}/>
           <button onClick={load} style={{fontSize:11,padding:"6px 12px",borderRadius:20,border:"0.5px solid rgba(0,0,0,0.06)",background:"white",color:"#888780",cursor:"pointer",fontFamily:F}}>↻</button>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import api from './apiClient.js';
+import { DashFilterBtn } from './Dashboard.jsx';
 
 const C = {
   card:"#fff", accent:"var(--t-accent,#4361ee)", accentLight:"var(--t-accent-light,#EEF2FF)",
@@ -171,6 +172,9 @@ function CandidateListModal({ title, candidates, jobs, onClose, _session }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ScreeningDashboard({ environment, onNavigate, session }) {
   const [data, setData]     = useState(null);
+    const [dashFilter, setDashFilter] = useState({ type: 'all' });
+  const [jobRecords, setJobRecords]   = useState([]);
+  const [jobFields,  setJobFields]    = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState(null);
   const [modal, setModal]   = useState(null); // { title, candidates }
@@ -337,6 +341,7 @@ export default function ScreeningDashboard({ environment, onNavigate, session })
               <span style={{ width:6,height:6,borderRadius:"50%",background:color,flexShrink:0 }}/>{label}
             </button>
           ))}
+          <DashFilterBtn jobs={jobRecords} jobFields={jobFields} session={session} value={dashFilter} onChange={setDashFilter}/>
           <button onClick={load} style={{ fontSize:11,padding:"6px 12px",borderRadius:20,border:`0.5px solid rgba(0,0,0,0.06)`,background:"white",color:"#888780",cursor:"pointer",fontFamily:F }}>↻</button>
         </div>
       </div>

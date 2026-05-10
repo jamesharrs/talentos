@@ -478,7 +478,7 @@ function StyledSelect({ value, onChange, options, placeholder, active }) {
 
 // Compact icon in the header — opens a panel showing filter options.
 // When active, shows a small pill next to the button with the active filter label.
-function DashFilterBtn({ jobs = [], jobFields = [], session, value, onChange }) {
+export function DashFilterBtn({ jobs = [], jobFields = [], session, value, onChange }) {
   const [open,     setOpen]     = useState(false);
   const [advField, setAdvField] = useState(value?.type === "advanced" ? value.field : "");
   const [advVal,   setAdvVal]   = useState(value?.type === "advanced" ? value.val   : "");

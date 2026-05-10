@@ -419,20 +419,53 @@ async function runSeed({ environmentId, clearFirst = false, progressCb = () => {
       created_at: isoAgo(rand(5, 30)), _demo: true,
     });
 
-    // Spread 2–12 candidates across stages
-    const count   = rand(2, 12);
+    // Spread candidates across stages with weighted distribution
+    const count   = rand(4, 14);
     const batch   = picks(candidateRecords, Math.min(count, candidateRecords.length));
     const stages  = wf.steps;
-    batch.forEach((c, ci) => {
-      const stage = stages[Math.min(ci, stages.length - 2)]; // don't put everyone in last stage
+
+    // Weight: more in early stages, meaningful number in HM stages
+    const stageWeights = stages.map((_, idx) => {
+      const pct = idx / (stages.length - 1);
+      if (pct < 0.25)  return 4; // Applied, CV Review
+      if (pct < 0.55)  return 3; // Phone Screen, Technical
+      if (pct < 0.82)  return 3; // Manager Review, Final Interview — HM sees these
+      return 1;                   // Offer, Hired
+    });
+    const totalWeight = stageWeights.reduce((a, b) => a + b, 0);
+
+    batch.forEach(c => {
+      let rv = Math.random() * totalWeight;
+      let stageIdx = 0;
+      for (let w = 0; w < stageWeights.length; w++) { rv -= stageWeights[w]; if (rv <= 0) { stageIdx = w; break; } }
+      stageIdx = Math.min(stageIdx, stages.length - 2);
+      const stage = stages[stageIdx];
       s.people_links.push({
         id: uuidv4(), job_id: job.id, person_id: c.id,
         workflow_id: wf.id, current_stage_id: stage.id,
         current_stage_name: stage.name, environment_id: environmentId,
-        created_at: isoAgo(rand(1, openDays || 30)), _demo: true,
+        created_at: isoAgo(rand(1, 60)), _demo: true,
       });
       results.links++;
     });
+
+    // Guarantee ≥ 2 candidates in HM-visible stages per job
+    const HM_STAGE_NAMES = ['Manager Review', 'Final Interview', 'Culture Fit', 'Assessment Centre'];
+    const hmStages = stages.filter(s => HM_STAGE_NAMES.includes(s.name));
+    if (hmStages.length > 0) {
+      const used = new Set(batch.map(c => c.id));
+      const extras = picks(candidateRecords.filter(c => !used.has(c.id)), rand(2, 4));
+      extras.forEach(c => {
+        const stage = hmStages[Math.floor(Math.random() * hmStages.length)];
+        s.people_links.push({
+          id: uuidv4(), job_id: job.id, person_id: c.id,
+          workflow_id: wf.id, current_stage_id: stage.id,
+          current_stage_name: stage.name, environment_id: environmentId,
+          created_at: isoAgo(rand(1, 30)), _demo: true,
+        });
+        results.links++;
+      });
+    }
   });
   progressCb({ step:'links_done', message:`Created ${results.links} pipeline links`, pct:75 });
 

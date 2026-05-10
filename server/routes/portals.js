@@ -661,6 +661,40 @@ router.get('/:id/wizard/draft/:token', (req, res) => {
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
+// ── HM Portal feedback endpoint ───────────────────────────────────────────────
+router.post('/:id/feedback', (req, res) => {
+  try {
+    const { person_id, job_id, job_title, rating, note, stage } = req.body;
+    const store = getStore();
+
+    // Update person rating
+    if (rating && person_id) {
+      const person = (store.records || []).find(r => r.id === person_id);
+      if (person) {
+        person.data = { ...(person.data || {}), rating: parseInt(rating) };
+        person.updated_at = new Date().toISOString();
+      }
+    }
+
+    // Save as a note on the record
+    if (note || rating) {
+      store.record_notes = store.record_notes || [];
+      store.record_notes.push({
+        id: uuidv4(),
+        record_id: person_id,
+        content: `[HM Feedback${job_title ? ` — ${job_title}` : ''}] Stage: ${stage || 'Unknown'}. Rating: ${rating ? `${rating}/5` : 'Not rated'}. ${note || ''}`.trim(),
+        created_by: 'hiring_manager',
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    saveStoreNow();
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;
 
 // ── Portal jobs — only jobs with a linked_person workflow attached ─────────────

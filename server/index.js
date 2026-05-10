@@ -184,6 +184,7 @@ const AUTH_EXEMPT = [
   '/portals/public', '/portals/by-slug', '/portals/slug',
   '/portals/job-alerts', '/portals/application-status', '/portals/public', '/portal-public', '/portal-auth/login', '/portal-auth/me', '/portal-auth/logout', '/portal-auth/users',
   '/portal-analytics', '/portal-feedback', '/portal-copilot',
+  '/people-links',
   '/campaign-links',
     '/integrations',  
   '/feature-packs',
@@ -352,6 +353,17 @@ app.use('/api/portal-public', require('./routes/portal_public'));
 app.use('/api/portals/:id',        require('./routes/fit_check'));
 app.use('/api/portals',           require('./routes/portal_generate'));
 app.use('/api/portals',           require('./routes/portals'));
+
+// People-links — public endpoint for HM portal
+app.get('/api/people-links', (req, res) => {
+  const { environment_id } = req.query;
+  const { getStore } = require('./db/init');
+  const s = getStore();
+  const links = (s.people_links || []).filter(l =>
+    !l.deleted_at && (!environment_id || l.environment_id === environment_id)
+  );
+  res.json({ links });
+});
 app.use('/api/portal-copilot',    require('./routes/portal_copilot'));
 app.use('/api/portal-feedback',   require('./routes/portal_feedback'));
 app.use('/api/portal-analytics',  require('./routes/portal_analytics'));

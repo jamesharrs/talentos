@@ -195,11 +195,8 @@ router.post('/reset-password', (req, res) => {
     const { loadTenantStore, saveStoreNow, tenantStorage } = require('../db/init');
     const crypto = require('crypto');
     // Support both hash formats
-    const hashPassword = (pw) => {
-      const salt = crypto.randomBytes(16).toString('hex');
-      const hash = crypto.createHmac('sha256', salt).update(pw).digest('hex');
-      return `${salt}:${hash}`;
-    };
+    // Must match verifyPassword() format in users.js
+    const hashPassword = (pw) => crypto.createHash('sha256').update(pw + 'talentos_salt').digest('hex');
     const store = loadTenantStore(tenant_slug);
     const user = (store.users || []).find(u => u.email === email);
     if (!user) return res.status(404).json({ error: `User ${email} not found in ${tenant_slug}` });

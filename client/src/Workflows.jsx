@@ -2773,8 +2773,10 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
 
   const loadPersonRecords = async () => {
     const objs = await api.get(`/objects?environment_id=${environment.id}`);
-    const personObj = (Array.isArray(objs) ? objs : []).find(o => o.name === "Person");
-    if (!personObj) return;
+    const personObj = (Array.isArray(objs) ? objs : []).find(o =>
+      o.slug === 'people' || o.name === 'People' || o.name === 'Person'
+    );
+    if (!personObj) { console.warn('[AddPerson] Could not find people object', objs); return; }
     const recs = await api.get(`/records?object_id=${personObj.id}&environment_id=${environment.id}&limit=500`);
     setPersonRecords(recs.records || []);
   };

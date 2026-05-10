@@ -2,6 +2,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import ReactDOM from "react-dom";
 import api from "./apiClient";
+
+// Module-level cache — prevents re-fetching when panels open/close (RecordDetail re-renders)
+const _engagementCache = new Map();
 const C = {
   accent:      'var(--t-accent, #4361EE)',
   accentLight: 'var(--t-accentLight, #EEF2FF)',
@@ -64,14 +67,18 @@ function BucketRow({ label, score, weight, color, details, expanded, onToggle })
 
 // ── Compact badge for the identity/functionality bar ─────────────────────────
 export function EngagementBadge({ recordId, onClick }) {
-  const [data,    setData]    = useState(null);
+  const [data,    setData]    = useState(() => _engagementCache.get(recordId) || null);
   const [hovered, setHovered] = useState(false);
   const [pos,     setPos]     = useState({ top:0, left:0 });
   const ref = useRef(null);
 
   useEffect(() => {
     if (!recordId) return;
-    api.get(`/engagement/${recordId}`).then(d => setData(d)).catch(() => {});
+    if (_engagementCache.has(recordId)) { setData(_engagementCache.get(recordId)); return; }
+    api.get(`/engagement/${recordId}`).then(d => {
+      _engagementCache.set(recordId, d);
+      setData(d);
+    }).catch(() => {});
   }, [recordId]);
 
   const handleEnter = () => {
@@ -121,14 +128,24 @@ export function EngagementBadge({ recordId, onClick }) {
 
 // ── Full breakdown panel ──────────────────────────────────────────────────────
 export function EngagementPanel({ recordId }) {
-  const [data,    setData]    = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [data,    setData]    = useState(() => _engagementCache.get(recordId) || null);
+  const [loading, setLoading] = useState(!_engagementCache.has(recordId));
   const [expanded,setExpanded]= useState({});
 
   const load = useCallback(() => {
     if (!recordId) return;
+    // Already cached — use it and don't show loading flash
+    if (_engagementCache.has(recordId)) {
+      setData(_engagementCache.get(recordId));
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    api.get(`/engagement/${recordId}`).then(d => { setData(d); setLoading(false); }).catch(() => setLoading(false));
+    api.get(`/engagement/${recordId}`).then(d => {
+      _engagementCache.set(recordId, d);
+      setData(d);
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, [recordId]);
   useEffect(() => { load(); }, [load]);
 

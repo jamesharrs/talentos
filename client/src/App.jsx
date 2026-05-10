@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense, startTransition } from "react";
-import api from "./apiClient.js";
+import api, { getTenantSlug } from "./apiClient.js";
 import ReportingErrorBoundary from "./ErrorBoundary.jsx";
 import { ThemeProvider, useTheme, SCHEMES, FONTS, DENSITIES } from "./Theme.jsx";
 import { FeatureProvider, useFeature, useFeatures } from "./hooks/useFeature.jsx";

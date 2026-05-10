@@ -291,9 +291,20 @@ let _feedCache = { key: null, maps: null, ts: 0 };
 
 // GET /api/records/stats — lightweight status-breakdown counts per object, no record payloads
 // Used by dashboard KPI cards. Returns exact totals from the full record set.
+// Stats cache — 30s TTL per environment (dashboard polls this frequently)
+const _statsCache = new Map(); // env_id → { ts, data }
+const STATS_TTL = 30000;
+
 router.get('/stats', (req, res) => {
   const { environment_id } = req.query;
   if (!environment_id) return res.status(400).json({ error: 'environment_id required' });
+
+  // Return cached result if fresh
+  const cached = _statsCache.get(environment_id);
+  if (cached && Date.now() - cached.ts < STATS_TTL) {
+    return res.json(cached.data);
+  }
+
   const objects = query('objects', o => o.environment_id === environment_id);
   const result = {};
   for (const obj of objects) {
@@ -312,14 +323,11 @@ router.get('/stats', (req, res) => {
       monthCounts[key] = (monthCounts[key] || 0) + 1;
     }
     result[obj.slug || obj.id] = {
-      id: obj.id,
-      slug: obj.slug,
-      name: obj.name,
-      total: recs.length,
-      statusCounts,
-      monthCounts,
+      id: obj.id, slug: obj.slug, name: obj.name,
+      total: recs.length, statusCounts, monthCounts,
     };
   }
+  _statsCache.set(environment_id, { ts: Date.now(), data: result });
   res.json(result);
 });
 
@@ -643,6 +651,7 @@ router.post('/', validate(createRecordSchema), (req, res) => {
   getEngine().fireEventTrigger('record_created', record, null).catch(()=>{});
   fireTrigger('record_created', record, []);
   invalidateSearchIndex(object_id);
+  _statsCache.delete(environment_id);
   res.status(201).json(record);
 });
 
@@ -677,6 +686,7 @@ router.patch('/:id', validate(patchRecordSchema), (req, res) => {
   // Fire stage_changed separately if status field changed
   if (changedFields.includes('status')) fireTrigger('stage_changed', updated, changedFields);
   invalidateSearchIndex(updated.object_id);
+  _statsCache.delete(updated.environment_id);
   res.json(updated);
 });
 
@@ -691,6 +701,7 @@ router.delete('/:id', (req, res) => {
   if (checkPerm(req, res, delRec.object_id, 'delete') === false) return;
   update('records', r=>r.id===req.params.id, {deleted_at:new Date().toISOString()});
   invalidateSearchIndex(delRec.object_id);
+  _statsCache.delete(delRec.environment_id);
   res.json({deleted:true});
 });
 

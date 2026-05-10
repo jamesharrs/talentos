@@ -5245,7 +5245,7 @@ function PlatformUserSection({ record }) {
       email ? api.get(`/users/by-email/${encodeURIComponent(email)}`).catch(()=>null) : Promise.resolve(null),
       api.get("/roles").catch(()=>[]),
     ]);
-    const found = r && !r.error ? r : null;
+    const found = r && r.found !== false && !r.error ? r : null;
     setUser(found);
     setRoles(Array.isArray(rs) ? rs : []);
     if (found) setOpen(true);
@@ -5451,7 +5451,7 @@ const UserPanel = ({ record }) => {
     const email = record?.data?.email;
     if (!email) { setLoading(false); return; }
     api.get(`/users/by-email/${encodeURIComponent(email)}`)
-      .then(u => { setUser(u || null); })
+      .then(u => { setUser(u?.found !== false ? u : null); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [record?.id]);

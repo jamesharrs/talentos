@@ -66,11 +66,12 @@ router.get('/me/:id', (req, res) => {
 });
 
 // GET /api/users/by-email/:email — find user linked to a Person record (MUST be before /:id wildcard)
+// Returns 200 {found:false} instead of 404 so the browser network log stays clean
 router.get('/by-email/:email', (req, res) => {
   const u = findOne('users', u => u.email === decodeURIComponent(req.params.email));
-  if (!u) return res.status(404).json({ error: 'Not found' });
+  if (!u) return res.json({ found: false });
   const role = findOne('roles', r => r.id === u.role_id);
-  res.json({ ...u, password_hash: undefined, role });
+  res.json({ ...u, found: true, password_hash: undefined, role });
 });
 
 // GET single user

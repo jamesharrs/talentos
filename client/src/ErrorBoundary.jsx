@@ -15,9 +15,18 @@ async function reportError({ code, message, stack, component, severity = 'error'
       try { return JSON.parse(localStorage.getItem('talentos_session') || '{}'); }
       catch { return {}; }
     })();
+    // Read CSRF cookie — bail silently if missing (e.g. post sign-out)
+    const csrf = document.cookie.split(';').map(c => c.trim())
+      .find(c => c.startsWith('vercentic_csrf='))?.split('=')[1];
+    if (!csrf) return;
     await fetch('/api/error-logs', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrf,
+        ...(session.user?.id ? { 'X-User-Id': session.user.id } : {}),
+        ...(session.tenant_slug ? { 'X-Tenant-Slug': session.tenant_slug } : {}),
+      },
       body: JSON.stringify({
         code, message, stack, component, severity,
         url: window.location.href,

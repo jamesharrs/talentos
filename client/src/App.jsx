@@ -1831,7 +1831,7 @@ function App({ onEnvReady }) {
   useEffect(() => {
     const handler = () => {
       try { localStorage.removeItem('talentos_session'); } catch {}
-      setSession(null);
+      startTransition(() => setSession(null));
     };
     window.addEventListener('talentos:unauthenticated', handler);
     return () => window.removeEventListener('talentos:unauthenticated', handler);
@@ -1849,7 +1849,7 @@ function App({ onEnvReady }) {
     }).then(r => {
       if (r.status === 401) {
         try { localStorage.removeItem('talentos_session'); } catch {}
-        setSession(null);
+        startTransition(() => setSession(null));
       }
     }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2975,7 +2975,7 @@ function UserFooterMenu({ session, activeNav, setActiveNav, clearSession, setSes
             ))}
             <button onClick={()=>{setOpen(false);window.dispatchEvent(new CustomEvent("vercentic:start-tour"));}} style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"9px 14px",border:"none",background:"transparent",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:500,color:"var(--t-text2)",textAlign:"left"}} onMouseEnter={e=>e.currentTarget.style.background="var(--t-surface2)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><Icon name="play-circle" size={14} color="var(--t-text3)"/>Product tour</button>
             <div style={{ height: 1, background: "var(--t-border)", margin: "4px 0" }} />
-            <button onClick={() => { clearSession(); setSession(null); setOpen(false); }}
+            <button onClick={() => { clearSession(); setOpen(false); startTransition(() => setSession(null)); }}
               style={{ width: "100%", display: "flex", alignItems: "center", gap: 9,
                 padding: "9px 14px", border: "none", background: "transparent",
                 cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 500,

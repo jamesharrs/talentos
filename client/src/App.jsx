@@ -1830,6 +1830,9 @@ function App({ onEnvReady }) {
   // When any API call returns 401, clear the local session and show the login screen
   useEffect(() => {
     const handler = () => {
+      // Only auto-logout on 401 in production. In dev, server restarts can cause
+      // transient 401s — don't wipe localStorage and force re-login every time.
+      if (!import.meta.env.PROD) return;
       try { localStorage.removeItem('talentos_session'); } catch {}
       startTransition(() => setSession(null));
     };
@@ -1847,7 +1850,10 @@ function App({ onEnvReady }) {
     fetch('/api/environments', {
       headers: { 'X-User-Id': sess.user.id, 'X-Tenant-Slug': sess.tenant_slug || '' },
     }).then(r => {
-      if (r.status === 401) {
+      // Only clear session on 401 in production — in dev the server may restart
+      // and lose the cookie session, but X-User-Id header auth still works.
+      // We tolerate 401 in dev and let the user stay logged in.
+      if (r.status === 401 && import.meta.env.PROD) {
         try { localStorage.removeItem('talentos_session'); } catch {}
         startTransition(() => setSession(null));
       }

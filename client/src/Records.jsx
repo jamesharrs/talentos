@@ -8268,6 +8268,29 @@ const GroupCard = ({ ids, overSlot, overZone, openPanels, setOpenPanels, openPan
   const [activeTab, setActiveTab] = useState(ids[0]);
   const safeActive = ids.includes(activeTab) ? activeTab : ids[0];
 
+  // Listen for external "open this panel" requests (e.g. from Engagement badge click)
+  useEffect(() => {
+    const handler = (e) => {
+      const { panelId } = e.detail || {};
+      if (panelId && ids.includes(panelId)) {
+        setActiveTab(panelId);
+        // Also ensure the group is open
+        setOpenPanels(p => {
+          const gk = `grp_${ids.join("_")}`;
+          const next = { ...p, [panelId]: true, [gk]: true };
+          try { localStorage.setItem(openPanelsKey, JSON.stringify(next)); } catch {}
+          return next;
+        });
+        // Scroll into view after state settles
+        setTimeout(() => {
+          if (cardRef.current) cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 80);
+      }
+    };
+    window.addEventListener('vercentic:openPanel', handler);
+    return () => window.removeEventListener('vercentic:openPanel', handler);
+  }, [ids, openPanelsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── In-group tab drag state ──────────────────────────────────────────────
   const [draggingTab,    setDraggingTab]    = useState(null);  // id being dragged within group
   const [tabInsertBefore, setTabInsertBefore] = useState(null); // id to insert before (null=end)
@@ -9082,7 +9105,10 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
 
   const openPanelAndScroll = (panelId) => {
     if (panelId) {
+      // Open the panel in flat layout
       setOpenPanels(p => { const next={...p,[panelId]:true}; try{localStorage.setItem(openPanelsKey,JSON.stringify(next));}catch{} return next; });
+      // Also signal any GroupCard that contains this panel to activate its tab
+      window.dispatchEvent(new CustomEvent('vercentic:openPanel', { detail: { panelId } }));
     }
     setRecordSearch("");
     setRecordSearchOpen(false);

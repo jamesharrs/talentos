@@ -484,12 +484,39 @@ if (process.env.NODE_ENV !== 'test') {
   });
 }
 
-initDB().then(() => {
+initDB().then(async () => {
   storeReady = true;
   const store = getStore();
   const fs   = require('fs');
   const path = require('path');
   let dirty  = false;
+
+  // ── Auto-seed master store if demo data is missing ────────────────────────
+  // This ensures localhost always has data regardless of session/tenant state.
+  const { tenantStorage: _ts, loadTenantStore: _lts } = require('./db/init');
+  const masterEnv = (store.environments || [])[0];
+  const masterDemoCount = (store.records || []).filter(r => r._demo).length;
+  if (masterEnv && masterDemoCount < 50) {
+    console.log(`[AutoSeed] Only ${masterDemoCount} demo records in master — seeding now…`);
+    try {
+      const { runSeed } = require('./routes/demo_seed');
+      await _ts.run('master', async () => {
+        await runSeed({
+          environmentId: masterEnv.id,
+          clearFirst: masterDemoCount > 0,
+          progressCb: ({ step, message }) => {
+            if (['candidates_done','jobs_done','links_done','complete'].includes(step))
+              console.log(`[AutoSeed] ${message || step}`);
+          },
+        });
+      });
+      console.log('[AutoSeed] ✅ Master store seeded with demo data');
+    } catch (e) {
+      console.warn('[AutoSeed] Seed failed (non-fatal):', e.message);
+    }
+  } else if (masterDemoCount >= 50) {
+    console.log(`[AutoSeed] Master store has ${masterDemoCount} demo records — skipping auto-seed`);
+  }
 
   // Ensure all store collections exist
   const COLLECTIONS = [

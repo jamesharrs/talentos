@@ -709,6 +709,8 @@ router.post('/seed', async (req, res) => {
   try {
     const tenantSlug = findTenantForEnv(environment_id);
     const contextKey = tenantSlug || 'master';
+
+    // Seed the tenant store
     await tenantStorage.run(contextKey, async () => {
       const results = await runSeed({
         environmentId: environment_id,
@@ -717,6 +719,19 @@ router.post('/seed', async (req, res) => {
       });
       send({ step:'complete', results, pct:100 });
     });
+
+    // Also mirror demo data into master so login always works regardless of session/tenant
+    if (contextKey !== 'master') {
+      send({ step:'mirror', message:'Mirroring demo data into master store…', pct:100 });
+      await tenantStorage.run('master', async () => {
+        await runSeed({
+          environmentId: environment_id,
+          clearFirst:    clear_first,
+          progressCb:    () => {},  // silent
+        });
+      });
+      send({ step:'mirror_done', message:'Master store updated', pct:100 });
+    }
   } catch (err) {
     send({ step:'error', message: err.message });
   }

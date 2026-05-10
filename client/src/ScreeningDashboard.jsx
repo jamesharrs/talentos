@@ -208,8 +208,8 @@ export default function ScreeningDashboard({ environment, onNavigate, session })
       const personJobMap = {};
       links.forEach(lk => {
         if (!personJobMap[lk.person_id]) personJobMap[lk.person_id] = [];
-        const job = allJobs.find(j=>j.id===lk.record_id);
-        personJobMap[lk.person_id].push({ jobId:lk.record_id, jobName:job?.data?.job_title||job?.data?.title||'Unknown Job', stage:lk.stage });
+        const job = allJobs.find(j=>j.id===(lk.job_id||lk.target_record_id||lk.record_id));
+        personJobMap[lk.person_id].push({ jobId:(lk.job_id||lk.target_record_id||lk.record_id), jobName:job?.data?.job_title||job?.data?.title||'Unknown Job', stage:lk.current_stage_name||lk.stage_name||lk.stage });
       });
 
       // 5. Determine SCREENING stage categories (from stage_categories or workflow steps)
@@ -250,7 +250,7 @@ export default function ScreeningDashboard({ environment, onNavigate, session })
         const status = (p.data?.status||'').toLowerCase();
         if (screeningStages.has(status)) return true;
         const links = personJobMap[p.id]||[];
-        return links.some(lk => screeningStages.has((lk.stage||'').toLowerCase()));
+        return links.some(lk => screeningStages.has(((lk.current_stage_name||lk.stage_name||lk.stage)||'').toLowerCase()));
       });
 
       // 8. Auto Screened this month (candidates with AI screening result set this month)
@@ -282,8 +282,8 @@ export default function ScreeningDashboard({ environment, onNavigate, session })
         return recruiter === userId || recruiter === userEmail || (typeof recruiter==='object'&&recruiter?.id===userId);
       });
       const myJobsFunnel = myJobs.map(job => {
-        const jobLinks = links.filter(lk=>lk.record_id===job.id);
-        const inScreen = jobLinks.filter(lk=>screeningStages.has((lk.stage||'').toLowerCase())).length;
+        const jobLinks = links.filter(lk=>(lk.job_id||lk.target_record_id||lk.record_id)===job.id);
+        const inScreen = jobLinks.filter(lk=>screeningStages.has(((lk.current_stage_name||lk.stage_name||lk.stage)||'').toLowerCase())).length;
         return {
           id: job.id, name: job.data?.job_title||job.data?.title||'Unknown', count: inScreen,
           total: jobLinks.length, object_id: jobsObj?.id

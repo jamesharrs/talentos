@@ -817,8 +817,8 @@ router.get('/people-links', (req, res) => {
   ensureTables();
   const { target_record_id, person_record_id, environment_id } = req.query;
   let links = query('people_links', () => true);
-  if (target_record_id)  links = links.filter(l => l.target_record_id === target_record_id || l.record_id === target_record_id);
-  if (person_record_id)  links = links.filter(l => l.person_record_id === person_record_id || l.person_id === person_record_id);
+  if (target_record_id)  links = links.filter(l => (l.target_record_id||l.job_id||l.record_id) === target_record_id);
+  if (person_record_id)  links = links.filter(l => (l.person_record_id||l.person_id) === person_record_id);
   if (environment_id)    links = links.filter(l => l.environment_id === environment_id);
   // Hydrate with person record data AND target record/object data
   const result = links.map(l => {
@@ -829,7 +829,7 @@ router.get('/people-links', (req, res) => {
     const td = target?.data || {};
     const targetTitle = td.job_title || td.pool_name || td.name || td.first_name || l.target_record_id?.slice(0,8);
     // Hydrate workflow steps for stage dropdown
-    const wfAssignment = findOne('record_workflow_assignments', a => a.record_id === l.target_record_id && a.type === 'people_link');
+    const wfAssignment = findOne('record_workflow_assignments', a => a.record_id === (l.target_record_id||l.job_id) && (a.type === 'people_link' || a.assignment_type === 'people_link' || a.assignment_type === 'linked_person'));
     const wf = wfAssignment ? findOne('workflows', w => w.id === wfAssignment.workflow_id) : null;
     const wfSteps = wf ? query('workflow_steps', s => s.workflow_id === wf.id).sort((a,b)=>a.order-b.order) : [];
     return {

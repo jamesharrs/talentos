@@ -524,7 +524,9 @@ async function runSeed({ environmentId, clearFirst = false, progressCb = () => {
       stageIdx = Math.min(stageIdx, stages.length - 2);
       const stage = stages[stageIdx];
       s.people_links.push({
-        id: uuidv4(), job_id: job.id, person_id: c.id,
+        id: uuidv4(),
+        person_record_id: c.id, target_record_id: job.id,  // canonical field names
+        job_id: job.id, person_id: c.id,                    // legacy aliases kept for compat
         workflow_id: wf.id, current_stage_id: stage.id,
         current_stage_name: stage.name, environment_id: environmentId,
         created_at: isoAgo(rand(1, 60)), _demo: true,
@@ -541,7 +543,9 @@ async function runSeed({ environmentId, clearFirst = false, progressCb = () => {
       extras.forEach(c => {
         const stage = hmStages[Math.floor(Math.random() * hmStages.length)];
         s.people_links.push({
-          id: uuidv4(), job_id: job.id, person_id: c.id,
+          id: uuidv4(),
+          person_record_id: c.id, target_record_id: job.id,  // canonical
+          job_id: job.id, person_id: c.id,                    // legacy aliases
           workflow_id: wf.id, current_stage_id: stage.id,
           current_stage_name: stage.name, environment_id: environmentId,
           created_at: isoAgo(rand(1, 30)), _demo: true,

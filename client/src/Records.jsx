@@ -372,16 +372,123 @@ const TableFieldValue = ({ field, value }) => {
   const cols = field.table_columns || [];
   const rows = Array.isArray(value) ? value : [];
   if (!rows.length || !cols.length) return <span style={{color:C.text3,fontSize:12}}>—</span>;
-  const preview = rows.slice(0,2).map(r => {
-    const first = cols[0]; const second = cols[1];
-    return [r[first?.id]||'', r[second?.id]||''].filter(Boolean).join(' · ');
-  }).join(', ');
+
+  // Helper: find value by column name (case-insensitive) or id
+  const get = (row, ...names) => {
+    for (const name of names) {
+      // Try by id match first
+      const byId = row[name];
+      if (byId !== undefined && byId !== '') return byId;
+      // Try by column name
+      const col = cols.find(c => c.name.toLowerCase() === name.toLowerCase());
+      if (col && row[col.id] !== undefined && row[col.id] !== '') return row[col.id];
+    }
+    return '';
+  };
+
+  // Detect field type by column names to pick the right template
+  const colNames = cols.map(c => c.name.toLowerCase());
+  const isWorkHistory = colNames.some(n => n.includes('company') || n.includes('employer'));
+  const isEducation   = colNames.some(n => n.includes('institution') || n.includes('university') || n.includes('school'));
+
+  if (isWorkHistory) {
+    return (
+      <div style={{display:'flex',flexDirection:'column',gap:8,width:'100%'}}>
+        {rows.map((row, i) => {
+          const company  = get(row,'Company','Employer','Organisation');
+          const title    = get(row,'Job Title','Title','Position','Role');
+          const from     = get(row,'From','Start','Start Date');
+          const to       = get(row,'To','End','End Date');
+          const current  = get(row,'Current','Is Current');
+          const desc     = get(row,'Description','Summary','Notes');
+          const fromYear = from ? new Date(from).getFullYear() : null;
+          const toYear   = to   ? new Date(to).getFullYear()   : null;
+          const dateStr  = fromYear
+            ? current ? `${fromYear} – Present` : toYear ? `${fromYear} – ${toYear}` : String(fromYear)
+            : '';
+          return (
+            <div key={i} style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+              {/* Timeline dot + line */}
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',flexShrink:0,paddingTop:3}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:current?C.accent:'#CBD5E1',border:`2px solid ${current?C.accent:'#E2E8F0'}`,flexShrink:0}}/>
+                {i < rows.length - 1 && <div style={{width:1,flex:1,minHeight:20,background:'#E2E8F0',marginTop:3}}/>}
+              </div>
+              {/* Content */}
+              <div style={{flex:1,minWidth:0,paddingBottom:i<rows.length-1?10:0}}>
+                <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',marginBottom:1}}>
+                  <span style={{fontSize:13,fontWeight:700,color:C.text1,lineHeight:1.3}}>{title||'—'}</span>
+                  {current && <span style={{fontSize:10,fontWeight:700,color:C.accent,background:`${C.accent}12`,padding:'1px 6px',borderRadius:99}}>Current</span>}
+                </div>
+                <div style={{fontSize:12,color:C.text2,fontWeight:500}}>{company}</div>
+                {dateStr && <div style={{fontSize:11,color:C.text3,marginTop:2}}>{dateStr}</div>}
+                {desc && <div style={{fontSize:12,color:C.text3,marginTop:4,lineHeight:1.5,display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{desc}</div>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (isEducation) {
+    return (
+      <div style={{display:'flex',flexDirection:'column',gap:8,width:'100%'}}>
+        {rows.map((row, i) => {
+          const institution = get(row,'Institution','University','School','College');
+          const degree      = get(row,'Degree','Qualification','Award');
+          const subject     = get(row,'Subject','Field','Course','Major','Field of Study');
+          const from        = get(row,'From','Start','Start Date');
+          const to          = get(row,'To','End','End Date','Graduation Year');
+          const grade       = get(row,'Grade / Result','Grade','Result','GPA');
+          const current     = get(row,'Current');
+          const fromYear    = from ? new Date(from).getFullYear() : null;
+          const toYear      = to   ? new Date(to).getFullYear()   : null;
+          const dateStr     = fromYear
+            ? current ? `${fromYear} – Present` : toYear ? `${fromYear} – ${toYear}` : String(fromYear)
+            : '';
+          return (
+            <div key={i} style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',flexShrink:0,paddingTop:3}}>
+                <div style={{width:8,height:8,borderRadius:2,background:'#7C3AED20',border:'2px solid #7C3AED40',flexShrink:0}}/>
+                {i < rows.length - 1 && <div style={{width:1,flex:1,minHeight:20,background:'#E2E8F0',marginTop:3}}/>}
+              </div>
+              <div style={{flex:1,minWidth:0,paddingBottom:i<rows.length-1?10:0}}>
+                <div style={{fontSize:13,fontWeight:700,color:C.text1,lineHeight:1.3,marginBottom:1}}>
+                  {[degree,subject].filter(Boolean).join(' in ')||'—'}
+                </div>
+                <div style={{fontSize:12,color:C.text2,fontWeight:500}}>{institution}</div>
+                <div style={{display:'flex',gap:8,marginTop:2,flexWrap:'wrap'}}>
+                  {dateStr && <span style={{fontSize:11,color:C.text3}}>{dateStr}</span>}
+                  {grade   && <span style={{fontSize:11,color:'#7C3AED',fontWeight:600,background:'#7C3AED10',padding:'1px 6px',borderRadius:99}}>{grade}</span>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Generic fallback: compact key-value rows for other table fields
+  const labelCols = cols.slice(0, 3); // show first 3 columns
   return (
-    <span style={{fontSize:12,color:C.text2,cursor:"default"}} title={`${rows.length} row${rows.length!==1?'s':''}`}>
-      <span style={{fontWeight:600,color:C.text1}}>{rows.length}</span>
-      <span style={{color:C.text3}}> row{rows.length!==1?'s':''}</span>
-      {preview && <span style={{color:C.text3,marginLeft:6,fontSize:11}}>({preview})</span>}
-    </span>
+    <div style={{display:'flex',flexDirection:'column',gap:6,width:'100%'}}>
+      {rows.map((row, i) => (
+        <div key={i} style={{display:'flex',gap:6,flexWrap:'wrap',padding:'6px 10px',
+          borderRadius:8,background:'#F8F9FF',border:'1px solid #E8ECF8'}}>
+          {labelCols.map(col => {
+            const val = row[col.id];
+            if (!val && val !== 0) return null;
+            return (
+              <span key={col.id} style={{fontSize:12,color:C.text2}}>
+                <span style={{color:C.text3,fontSize:11}}>{col.name}: </span>
+                <span style={{fontWeight:600,color:C.text1}}>{String(val)}</span>
+              </span>
+            );
+          })}
+        </div>
+      ))}
+    </div>
   );
 };
 

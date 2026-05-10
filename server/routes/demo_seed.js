@@ -292,18 +292,101 @@ async function runSeed({ environmentId, clearFirst = false, progressCb = () => {
         summary:              `${fn} is an experienced ${title} with ${yrs} years in the industry. Based in ${pick(LOCATIONS)}, they bring a strong track record at ${company} and are ${pick(['actively exploring new opportunities','open to the right opportunity','not actively looking but open to conversations'])}.`,
         gdpr_consent:         true,
         gdpr_consent_date:    dateAgo(rand(1, 60)),
-        education: [{
-          degree:      pick(['B.Sc','M.Sc','MBA','BEng','LLB','PhD','B.A.']),
-          field:       pick(['Computer Science','Business Administration','Engineering','Finance','Marketing','Law','Data Science','Economics','Psychology']),
-          institution: pick(UNIVERSITIES),
-          year:        String(rand(2000, 2021)),
-        }],
-        work_history: [
-          { company, title, from: dateAgo(rand(365, 2190)), to: '', current: true,  description: `Leading ${dept} initiatives and driving results across cross-functional teams.` },
-          { company: pick(COMPANIES), title: pick(TITLES), from: dateAgo(rand(2200, 4000)), to: dateAgo(rand(400, 730)), current: false, description: 'Delivered key projects and managed stakeholder relationships.' },
-        ],
+        education: [],
+        work_history: [],
       },
     };
+
+    // Build work_history using actual table column IDs from schema
+    const whField = (s.fields || []).find(f => f.object_id === PEOPLE_OBJ && f.api_key === 'work_history');
+    const edField = (s.fields || []).find(f => f.object_id === PEOPLE_OBJ && f.api_key === 'education');
+    const whCols  = whField?.table_columns || [];
+    const edCols  = edField?.table_columns || [];
+
+    // Helper: find column id by name
+    const colId = (cols, name) => cols.find(c => c.name.toLowerCase() === name.toLowerCase())?.id || name.toLowerCase().replace(/\s+/g,'_');
+
+    // Work history rows — keyed by column ID
+    const prevCompany  = pick(COMPANIES);
+    const prevTitle    = pick(TITLES);
+    const prevFrom     = dateAgo(rand(yrs * 365 + 400, yrs * 365 + 1500));
+    const prevTo       = dateAgo(rand(365, yrs * 365 - 100));
+    const currFrom     = dateAgo(rand(90, 730));
+
+    rec.data.work_history = [
+      {
+        [colId(whCols,'Company')]:     company,
+        [colId(whCols,'Job Title')]:   title,
+        [colId(whCols,'From')]:        currFrom,
+        [colId(whCols,'To')]:          '',
+        [colId(whCols,'Current')]:     true,
+        [colId(whCols,'Description')]: `Leading ${dept} initiatives and delivering results across cross-functional teams. Responsible for ${pick(['strategy and execution','stakeholder management','team leadership','technical delivery','business development'])}.`,
+      },
+      {
+        [colId(whCols,'Company')]:     prevCompany,
+        [colId(whCols,'Job Title')]:   prevTitle,
+        [colId(whCols,'From')]:        prevFrom,
+        [colId(whCols,'To')]:          prevTo,
+        [colId(whCols,'Current')]:     false,
+        [colId(whCols,'Description')]: `${pick(['Developed and implemented','Led key projects across','Managed stakeholder relationships and delivered','Drove strategic initiatives in'])} ${dept.toLowerCase()}, achieving ${pick(['significant business impact','measurable outcomes','strong team performance','key milestones'])}.`,
+      },
+    ];
+
+    // Add a third older role for candidates with 8+ years experience
+    if (yrs >= 8) {
+      const olderFrom = dateAgo(rand(yrs * 365 + 1600, yrs * 365 + 2800));
+      const olderTo   = dateAgo(rand(yrs * 365 + 200, yrs * 365 + 400));
+      rec.data.work_history.push({
+        [colId(whCols,'Company')]:     pick(COMPANIES),
+        [colId(whCols,'Job Title')]:   pick(TITLES),
+        [colId(whCols,'From')]:        olderFrom,
+        [colId(whCols,'To')]:          olderTo,
+        [colId(whCols,'Current')]:     false,
+        [colId(whCols,'Description')]: `Early career role focused on ${pick(['building foundational skills','contributing to team goals','professional development and learning','supporting senior stakeholders'])}.`,
+      });
+    }
+
+    // Education rows — keyed by column ID
+    const gradYear  = rand(Math.max(2000, new Date().getFullYear() - yrs - 6), Math.max(2005, new Date().getFullYear() - yrs));
+    const subjects  = {
+      Engineering: ['Computer Science','Software Engineering','Electrical Engineering','Information Technology','Mathematics'],
+      Data:        ['Data Science','Statistics','Mathematics','Computer Science','Economics'],
+      Finance:     ['Finance','Accounting','Economics','Business Administration','Mathematics'],
+      HR:          ['Human Resources','Psychology','Business Administration','Organisational Behaviour','Sociology'],
+      Product:     ['Business Administration','Computer Science','Design','Marketing','Economics'],
+      Sales:       ['Business Administration','Marketing','Communications','Economics','International Business'],
+      Marketing:   ['Marketing','Communications','Business Administration','Design','Digital Media'],
+      Design:      ['Graphic Design','Industrial Design','Computer Science','Fine Arts','UX Design'],
+      Operations:  ['Operations Management','Business Administration','Logistics','Engineering','Economics'],
+      Legal:       ['Law','LLB','International Law','Business Law','Political Science'],
+    };
+    const deptSubjects = subjects[dept] || subjects.Engineering;
+
+    rec.data.education = [
+      {
+        [colId(edCols,'Institution')]:  pick(UNIVERSITIES),
+        [colId(edCols,'Degree')]:       pick(['B.Sc','B.A.','BEng','LLB']),
+        [colId(edCols,'Subject')]:      pick(deptSubjects),
+        [colId(edCols,'From')]:         `${gradYear - 3}-09-01`,
+        [colId(edCols,'To')]:           `${gradYear}-06-30`,
+        [colId(edCols,'Current')]:      false,
+        [colId(edCols,'Grade / Result')]: pick(['First Class','2:1','Distinction','Merit','Pass','GPA 3.8','GPA 3.5','GPA 3.2']),
+      },
+    ];
+
+    // Add postgrad for candidates with MBA/Masters profile
+    if (yrs >= 5 && Math.random() > 0.55) {
+      const pgYear = gradYear + rand(2, 5);
+      rec.data.education.push({
+        [colId(edCols,'Institution')]:  pick(UNIVERSITIES),
+        [colId(edCols,'Degree')]:       pick(['M.Sc','MBA','M.A.','MRes','MSc']),
+        [colId(edCols,'Subject')]:      pick(['Business Administration','Data Science','Finance','Management','Computer Science','Leadership']),
+        [colId(edCols,'From')]:         `${pgYear}-09-01`,
+        [colId(edCols,'To')]:           `${pgYear + 1}-06-30`,
+        [colId(edCols,'Current')]:      false,
+        [colId(edCols,'Grade / Result')]: pick(['Distinction','Merit','Pass','GPA 3.9','GPA 3.7']),
+      });
+    }
     s.records.push(rec);
     candidateRecords.push(rec);
     results.candidates++;

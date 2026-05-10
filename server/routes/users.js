@@ -3,7 +3,7 @@ const { validate } = require('../middleware/validate');
 const { createUserSchema, patchUserSchema, resetPasswordSchema, loginSchema } = require('../validation/schemas');
 const { hasGlobalAction } = require('../middleware/rbac');
 const crypto = require('crypto');
-const { query, findOne, insert, update, remove, getStore, saveStore, getCurrentTenant,
+const { query, findOne, insert, update, remove, getStore, saveStore, saveStoreNow, getCurrentTenant,
         listTenants, loadTenantStore, tenantStorage } = require('../db/init');
 
 // Set the CSRF double-submit cookie on a successful login response
@@ -266,6 +266,23 @@ router.post('/login', validate(loginSchema), (req, res) => {
     update('users', x => x.id === u.id, { last_login: new Date().toISOString(), login_count: (u.login_count||0)+1 });
     insert('audit_log', { id:require('uuid').v4(), action:'user.login', actor:u.id, target_id:u.id, target_type:'user', details:{ email }, created_at:new Date().toISOString() });
   });
+
+  // Backfill tenant_slug + environment_id on master-store users who are missing it
+  // (happens on first login after provisioning or dev seed)
+  if (resolvedTenantSlug && (!u.tenant_slug || !u.environment_id)) {
+    try {
+      const { loadTenantStore } = require('../db/init');
+      const ts  = loadTenantStore(resolvedTenantSlug);
+      const env = ts?.environments?.[0];
+      if (env) {
+        update('users', x => x.id === u.id, {
+          tenant_slug:    resolvedTenantSlug,
+          environment_id: env.id,
+        });
+        saveStoreNow('master');
+      }
+    } catch (_) {}
+  }
 
   // Set httpOnly session cookie (primary auth mechanism)
   req.session.userId     = u.id;

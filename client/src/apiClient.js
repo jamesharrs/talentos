@@ -58,7 +58,10 @@ function mutationHeaders() {
 }
 
 // Paths that are expected to 404 (e.g. lookup-by-email) — suppress browser console errors
-const SILENT_404_PATTERNS = ['/users/by-email/'];
+const SILENT_404_PATTERNS = [
+  '/users/by-email/',      // Platform user lookup — 404 = no linked account (expected)
+  '/records/by-number',    // Numeric URL resolve — 404 = record doesn't exist locally
+];
 
 function handleResponse(r, path = '') {
   if (r.status === 404 && SILENT_404_PATTERNS.some(p => path.includes(p))) return null;

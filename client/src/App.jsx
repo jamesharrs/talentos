@@ -2129,6 +2129,8 @@ function App({ onEnvReady }) {
     if (!selectedEnv || !navObjects?.length) return;
     const [, slug, number] = activeNav.split('_');
     if (!slug || !number) { setActiveNav('dashboard'); return; }
+    // Clear resolve_ immediately so HMR remounts don't re-fire this effect
+    setActiveNav('__resolving__');
     api.get(`/records/by-number?object_slug=${slug}&number=${number}&environment_id=${selectedEnv.id}`)
       .then(rec => {
         if (!rec?.id) { setActiveNav('dashboard'); return; }

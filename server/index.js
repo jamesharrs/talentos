@@ -422,7 +422,16 @@ app.get('/api/setup-status', (req, res) => {
       env = ms?.environments?.find(e => e.id === environment_id || e.tenant_slug === tenant_slug);
     }
     if (!env) return res.json({ ready: false, found: false });
-    res.json({ ready: env.setup_complete === true, environment_id: env.id, data_path: process.env.DATA_PATH || 'default' });
+    // Treat as ready if: explicit flag set, OR env already has objects (existing env with stale flag)
+    const ts2 = tenant_slug ? loadTenantStore(tenant_slug) : null;
+    const hasObjects = (ts2?.objects?.length || 0) > 0;
+    const isReady = env.setup_complete === true || hasObjects;
+    // Auto-heal stale flag so next call is instant
+    if (isReady && !env.setup_complete) {
+      env.setup_complete = true;
+      try { require('./db/init').saveStoreNow(tenant_slug || 'master'); } catch {}
+    }
+    res.json({ ready: isReady, environment_id: env.id, data_path: process.env.DATA_PATH || 'default' });
   } catch (e) {
     res.json({ ready: false, error: e.message });
   }

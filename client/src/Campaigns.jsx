@@ -4,9 +4,6 @@ import apiClient from "./apiClient.js";
 import { ChannelTemplatePicker, AutomationRulesPanel, CampaignCalendar } from "./CampaignPhase2.jsx";
 
 const CampaignLinksInline = lazy(() => import("./CampaignLinks.jsx"));
-
-const api = { get: u => apiClient.get(u), post: (u,b) => apiClient.post(u,b),
-              patch: (u,b) => apiClient.patch(u,b), del: u => apiClient.delete(u) };
 const F = "'Space Grotesk','DM Sans',system-ui,sans-serif";
 const C = {
   bg:"var(--t-bg,#F0F2FF)", surface:"var(--t-surface,#fff)", s2:"var(--t-surface2,#F8F9FF)",

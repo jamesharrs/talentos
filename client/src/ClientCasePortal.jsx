@@ -1,12 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
+import api from './apiClient.js';
 
 const F = "'DM Sans',-apple-system,sans-serif";
-const ACCENT = "#4361EE";
-const api = {
-  get:  url => fetch(url).then(r => r.json()),
-  post: (url,b) => fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
-};
-const TYPES=[{id:'bug',label:'Bug',color:'#ef4444'},{id:'feature',label:'Feature Request',color:'#8b5cf6'},{id:'support',label:'Support Query',color:'#3b82f6'},{id:'account',label:'Account Issue',color:'#f59e0b'},{id:'billing',label:'Billing',color:'#10b981'},{id:'other',label:'Other',color:'#6b7280'}];
+const ACCENT = "#4361EE";const TYPES=[{id:'bug',label:'Bug',color:'#ef4444'},{id:'feature',label:'Feature Request',color:'#8b5cf6'},{id:'support',label:'Support Query',color:'#3b82f6'},{id:'account',label:'Account Issue',color:'#f59e0b'},{id:'billing',label:'Billing',color:'#10b981'},{id:'other',label:'Other',color:'#6b7280'}];
 const PRIORITIES=[{id:'low',label:'Low'},{id:'medium',label:'Medium'},{id:'high',label:'High'},{id:'critical',label:'Critical'}];
 const STATUSES=[{id:'open',label:'Open',color:'#3b82f6'},{id:'in_progress',label:'In Progress',color:'#8b5cf6'},{id:'awaiting_client',label:'Awaiting Client',color:'#f59e0b'},{id:'resolved',label:'Resolved',color:'#10b981'},{id:'closed',label:'Closed',color:'#6b7280'}];
 const timeAgo=iso=>{if(!iso)return'—';const d=(Date.now()-new Date(iso))/1000;if(d<60)return'just now';if(d<3600)return`${Math.floor(d/60)}m ago`;if(d<86400)return`${Math.floor(d/3600)}h ago`;return`${Math.floor(d/86400)}d ago`;};

@@ -50,14 +50,6 @@ function getAuthHeaders(extra = {}) {
   return h;
 }
 
-const api = {
-  get:   p     => tFetch(`/api${p}`, { headers: getAuthHeaders() }).then(r=>r.json()),
-  post:  (p,b) => tFetch(`/api${p}`,{method:"POST",   headers:getAuthHeaders(), body:JSON.stringify(b)}).then(r=>r.json()),
-  put:   (p,b) => tFetch(`/api${p}`,{method:"PUT",    headers:getAuthHeaders(), body:JSON.stringify(b)}).then(r=>r.json()),
-  patch: (p,b) => tFetch(`/api${p}`,{method:"PATCH",  headers:getAuthHeaders(), body:JSON.stringify(b)}).then(r=>r.json()),
-  del:   p     => tFetch(`/api${p}`,{method:"DELETE",  headers:getAuthHeaders()}).then(r=>r.json()),
-};
-
 const F = "'Plus Jakarta Sans', -apple-system, sans-serif";
 const C = { bg:"#f8f9fc", surface:"#ffffff", border:"#e8eaed", border2:"#d1d5db", text1:"#111827", text2:"#4b5563", text3:"#9ca3af", accent:"#3b5bdb" };
 

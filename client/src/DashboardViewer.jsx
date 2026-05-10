@@ -6,8 +6,6 @@ import apiClient from "./apiClient";
 const V = { bg:"var(--t-bg,#f5f5f7)",card:"var(--t-card,#fff)",accent:"var(--t-accent,#4f46e5)",text1:"var(--t-text1,#111827)",text2:"var(--t-text2,#374151)",text3:"var(--t-text3,#9ca3af)",border:"var(--t-border,#e5e7eb)",red:"#ef4444" };
 const F = "'DM Sans',-apple-system,sans-serif";
 const PALETTES = ["#4f46e5","#0891b2","#059669","#d97706","#dc2626","#7c3aed","#ec4899","#14b8a6","#f59e0b","#6366f1"];
-const api = { get:(u)=>apiClient.get(u.replace(/^\/api/,"")).catch(()=>null) };
-
 // Renders children(width, height) only once the container has positive dimensions
 function AutoSizedChart({ children, style }) {
   const ref = useRef(null);

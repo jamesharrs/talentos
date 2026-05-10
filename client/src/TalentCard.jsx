@@ -4,12 +4,9 @@
 // Accessible from the FunctionalityBar on Person records.
 
 import { useState, useEffect, useRef } from "react";
+import api from './apiClient.js';
 
 const F = "'DM Sans',-apple-system,sans-serif";
-const api = {
-  get: p => fetch(p, { headers: { 'x-user-id': localStorage.getItem('talentos_user_id')||'', 'x-tenant-slug': localStorage.getItem('talentos_tenant')||'' } }).then(r => r.json()),
-};
-
 // ── Default card layout config ────────────────────────────────────────────────
 const DEFAULT_CONFIG = {
   theme: "light",           // light | dark | brand

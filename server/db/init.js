@@ -60,7 +60,20 @@ function getStore() {
 }
 
 let _saveTimers = {};
+let _batchMode = false; // suppress individual saves during migration/seeding
+
+// Call withBatch(fn) to run fn with all insert/update/remove calls buffered.
+// A single saveStoreNow() is called at the end instead of one debounced write per op.
+async function withBatch(fn, slugOverride) {
+  _batchMode = true;
+  try { await fn(); } finally {
+    _batchMode = false;
+    saveStoreNow(slugOverride || getCurrentTenant() || 'master');
+  }
+}
+
 function saveStore(slugOverride) {
+  if (_batchMode) return; // suppress during batch — caller will call saveStoreNow at end
   const key = slugOverride || getCurrentTenant();
   if (_saveTimers[key]) clearTimeout(_saveTimers[key]);
   _saveTimers[key] = setTimeout(() => {
@@ -432,7 +445,7 @@ function seedSystemEmailTemplates() {
 }
 // seedSystemEmailTemplates() — now called via runMigrationsIfNeeded()
 
-module.exports = { getStore, saveStore, saveStoreNow, query, findOne, insert, update, remove, initDB, tenantStorage, getCurrentTenant, provisionTenant, reloadTenantStore, loadTenantStore, listTenants, tenantDbPath, storeCache };
+module.exports = { getStore, saveStore, saveStoreNow, withBatch, query, findOne, insert, update, remove, initDB, tenantStorage, getCurrentTenant, provisionTenant, reloadTenantStore, loadTenantStore, listTenants, tenantDbPath, storeCache };
 
 // ── Migration guard ─────────────────────────────────────────────────────────
 // Migrations are expensive (scan every tenant's store, write to disk).
@@ -449,6 +462,9 @@ function runMigrationsIfNeeded() {
     return;
   }
   console.log(`⏫ Running migrations v${current} → v${MIGRATION_VERSION}…`);
+  // Batch mode: suppress per-insert saves — single write at end
+  _batchMode = true;
+  try {
   seedSystemEmailTemplates();
   migrateSkillsFieldType();
   migrateCoverLetterField();
@@ -462,6 +478,7 @@ function runMigrationsIfNeeded() {
   migrateCalendarIds();
   migrateAssignmentEnvIds();
   store._migration_version = MIGRATION_VERSION;
+  } finally { _batchMode = false; }
   saveStoreNow('master');
   console.log(`✅ Migrations complete (v${MIGRATION_VERSION})`);
 }

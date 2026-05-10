@@ -4,11 +4,6 @@
 import { useState, useEffect, useCallback } from "react";
 import apiClient from "./apiClient";
 
-const api = {
-  get:   (path)       => apiClient.get(path),
-  post:  (path, body) => apiClient.post(path, body),
-};
-
 const C = {
   accent: "var(--t-accent, #4361EE)", accentLight: "var(--t-accent-light, #EEF2FF)",
   text1: "var(--t-text1, #0D0D0F)", text2: "var(--t-text2, #374151)",

@@ -32,13 +32,6 @@ const PANEL_TYPES = [
   { type:"text",        label:"Text / Note",   icon:"text2",    desc:"Announcement or text block", color:"#374151" },
 ];
 
-const api = {
-  get:    (u)   => apiClient.get(u.replace(/^\/api/,"")),
-  post:   (u,b) => apiClient.post(u.replace(/^\/api/,""),b),
-  patch:  (u,b) => apiClient.patch(u.replace(/^\/api/,""),b),
-  delete: (u)   => apiClient.delete(u.replace(/^\/api/,"")),
-};
-
 function Inp({ val, onChange, placeholder, type="text", style={} }) {
   return <input value={val??""} onChange={e=>onChange(e.target.value)} placeholder={placeholder} type={type}
     style={{ width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:8,border:`1.5px solid ${V.border}`,fontSize:13,fontFamily:F,color:V.text1,background:V.card,outline:"none",...style }}/>;

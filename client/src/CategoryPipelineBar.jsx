@@ -1,15 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import ReactDOM from "react-dom";
+import api from './apiClient.js';
 
 const C = { accent: '#4361EE', text1: '#111827', text2: '#374151', text3: '#6B7280', bg: '#EEF2FF', white: 'white', border: '#E5E7EB' };
 const F = "'Space Grotesk', 'DM Sans', system-ui, sans-serif";
-
-const api = {
-  get: async (path) => { const r = await fetch(path); return r.json(); },
-  post: async (path, body) => { const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return r.json(); },
-  patch: async (path, body) => { const r = await fetch(path, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return r.json(); },
-  delete: async (path) => { const r = await fetch(path, { method: 'DELETE' }); return r.json(); },
-};
 
 function StageDropdown({ steps, currentStepId, linkId, onMove, disabled }) {
   const [open, setOpen]     = useState(false);

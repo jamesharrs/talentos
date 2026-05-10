@@ -16,13 +16,6 @@ const PALETTE = [B.purple,B.rose,B.teal,B.amber,B.purpleLight,"#E87FAA","#5DCAA5
 const F = "'DM Sans',-apple-system,sans-serif";
 
 // Use shared apiClient so session headers (X-Session-Id etc.) are attached
-const api = {
-  get:    p    => apiClient.get(p).catch(()=>null),
-  post:   (p,b)=> apiClient.post(p,b).catch(()=>null),
-  patch:  (p,b)=> apiClient.patch(p,b).catch(()=>null),
-  delete: p    => apiClient.delete(p).catch(()=>null),
-};
-
 function evalFormula(expr, row) {
   try {
     const e = (expr||"").trim();

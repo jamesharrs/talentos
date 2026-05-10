@@ -4,7 +4,8 @@ import { setSession } from "./usePermissions.js";
 
 const api = {
   post: async (url, body) => {
-    const r = await fetch(url, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+    const csrf = (() => { const m = document.cookie.match(/vercentic_csrf=([^;]+)/); return m ? decodeURIComponent(m[1]) : ''; })();
+    const r = await fetch(url, { method:"POST", credentials:'include', headers:{"Content-Type":"application/json","X-CSRF-Token":csrf}, body:JSON.stringify(body) });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || "Request failed");
     return data;

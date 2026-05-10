@@ -1,5 +1,6 @@
 // SecurityAuditPanel.jsx — Security audit viewer for Settings
 import { useState, useEffect, useCallback } from 'react';
+import api from './apiClient.js';
 
 const F = "'Inter',-apple-system,sans-serif";
 const C = { text1:'#111827', text2:'#374151', text3:'#9ca3af', accent:'#4361EE', border:'#e5e7eb', red:'#ef4444', amber:'#f59f00', green:'#0ca678' };
@@ -13,8 +14,6 @@ const LABELS = {
 };
 
 function fmtT(ts) { if(!ts) return ''; const d=new Date(ts),n=new Date(),s=(n-d)/1000; if(s<60) return 'just now'; if(s<3600) return Math.floor(s/60)+'m ago'; if(s<86400) return Math.floor(s/3600)+'h ago'; return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }
-const api = { get: async (url) => { const r = await fetch(`/api${url}`, { headers:{ 'x-user-id': JSON.parse(localStorage.getItem('talentos_session')||'{}')?.user?.id||'' }}); return r.json(); } };
-
 export default function SecurityAuditPanel({ environment }) {
   const [tab, setTab] = useState('events');
   const [events, setEvents] = useState([]);

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import _apiClient from "./apiClient.js";
 
 // ─── Vercentic Brand Palette ──────────────────────────────────────────────────
 const V = {
@@ -36,22 +37,10 @@ function getAuthHeaders(extra = {}) {
   } catch { return { 'Content-Type': 'application/json' }; }
 }
 
+// Null-safe wrapper around apiClient for mobile (swallows errors gracefully)
 const api = {
-  base: "/api",
-  async get(p) {
-    try {
-      const r = await fetch(this.base + p, { credentials: 'include', headers: getAuthHeaders({}) });
-      if (!r.ok) return {};
-      return r.json();
-    } catch { return {}; }
-  },
-  async post(p, body) {
-    try {
-      const r = await fetch(this.base + p, { method: "POST", credentials: 'include', headers: getAuthHeaders(), body: JSON.stringify(body) });
-      if (!r.ok) return { error: r.status };
-      return r.json();
-    } catch { return {}; }
-  },
+  async get(p)       { try { return await _apiClient.get(p);    } catch { return {}; } },
+  async post(p, b)   { try { return await _apiClient.post(p, b);} catch { return {}; } },
 };
 
 const statusColor = (s = "") => {

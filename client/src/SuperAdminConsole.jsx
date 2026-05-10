@@ -26,10 +26,16 @@ const C = {
   purple:  "#8b5cf6",
 };
 
+// SuperAdmin API — hits /api/superadmin/* with CSRF token
+function _saHeaders(mut=false) {
+  const h = {'Content-Type':'application/json'};
+  if (mut) { const m=document.cookie.match(/vercentic_csrf=([^;]+)/); if(m) h['X-CSRF-Token']=decodeURIComponent(m[1]); }
+  return h;
+}
 const api = {
-  get:   p     => fetch(`/api/superadmin${p}`).then(r=>r.json()),
-  post:  (p,b) => fetch(`/api/superadmin${p}`,{method:'POST', headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
-  patch: (p,b) => fetch(`/api/superadmin${p}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  get:   p     => fetch(`/api/superadmin${p}`,{credentials:'include',headers:_saHeaders()}).then(r=>r.json()),
+  post:  (p,b) => fetch(`/api/superadmin${p}`,{credentials:'include',method:'POST', headers:_saHeaders(true),body:JSON.stringify(b)}).then(r=>r.json()),
+  patch: (p,b) => fetch(`/api/superadmin${p}`,{credentials:'include',method:'PATCH',headers:_saHeaders(true),body:JSON.stringify(b)}).then(r=>r.json()),
 };
 
 // ── Group metadata ────────────────────────────────────────────────────────────

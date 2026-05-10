@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import api from './apiClient.js';
 
 // ─── Brand ────────────────────────────────────────────────────────────────────
 const F   = "'DM Sans', -apple-system, sans-serif";
@@ -80,11 +81,6 @@ const mkInp = focused => ({
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const api = {
-  get:  url     => fetch(url).then(r => r.json()),
-  post: (url,b) => fetch(url,{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(b) }).then(r=>r.json()),
-};
-
 const timeAgo = iso => {
   if (!iso) return "—";
   const d = (Date.now()-new Date(iso))/1000;

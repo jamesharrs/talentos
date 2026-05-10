@@ -1,10 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-
-const api = {
-  get:  (p)    => fetch(`/api${p}`).then(r=>r.json()),
-  put:  (p,b)  => fetch(`/api${p}`,{method:"PUT",  headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>r.json()),
-  del:  (p)    => fetch(`/api${p}`,{method:"DELETE"}).then(r=>r.json()),
-};
+import api from './apiClient.js';
 
 const C = {
   accent:"var(--t-accent)", accentLight:"var(--t-accent-light)",

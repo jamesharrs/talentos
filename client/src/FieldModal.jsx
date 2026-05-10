@@ -53,14 +53,6 @@ const C = { bg:"#f8f9fc", surface:"#ffffff", surface2:"#f9fafb", border:"#e8eaed
   accent:"#3b5bdb", accentLight:"#eef2ff", green:"#0ca678", red:"#ef4444",
   amber:"#f79009", purple:"#7c3aed" };
 
-const api = {
-  get:  u => tFetch(`/api${u}`).then(r=>r.json()),
-  post: (u,b) => tFetch(`/api${u}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>r.json()),
-  patch:(u,b) => tFetch(`/api${u}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>r.json()),
-  put:  (u,b) => tFetch(`/api${u}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>r.json()),
-  del:  (u)   => tFetch(`/api${u}`,{method:"DELETE"}).then(r=>r.json()),
-};
-
 // ─── Field Type Registry ──────────────────────────────────────────────────────
 const FIELD_TYPE_GROUPS = [
   { key:"text", label:"Text", types:[

@@ -54,6 +54,8 @@ export default defineConfig({
           if (id.includes('/src/AI.jsx'))         return 'module-ai';
           if (id.includes('/src/Interviews.jsx')) return 'module-interviews';
           if (id.includes('/src/Offers.jsx'))     return 'module-offers';
+          if (id.includes('/src/CSVImportModal.jsx')) return 'csv-import';
+          if (id.includes('/src/RecordShared.jsx'))   return 'record-shared';
           if (id.includes('/src/Reports.jsx'))    return 'module-reports';
           if (
             id.includes('/src/DashboardBuilder.jsx') ||

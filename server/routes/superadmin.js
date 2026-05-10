@@ -186,4 +186,31 @@ router.post('/mark-setup-complete', (req, res) => {
   res.json({ ok: true, updated });
 });
 
+
+// POST /api/superadmin/reset-password — reset any tenant user's password (SA only)
+router.post('/reset-password', (req, res) => {
+  const { tenant_slug, email, password } = req.body;
+  if (!tenant_slug || !email || !password) return res.status(400).json({ error: 'tenant_slug, email, password required' });
+  try {
+    const { loadTenantStore, saveStoreNow, tenantStorage } = require('../db/init');
+    const crypto = require('crypto');
+    // Support both hash formats
+    const hashPassword = (pw) => {
+      const salt = crypto.randomBytes(16).toString('hex');
+      const hash = crypto.createHmac('sha256', salt).update(pw).digest('hex');
+      return `${salt}:${hash}`;
+    };
+    const store = loadTenantStore(tenant_slug);
+    const user = (store.users || []).find(u => u.email === email);
+    if (!user) return res.status(404).json({ error: `User ${email} not found in ${tenant_slug}` });
+    user.password_hash = hashPassword(password);
+    user.must_change_password = 0;
+    user.updated_at = new Date().toISOString();
+    saveStoreNow(tenant_slug);
+    res.json({ ok: true, email, tenant_slug });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;

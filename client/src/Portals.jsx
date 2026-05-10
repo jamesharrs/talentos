@@ -4689,9 +4689,9 @@ const MiniPreview = ({ portal, onClick }) => {
               <span key={lnk.id} style={{padding:"6px 14px",borderRadius:8,fontSize:14,fontWeight:500,color:navFg,fontFamily:ff}}>{lnk.label}</span>
             ))}
             {(nav.links||[]).length===0 && <>
-              <span style={{padding:"6px 14px",fontSize:14,color:navFg+"90",fontFamily:ff}}>Careers</span>
-              <span style={{padding:"6px 14px",fontSize:14,color:navFg+"90",fontFamily:ff}}>About</span>
-              <span style={{padding:"6px 14px",fontSize:14,color:navFg+"90",fontFamily:ff}}>Contact</span>
+              <span key="nav-careers" style={{padding:"6px 14px",fontSize:14,color:navFg+"90",fontFamily:ff}}>Careers</span>
+              <span key="nav-about" style={{padding:"6px 14px",fontSize:14,color:navFg+"90",fontFamily:ff}}>About</span>
+              <span key="nav-contact" style={{padding:"6px 14px",fontSize:14,color:navFg+"90",fontFamily:ff}}>Contact</span>
             </>}
           </div>
         </div>
@@ -4752,9 +4752,9 @@ const MiniPreview = ({ portal, onClick }) => {
               <div style={{fontSize:12,opacity:.6,maxWidth:280}}>{footer.tagline||"Building the future of work."}</div>
             </div>
             <div style={{display:"flex",gap:24}}>
-              <span style={{fontSize:12,opacity:.6}}>Privacy</span>
-              <span style={{fontSize:12,opacity:.6}}>Terms</span>
-              <span style={{fontSize:12,opacity:.6}}>Contact</span>
+              <span key="ft-privacy" style={{fontSize:12,opacity:.6}}>Privacy</span>
+              <span key="ft-terms" style={{fontSize:12,opacity:.6}}>Terms</span>
+              <span key="ft-contact" style={{fontSize:12,opacity:.6}}>Contact</span>
             </div>
           </div>
           <div style={{marginTop:24,paddingTop:16,borderTop:`1px solid ${ftFg}20`,fontSize:11,opacity:.4}}>

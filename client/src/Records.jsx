@@ -8844,6 +8844,25 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       if (flagKey && !ff[flagKey]) return false;
     }
     if (id === 'match') return ff.ai_matching;
+
+    // Check field-value conditions set in admin Settings → Feature Flags → Record Panels
+    const conditions = ff._panelConditions?.[PANEL_FLAGS[id]] || ff._panelConditions?.[id];
+    if (conditions) {
+      // Resolve scope: person, job, or 'all'
+      const scope = objectName === 'Person' ? 'person' : (objectName === 'Job' || objectName === 'Jobs') ? 'job' : slug || 'all';
+      const cond = conditions[scope] || conditions['all'];
+      if (cond?.field) {
+        const recordVal = record?.data?.[cond.field];
+        const condVal = cond.value || '';
+        const op = cond.operator || 'eq';
+        if (op === 'eq'       && String(recordVal ?? '') !== condVal) return false;
+        if (op === 'neq'      && String(recordVal ?? '') === condVal) return false;
+        if (op === 'contains' && !String(recordVal ?? '').toLowerCase().includes(condVal.toLowerCase())) return false;
+        if (op === 'empty'    && recordVal != null && recordVal !== '') return false;
+        if (op === 'notempty' && (recordVal == null || recordVal === '')) return false;
+      }
+    }
+
     return true;
   };
   const _permCtx = usePermCtx();

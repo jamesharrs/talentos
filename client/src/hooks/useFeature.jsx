@@ -16,11 +16,12 @@ const DEFAULT_FEATURES = new Set([
   'panel_insights','panel_questions',
 ]);
 
-const FeatureContext = createContext({ features: DEFAULT_FEATURES, perObject: {}, loading: false, refresh: () => {} });
+const FeatureContext = createContext({ features: DEFAULT_FEATURES, perObject: {}, panelConditions: {}, loading: false, refresh: () => {} });
 
 export function FeatureProvider({ environmentId, children }) {
   const [features, setFeatures] = useState(DEFAULT_FEATURES);
   const [perObject, setPerObject] = useState({});
+  const [panelConditions, setPanelConditions] = useState({});
   const [loading, setLoading]   = useState(true);
 
   const load = useCallback(async () => {
@@ -35,9 +36,10 @@ export function FeatureProvider({ environmentId, children }) {
       // data is { flag_key: boolean, ..., _perObject: { slug: { panel_key: bool } } }
       const enabled = new Set(['core']);
       const po = data._perObject || {};
+      const pc = data._panelConditions || {};
       if (data && typeof data === 'object') {
         Object.entries(data).forEach(([key, val]) => {
-          if (key === '_perObject') return;
+          if (key === '_perObject' || key === '_panelConditions') return;
           if (val) enabled.add(key);
         });
       }
@@ -46,6 +48,7 @@ export function FeatureProvider({ environmentId, children }) {
         return enabled;
       });
       setPerObject(po);
+      setPanelConditions(pc);
     } catch {
       // On error keep the last known good state
     }

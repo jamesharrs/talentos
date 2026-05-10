@@ -44,8 +44,15 @@ router.get('/', (req, res) => {
   const merged = { ...DEFAULT_FLAGS };
   // perObject: { slug: { panel_notes: bool, panel_tasks: bool, ... } }
   const perObject = {};
+  // panelConditions: { panel_key: { field, operator, value } }
+  const panelConditions = {};
   overrides.forEach(f => {
-    if (f.flag_key.includes('__')) {
+    if (f.flag_key.includes('__condition__')) {
+      // Panel condition: panel_reporting__condition__person
+      const [panelKey, , scope] = f.flag_key.split('__condition__');
+      if (!panelConditions[panelKey]) panelConditions[panelKey] = {};
+      try { panelConditions[panelKey][scope || 'all'] = typeof f.condition === 'string' ? JSON.parse(f.condition) : f.condition; } catch {}
+    } else if (f.flag_key.includes('__')) {
       // Per-object override: panel_notes__talent-pools
       const [baseKey, slug] = f.flag_key.split('__');
       if (!perObject[slug]) perObject[slug] = {};
@@ -54,7 +61,7 @@ router.get('/', (req, res) => {
       merged[f.flag_key] = f.enabled;
     }
   });
-  res.json({ ...merged, _perObject: perObject });
+  res.json({ ...merged, _perObject: perObject, _panelConditions: panelConditions });
 });
 
 // GET /api/feature-flags/all — admin view with override status
@@ -77,8 +84,21 @@ router.get('/all', (req, res) => {
 router.put('/:key', (req, res) => {
   ensureTable();
   const { key } = req.params;
-  const { environment_id, enabled } = req.body;
+  const { environment_id, enabled, condition } = req.body;
   if (!environment_id) return res.status(400).json({ error: 'environment_id required' });
+
+  // Condition update — key like "panel_reporting__condition__person"
+  if (key.includes('__condition__')) {
+    const existing = findOne('feature_flags', f => f.environment_id === environment_id && f.flag_key === key);
+    const condStr = condition ? JSON.stringify(condition) : null;
+    if (existing) {
+      update('feature_flags', f => f.id === existing.id, { condition: condStr, enabled: true, updated_at: new Date().toISOString() });
+    } else if (condition) {
+      insert('feature_flags', { id: uuidv4(), environment_id, flag_key: key, enabled: true, condition: condStr, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+    }
+    return res.json({ key, environment_id, condition });
+  }
+
   // For per-object scoped keys (e.g. panel_tasks__talent-pools), skip base-key validation
   // For global keys, validate against DEFAULT_FLAGS to catch typos
   if (!key.includes('__') && !(key in DEFAULT_FLAGS)) {

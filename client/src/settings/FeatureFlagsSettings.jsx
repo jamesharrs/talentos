@@ -99,8 +99,56 @@ const FLAG_DESC = {
   auto_screening:'Automatic candidate screening',
 };
 
+// ── Condition Editor — inline panel visibility rule builder ──────────────────
+function ConditionEditor({ panelKey, selectedType, isCustomType, panelConditions, fieldsCache, onSetCondition, border, text1, text3, accent }) {
+  const scope = isCustomType ? selectedType : selectedType === 'all' ? 'all' : selectedType;
+  const cond  = panelConditions[panelKey]?.[scope] || panelConditions[panelKey]?.all || null;
+  const fields = (fieldsCache[selectedType] || []).filter(f => ['select','multi_select','text','boolean'].includes(f.field_type));
+  return (
+    <div style={{ padding:'10px 18px 14px', background:'#f8f9fc', borderTop:`1px solid ${border}` }}>
+      <div style={{ fontSize:11, fontWeight:700, color:text3, marginBottom:8, textTransform:'uppercase', letterSpacing:'0.06em' }}>
+        Show panel only when…
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+        <select value={cond?.field || ''} onChange={e => {
+          const field = e.target.value;
+          onSetCondition(panelKey, scope, field ? { ...cond, field, value: '', operator:'eq' } : null);
+        }} style={{ padding:'5px 10px', borderRadius:6, border:`1px solid ${border}`, fontSize:12, fontFamily:F, background:'white', color:text1 }}>
+          <option value="">— Any (no condition) —</option>
+          {fields.map(f => <option key={f.id} value={f.api_key}>{f.name}</option>)}
+        </select>
+        {cond?.field && <>
+          <select value={cond?.operator || 'eq'} onChange={e => onSetCondition(panelKey, scope, { ...cond, operator: e.target.value })}
+            style={{ padding:'5px 10px', borderRadius:6, border:`1px solid ${border}`, fontSize:12, fontFamily:F, background:'white', color:text1 }}>
+            <option value="eq">equals</option>
+            <option value="neq">does not equal</option>
+            <option value="contains">contains</option>
+            <option value="empty">is empty</option>
+            <option value="notempty">is not empty</option>
+          </select>
+          {!['empty','notempty'].includes(cond?.operator || 'eq') && (
+            <input value={cond?.value || ''} onChange={e => onSetCondition(panelKey, scope, { ...cond, value: e.target.value })}
+              placeholder="value…" style={{ padding:'5px 10px', borderRadius:6, border:`1px solid ${border}`, fontSize:12, fontFamily:F, width:140 }} />
+          )}
+          <button type="button" onClick={() => onSetCondition(panelKey, scope, null)}
+            style={{ padding:'4px 8px', borderRadius:6, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:11, cursor:'pointer', fontFamily:F }}>
+            Clear
+          </button>
+        </>}
+      </div>
+      {cond?.field && (
+        <div style={{ marginTop:6, fontSize:11, color:accent }}>
+          Panel shows when <strong>{cond.field}</strong>{' '}
+          {cond.operator === 'eq' ? '=' : cond.operator === 'neq' ? '≠' : cond.operator}{' '}
+          {cond.value ? <strong>"{cond.value}"</strong> : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Record Panels sub-section ──────────────────────────────────────────────
-function RecordPanelsSection({ flagMap, saving, toggle, toggleAll, bulkSaving, BulkBtn, environment, perObject = {} }) {
+function RecordPanelsSection({ flagMap, saving, toggle, toggleAll, bulkSaving, BulkBtn, environment, perObject = {}, panelConditions = {}, onSetCondition }) {
   const [selectedType, setSelectedType] = useState('all');
   const [objects, setObjects] = useState([]);
 
@@ -114,6 +162,18 @@ function RecordPanelsSection({ flagMap, saving, toggle, toggleAll, bulkSaving, B
   }, [environment?.id]);
 
   const otherObjects = objects.filter(o => o.slug !== 'people' && o.slug !== 'jobs');
+  const [expandedCondition, setExpandedCondition] = useState(null); // panel key being edited
+  const [fieldsCache, setFieldsCache] = useState({}); // slug → fields array
+
+  const loadFieldsForType = async (typeKey) => {
+    if (fieldsCache[typeKey]) return;
+    const obj = objects.find(o => typeKey === 'person' ? o.slug === 'people' : typeKey === 'job' ? o.slug === 'jobs' : o.slug === typeKey);
+    if (!obj) return;
+    try {
+      const r = await fetch(`/api/fields?object_id=${obj.id}`, { headers: authHeaders() });
+      if (r.ok) { const d = await r.json(); setFieldsCache(prev => ({ ...prev, [typeKey]: Array.isArray(d) ? d : [] })); }
+    } catch {}
+  };
 
   // Is the active tab a custom object slug (not all/person/job)?
   const isCustomType = selectedType !== 'all' && selectedType !== 'person' && selectedType !== 'job';
@@ -199,8 +259,9 @@ function RecordPanelsSection({ flagMap, saving, toggle, toggleAll, bulkSaving, B
           const typeLabel  = TYPE_LABELS[applies];
 
           return (
-            <div key={key} style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 18px',
-              borderBottom: i < visiblePanels.length - 1 ? `1px solid ${C.border}` : 'none',
+            <div key={key}>
+            <div style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 18px',
+              borderBottom: (i < visiblePanels.length - 1 && expandedCondition !== key) ? `1px solid ${C.border}` : 'none',
               opacity: isSaving ? 0.6 : 1, transition:'opacity .15s' }}>
 
               <button type="button" onClick={() => toggle(scopedKey, enabled)} disabled={isSaving}
@@ -231,6 +292,22 @@ function RecordPanelsSection({ flagMap, saving, toggle, toggleAll, bulkSaving, B
                 color: enabled ? '#059669' : C.text3, flexShrink:0 }}>
                 {enabled ? 'ON' : 'OFF'}
               </span>
+              {/* Condition config toggle */}
+              <button type="button" title="Set visibility condition"
+                onClick={() => { setExpandedCondition(expandedCondition === key ? null : key); loadFieldsForType(selectedType); }}
+                style={{ padding:'4px 8px', borderRadius:6, border:`1px solid ${C.border}`, background:'transparent',
+                  color: panelConditions[key]?.[selectedType] || panelConditions[key]?.all ? C.accent : C.text3,
+                  fontSize:11, cursor:'pointer', fontFamily:F, flexShrink:0 }}>
+                {panelConditions[key]?.[selectedType] || panelConditions[key]?.all ? '⚙ Condition set' : '⚙ Condition'}
+              </button>
+            </div>
+            {/* Condition editor — expanded inline */}
+            {expandedCondition === key && <ConditionEditor
+              panelKey={key} selectedType={selectedType} isCustomType={isCustomType}
+              panelConditions={panelConditions} fieldsCache={fieldsCache}
+              onSetCondition={onSetCondition} border={C.border} text1={C.text1} text3={C.text3} accent={C.accent}
+            />}
+            {i < visiblePanels.length - 1 && <div style={{ height:1, background:C.border }}/>}
             </div>
           );
         })}
@@ -242,6 +319,7 @@ function RecordPanelsSection({ flagMap, saving, toggle, toggleAll, bulkSaving, B
 export default function FeatureFlagsSettings({ environment }) {
   const [flags, setFlags]       = useState([]);
   const [perObject, setPerObject] = useState({}); // { slug: { panel_key: bool } }
+  const [panelConditions, setPanelConditions] = useState({}); // { panel_key: { scope: { field, operator, value } } }
   const [saving, setSaving]     = useState(null);
   const [loading, setLoading]   = useState(true);
   const [bulkSaving, setBulkSaving] = useState(false);
@@ -269,6 +347,7 @@ export default function FeatureFlagsSettings({ environment }) {
       if (res2.ok) {
         const d = await res2.json();
         setPerObject(d._perObject || {});
+        setPanelConditions(d._panelConditions || {});
       }
     } finally { if (!silent) setLoading(false); }
   };
@@ -332,6 +411,23 @@ export default function FeatureFlagsSettings({ environment }) {
     load(true);
     scheduleRefresh();
     setSaving(null);
+  };
+
+  const handleSetCondition = async (panelKey, scope, condition) => {
+    // Optimistic update
+    setPanelConditions(prev => {
+      const next = { ...prev, [panelKey]: { ...(prev[panelKey] || {}), [scope]: condition } };
+      if (!condition) delete next[panelKey][scope];
+      return next;
+    });
+    const flagKey = `${panelKey}__condition__${scope}`;
+    await fetch(`/api/feature-flags/${encodeURIComponent(flagKey)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ environment_id: environment.id, enabled: true, condition }),
+    }).catch(console.error);
+    invalidateFlagCache();
+    scheduleRefresh();
   };
 
   const flagMap = Object.fromEntries(flags.map(f => [f.key, f]));
@@ -403,6 +499,7 @@ export default function FeatureFlagsSettings({ environment }) {
               flagMap={flagMap} saving={saving} toggle={toggle}
               toggleAll={toggleAll} bulkSaving={bulkSaving} BulkBtn={BulkBtn}
               environment={environment} perObject={perObject}
+              panelConditions={panelConditions} onSetCondition={handleSetCondition}
             />
           )}
         <div style={{ marginBottom:28 }}>

@@ -1541,7 +1541,7 @@ function App({ onEnvReady }) {
   const { t, isRTL } = useI18n();
 
   // ── Feature flags — reads from FeatureProvider in AppRoot ────────────────────
-  const { perObject: featPerObject } = useFeatures();
+  const { perObject: featPerObject, panelConditions: featPanelConditions } = useFeatures();
   const featCopilot    = useFeature('ai_copilot');
   const featInterviews = useFeature('interviews');
   const featOffers     = useFeature('offers');
@@ -2618,7 +2618,7 @@ function App({ onEnvReady }) {
               panel_tasks: featPanelTasks, panel_assessments: featPanelAssessments, panel_engagement: featPanelEngagement,
               panel_reporting: featPanelReporting, panel_agents: featPanelAgents, panel_user: featPanelUser,
               panel_insights: featPanelInsights, panel_questions: featPanelQuestions,
-              _perObject: featPerObject }}
+              _perObject: featPerObject, _panelConditions: featPanelConditions }}
           />
           </Suspense>
           );
@@ -2638,7 +2638,7 @@ function App({ onEnvReady }) {
               panel_tasks: featPanelTasks, panel_assessments: featPanelAssessments, panel_engagement: featPanelEngagement,
               panel_reporting: featPanelReporting, panel_agents: featPanelAgents, panel_user: featPanelUser,
               panel_insights: featPanelInsights, panel_questions: featPanelQuestions,
-              _perObject: featPerObject }}
+              _perObject: featPerObject, _panelConditions: featPanelConditions }}
             onRecordLoad={(rec, recObj) => {
             setActiveRecord(rec); setActiveRecordObj(recObj);
             // Swap UUID URL for clean numeric URL once record is loaded

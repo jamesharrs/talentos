@@ -1,7 +1,7 @@
 import { Suspense, lazy, useState, useEffect } from "react";
 import DashboardViewer  from "./DashboardViewer.jsx";
 import DashboardBuilder from "./DashboardBuilder.jsx";
-import { apiClient as api } from "./apiClient.js";
+import api from "./apiClient.js";
 
 const Dashboard           = lazy(() => import("./Dashboard.jsx"));
 const InterviewDashboard  = lazy(() => import("./InterviewDashboard.jsx"));

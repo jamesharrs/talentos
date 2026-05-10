@@ -1810,7 +1810,7 @@ function App({ onEnvReady }) {
     // Poll every 5s — detects server restarts so nav objects reload automatically
     const poll = setInterval(() => {
       fetch("/api/health")
-        .then(r => r.json())
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
         .then(() => setApiOnline(prev => {
           // Flipping false→true triggers the environments/objects reload via the useEffect below
           if (prev !== true) {
@@ -1822,7 +1822,7 @@ function App({ onEnvReady }) {
           }
           return prev; // already online — no state change, no unnecessary re-render
         }))
-        .catch(() => setApiOnline(prev => prev === true ? false : prev));
+        .catch(() => setApiOnline(prev => prev === true ? false : prev)); // silent — expected during deploy restarts
     }, 5000);
     return () => clearInterval(poll);
   }, []);
@@ -2085,12 +2085,15 @@ function App({ onEnvReady }) {
   const openRecord = (recordId, objectId, recordNumber) => {
     const nav = `record_${recordId}_${objectId}`;
     setActiveNav(nav);
-    // Push clean numeric URL e.g. /people/42 — fall back to UUID if number not available yet
     const obj = navObjects?.find(o => o.id === objectId);
     const slug = obj?.slug || objectId;
-    const urlToken = recordNumber || recordId;
-    const url = `/${slug}/${urlToken}`;
-    if (window.location.pathname !== url) window.history.pushState({ nav }, '', url);
+    if (recordNumber) {
+      // Number known immediately — push clean URL straight away (no flash)
+      const url = `/${slug}/${recordNumber}`;
+      if (window.location.pathname !== url) window.history.pushState({ nav }, '', url);
+    }
+    // If recordNumber is unknown, don't push a UUID URL at all —
+    // onRecordLoad will replaceState with the clean number once loaded
     // Push placeholder to history — label updated by RecordPage once loaded
     if (recordId && obj) {
       pushHistory({

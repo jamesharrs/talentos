@@ -764,8 +764,13 @@ router.get('/assignments', (req, res) => {
   const result = assignments.map(a => {
     const wf = findOne('workflows', w => w.id === a.workflow_id);
     if (!wf) return null;
-    const steps = query('workflow_steps', s => s.workflow_id === wf.id).sort((a,b) => a.order - b.order);
-    return { ...a, workflow: { ...wf, steps } };
+    // Steps live on wf.steps[] (embedded) — fall back to workflow_steps table
+    const steps = (wf.steps && wf.steps.length > 0)
+      ? wf.steps.slice().sort((a,b) => (a.order_index||a.order||0) - (b.order_index||b.order||0))
+      : query('workflow_steps', s => s.workflow_id === wf.id).sort((a,b) => a.order - b.order);
+    // Normalise type field — demo uses assignment_type, live uses type
+    const normType = a.type || a.assignment_type || null;
+    return { ...a, type: normType, workflow: { ...wf, steps } };
   }).filter(Boolean);
   res.json(result);
 });
@@ -781,8 +786,11 @@ router.get('/assignments/all', (req, res) => {
     // Filter by environment — check assignment first, fall back to workflow's environment
     const envId = a.environment_id || wf.environment_id;
     if (environment_id && envId !== environment_id) return null;
-    const steps = query('workflow_steps', s => s.workflow_id === wf.id);
-    return { ...a, environment_id: envId, workflow: { ...wf, steps } };
+    const steps = (wf.steps && wf.steps.length > 0)
+      ? wf.steps.slice().sort((a,b) => (a.order_index||a.order||0) - (b.order_index||b.order||0))
+      : query('workflow_steps', s => s.workflow_id === wf.id);
+    const normType = a.type || a.assignment_type || null;
+    return { ...a, type: normType, environment_id: envId, workflow: { ...wf, steps } };
   }).filter(Boolean);
   res.json(result);
 });
@@ -828,12 +836,20 @@ router.get('/people-links', (req, res) => {
     // Build a display title for the target record
     const td = target?.data || {};
     const targetTitle = td.job_title || td.pool_name || td.name || td.first_name || l.target_record_id?.slice(0,8);
-    // Hydrate workflow steps for stage dropdown
+    // Hydrate workflow steps — steps live on wf.steps[] (embedded), not a separate table
     const wfAssignment = findOne('record_workflow_assignments', a => a.record_id === (l.target_record_id||l.job_id) && (a.type === 'people_link' || a.assignment_type === 'people_link' || a.assignment_type === 'linked_person'));
     const wf = wfAssignment ? findOne('workflows', w => w.id === wfAssignment.workflow_id) : null;
-    const wfSteps = wf ? query('workflow_steps', s => s.workflow_id === wf.id).sort((a,b)=>a.order-b.order) : [];
+    // Use embedded wf.steps first, fall back to workflow_steps table for backwards compat
+    const wfSteps = wf
+      ? ((wf.steps && wf.steps.length > 0)
+          ? wf.steps.slice().sort((a,b)=>(a.order_index||a.order||0)-(b.order_index||b.order||0))
+          : query('workflow_steps', s => s.workflow_id === wf.id).sort((a,b)=>a.order-b.order))
+      : [];
     return {
       ...l,
+      // Normalise field names — demo data uses current_stage_id/current_stage_name; live uses stage_id/stage_name
+      stage_id:   l.stage_id   || l.current_stage_id   || null,
+      stage_name: l.stage_name || l.current_stage_name  || null,
       target_object_id: l.target_object_id || target?.object_id || null,
       person_data: person?.data || {},
       target_data: td,

@@ -2742,7 +2742,7 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
   const [categories, setCategories]       = useState([]);
   const [expandedCat, setExpandedCat]     = useState(null);
 
-  const peopleLinkWf = assignments.find(a => a.type === "people_link")?.workflow;
+  const peopleLinkWf = assignments.find(a => a.type === "people_link" || a.assignment_type === "people_link" || a.assignment_type === "linked_person")?.workflow;
   const plSteps      = peopleLinkWf?.steps || [];
   const hasStages    = plSteps.length > 0;
 

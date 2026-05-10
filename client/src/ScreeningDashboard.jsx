@@ -207,9 +207,14 @@ export default function ScreeningDashboard({ environment, onNavigate, session })
       // Build a map: personId → [{jobId, jobName, stage}]
       const personJobMap = {};
       links.forEach(lk => {
-        if (!personJobMap[lk.person_id]) personJobMap[lk.person_id] = [];
-        const job = allJobs.find(j=>j.id===(lk.job_id||lk.target_record_id||lk.record_id));
-        personJobMap[lk.person_id].push({ jobId:(lk.job_id||lk.target_record_id||lk.record_id), jobName:job?.data?.job_title||job?.data?.title||'Unknown Job', stage:lk.current_stage_name||lk.stage_name||lk.stage });
+        // Handle both field name formats (demo: person_id, live: person_record_id)
+        const personId = lk.person_record_id || lk.person_id;
+        const stageName = lk.current_stage_name || lk.stage_name || lk.stage || '';
+        const jobId = lk.job_id || lk.target_record_id || lk.record_id;
+        if (!personId) return;
+        if (!personJobMap[personId]) personJobMap[personId] = [];
+        const job = allJobs.find(j => j.id === jobId);
+        personJobMap[personId].push({ jobId, jobName: job?.data?.job_title||job?.data?.title||'Unknown Job', stage: stageName });
       });
 
       // 5. Determine SCREENING stage categories (from stage_categories or workflow steps)

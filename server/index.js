@@ -383,9 +383,20 @@ app.get('/api/people-links', (req, res) => {
   const { environment_id } = req.query;
   const { getStore } = require('./db/init');
   const s = getStore();
-  const links = (s.people_links || []).filter(l =>
-    !l.deleted_at && (!environment_id || l.environment_id === environment_id)
-  );
+  const links = (s.people_links || [])
+    .filter(l => !l.deleted_at && (!environment_id || l.environment_id === environment_id))
+    .map(l => ({
+      ...l,
+      // Normalise person ID — demo seed uses person_id, live links use person_record_id
+      person_id:        l.person_id        || l.person_record_id,
+      person_record_id: l.person_record_id || l.person_id,
+      // Normalise job/target ID
+      job_id:           l.job_id           || l.target_record_id,
+      target_record_id: l.target_record_id || l.job_id,
+      // Normalise stage name — demo seed uses current_stage_name, live links use stage_name
+      current_stage_name: l.current_stage_name || l.stage_name || l.stage,
+      stage_name:         l.stage_name         || l.current_stage_name || l.stage,
+    }));
   res.json({ links });
 });
 app.use('/api/portal-copilot',    require('./routes/portal_copilot'));

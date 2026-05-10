@@ -141,11 +141,46 @@ const SummarySection = ({ data }) => {
 };
 
 const ExperienceSection = ({ data }) => {
-  // Try parsed CV JSON or freetext field
+  // Normalise table-format work_history rows (keyed by column IDs) into display objects
+  const normaliseWorkRow = (row) => {
+    if (!row || typeof row !== 'object') return null;
+    // Direct named keys (standard format)
+    if (row.title || row.role || row.position || row.company || row.employer) return row;
+    // Table column ID format — map known IDs and any value that looks like a job title/company
+    const vals = Object.values(row).filter(v => v && typeof v === 'string');
+    // Try to detect by key names embedded in IDs (seed uses these specific IDs)
+    const keyMap = {
+      lcc54yyb: 'company', ora3hhct: 'title', '5x50b998': 'start',
+      ajpx5qfs: 'end', xryp64ss: 'current', e4rcpwq0: 'description',
+    };
+    const mapped = {};
+    Object.entries(row).forEach(([k, v]) => {
+      const norm = keyMap[k];
+      if (norm) mapped[norm] = v;
+      // Also handle keys that contain readable field names
+      else if (k.includes('company') || k.includes('employer')) mapped.company = v;
+      else if (k.includes('title') || k.includes('role') || k.includes('position')) mapped.title = v;
+      else if (k.includes('start') || k.includes('from')) mapped.start = v;
+      else if (k.includes('end') || k.includes('to')) mapped.end = v;
+      else if (k.includes('desc')) mapped.description = v;
+    });
+    // Fallback: if we couldn't map, use raw values as title/company
+    if (!mapped.title && !mapped.company && vals.length > 0) {
+      mapped.title = vals[0];
+      mapped.company = vals[1] || '';
+    }
+    return mapped;
+  };
+
   let items = null;
   if (data.work_experience && Array.isArray(data.work_experience)) items = data.work_experience;
   else if (data.cv_work_history) try { items = JSON.parse(data.cv_work_history); } catch {}
-  const text = data.experience || data.work_history || '';
+  // Handle table-format work_history (array of column-ID-keyed objects)
+  if (!items && Array.isArray(data.work_history)) {
+    items = data.work_history.map(normaliseWorkRow).filter(Boolean);
+  }
+  const text = typeof data.work_history === 'string' ? data.work_history
+             : typeof data.experience === 'string' ? data.experience : '';
   const hasData = (items?.length > 0) || !!text;
   return (
     <SectionShell icon="award" label="Work Experience" defaultOpen={hasData}>
@@ -167,10 +202,31 @@ const ExperienceSection = ({ data }) => {
 };
 
 const EducationSection = ({ data }) => {
+  const normaliseEduRow = (row) => {
+    if (!row || typeof row !== 'object') return null;
+    if (row.degree || row.qualification || row.institution || row.school || row.university) return row;
+    // Seed uses: edu_inst, edu_deg, edu_subj, edu_from, edu_to, edu_current, edu_grade
+    const mapped = {};
+    Object.entries(row).forEach(([k, v]) => {
+      if (!v) return;
+      if (k.includes('inst') || k.includes('school') || k.includes('univ') || k.includes('college')) mapped.institution = v;
+      else if (k.includes('deg') || k.includes('qual')) mapped.degree = v;
+      else if (k.includes('subj') || k.includes('field') || k.includes('course')) mapped.subject = v;
+      else if (k.includes('from') || k.includes('start')) mapped.start = v;
+      else if (k.includes('to') || k.includes('end')) mapped.end = v;
+      else if (k.includes('grade') || k.includes('result') || k.includes('score')) mapped.grade = v;
+    });
+    if (!mapped.institution && !mapped.degree) {
+      const vals = Object.values(row).filter(v => v && typeof v === 'string');
+      mapped.institution = vals[0] || ''; mapped.degree = vals[1] || '';
+    }
+    return mapped;
+  };
+
   let items = null;
-  if (data.education && Array.isArray(data.education)) items = data.education;
+  if (Array.isArray(data.education)) items = data.education.map(normaliseEduRow).filter(Boolean);
   else if (data.cv_education) try { items = JSON.parse(data.cv_education); } catch {}
-  const text = data.education_text || (typeof data.education==='string'?data.education:'');
+  const text = data.education_text || (typeof data.education === 'string' ? data.education : '');
   const hasData = (items?.length > 0) || !!text;
   return (
     <SectionShell icon="book" label="Education" defaultOpen={hasData}>
@@ -178,9 +234,11 @@ const EducationSection = ({ data }) => {
         <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
           {items.map((ed, i) => (
             <div key={i} style={{ paddingLeft:12, borderLeft:`2px solid #3b82f630` }}>
-              <div style={{ fontSize:13, fontWeight:700, color:'#111827' }}>{ed.degree || ed.qualification || ed.course}</div>
+              <div style={{ fontSize:13, fontWeight:700, color:'#111827' }}>{ed.degree || ed.qualification || ed.course || ed.subject}</div>
+              {ed.subject && ed.degree && <div style={{ fontSize:12, color:'#6b7280' }}>{ed.subject}</div>}
               {ed.institution && <div style={{ fontSize:12, color:'#3b82f6', fontWeight:600 }}>{ed.institution}</div>}
-              {(ed.year || ed.period || ed.start) && <div style={{ fontSize:11, color:'#9ca3af', marginTop:2 }}>{ed.year||ed.period||ed.start}</div>}
+              {(ed.year || ed.period || ed.start) && <div style={{ fontSize:11, color:'#9ca3af', marginTop:2 }}>{ed.start||ed.year||ed.period||''}{ed.end?` — ${ed.end}`:''}</div>}
+              {ed.grade && <div style={{ fontSize:11, color:'#059669', marginTop:2, fontWeight:600 }}>{ed.grade}</div>}
             </div>
           ))}
         </div>

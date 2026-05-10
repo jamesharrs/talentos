@@ -1806,7 +1806,6 @@ function App({ onEnvReady }) {
         if (d.env)     setAppEnv(d.env);
       })
       .catch(() => setApiOnline(false));
-
     // Poll every 5s — detects server restarts so nav objects reload automatically
     const poll = setInterval(() => {
       fetch("/api/health")
@@ -1826,6 +1825,36 @@ function App({ onEnvReady }) {
     }, 5000);
     return () => clearInterval(poll);
   }, []);
+
+  // ── Dev auto-session-restore ───────────────────────────────────────────────
+  // In local dev, if the server is online but localStorage session is gone
+  // (cleared by error boundary reload, manual clear, etc.), auto-restore it.
+  useEffect(() => {
+    if (import.meta.env.PROD) return;
+    if (session) return;
+    if (!apiOnline) return;
+    fetch('/api/users/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'admin@talentos.io', password: 'Admin1234!', tenant_slug: 'production' }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data?.user) return;
+        const sessionData = {
+          user: { id: data.user.id, email: data.user.email,
+                  first_name: data.user.first_name, last_name: data.user.last_name,
+                  environment_id: data.user.environment_id, role_id: data.user.role_id },
+          role: data.user.role,
+          permissions: data.permissions || [],
+          tenant_slug: data.user.tenant_slug || 'production',
+        };
+        try { localStorage.setItem('talentos_session', JSON.stringify(sessionData)); } catch {}
+        startTransition(() => setSession(sessionData));
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiOnline, session]);
 
   // When any API call returns 401, clear the local session and show the login screen
   useEffect(() => {

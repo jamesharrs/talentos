@@ -251,7 +251,12 @@ const MessageDetail = ({ msgId, environmentId, onUpdate, onNavigate }) => {
                 </button>
             }
             <select value={msg.assigned_to || ''} onChange={e => api.patch(`/inbox/${msgId}/assign`, { user_id: e.target.value }).then(load)}
-              style={{ padding: '5px 8px', borderRadius: 7, border: `1px solid ${C.border}`, background: 'white', color: C.text2, fontSize: 11, fontFamily: F, cursor: 'pointer' }}>
+              style={{ padding: '5px 10px', borderRadius: 7, border: `1px solid ${C.border}`,
+                background: 'white', color: C.text2, fontSize: 11, fontFamily: F, cursor: 'pointer',
+                outline: 'none', appearance: 'none', WebkitAppearance: 'none',
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center',
+                paddingRight: '26px', fontWeight: 500 }}>
               <option value="">Unassigned</option>
               {users.map(u => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
             </select>

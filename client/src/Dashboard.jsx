@@ -421,6 +421,61 @@ function ActionBtn({ label, color, iconPath, onClick }) {
 
 // ── Main Dashboard ────────────────────────────────────────────────────────
 // ── Dashboard Filter Button + Panel ──────────────────────────────────────────
+// Shared styled select — matches the UI design system (no native browser chrome)
+function StyledSelect({ value, onChange, options, placeholder, active }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+  const selected = options.find(o => o.value === value);
+  return (
+    <div ref={ref} style={{ position:"relative", width:"100%" }}>
+      <button onClick={() => setOpen(o => !o)}
+        style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"8px 12px", borderRadius:9, border:`1.5px solid ${active ? V.purple+"60" : "rgba(0,0,0,.1)"}`,
+          background: active ? `${V.purple}06` : "white", cursor:"pointer", fontFamily:"inherit",
+          fontSize:13, color: selected ? (active ? V.purple : "#1e293b") : "#94a3b8",
+          fontWeight: selected ? 600 : 400, textAlign:"left", gap:8 }}>
+        <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+          {selected ? selected.label : placeholder}
+        </span>
+        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+          style={{ flexShrink:0, opacity:0.5, transform: open ? "rotate(180deg)" : "none", transition:"transform .15s" }}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+      {open && (
+        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:99,
+          background:"white", borderRadius:10, border:"1.5px solid rgba(0,0,0,.09)",
+          boxShadow:"0 8px 24px rgba(0,0,0,.12)", maxHeight:220, overflowY:"auto", padding:"4px" }}>
+          {options.map(o => (
+            <button key={o.value} onClick={() => { onChange(o.value); setOpen(false); }}
+              style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+                width:"100%", padding:"8px 10px", borderRadius:7, border:"none", background:"none",
+                cursor:"pointer", fontFamily:"inherit", fontSize:13, textAlign:"left",
+                color: o.value === value ? V.purple : "#1e293b",
+                fontWeight: o.value === value ? 700 : 400,
+                background: o.value === value ? `${V.purple}08` : "transparent" }}
+              onMouseEnter={e => e.currentTarget.style.background = o.value === value ? `${V.purple}12` : "#f8faff"}
+              onMouseLeave={e => e.currentTarget.style.background = o.value === value ? `${V.purple}08` : "transparent"}>
+              <span>{o.label}</span>
+              {o.value === value && (
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={V.purple} strokeWidth="2.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Compact icon in the header — opens a panel showing filter options.
 // When active, shows a small pill next to the button with the active filter label.
 function DashFilterBtn({ jobs = [], jobFields = [], session, value, onChange }) {
@@ -548,18 +603,15 @@ function DashFilterBtn({ jobs = [], jobFields = [], session, value, onChange }) 
             {/* Specific job */}
             <div style={{ fontSize:10, fontWeight:700, color:V.gray, textTransform:"uppercase",
               letterSpacing:".05em", padding:"2px 6px 4px" }}>Jump to job</div>
-            <select value={value?.type==="job" ? value.jobId : ""}
-              onChange={e => e.target.value
-                ? apply({ type:"job", jobId:e.target.value,
-                    label: jobs.find(j=>j.id===e.target.value)?.data?.job_title || "Job" })
+            <StyledSelect
+              value={value?.type === "job" ? value.jobId : ""}
+              onChange={v => v
+                ? apply({ type:"job", jobId:v, label: jobs.find(j=>j.id===v)?.data?.job_title || "Job" })
                 : apply({ type:"all" })}
-              style={{ width:"100%", padding:"7px 10px", borderRadius:8,
-                border:`1.5px solid ${value?.type==="job" ? V.purple+"60" : "rgba(0,0,0,.1)"}`,
-                fontSize:12, outline:"none", background:"white", cursor:"pointer",
-                color: value?.type==="job" ? V.purple : "#374151", fontFamily:"inherit" }}>
-              <option value="">Choose a job…</option>
-              {jobs.map(j => <option key={j.id} value={j.id}>{j.data?.job_title || j.id}</option>)}
-            </select>
+              placeholder="Choose a job…"
+              active={value?.type === "job"}
+              options={jobs.map(j => ({ value:j.id, label:j.data?.job_title || j.id }))}
+            />
 
             {/* Department */}
             {departments.length > 0 && <>
@@ -581,13 +633,13 @@ function DashFilterBtn({ jobs = [], jobFields = [], session, value, onChange }) 
             {/* Advanced */}
             <div style={{ fontSize:10, fontWeight:700, color:V.gray, textTransform:"uppercase",
               letterSpacing:".05em", padding:"6px 6px 4px" }}>Advanced — any job field</div>
-            <select value={advField} onChange={e => { setAdvField(e.target.value); setAdvVal(""); }}
-              style={{ width:"100%", padding:"7px 10px", borderRadius:8,
-                border:"1.5px solid rgba(0,0,0,.1)", fontSize:12, outline:"none",
-                background:"white", fontFamily:"inherit" }}>
-              <option value="">Choose field…</option>
-              {jobFields.map(f => <option key={f.api_key} value={f.api_key}>{f.name}</option>)}
-            </select>
+            <StyledSelect
+              value={advField}
+              onChange={v => { setAdvField(v); setAdvVal(""); }}
+              placeholder="Choose field…"
+              active={!!advField}
+              options={jobFields.map(f => ({ value:f.api_key, label:f.name }))}
+            />
             {advField && (
               <input value={advVal} onChange={e => setAdvVal(e.target.value)}
                 placeholder="Filter value…" autoFocus

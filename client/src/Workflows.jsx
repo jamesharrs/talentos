@@ -2975,8 +2975,12 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
             maxWidth:120, overflow:"hidden", textOverflow:"ellipsis" }}>{peopleLinkWf.name}</span>
         ) : (
           <select value="" onChange={e => { if (e.target.value) assignWorkflow(e.target.value); }}
-            style={{ padding:"2px 6px", border:`1px solid ${C.border}`, borderRadius:6,
-              fontSize:11, fontFamily:F, outline:"none", background:"white", color:C.text3 }}>
+            style={{ padding:"5px 10px", border:`1.5px solid ${C.border}`, borderRadius:8,
+              fontSize:12, fontFamily:F, outline:"none", cursor:"pointer", fontWeight:500,
+              color:C.text2, appearance:"none", WebkitAppearance:"none",
+              backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+              backgroundRepeat:"no-repeat", backgroundPosition:"right 8px center",
+              paddingRight:"26px", background:"white" }}>
             <option value="">Assign…</option>
             {peopleLinkOptions.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
           </select>
@@ -3230,8 +3234,12 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                   maxWidth:130, overflow:"hidden", textOverflow:"ellipsis" }}>{peopleLinkWf.name}</span>
               ) : (
                 <select value="" onChange={e => { if (e.target.value) assignWorkflow(e.target.value); }}
-                  style={{ padding:"2px 6px", border:`1px solid ${C.border}`, borderRadius:6,
-                    fontSize:11, fontFamily:F, outline:"none", background:"white", color:C.text3 }}>
+                  style={{ padding:"5px 10px", border:`1.5px solid ${C.border}`, borderRadius:8,
+                    fontSize:12, fontFamily:F, outline:"none", cursor:"pointer", fontWeight:500,
+                    color:C.text2, appearance:"none", WebkitAppearance:"none",
+                    backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+                    backgroundRepeat:"no-repeat", backgroundPosition:"right 8px center",
+                    paddingRight:"26px", background:"white" }}>
                   <option value="">Assign…</option>
                   {peopleLinkOptions.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>

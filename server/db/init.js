@@ -270,6 +270,7 @@ async function initDB() {
     await seedUsersAndRoles('master');
     saveStore('master');
     console.log('✅ Master store loaded');
+    runMigrationsIfNeeded();
     return;
   }
 
@@ -279,6 +280,7 @@ async function initDB() {
     await seedUsersAndRoles('master');
   });
   console.log('✅ Seeded master store');
+  runMigrationsIfNeeded();
 }
 
 async function seedEnvironmentAndObjects() {
@@ -428,9 +430,41 @@ function seedSystemEmailTemplates() {
   }
   if (patched > 0) { saveStoreNow(); console.log(`[init] Patched ${patched} system email template(s) with default blocks`); }
 }
-seedSystemEmailTemplates();
+// seedSystemEmailTemplates() — now called via runMigrationsIfNeeded()
 
 module.exports = { getStore, saveStore, saveStoreNow, query, findOne, insert, update, remove, initDB, tenantStorage, getCurrentTenant, provisionTenant, reloadTenantStore, loadTenantStore, listTenants, tenantDbPath, storeCache };
+
+// ── Migration guard ─────────────────────────────────────────────────────────
+// Migrations are expensive (scan every tenant's store, write to disk).
+// Only run them once: track a version stamp in the master store.
+// Bump MIGRATION_VERSION when you add a new migration.
+const MIGRATION_VERSION = 12;
+
+function runMigrationsIfNeeded() {
+  const store = storeCache['master'];
+  if (!store) return;
+  const current = store._migration_version || 0;
+  if (current >= MIGRATION_VERSION) {
+    console.log(`✅ Store migrations current (v${MIGRATION_VERSION})`);
+    return;
+  }
+  console.log(`⏫ Running migrations v${current} → v${MIGRATION_VERSION}…`);
+  seedSystemEmailTemplates();
+  migrateSkillsFieldType();
+  migrateCoverLetterField();
+  migrateRecordNumbers();
+  removeTestFields();
+  migrateEducationField();
+  migrateWorkHistoryField();
+  migrateStandardCandidateFields();
+  migrateStandardJobFields();
+  pruneOrphanedPeopleLinks();
+  migrateCalendarIds();
+  migrateAssignmentEnvIds();
+  store._migration_version = MIGRATION_VERSION;
+  saveStoreNow('master');
+  console.log(`✅ Migrations complete (v${MIGRATION_VERSION})`);
+}
 
 // ── Migration: fix Skills field type multi_select → skills ───────────────────
 // Called on server startup so all tenants get patched automatically.
@@ -449,7 +483,7 @@ function migrateSkillsFieldType() {
   }
   if (changed > 0) console.log(`✅ Migrated ${changed} skills field(s) from multi_select → skills`);
 }
-migrateSkillsFieldType();
+// migrateSkillsFieldType() — now called via runMigrationsIfNeeded()
 
 // ── Add cover_letter field to existing People objects ────────────────────────
 function migrateCoverLetterField() {
@@ -475,7 +509,7 @@ function migrateCoverLetterField() {
   }
   if (added > 0) console.log(`✅ Added cover_letter field to ${added} People object(s)`);
 }
-migrateCoverLetterField();
+// migrateCoverLetterField() — now called via runMigrationsIfNeeded()
 
 // ── Backfill record_number for portal-created records that missed assignment ─
 function migrateRecordNumbers() {
@@ -496,7 +530,7 @@ function migrateRecordNumbers() {
     if (changed > 0) { saveStoreNow(key); console.log(`✅ Backfilled record_number for ${changed} records (tenant: ${key})`); }
   }
 }
-migrateRecordNumbers();
+// migrateRecordNumbers() — now called via runMigrationsIfNeeded()
 
 // ── Remove 🧪 test fields and known junk fields ──────────────────────────────
 function removeTestFields() {
@@ -524,7 +558,7 @@ function removeTestFields() {
   }
   if (removed > 0) console.log(`✅ Removed ${removed} test/junk field(s)`);
 }
-removeTestFields();
+// removeTestFields() — now called via runMigrationsIfNeeded()
 
 // ── Add education table field to People objects ───────────────────────────────
 function migrateEducationField() {
@@ -562,7 +596,7 @@ function migrateEducationField() {
   }
   if (added > 0) console.log(`✅ Added education field to ${added} People object(s)`);
 }
-migrateEducationField();
+// migrateEducationField() — now called via runMigrationsIfNeeded()
 
 // ── Add work_history table field to People objects ────────────────────────────
 function migrateWorkHistoryField() {
@@ -607,7 +641,7 @@ function migrateWorkHistoryField() {
   if (added > 0) console.log(`✅ Added work_history field to ${added} People object(s)`);
   if (fixed > 0)  console.log(`✅ Fixed work_history table_columns on ${fixed} existing field(s)`);
 }
-migrateWorkHistoryField();
+// migrateWorkHistoryField() — now called via runMigrationsIfNeeded()
 
 // ── Standardise People object field schema ────────────────────────────────────
 // Adds missing standard fields, renames/reorders existing ones, adds section
@@ -721,7 +755,7 @@ function migrateStandardCandidateFields() {
   }
   if (changed > 0) console.log(`✅ Standard candidate fields migrated (${changed} changes)`);
 }
-migrateStandardCandidateFields();
+// migrateStandardCandidateFields() — now called via runMigrationsIfNeeded()
 
 // ── Standardise Jobs object field schema ──────────────────────────────────────
 function migrateStandardJobFields() {
@@ -849,7 +883,7 @@ function migrateStandardJobFields() {
   }
   if (changed > 0) console.log(`✅ Standard jobs fields migrated (${changed} changes)`);
 }
-migrateStandardJobFields();
+// migrateStandardJobFields() — now called via runMigrationsIfNeeded()
 
 // ── Prune orphaned people_links on startup ───────────────────────────────────
 // Removes any people_link where the person_record or target_record no longer exists.
@@ -869,7 +903,7 @@ function pruneOrphanedPeopleLinks() {
   }
   if (pruned > 0) console.log(`🧹 Pruned ${pruned} orphaned people_link(s)`);
 }
-pruneOrphanedPeopleLinks();
+// pruneOrphanedPeopleLinks() — now called via runMigrationsIfNeeded()
 
 // ── Backfill missing IDs on calendar tasks/events ────────────────────────────
 function migrateCalendarIds() {
@@ -892,7 +926,7 @@ function migrateCalendarIds() {
   }
   if (fixed > 0) console.log(`🔑 Backfilled IDs on ${fixed} calendar row(s)`);
 }
-migrateCalendarIds();
+// migrateCalendarIds() — now called via runMigrationsIfNeeded()
 
 // ── Backfill environment_id on record_workflow_assignments ────────────────────
 // Assignments created before this fix have no environment_id stored.
@@ -920,4 +954,4 @@ function migrateAssignmentEnvIds() {
   }
   if (fixed > 0) console.log(`🔗 Backfilled environment_id on ${fixed} workflow assignment(s)`);
 }
-migrateAssignmentEnvIds();
+// migrateAssignmentEnvIds() — now called via runMigrationsIfNeeded()

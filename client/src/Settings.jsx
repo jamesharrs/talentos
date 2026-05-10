@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
+import React, { useState, useEffect, useCallback, useRef, createContext, useContext, lazy, Suspense } from "react";
 import { tFetch } from "./apiClient.js";
 import BrandKitSettings from "./settings/BrandKitSettings.jsx";
 import EmailTemplateBuilder from "./settings/EmailTemplateBuilder.jsx";
@@ -19,19 +19,26 @@ import QuestionBankSettings from "./settings/QuestionBankSettings.jsx";
 import StageCategoriesSection from "./settings/StageCategoriesSection.jsx";
 import FeatureFlagsSettings from "./settings/FeatureFlagsSettings.jsx";
 import AiMatchingSettings from "./settings/AiMatchingSettings.jsx";
-import { FormsList } from "./Forms.jsx";
 import NotificationsSection from './NotificationsSection';
-
 import DatasetsSection from "./settings/DatasetsSection.jsx";
-import EnterpriseSettings from "./EnterpriseSettings.jsx";
-import IntegrationHub from "./IntegrationHub.jsx";
-import IntegrationsSettings from "./IntegrationsSettings.jsx";
-import OrgChart from "./OrgChart.jsx";
-import WorkflowsPage from "./Workflows.jsx";
-import PortalsPage from "./Portals.jsx";
 import SandboxManager from "./SandboxManager.jsx";
 import { useTheme, SCHEMES, FONTS, DENSITIES } from "./Theme.jsx";
 import { useI18n, LANGUAGES } from "./i18n/I18nContext.jsx";
+
+// ── Heavy modules — lazy loaded so Settings chunk stays small ─────────────────
+const WorkflowsPage      = lazy(() => import("./Workflows.jsx"));
+const PortalsPage        = lazy(() => import("./Portals.jsx").then(m => ({ default: m.default || m.PortalsPage })));
+const OrgChart           = lazy(() => import("./OrgChart.jsx"));
+const EnterpriseSettings = lazy(() => import("./EnterpriseSettings.jsx"));
+const IntegrationHub     = lazy(() => import("./IntegrationHub.jsx"));
+const IntegrationsSettings = lazy(() => import("./IntegrationsSettings.jsx"));
+const FormsList          = lazy(() => import("./Forms.jsx").then(m => ({ default: m.FormsList })));
+
+const LazyTab = ({ children }) => (
+  <Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#9ca3af'}}>Loading…</div>}>
+    {children}
+  </Suspense>
+);
 
 function getAuthHeaders(extra = {}) {
   const h = { 'Content-Type': 'application/json', ...extra };
@@ -2790,7 +2797,7 @@ export default function SettingsPage({ currentUser, environment, initialSection,
         {activeSection==="users"      && <UsersSection/>}
         {activeSection==="groups"     && <GroupsSection environment={environment}/>}
         {activeSection==="roles"      && <RolesSection environment={environment}/>}
-        {activeSection==="org"        && <OrgChart environment={environment}/>}
+        {activeSection==="org"        && <LazyTab><OrgChart environment={environment}/></LazyTab>}
         {activeSection==="security"   && <SecuritySection/>}
         {activeSection==="sessions"   && <SessionsSection/>}
         {activeSection==="audit"      && <AuditLogSection/>}
@@ -2800,12 +2807,12 @@ export default function SettingsPage({ currentUser, environment, initialSection,
         {activeSection==="task_groups"  && <TaskGroupsSettings environment={environment}/>}
         {activeSection==="company_docs" && <CompanyDocuments environment={environment}/>}
         {activeSection==="duplicates" && <DuplicatesSettings environment={environment}/>}
-        {activeSection==="forms"      && <FormsList environment={environment}/>}
+        {activeSection==="forms"      && <LazyTab><FormsList environment={environment}/></LazyTab>}
         {activeSection==="appearance" && <AppearanceSection/>}
         {activeSection==="notifications" && <NotificationsSection/>}
         {activeSection==="language"   && <LanguageSection/>}
-        {activeSection==="workflows"     && <WorkflowsPage environment={environment}/>}
-        {activeSection==="portals"       && <PortalsPage environment={environment} onFullScreen={setFullScreenMode}/>}
+        {activeSection==="workflows"     && <LazyTab><WorkflowsPage environment={environment}/></LazyTab>}
+        {activeSection==="portals"       && <LazyTab><PortalsPage environment={environment} onFullScreen={setFullScreenMode}/></LazyTab>}
         {activeSection==="talent_profile" && (
           <div style={{ maxWidth:700, padding:24 }}>
             <div style={{ marginBottom:20 }}>
@@ -2824,8 +2831,8 @@ export default function SettingsPage({ currentUser, environment, initialSection,
         {activeSection==="email_templates" && <EmailTemplateBuilder environment={environment}/>}
         {activeSection==="config"      && <ImportExportTabs environment={environment}/>}
         {activeSection==="datasets"    && <DatasetsSection environment={environment}/>}
-        {activeSection==="enterprise"  && <EnterpriseSettings environment={environment}/>}
-        {activeSection==="integration_hub" && <IntegrationHub environment={environment}/>}
+        {activeSection==="enterprise"  && <LazyTab><EnterpriseSettings environment={environment}/></LazyTab>}
+        {activeSection==="integration_hub" && <LazyTab><IntegrationHub environment={environment}/></LazyTab>}
         {activeSection==="company_profile" && (
           <CompanyProfilePanel environment={environment}/>
         )}

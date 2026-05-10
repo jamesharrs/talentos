@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense, startTransition } from "react";
+import api from "./apiClient.js";
 import ReportingErrorBoundary from "./ErrorBoundary.jsx";
 import { ThemeProvider, useTheme, SCHEMES, FONTS, DENSITIES } from "./Theme.jsx";
 import { FeatureProvider, useFeature, useFeatures } from "./hooks/useFeature.jsx";
@@ -105,58 +106,8 @@ const AccessDenied = ({ feature = 'this feature' }) => (
 );
 
 // ─── API Client ───────────────────────────────────────────────────────────────
-// Derive tenant slug — session takes priority, then URL param, then subdomain
-function getTenantSlug() {
-  // 1. Subdomain (highest priority — the URL is the source of truth)
-  //    e.g. acme.vercentic.com → 'acme', client.vercentic.com → 'client'
-  const host = window.location.hostname;
-  const parts = host.split('.');
-  const INFRA = new Set(['www','app','api','admin','portal','localhost','mail','cdn','static','assets']);
-  if (parts.length >= 3 &&
-      !INFRA.has(parts[0]) &&
-      !['vercel','railway','up','netlify','herokuapp'].some(r => host.includes(r))) {
-    return parts[0];
-  }
-  // 2. Session slug (set after login — covers same-domain sessions)
-  try {
-    const sess = JSON.parse(localStorage.getItem('talentos_session') || 'null');
-    if (sess?.tenant_slug && sess.tenant_slug !== 'master') return sess.tenant_slug;
-  } catch {}
-  // 3. URL query param ?tenant=slug (super admin testing)
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('tenant')) return params.get('tenant');
-  return null;
-}
-
-// TENANT_SLUG is re-evaluated per request so it picks up the session after login
-function getUserId() {
-  try {
-    const sess = JSON.parse(localStorage.getItem('talentos_session') || 'null');
-    return sess?.user?.id || null;
-  } catch { return null; }
-}
-
-function apiHeaders(extra = {}) {
-  const slug   = getTenantSlug();
-  const userId = getUserId();
-  const h = { 'Content-Type': 'application/json', ...extra };
-  if (slug)   h['X-Tenant-Slug'] = slug;
-  if (userId) h['X-User-Id']     = userId;
-  return h;
-}
-
-const api = {
-  get: (path) => {
-    const slug = getTenantSlug(); const userId = getUserId();
-    const h = {};
-    if (slug)   h['X-Tenant-Slug'] = slug;
-    if (userId) h['X-User-Id']     = userId;
-    return fetch(`/api${path}`, { headers: h }).then(r => r.json());
-  },
-  post:   (path, body) => fetch(`/api${path}`, { method: "POST",   headers: apiHeaders(), body: JSON.stringify(body) }).then(r => r.json()),
-  patch:  (path, body) => fetch(`/api${path}`, { method: "PATCH",  headers: apiHeaders(), body: JSON.stringify(body) }).then(r => r.json()),
-  delete: (path)       => fetch(`/api${path}`, { method: "DELETE", headers: apiHeaders() }).then(r => r.json()),
-};
+// Use the canonical apiClient — has CSRF, credentials, correct base URL
+// (imported at top of file)
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const FIELD_TYPES = [

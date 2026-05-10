@@ -40,3 +40,5 @@ e2e/report/
 # One-off utility scripts
 push-to-railway.js
 data/sessions/
+data/tenant-production.json
+data/tenant-*.json

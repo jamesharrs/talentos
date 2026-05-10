@@ -3,6 +3,27 @@ const router = express.Router();
 const { validate } = require('../middleware/validate');
 const { createRecordSchema, patchRecordSchema } = require('../validation/schemas');
 const { v4: uuidv4 } = require('uuid');
+
+// ── Search index cache ─────────────────────────────────────────────────────────
+// Avoids JSON.stringify on every record for every search query.
+// Cache is per object_id, invalidated on any write to that object.
+const _searchIndexCache = new Map(); // key: object_id → { ts, index: Map<id, lowerStr> }
+
+function getSearchIndex(objectId, records) {
+  const cached = _searchIndexCache.get(objectId);
+  // Rebuild if missing or stale (invalidated by writes)
+  if (cached && cached.count === records.length) return cached.index;
+  const index = new Map();
+  for (const r of records) {
+    index.set(r.id, JSON.stringify(r.data || {}).toLowerCase());
+  }
+  _searchIndexCache.set(objectId, { count: records.length, index });
+  return index;
+}
+
+function invalidateSearchIndex(objectId) {
+  _searchIndexCache.delete(objectId);
+}
 const sanitizeHtml = require('sanitize-html');
 
 // Allowed HTML in rich_text fields — same allowlist as the client DOMPurify config
@@ -226,13 +247,9 @@ router.get('/', (req, res) => {
 
   if (search) {
     const _sq = search.toLowerCase();
-    records = records.filter(r => {
-      if (!r.data) return false;
-      // Flat field search
-      if (JSON.stringify(r.data).toLowerCase().includes(_sq)) return true;
-      return false; // (table rows included via JSON.stringify above)
-    });
-    // Annotate each record with whether a table row matched (for relevance sorting)
+    const idx = getSearchIndex(object_id, records);
+    records = records.filter(r => (idx.get(r.id) || '').includes(_sq));
+    // Annotate table-row matches for relevance sorting
     records.forEach(r => {
       if (!r.data) return;
       for (const v of Object.values(r.data)) {
@@ -625,6 +642,7 @@ router.post('/', validate(createRecordSchema), (req, res) => {
   // Fire agent triggers + workflow automation triggers
   getEngine().fireEventTrigger('record_created', record, null).catch(()=>{});
   fireTrigger('record_created', record, []);
+  invalidateSearchIndex(object_id);
   res.status(201).json(record);
 });
 
@@ -658,6 +676,7 @@ router.patch('/:id', validate(patchRecordSchema), (req, res) => {
   fireTrigger('record_updated', updated, changedFields);
   // Fire stage_changed separately if status field changed
   if (changedFields.includes('status')) fireTrigger('stage_changed', updated, changedFields);
+  invalidateSearchIndex(updated.object_id);
   res.json(updated);
 });
 
@@ -671,6 +690,7 @@ router.delete('/:id', (req, res) => {
   }
   if (checkPerm(req, res, delRec.object_id, 'delete') === false) return;
   update('records', r=>r.id===req.params.id, {deleted_at:new Date().toISOString()});
+  invalidateSearchIndex(delRec.object_id);
   res.json({deleted:true});
 });
 

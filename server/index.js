@@ -130,7 +130,7 @@ if (!sessionStore) {
     if (!require('fs').existsSync(sessDir)) require('fs').mkdirSync(sessDir, { recursive: true });
     sessionStore = new FileStore({
       path:    sessDir,
-      ttl:     8 * 60 * 60,  // 8 hours (matches cookie maxAge)
+      ttl:     process.env.NODE_ENV === 'production' ? 8 * 60 * 60 : 30 * 24 * 60 * 60, // 8h prod / 30d dev
       retries: 0,
       logFn:   () => {},      // suppress verbose file-store logs
     });
@@ -151,10 +151,34 @@ app.use(session({
     secure:   process.env.NODE_ENV === 'production',          // HTTPS only in prod
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',  // cross-origin for Vercel↔Railway
     domain:   process.env.NODE_ENV === 'production' ? (process.env.COOKIE_DOMAIN || '.vercentic.com') : undefined,
-    maxAge:   8 * 60 * 60 * 1000,                            // 8 hours
+    maxAge:   process.env.NODE_ENV === 'production' ? 8 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000, // 8h prod / 30d dev
   },
 }));
 app.use(tenantMiddleware);        // tenant isolation — must come before routes
+
+// ── Dev auto-login — creates a session for admin when none exists in local dev ──
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    // Skip if already authenticated, or if this is a login/auth/portal/health route
+    if (req.session?.userId) return next();
+    const skip = ['/api/portals', '/api/health', '/api/superadmin', '/__vite'];
+    if (skip.some(p => req.path.startsWith(p))) return next();
+    // Also skip the login POST itself to avoid infinite loop
+    if (req.method === 'POST' && req.path === '/api/auth/login') return next();
+    // Find the admin user in the store and auto-create a session
+    try {
+      const store = getStore();
+      const admin = (store.users || []).find(u => u.email === 'admin@talentos.io' && !u.deleted_at);
+      if (admin) {
+        req.session.userId     = admin.id;
+        req.session.tenantSlug = store.tenant?.slug || 'production';
+        return req.session.save((err) => next()); // wait for save before continuing
+      }
+    } catch (e) { /* silent */ }
+    next();
+  });
+}
+
 app.use(attachUser);              // attach current user to req (reads session OR X-User-Id header)
 app.use(attachCsrfCookie);        // set vercentic_csrf cookie when user is authenticated
 app.use(verifyCsrf);              // enforce CSRF token on state-changing requests

@@ -593,6 +593,9 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
   const [loading,setLoading]=useState(true); const [tab,setTab]=useState('overview');
   const [loadingTD,setLoadingTD]=useState(false); const [tdResults,setTdResults]=useState({});
   const [showCreateUser,setShowCreateUser]=useState(false);
+  const [deletingEnv,   setDeletingEnv]   = useState(null);  // envId currently being deleted
+  const [confirmEnvDel, setConfirmEnvDel] = useState(null);  // envId awaiting confirmation
+  const [envDelTyped,   setEnvDelTyped]   = useState('');    // typed confirmation text
 
   // ── Portal users (for /support login) ───────────────────────────────────────
   const [portalUsers,   setPortalUsers]   = useState([]);
@@ -660,6 +663,27 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
       setTdResults(prev => ({ ...prev, [envId]: d }));
     } catch(e) { window.__toast?.alert('Error loading test data: ' + e.message); }
     setLoadingTD(false);
+  };
+
+  const handleDeleteEnv = async (envId, envName) => {
+    // Open the typed-confirmation modal
+    setConfirmEnvDel(envId);
+    setEnvDelTyped('');
+  };
+
+  const handleDeleteEnvConfirm = async () => {
+    if (!confirmEnvDel) return;
+    setDeletingEnv(confirmEnvDel);
+    setConfirmEnvDel(null);
+    try {
+      const r = await saFetch(`/api/superadmin/clients/${clientId}/environments/${confirmEnvDel}?confirm=yes`, { method:'DELETE' });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Delete failed');
+      // Refresh client data
+      const [c, s] = await Promise.all([sa.get(`/${clientId}`), sa.get(`/${clientId}/stats`)]);
+      setClient(c); setStats(s);
+    } catch(e) { alert('Error deleting environment: ' + e.message); }
+    setDeletingEnv(null);
   };
 
   useEffect(()=>{
@@ -806,6 +830,13 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
                       style={{marginLeft:12,padding:'5px 10px',borderRadius:6,border:`1.5px dashed ${tdResults[e.id]?C.border:'#6366f1'}`,background:'transparent',color:tdResults[e.id]?C.text3:'#6366f1',fontSize:11,fontWeight:600,cursor:tdResults[e.id]?'default':'pointer',whiteSpace:'nowrap'}}>
                       {tdResults[e.id]?'✓ Loaded':'⚡ Test Data'}
                     </button>
+                    <button
+                      onClick={()=>handleDeleteEnv(e.id, e.name)}
+                      disabled={deletingEnv===e.id}
+                      title="Delete this environment and all its data"
+                      style={{marginLeft:8,padding:'5px 10px',borderRadius:6,border:`1.5px solid ${C.red}50`,background:`${C.red}12`,color:C.red,fontSize:11,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',opacity:deletingEnv===e.id?0.5:1}}>
+                      {deletingEnv===e.id?'Deleting…':'🗑 Delete'}
+                    </button>
                   </div>
 
                   {/* Sandbox rows — indented under parent env */}
@@ -837,6 +868,66 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
           }
         </div>
       )}
+
+      {/* ── Delete Environment Confirmation Modal ─────────────────────────────── */}
+      {confirmEnvDel && (() => {
+        const envBeingDeleted = (client.environments||[]).find(e => e.id === confirmEnvDel);
+        const envName = envBeingDeleted?.name || 'this environment';
+        const CONFIRM_WORD = envName;
+        const isMatch = envDelTyped === CONFIRM_WORD;
+        return (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:F}} onClick={()=>setConfirmEnvDel(null)}>
+            <div style={{background:'#1a2235',border:`1.5px solid ${C.red}`,borderRadius:16,padding:'32px 28px',maxWidth:460,width:'100%',boxShadow:'0 24px 60px rgba(0,0,0,0.5)'}} onClick={e=>e.stopPropagation()}>
+              {/* Header */}
+              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+                <div style={{width:40,height:40,borderRadius:10,background:`${C.red}20`,border:`1px solid ${C.red}40`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.red} strokeWidth="2.5" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                </div>
+                <div>
+                  <div style={{fontSize:16,fontWeight:800,color:C.text1}}>Delete Environment</div>
+                  <div style={{fontSize:12,color:C.text3,marginTop:2}}>This action cannot be undone</div>
+                </div>
+              </div>
+
+              {/* Warning details */}
+              <div style={{background:`${C.red}10`,border:`1px solid ${C.red}30`,borderRadius:10,padding:'12px 16px',marginBottom:20}}>
+                <div style={{fontSize:13,fontWeight:700,color:C.red,marginBottom:6}}>⚠ You are about to permanently delete:</div>
+                <div style={{fontSize:13,color:C.text2,lineHeight:1.7}}>
+                  <div>Environment: <strong style={{color:C.text1}}>{envName}</strong></div>
+                  <div>All records, people links, workflows, notes, and communications in this environment will be permanently erased.</div>
+                </div>
+              </div>
+
+              {/* Typed confirmation */}
+              <div style={{marginBottom:20}}>
+                <div style={{fontSize:12,color:C.text3,marginBottom:8}}>
+                  Type <strong style={{color:C.text1,fontFamily:'monospace'}}>{CONFIRM_WORD}</strong> to confirm:
+                </div>
+                <input
+                  autoFocus
+                  value={envDelTyped}
+                  onChange={e=>setEnvDelTyped(e.target.value)}
+                  onKeyDown={e=>{ if(e.key==='Enter'&&isMatch) handleDeleteEnvConfirm(); if(e.key==='Escape') setConfirmEnvDel(null); }}
+                  placeholder={`Type "${CONFIRM_WORD}" to confirm`}
+                  style={{width:'100%',padding:'10px 14px',borderRadius:8,border:`1.5px solid ${isMatch?C.red:C.border}`,background:'#0a0e1a',color:C.text1,fontSize:13,fontFamily:'inherit',outline:'none',boxSizing:'border-box',transition:'border-color .15s'}}
+                />
+              </div>
+
+              {/* Actions */}
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={()=>setConfirmEnvDel(null)}
+                  style={{flex:1,padding:'10px',borderRadius:8,border:`1px solid ${C.border}`,background:'transparent',color:C.text2,fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:F}}>
+                  Cancel
+                </button>
+                <button onClick={handleDeleteEnvConfirm} disabled={!isMatch}
+                  style={{flex:1,padding:'10px',borderRadius:8,border:'none',background:isMatch?C.red:'#3a1a1a',color:isMatch?'#fff':C.red,fontSize:13,fontWeight:700,cursor:isMatch?'pointer':'not-allowed',fontFamily:F,opacity:isMatch?1:0.6,transition:'all .15s'}}>
+                  Delete Environment
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {tab==='users' && (
         <div style={cardSt}>

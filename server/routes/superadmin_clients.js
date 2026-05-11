@@ -984,6 +984,73 @@ router.patch('/:clientId/environments/:envId/status', (req, res) => {
   saveStore(); res.json(s.client_environments[idx]);
 });
 
+// ── Delete an environment ─────────────────────────────────────────────────────
+// DELETE /api/superadmin/clients/:clientId/environments/:envId
+// Soft-deletes the environment and wipes all its data. Requires ?confirm=yes.
+router.delete('/:clientId/environments/:envId', (req, res) => {
+  if (req.query.confirm !== 'yes') {
+    return res.status(400).json({ error: 'Pass ?confirm=yes to confirm deletion' });
+  }
+  ensureCollections();
+  const { clientId, envId } = req.params;
+  const s = getStore();
+
+  const client = (s.clients||[]).find(c => c.id === clientId && !c.deleted_at);
+  if (!client) return res.status(404).json({ error: 'Client not found' });
+
+  const envIdx = (s.client_environments||[]).findIndex(
+    e => e.id === envId && e.client_id === clientId && !e.deleted_at
+  );
+  if (envIdx === -1) return res.status(404).json({ error: 'Environment not found' });
+
+  const env = s.client_environments[envIdx];
+  const tenantSlug = client.tenant_slug;
+  const now = new Date().toISOString();
+
+  // Soft-delete in master store
+  s.client_environments[envIdx].deleted_at = now;
+  s.client_environments[envIdx].status = 'deleted';
+  const masterEnvIdx = (s.environments||[]).findIndex(e => e.id === envId);
+  if (masterEnvIdx !== -1) s.environments[masterEnvIdx].deleted_at = now;
+
+  // Wipe all data for this environment from the tenant store
+  const removedCounts = {};
+  if (tenantSlug) {
+    try {
+      const ts = loadTenantStore(tenantSlug);
+      const COLLECTIONS = [
+        'records','people_links','workflows','record_workflow_assignments',
+        'pools','notes','communications','attachments','interviews',
+        'offers','forms','form_responses','activity_log','saved_views',
+        'objects','fields','roles','permissions',
+      ];
+      COLLECTIONS.forEach(col => {
+        if (!ts[col]) return;
+        const before = ts[col].length;
+        ts[col] = ts[col].filter(item => item.environment_id !== envId);
+        if (before !== ts[col].length) removedCounts[col] = before - ts[col].length;
+      });
+      // Remove from tenant environments list too
+      if (ts.environments) ts.environments = ts.environments.filter(e => e.id !== envId);
+      saveStoreNow(tenantSlug);
+    } catch (err) {
+      console.error('[env-delete] tenant store wipe error:', err.message);
+    }
+  }
+
+  // Audit log
+  if (!s.provision_log) s.provision_log = [];
+  s.provision_log.push({
+    id: uuidv4(), client_id: clientId, environment_id: envId,
+    action: 'delete_environment',
+    details: `Deleted environment "${env.name}" (${envId}). Removed: ${JSON.stringify(removedCounts)}`,
+    performed_by: 'superadmin', created_at: now,
+  });
+
+  saveStore();
+  res.json({ deleted: true, environment_id: envId, environment_name: env.name, removed: removedCounts });
+});
+
 // ─── Load test data into an environment ──────────────────────────────────────
 router.post('/load-test-data', async (req, res) => {
   const { environment_id, tenant_slug } = req.body;

@@ -9,6 +9,7 @@ const crypto   = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const { getStore, saveStore, saveStoreNow, tenantStorage, storeCache, loadTenantStore, provisionTenant } = require('../db/init');
 const { applyStarterConfig } = require('../data/starter_config');
+const { buildTemplate }    = require('./superadmin_clients');
 const { runSeed, findTenantForEnv } = require('./demo_seed');
 
 const PLAN_LIMITS = {
@@ -17,37 +18,7 @@ const PLAN_LIMITS = {
   pro:     { max_users: -1, max_records: -1,    label: 'Pro',     price: 399 },
 };
 
-const OBJECTS = [
-  { name:'Person',      plural:'People',       slug:'people',       icon:'users',     color:'#3b5bdb' },
-  { name:'Job',         plural:'Jobs',          slug:'jobs',         icon:'briefcase', color:'#f59f00' },
-  { name:'Talent Pool', plural:'Talent Pools',  slug:'talent-pools', icon:'layers',    color:'#0ca678' },
-];
 
-const FIELD_SETS = {
-  people: [
-    { name:'First Name', ak:'first_name', type:'text', req:1, list:1, o:1 },
-    { name:'Last Name',  ak:'last_name',  type:'text', req:1, list:1, o:2 },
-    { name:'Email',      ak:'email',      type:'email',req:1, list:1, o:3 },
-    { name:'Phone',      ak:'phone',      type:'phone',list:0, o:4 },
-    { name:'Location',   ak:'location',   type:'text', list:1, o:5 },
-    { name:'Status',     ak:'status',     type:'select',list:1, o:6, opts:['Active','Passive','Not Looking','Placed','Archived'] },
-    { name:'Source',     ak:'source',     type:'select',list:1, o:7, opts:['LinkedIn','Referral','Job Board','Direct Apply','Agency','Other'] },
-    { name:'Current Title',ak:'current_title',type:'text',list:1,o:8 },
-    { name:'Skills',     ak:'skills',     type:'skills',list:0, o:9, opts:[] },
-    { name:'Rating',     ak:'rating',     type:'rating',list:1, o:10 },
-  ],
-  jobs: [
-    { name:'Job Title',  ak:'job_title',  type:'text',  req:1, list:1, o:1 },
-    { name:'Department', ak:'department', type:'select',list:1, o:2, opts:['Engineering','Product','Sales','Marketing','HR','Finance','Operations','Other'] },
-    { name:'Location',   ak:'location',   type:'text',  list:1, o:3 },
-    { name:'Status',     ak:'status',     type:'select',list:1, o:4, opts:['Draft','Open','On Hold','Filled','Cancelled'] },
-  ],
-  'talent-pools': [
-    { name:'Pool Name',  ak:'pool_name',  type:'text',  req:1, list:1, o:1 },
-    { name:'Category',   ak:'category',   type:'select',list:1, o:2, opts:['Technical','Leadership','Sales','Operations','Graduates','Other'] },
-    { name:'Status',     ak:'status',     type:'select',list:1, o:3, opts:['Active','Inactive','Archived'] },
-  ],
-};
 
 function slugify(str) {
   return (str || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32) || 'client';
@@ -125,13 +96,46 @@ router.post('/', async (req, res) => {
 
       ts.environments = [{ id: envId, name: 'Production', slug: 'production', is_default: 1, color: '#6941C6', setup_complete: false, created_at: now, updated_at: now }];
 
-      // Seed objects + fields
+      // Seed objects + fields using the full core_recruitment template (same as SA provisioning)
+      const tplData = buildTemplate('core_recruitment');
       ts.objects = []; ts.fields = [];
-      for (const obj of OBJECTS) {
+      for (let i = 0; i < tplData.objects.length; i++) {
+        const obj   = tplData.objects[i];
         const objId = uuidv4();
-        ts.objects.push({ id:objId, environment_id:envId, name:obj.name, plural_name:obj.plural, slug:obj.slug, icon:obj.icon, color:obj.color, is_system:1, sort_order:OBJECTS.indexOf(obj)+1, relationships_enabled:0, person_type_options: obj.slug==='people'?['Employee','Contractor','Consultant','Candidate','Contact']:null, created_at:now, updated_at:now });
-        for (const f of (FIELD_SETS[obj.slug] || [])) {
-          ts.fields.push({ id:uuidv4(), object_id:objId, environment_id:envId, name:f.name, api_key:f.ak, field_type:f.type, is_required:f.req||0, is_unique:f.uniq||0, is_system:1, show_in_list:f.list!==undefined?f.list:1, show_in_form:1, sort_order:f.o, options:f.opts||null, lookup_object_id:null, default_value:null, placeholder:null, help_text:null, condition_field:null, condition_value:null, created_at:now, updated_at:now });
+        const OBJ_META = {
+          people:       { name:'Person',      plural:'People',       icon:'users',     color:'#3b5bdb' },
+          jobs:         { name:'Job',          plural:'Jobs',          icon:'briefcase', color:'#f59f00' },
+          'talent-pools':{ name:'Talent Pool', plural:'Talent Pools',  icon:'layers',    color:'#0ca678' },
+        };
+        const meta = OBJ_META[obj.slug] || { name: obj.name, plural: obj.plural_name || obj.name+'s', icon:'database', color:'#6941C6' };
+        ts.objects.push({
+          id:objId, environment_id:envId,
+          name:meta.name, plural_name:meta.plural,
+          slug:obj.slug, icon:meta.icon, color:meta.color,
+          is_system:1, sort_order:i+1, relationships_enabled:0,
+          person_type_options: obj.slug==='people'?['Employee','Contractor','Consultant','Candidate','Contact']:null,
+          created_at:now, updated_at:now,
+        });
+        let sortOrder = 0;
+        for (const f of (obj.fields || [])) {
+          sortOrder++;
+          ts.fields.push({
+            id:uuidv4(), object_id:objId, environment_id:envId,
+            name:f.name, api_key:f.api_key, field_type:f.field_type,
+            is_required:f.is_required?1:0, is_unique:0, is_system:1,
+            show_in_list:f.show_in_list?1:0, show_in_form:1,
+            sort_order:sortOrder,
+            options:f.options||null,
+            section_label:f.section_label||null,
+            collapsible:f.collapsible?1:0,
+            as_panel:f.as_panel?1:0,
+            condition_field:f.condition_field||null,
+            condition_value:f.condition_value||null,
+            related_object_slug:f.related_object_slug||null,
+            people_multi:f.people_multi?1:0,
+            lookup_object_id:null, default_value:null, placeholder:null, help_text:null,
+            created_at:now, updated_at:now,
+          });
         }
       }
 

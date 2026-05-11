@@ -7302,15 +7302,18 @@ export const PANEL_META = {
 };
 
 export const getDefaultPanelOrder = (objectName) => {
-  const base = ["tasks","comms","notes","attachments","forms","activity","agents"];
-  if (objectName === "Person") base.splice(1, 0, "linked", "coordination", "reporting");
-  if (["Person","Job"].includes(objectName)) base.push("match");
-  if (objectName === "Person") base.push("assessments");
-  if (objectName === "Person") base.push("engagement");
-  if (objectName === "Job") { base.unshift("interview_plan"); base.splice(base.indexOf("tasks") + 1, 0, "coordination"); base.push("questions"); base.push("job_tasks"); base.push("bias_scan"); }
-  if (objectName === "Job" || objectName === "Jobs") base.unshift("insights");
-
-  return base;
+  // Person: Tasks > Linked Records > Interviews > Communications > Notes > Files > Forms > Activity > AI Agents > Recommendations > Assessments > Engagement
+  if (objectName === "Person") return [
+    "tasks","linked","coordination","comms","notes","attachments","forms",
+    "activity","agents","match","assessments","engagement"
+  ];
+  // Job: Insights > Recommendations > Interview Plan > Interviews > Screening & IQ > Scorecard > Job Tasks > Tasks > Notes > Files > Forms > AI Agents > Communications > Bias Scanner > Activity
+  if (objectName === "Job" || objectName === "Jobs") return [
+    "insights","match","interview_plan","coordination","questions","scorecard",
+    "job_tasks","tasks","notes","attachments","forms","agents","comms","bias_scan","activity"
+  ];
+  // Default for other objects
+  return ["tasks","comms","notes","attachments","forms","activity","agents","match"];
 };
 
 // ─── Forms Panel ─────────────────────────────────────────────────────────────
@@ -9078,7 +9081,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const leftStorageKey   = `talentos_panels_left_${objectName}`;
   const topStorageKey    = `talentos_panels_top_${objectName}`;
   const bottomStorageKey = `talentos_panels_bottom_${objectName}`;
-  const PANEL_VERSION    = "v17"; // object-scoped collapse keys; sections expanded by default
+  const PANEL_VERSION    = "v18"; // panel order matches Job/Person screenshots
   const versionKey       = `talentos_panels_version_${objectName}`;
 
   // ── Single atomic layout load — deduplicates all 4 zones together ───────

@@ -263,9 +263,9 @@ async function applyStarterConfig(tenantSlug, environment, objects, clientData={
 
     // Seed default panel layout config so record detail panels match the designed order
     if (!store.panel_layouts) store.panel_layouts = [];
-    // These match getDefaultPanelOrder() in Records.jsx — left col always ['fields']
-    const PEOPLE_PANEL_ORDER = ['tasks','linked','coordination','reporting','comms','notes','attachments','forms','activity','agents','match','assessments','engagement'];
-    const JOBS_PANEL_ORDER   = ['insights','interview_plan','tasks','coordination','comms','notes','attachments','forms','activity','agents','match','questions','job_tasks','bias_scan'];
+    // These match getDefaultPanelOrder() in Records.jsx v18 — left col always ['fields']
+    const PEOPLE_PANEL_ORDER = ['tasks','linked','coordination','comms','notes','attachments','forms','activity','agents','match','assessments','engagement'];
+    const JOBS_PANEL_ORDER   = ['insights','match','interview_plan','coordination','questions','scorecard','job_tasks','tasks','notes','attachments','forms','agents','comms','bias_scan','activity'];
     if (!store.panel_layouts.find(p => p.environment_id === envId && p.object_slug === 'people')) {
       store.panel_layouts.push({ id: scUuid(), environment_id: envId, object_slug: 'people', panel_order: PEOPLE_PANEL_ORDER, created_at: now2, updated_at: now2 });
     }

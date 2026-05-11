@@ -11,7 +11,22 @@ const SA_PASSWORD = process.env.SUPER_ADMIN_PASSWORD || 'talentos-internal-2026'
 router.post('/auth', (req, res) => {
   const { password } = req.body;
   if (password === SA_PASSWORD) {
-    res.json({ ok: true, token: Buffer.from(`sa:${Date.now()}`).toString('base64') });
+    // Find the super admin user to return their ID — used by the console for API calls
+    const { getStore } = require('../db/init');
+    const store = getStore();
+    const admin = (store.users || []).find(u =>
+      (u.role?.slug === 'super_admin' || (store.roles||[]).find(r=>r.id===u.role_id)?.slug === 'super_admin')
+      && u.status !== 'deactivated'
+    ) || (store.users||[])[0];
+    // Set a server-side session so API calls from the SA console are authenticated
+    req.session.userId     = admin?.id;
+    req.session.tenantSlug = store.tenant?.slug || 'production';
+    req.session.save(() => {});
+    res.json({
+      ok: true,
+      token:   Buffer.from(`sa:${Date.now()}`).toString('base64'),
+      user_id: admin?.id || null,
+    });
   } else {
     res.status(401).json({ error: 'Invalid password' });
   }

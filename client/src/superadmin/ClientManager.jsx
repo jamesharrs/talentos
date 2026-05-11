@@ -10,7 +10,12 @@ const C = {
 
 const saFetch = (url, opts = {}) => {
   const h = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
-  return fetch(url, { ...opts, headers: h });
+  // Add CSRF token for mutations
+  if (opts.method && opts.method !== 'GET') {
+    const csrf = document.cookie.match(/vercentic_csrf=([^;]+)/);
+    if (csrf) h['X-CSRF-Token'] = decodeURIComponent(csrf[1]);
+  }
+  return fetch(url, { credentials: 'include', ...opts, headers: h });
 };
 const sa = {
   get:        p     => saFetch(`/api/superadmin/clients${p}`).then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); }),
@@ -202,7 +207,7 @@ function DemoDataTab({ client, stats }) {
     if (!envId) { setError('No environment found for this client'); return; }
     setSeeding(true); setLog([]); setProgress(0); setResults(null); setError(null);
     try {
-      const resp = await fetch('/api/superadmin/demo/seed', {
+      const resp = await saFetch('/api/superadmin/demo/seed', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ environment_id: envId, clear_first: clearFirst })
       });
@@ -231,7 +236,7 @@ function DemoDataTab({ client, stats }) {
     if (!envId) return;
     setClearing(true);
     try {
-      const r = await fetch('/api/superadmin/demo/clear', { method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({environment_id:envId}) });
+      const r = await saFetch('/api/superadmin/demo/clear', { method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({environment_id:envId}) });
       const d = await r.json();
       setLog([`Cleared ${d.removed} demo records`]); setResults(null);
     } catch(e) { setError(e.message); }
@@ -376,7 +381,7 @@ function ClientErrorLogsTab({ clientId }) {
   const load = () => {
     setLoading(true);
     const q = new URLSearchParams({ page, limit: LIMIT, ...(search&&{search}), ...(severity&&{severity}) });
-    fetch(`/api/superadmin/clients/${clientId}/error-logs?${q}`)
+    saFetch(`/api/superadmin/clients/${clientId}/error-logs?${q}`)
       .then(r=>r.json()).then(d=>{ setLogs(d.logs||[]); setTotal(d.total||0); setLoading(false); })
       .catch(()=>setLoading(false));
   };
@@ -442,7 +447,7 @@ function ClientActivityTab({ clientId }) {
   const load = () => {
     setLoading(true);
     const q = new URLSearchParams({ page, limit: LIMIT, ...(search&&{search}) });
-    fetch(`/api/superadmin/clients/${clientId}/activity?${q}`)
+    saFetch(`/api/superadmin/clients/${clientId}/activity?${q}`)
       .then(r=>r.json()).then(d=>{ setItems(d.items||[]); setTotal(d.total||0); setLoading(false); })
       .catch(()=>setLoading(false));
   };
@@ -508,7 +513,7 @@ function CreateClientUserModal({ client, onClose, onCreated }) {
     // Load roles from the first available environment
     const envId = environments[0]?.id;
     if (!envId) return;
-    fetch(`/api/roles`,{headers:{'Content-Type':'application/json','X-User-Id':localStorage.getItem('sa_uid')||''}})
+    saFetch(`/api/roles`,{headers:{'Content-Type':'application/json','X-User-Id':localStorage.getItem('sa_uid')||''}})
       .then(r=>r.json()).then(d=>{ if(Array.isArray(d)) setRoles(d); }).catch(()=>{});
     setForm(f=>({...f, environment_id: envId}));
   },[]);
@@ -519,7 +524,7 @@ function CreateClientUserModal({ client, onClose, onCreated }) {
     }
     setSaving(true); setError(null);
     try {
-      const res = await fetch(`/api/superadmin/clients/${client.id}/users`,{
+      const res = await saFetch(`/api/superadmin/clients/${client.id}/users`,{
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify(form),
       });
@@ -601,7 +606,7 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
   const loadPortalUsers = async () => {
     if (!clientId) return;
     setLoadingPortal(true);
-    const res = await fetch(`/api/portal-auth/users?client_id=${clientId}`).then(r=>r.json()).catch(()=>[]);
+    const res = await saFetch(`/api/portal-auth/users?client_id=${clientId}`).then(r=>r.json()).catch(()=>[]);
     setPortalUsers(Array.isArray(res) ? res : []);
     setLoadingPortal(false);
   };
@@ -627,14 +632,14 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
 
   const revokePortalUser = async (uid) => {
     if (!(await window.__confirm({ title:'Deactivate this portal user? They will no longer be able to log in to /support.' }))) return;
-    await fetch(`/api/portal-auth/users/${uid}`, { method:'DELETE' });
+    await fetch(`/api/portal-auth/users/${uid}`, {credentials:'include',  method:'DELETE' });
     loadPortalUsers();
   };
 
   const onRefresh = () => {
-    fetch(`/api/superadmin/clients/${clientId}`,{headers:{'Content-Type':'application/json'}})
+    saFetch(`/api/superadmin/clients/${clientId}`,{headers:{'Content-Type':'application/json'}})
       .then(r=>r.json()).then(d=>{ if(!d.error) setClient(d); }).catch(()=>{});
-    fetch(`/api/superadmin/clients/${clientId}/stats`,{headers:{'Content-Type':'application/json'}})
+    saFetch(`/api/superadmin/clients/${clientId}/stats`,{headers:{'Content-Type':'application/json'}})
       .then(r=>r.json()).then(d=>{ if(!d.error) setStats(d); }).catch(()=>{});
   };
 
@@ -646,10 +651,10 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
       // Fetch the correct environment ID from the tenant store (not master)
       let tenantEnvId = envId;
       if (slug) {
-        const envs = await fetch(`/api/environments?tenant=${slug}`).then(r=>r.json()).catch(()=>[]);
+        const envs = await saFetch(`/api/environments?tenant=${slug}`).then(r=>r.json()).catch(()=>[]);
         if (Array.isArray(envs) && envs.length > 0) tenantEnvId = envs[0].id;
       }
-      const r = await fetch('/api/superadmin/clients/load-test-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ environment_id: tenantEnvId, tenant_slug: slug }) });
+      const r = await saFetch('/api/superadmin/clients/load-test-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ environment_id: tenantEnvId, tenant_slug: slug }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Failed');
       setTdResults(prev => ({ ...prev, [envId]: d }));
@@ -1048,7 +1053,7 @@ export function ProvisionWizard({ onDone, onCancel }) {
     template:'core_recruitment',
   });
 
-  useEffect(()=>{ fetch('/api/superadmin/clients/provision/templates').then(r=>r.json()).then(setTemplates).catch(()=>{}); },[]);
+  useEffect(()=>{ saFetch('/api/superadmin/clients/provision/templates').then(r=>r.json()).then(setTemplates).catch(()=>{}); },[]);
 
   const set=(k,v)=>{ setForm(f=>({...f,[k]:v})); setErrors(e=>({...e,[k]:null})); };
 
@@ -1062,7 +1067,7 @@ export function ProvisionWizard({ onDone, onCancel }) {
   const submit=async()=>{
     setSubmitting(true);
     try {
-      const r=await fetch('/api/superadmin/clients/provision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      const r=await saFetch('/api/superadmin/clients/provision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
         client:{name:form.client_name,industry:form.industry,region:form.region,plan:form.plan,size:form.size,contact_name:form.contact_name,contact_email:form.contact_email,contact_phone:form.contact_phone,website:form.website,notes:form.notes},
         environment:{name:form.env_name||`${form.client_name} Production`,type:form.env_type,locale:form.locale,timezone:form.timezone},
         admin_user:{first_name:form.admin_first,last_name:form.admin_last,email:form.admin_email,password:form.admin_password},
@@ -1079,7 +1084,7 @@ export function ProvisionWizard({ onDone, onCancel }) {
     if (!(await window.__confirm({ title:'Load standard test data? This adds 15 people, 8 jobs and 3 talent pools.' }))) return;
     setLoadingTD(true); setTdResult(null);
     try {
-      const r = await fetch('/api/superadmin/clients/load-test-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ environment_id: envId, tenant_slug: null }) });
+      const r = await saFetch('/api/superadmin/clients/load-test-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ environment_id: envId, tenant_slug: null }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Failed');
       setTdResult(d);
@@ -1271,7 +1276,7 @@ export function ProvisionWizard({ onDone, onCancel }) {
 
 export function Performance() {
   const [stats,setStats]=useState(null); const [loading,setLoading]=useState(true); const [r,setR]=useState(0);
-  useEffect(()=>{ setLoading(true); fetch('/api/superadmin/clients/stats/platform').then(x=>x.json()).then(d=>{ setStats(d); setLoading(false); }); },[r]);
+  useEffect(()=>{ setLoading(true); saFetch('/api/superadmin/clients/stats/platform').then(x=>x.json()).then(d=>{ setStats(d); setLoading(false); }); },[r]);
 
   if(loading) return <div style={{color:C.text3,padding:40,textAlign:'center'}}>Loading…</div>;
   if(!stats)  return <div style={{color:C.red,padding:40}}>Failed to load stats.</div>;

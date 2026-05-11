@@ -1,5 +1,14 @@
 // client/src/superadmin/ErrorLogViewer.jsx
 import { useState, useEffect, useCallback } from 'react';
+const saFetch = (url, opts = {}) => {
+  const h = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (opts.method && opts.method !== 'GET') {
+    const csrf = document.cookie.match(/vercentic_csrf=([^;]+)/);
+    if (csrf) h['X-CSRF-Token'] = decodeURIComponent(csrf[1]);
+  }
+  return fetch(url, { credentials: 'include', ...opts, headers: h });
+};
+
 
 const F = "'DM Sans', -apple-system, sans-serif";
 const C = {
@@ -61,8 +70,8 @@ export default function ErrorLogViewer() {
     if (resolvedFilter !== 'all') p.set('resolved', resolvedFilter === 'resolved' ? 'true' : 'false');
     if (search) p.set('search', search);
     const [data, s] = await Promise.all([
-      fetch(`/api/error-logs?${p}`).then(r=>r.json()),
-      fetch('/api/error-logs/meta/stats').then(r=>r.json()),
+      saFetch(`/api/error-logs?${p}`).then(r=>r.json()),
+      saFetch('/api/error-logs/meta/stats').then(r=>r.json()),
     ]);
     setLogs(data.logs || []);
     setTotal(data.total || 0);
@@ -74,7 +83,7 @@ export default function ErrorLogViewer() {
 
   const handleResolve = async (log, resolved = true) => {
     setResolving(true);
-    await fetch(`/api/error-logs/${log.id}/resolve`, {
+    await saFetch(`/api/error-logs/${log.id}/resolve`, {
       method:'PATCH', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ resolved, resolution_note: note }),
     });
@@ -83,14 +92,14 @@ export default function ErrorLogViewer() {
 
   const handleDelete = async (log) => {
     if (!(await window.__confirm({ title:'Delete this error log permanently?', danger:true }))) return;
-    await fetch(`/api/error-logs/${log.id}`, { method:'DELETE' });
+    await saFetch(`/api/error-logs/${log.id}`, {credentials:'include',  method:'DELETE' });
     setSelected(null); load();
   };
 
   const analyseError = async (log) => {
     setAiAnalysis(prev => ({ ...prev, [log.id]: { loading: true, result: null, error: null } }));
     try {
-      const res = await fetch('/api/ai/chat', {
+      const res = await saFetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

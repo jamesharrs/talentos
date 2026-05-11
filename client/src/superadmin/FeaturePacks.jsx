@@ -1,5 +1,14 @@
 // client/src/superadmin/FeaturePacks.jsx
 import { useState, useEffect, useCallback } from 'react';
+const saFetch = (url, opts = {}) => {
+  const h = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (opts.method && opts.method !== 'GET') {
+    const csrf = document.cookie.match(/vercentic_csrf=([^;]+)/);
+    if (csrf) h['X-CSRF-Token'] = decodeURIComponent(csrf[1]);
+  }
+  return fetch(url, { credentials: 'include', ...opts, headers: h });
+};
+
 
 const C = { bg:'#0D0F1A', surface:'#151828', surface2:'#1C2035', border:'#2A2F4A', text1:'#F0F4FF', text2:'#A8B4D8', text3:'#6B7599', accent:'#7C5CDB', green:'#0CA678', amber:'#F59F00' };
 const F = "'DM Sans', sans-serif";
@@ -51,7 +60,7 @@ export default function FeaturePacksAdmin({ environmentId, readOnly = false }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res  = await fetch(`/api/feature-packs?environment_id=${environmentId}`);
+      const res  = await saFetch(`/api/feature-packs?environment_id=${environmentId}`);
       const data = await res.json();
       setCatalogue(Array.isArray(data) ? data : []);
     } catch { setCatalogue([]); }
@@ -64,7 +73,7 @@ export default function FeaturePacksAdmin({ environmentId, readOnly = false }) {
     if (readOnly || saving) return;
     setSaving(key);
     try {
-      await fetch(`/api/feature-packs/${key}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ environment_id:environmentId, enabled:newValue }) });
+      await saFetch(`/api/feature-packs/${key}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ environment_id:environmentId, enabled:newValue }) });
       setCatalogue(c => c.map(p => p.key===key ? { ...p, enabled:newValue } : p));
     } catch { await load(); }
     setSaving(null);
@@ -87,7 +96,7 @@ export default function FeaturePacksAdmin({ environmentId, readOnly = false }) {
             <button onClick={async () => {
               const keys = catalogue.filter(p => !p.is_core && !p.enabled).map(p => p.key);
               setSaving('bulk');
-              await fetch('/api/feature-packs/bulk', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ environment_id:environmentId, keys }) });
+              await saFetch('/api/feature-packs/bulk', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ environment_id:environmentId, keys }) });
               await load(); setSaving(null);
             }} style={{ padding:'7px 14px', borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', color:C.text2, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:F }}>
               Enable all

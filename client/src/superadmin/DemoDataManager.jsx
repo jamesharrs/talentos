@@ -4,9 +4,7 @@
  */
 import { useState, useEffect, useRef } from 'react';
 
-// Railway URL — SSE streams don't work through Vercel's edge proxy (it buffers responses)
-const RAILWAY_URL = 'https://talentos-production-4045.up.railway.app';
-const apiUrl = (path) => `${RAILWAY_URL}/api${path}`;
+const apiUrl = (path) => `/api${path}`;
 
 const S = {
   page:  { fontFamily:"'Geist',-apple-system,sans-serif", color:'#e2e8f0', padding:32, maxWidth:860 },
@@ -67,7 +65,7 @@ export default function DemoDataManager() {
   });
 
   useEffect(() => {
-    fetch(apiUrl('/superadmin/demo/environments'))
+    fetch(apiUrl('/superadmin/demo/environments'), {credentials:'include'})
       .then(r => r.json())
       .then(data => {
         if (!Array.isArray(data)) return;
@@ -87,8 +85,7 @@ export default function DemoDataManager() {
   useEffect(() => {
     if (!envId) return;
     setStatus(null);
-    fetch(apiUrl(`/superadmin/demo/status?environment_id=${envId}`), {
-      headers: selectedTenantSlug ? { 'X-Tenant-Slug': selectedTenantSlug } : {},
+    fetch(apiUrl(`/superadmin/demo/status?environment_id=${envId}`), {credentials:'include', headers: selectedTenantSlug ? { 'X-Tenant-Slug': selectedTenantSlug} : {},
     })
       .then(r => r.json()).then(setStatus).catch(() => {});
   }, [envId]);
@@ -109,9 +106,8 @@ export default function DemoDataManager() {
     addLog(`Seeding environment: ${selectedEnv?.name || envId}`, 'dim');
     console.log('[DemoSeed] Seeding environment_id:', envId, 'name:', selectedEnv?.name);
     try {
-      const res = await fetch(apiUrl('/superadmin/demo/seed'), {
-        method:'POST', headers: tenantHeaders(),
-        body:JSON.stringify({ environment_id:envId, clear_first:clearFirst }),
+      const res = await fetch(apiUrl('/superadmin/demo/seed'), {credentials:'include', method:'POST', headers: tenantHeaders(),
+        body:JSON.stringify({ environment_id:envId, clear_first:clearFirst}),
       });
       const reader  = res.body.getReader();
       const dec     = new TextDecoder();
@@ -130,8 +126,7 @@ export default function DemoDataManager() {
             if (evt.step === 'complete') {
               setResults(evt.results);
               addLog(`✓ Done! ${evt.results.candidates} candidates, ${evt.results.jobs} jobs`, 'success');
-              fetch(apiUrl(`/superadmin/demo/status?environment_id=${envId}`), {
-                headers: selectedTenantSlug ? { 'X-Tenant-Slug': selectedTenantSlug } : {},
+              fetch(apiUrl(`/superadmin/demo/status?environment_id=${envId}`), {credentials:'include', headers: selectedTenantSlug ? { 'X-Tenant-Slug': selectedTenantSlug} : {},
               }).then(r=>r.json()).then(setStatus);
             }
             if (evt.step === 'error') setError(evt.message);
@@ -147,9 +142,8 @@ export default function DemoDataManager() {
     if (!(await window.__confirm({ title:'Remove all demo data from this environment?', danger:true }))) return;
     setClearing(true); addLog('Clearing demo data…', 'dim');
     try {
-      const res = await fetch(apiUrl('/superadmin/demo/clear'), {
-        method:'DELETE', headers: tenantHeaders(),
-        body:JSON.stringify({ environment_id:envId }),
+      const res = await fetch(apiUrl('/superadmin/demo/clear'), {credentials:'include', method:'DELETE', headers: tenantHeaders(),
+        body:JSON.stringify({ environment_id:envId}),
       });
       const data = await res.json();
       addLog(`Removed ${data.removed} records`, 'success');

@@ -61,7 +61,7 @@ function LoginScreen({ onAuth }) {
   const submit = async () => {
     setBusy(true); setErr('');
     const res = await api.post('/auth', { password: pw });
-    if (res.ok) { onAuth(res.token); }
+    if (res.ok) { onAuth(res.token, res.user_id); }
     else { setErr('Invalid password'); setBusy(false); }
   };
 
@@ -534,7 +534,11 @@ export default function SuperAdminConsole() {
   const [clientView,       setClientView]       = useState('list');
   const [selectedClientId, setSelectedClientId] = useState(null);
 
-  if (!authed) return <LoginScreen onAuth={token => { sessionStorage.setItem('sa_token', token); setAuthed(true); }}/>;
+  if (!authed) return <LoginScreen onAuth={(token, userId) => {
+    sessionStorage.setItem('sa_token', token);
+    if (userId) sessionStorage.setItem('sa_uid', userId);
+    setAuthed(true);
+  }}/>;
 
   return (
     <div style={{ minHeight:'100vh', background:C.bg, display:'flex', fontFamily:F, color:C.text1 }}>
@@ -570,7 +574,7 @@ export default function SuperAdminConsole() {
 
         {/* Footer */}
         <div style={{ padding:'12px 18px', borderTop:`1px solid ${C.border}` }}>
-          <button onClick={()=>{ sessionStorage.removeItem('sa_token'); setAuthed(false); }}
+          <button onClick={()=>{ sessionStorage.removeItem('sa_token'); sessionStorage.removeItem('sa_uid'); setAuthed(false); }}
             style={{ fontSize:11, color:C.text3, background:'none', border:'none', cursor:'pointer', fontFamily:F, padding:0 }}>
             → Sign out
           </button>

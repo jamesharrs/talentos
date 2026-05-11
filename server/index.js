@@ -201,6 +201,7 @@ const AUTH_EXEMPT = [
   '/auth/login', '/auth/me',
   '/users/login', '/users/auth/login', '/users/logout', '/users/exchange-impersonation',
   '/health', '/environments',
+  '/favicon.ico', '/favicon.svg', '/robots.txt',
   '/events/stream', '/events/status',
   '/notification-preferences/digest',
   '/digest/preview',
@@ -489,6 +490,11 @@ app.use('/api/chrome-import',     require('./routes/chrome_import'));
 require('./routes/enterprise_settings').migrate();
 require('./routes/skills_intelligence').migrate();
 require('./routes/datasets').migrate();
+
+// Serve favicon — prevents 403 if request somehow reaches Railway
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+app.get('/favicon.svg', (req, res) => res.status(204).end());
+app.get('/robots.txt',  (req, res) => res.type('text/plain').send('User-agent: *\nDisallow: /api/\n'));
 
 app.get('/api/health', (req, res) => {
   if (!storeReady) return res.status(503).json({ status: 'starting' });

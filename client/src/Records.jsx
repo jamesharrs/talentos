@@ -4829,7 +4829,7 @@ const KanbanView = ({ records, fields, objectColor, onSelect, onEdit, onDelete, 
                     onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
                     onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.05)";e.currentTarget.style.transform="none";}}>
                     <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
-                      <Avatar name={fullTitle||"?"} color={colColor} size={30}/>
+                      <Avatar name={fullTitle||"?"} color={colColor} size={30} photoUrl={record.data?.profile_photo||record.data?.photo_url}/>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:13, fontWeight:700, color:"#4361EE", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{fullTitle||"Untitled"}</div>
                         {sub && <div style={{ fontSize:11, color:C.text3, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{sub}</div>}

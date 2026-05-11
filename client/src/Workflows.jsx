@@ -2665,8 +2665,10 @@ function AddPersonModal({ steps, personRecords, peopleLinks, environment, onAdd,
                   borderRadius:9, border:"none", background: hov===p.id?"#f5f3ff":"transparent",
                   cursor:"pointer", textAlign:"left", fontFamily:F, transition:"background .1s" }}>
                 <div style={{ width:34, height:34, borderRadius:"50%", background:"linear-gradient(135deg,#7c3aed,#a78bfa)",
-                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:700, color:"white", flexShrink:0 }}>
-                  {initials||"?"}
+                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:700, color:"white", flexShrink:0, overflow:"hidden", position:"relative" }}>
+                  {p.data?.profile_photo || p.data?.photo_url
+                    ? <img src={p.data.profile_photo||p.data.photo_url} alt={name} style={{ width:"100%", height:"100%", objectFit:"cover", position:"absolute", inset:0, borderRadius:"50%" }} onError={e=>{e.target.style.display="none";}}/>
+                    : (initials||"?")}
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:13, fontWeight:600, color:C.accent, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{name}</div>
@@ -3499,8 +3501,10 @@ export function PeoplePipelineWidget({ record, objectId, environment, onNavigate
                             )}
                           </div>
                           {/* Avatar */}
-                          <div style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,#7c3aed,#a78bfa)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, fontWeight:800, color:"white", flexShrink:0, letterSpacing:1 }}>
-                            {initials}
+                          <div style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,#7c3aed,#a78bfa)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, fontWeight:800, color:"white", flexShrink:0, letterSpacing:1, overflow:"hidden", position:"relative" }}>
+                            {d.profile_photo || d.photo_url
+                              ? <img src={d.profile_photo||d.photo_url} alt={name} style={{ width:"100%", height:"100%", objectFit:"cover", borderRadius:"50%", position:"absolute", inset:0 }} onError={e=>{e.target.style.display="none";}}/>
+                              : initials}
                           </div>
                           {/* Name */}
                           <div style={{ textAlign:"center" }}>

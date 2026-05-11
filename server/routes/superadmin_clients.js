@@ -1375,9 +1375,18 @@ router.post('/:id/repair-users', express.json(), async (req, res) => {
   const tenantSlug = client.tenant_slug;
   const ts = loadTenantStore(tenantSlug);
 
-  // Check if user already exists
-  const existing = (ts.users||[]).find(u => u.email === email.toLowerCase() && !u.deleted_at);
-  if (existing) return res.json({ ok: true, message: 'User already exists', user_id: existing.id });
+  // Check if user already exists — if so, update the password hash
+  const existingIdx = (ts.users||[]).findIndex(u => u.email === email.toLowerCase() && !u.deleted_at);
+  if (existingIdx >= 0) {
+    const existing = ts.users[existingIdx];
+    // Always reset password so admin can recover access
+    const cryp = require('crypto');
+    const salt2 = cryp.randomBytes(16).toString('hex');
+    const hash2 = cryp.createHash('sha256').update(password + salt2).digest('hex');
+    ts.users[existingIdx] = { ...existing, password_hash: `${salt2}:${hash2}`, must_change_password: 0, updated_at: new Date().toISOString() };
+    saveStoreNow(tenantSlug);
+    return res.json({ ok: true, message: 'User password updated', user_id: existing.id });
+  }
 
   // Get environment id
   const env = (ts.environments||[])[0] || (s.environments||[]).find(e => e.tenant_slug === tenantSlug);
@@ -1428,6 +1437,103 @@ router.post('/:id/repair-users', express.json(), async (req, res) => {
   }
 
   res.json({ ok: true, user_id: userId, environment_id: env.id, tenant_slug: tenantSlug });
+});
+
+// ── POST /:id/seed-objects — seed full template into existing tenant (repair empty tenants) ──
+router.post('/:id/seed-objects', express.json(), async (req, res) => {
+  ensureCollections();
+  const s = getStore();
+  const client = (s.clients||[]).find(c => c.id === req.params.id && !c.deleted_at);
+  if (!client) return res.status(404).json({ error: 'Client not found' });
+
+  const { template_key = 'core_recruitment', force = false } = req.body;
+  const tenantSlug = client.tenant_slug;
+  if (!tenantSlug) return res.status(400).json({ error: 'Client has no tenant slug' });
+
+  const ts = loadTenantStore(tenantSlug);
+
+  // Check if tenant already has objects (unless force=true)
+  if (!force && (ts.objects||[]).length > 0) {
+    return res.json({ ok: true, message: `Tenant already has ${ts.objects.length} objects — pass force:true to reseed`, objects: ts.objects.length });
+  }
+
+  // Find environment
+  const env = (ts.environments||[])[0];
+  if (!env) return res.status(400).json({ error: 'No environment in tenant store' });
+
+  // Resolve template (TEMPLATES is defined at the top of this file)
+  const tpl = TEMPLATES?.[template_key] || TEMPLATES?.['core_recruitment'];
+  if (!tpl) return res.status(400).json({ error: 'Unknown template: ' + template_key });
+
+  const now = new Date().toISOString();
+  const createdObjects = [];
+  const createdFields = [];
+
+  // Use the same object/field seeding logic as the main provision function
+  let templateObjects = JSON.parse(JSON.stringify(tpl.objects || []));
+  if (tpl.extra_objects) templateObjects = [...templateObjects, ...tpl.extra_objects];
+
+  await tenantStorage.run(tenantSlug, async () => {
+    const store = getStore();
+    if (!store.objects) store.objects = [];
+    if (!store.fields)  store.fields  = [];
+    if (!store.roles)   store.roles   = [];
+
+    // Seed objects + fields
+    templateObjects.forEach((obj, idx) => {
+      const objId = uuidv4();
+      const objRecord = {
+        id: objId, environment_id: env.id,
+        name: obj.name, plural_name: obj.plural_name||obj.name+'s',
+        slug: obj.slug, icon: obj.icon||'circle', color: obj.color||'#6941C6',
+        is_system: 1, sort_order: idx,
+        relationships_enabled: 0,
+        person_type_options: obj.slug==='people' ? ['Employee','Contractor','Consultant','Candidate','Contact'] : null,
+        created_at: now, updated_at: now, deleted_at: null,
+      };
+      store.objects.push(objRecord);
+      createdObjects.push(objRecord);
+
+      (obj.fields||[]).forEach((f, fi) => {
+        const fieldRecord = {
+          id: uuidv4(), object_id: objId, environment_id: env.id,
+          name: f.name, api_key: f.api_key||f.name.toLowerCase().replace(/\s+/g,'_'),
+          field_type: f.field_type||'text',
+          is_required: f.is_required||0, is_unique: f.is_unique||0,
+          is_system: 1, show_in_list: f.show_in_list!==undefined?f.show_in_list:1, show_in_form: 1,
+          sort_order: fi, options: f.options||null,
+          condition_field: f.condition_field||null, condition_value: f.condition_value||null,
+          created_at: now, updated_at: now,
+        };
+        store.fields.push(fieldRecord);
+        createdFields.push(fieldRecord);
+      });
+    });
+
+    // Seed default roles if missing
+    if (store.roles.length === 0) {
+      ['Super Admin','Admin','Recruiter','Hiring Manager','Read Only'].forEach((name, i) => {
+        const slug = name.toLowerCase().replace(/\s+/g,'_');
+        store.roles.push({ id: uuidv4(), name, slug, color: ['#6941C6','#3B82F6','#059669','#F59E0B','#9CA3AF'][i], is_system: 1, created_at: now, updated_at: now });
+      });
+    }
+
+    saveStoreNow(tenantSlug);
+  });
+
+  // Apply starter config (workflows, email templates, stage categories, etc.)
+  try {
+    await applyStarterConfig(tenantSlug, env, createdObjects, { name: client.name });
+  } catch(e) {
+    console.warn('[seed-objects] starter config error (non-fatal):', e.message);
+  }
+
+  res.json({
+    ok: true,
+    objects_created: createdObjects.length,
+    fields_created: createdFields.length,
+    objects: createdObjects.map(o => ({ id: o.id, slug: o.slug, name: o.name })),
+  });
 });
 
 module.exports = router;

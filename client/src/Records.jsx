@@ -9021,12 +9021,12 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const [showCampaignLinks, setShowCampaignLinks] = useState(false);
   // Track which custom sections are collapsed (by separatorId)
   const [collapsedSections, setCollapsedSections] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(`talentos_collapsed_${objectName}`)) || {}; } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem(`talentos_collapsed_${objectName}_${record?.object_id}`)) || {}; } catch { return {}; }
   });
   const toggleSection = (id) => {
     setCollapsedSections(prev => {
       const next = { ...prev, [id]: !prev[id] };
-      localStorage.setItem(`talentos_collapsed_${objectName}`, JSON.stringify(next));
+      localStorage.setItem(`talentos_collapsed_${objectName}_${record?.object_id}`, JSON.stringify(next));
       return next;
     });
   };
@@ -9045,7 +9045,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
         const anyExpanded = collapsibleIds.some(id => !prev[id]);
         const next = {};
         collapsibleIds.forEach(id => { next[id] = anyExpanded; }); // true = collapsed
-        localStorage.setItem(`talentos_collapsed_${objectName}`, JSON.stringify(next));
+        localStorage.setItem(`talentos_collapsed_${objectName}_${record?.object_id}`, JSON.stringify(next));
         return next;
       });
     };
@@ -9073,7 +9073,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const leftStorageKey   = `talentos_panels_left_${objectName}`;
   const topStorageKey    = `talentos_panels_top_${objectName}`;
   const bottomStorageKey = `talentos_panels_bottom_${objectName}`;
-  const PANEL_VERSION    = "v16"; // agents panel added to default order
+  const PANEL_VERSION    = "v17"; // object-scoped collapse keys; sections expanded by default
   const versionKey       = `talentos_panels_version_${objectName}`;
 
   // ── Single atomic layout load — deduplicates all 4 zones together ───────

@@ -212,13 +212,36 @@ router.post('/exchange-impersonation', (req, res) => {
   const role = (ts.roles||[]).find(r => r.id === user.role_id) || null;
   const permissions = role ? ['view','create','edit','delete','export'] : [];
 
-  res.json({
-    ...user,
-    password_hash: undefined,
-    role,
-    permissions,
-    tenant_slug: tokenEntry.tenant_slug,
-    impersonated: true,
+  // ── Establish a real server-side session (same as normal login) ────────────
+  // Without this, all subsequent API calls from the client have no valid
+  // session cookie and the server returns 401 on every request.
+  req.session.userId     = user.id;
+  req.session.tenantSlug = tokenEntry.tenant_slug;
+
+  req.session.save((err) => {
+    if (err) console.error('[impersonation] session save error:', err);
+
+    // Set the CSRF cookie for subsequent mutating requests.
+    // (attachCsrfCookie won't run because req.currentUser isn't set at this point —
+    //  attachUser ran before the session was written.)
+    const crypto = require('crypto');
+    const csrfToken = crypto.randomBytes(32).toString('hex');
+    res.cookie('vercentic_csrf', csrfToken, {
+      httpOnly: false,
+      secure:   process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      domain:   process.env.NODE_ENV === 'production' ? (process.env.COOKIE_DOMAIN || '.vercentic.com') : undefined,
+      maxAge:   8 * 60 * 60 * 1000,
+    });
+
+    res.json({
+      ...user,
+      password_hash: undefined,
+      role,
+      permissions,
+      tenant_slug: tokenEntry.tenant_slug,
+      impersonated: true,
+    });
   });
 });
 

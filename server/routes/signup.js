@@ -251,11 +251,33 @@ router.post('/', async (req, res) => {
     try { require('../middleware/tenant').invalidateTenantCache(); } catch {}
 
     console.log(`[Signup] ✅ ${tenantSlug} provisioned for ${email} (${plan})`);
+
+    // Generate a single-use impersonation token so the first load auto-logs the user in.
+    // Without this the browser has no session and hits 401 on every API call.
+    let loginUrl = `https://${tenantSlug}.vercentic.com`;
+    try {
+      const impToken = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 min
+      await tenantStorage.run('master', () => {
+        const ms = getStore();
+        if (!ms.impersonation_tokens) ms.impersonation_tokens = [];
+        ms.impersonation_tokens.push({
+          token: impToken, client_id: clientId, tenant_slug: tenantSlug,
+          user_id: userId, used: false, expires_at: expiresAt,
+          created_at: new Date().toISOString(),
+        });
+        saveStore('master');
+      });
+      loginUrl = `https://${tenantSlug}.vercentic.com/?impersonate=${impToken}`;
+    } catch (e) {
+      console.warn('[Signup] Could not generate impersonation token:', e.message);
+    }
+
     res.json({
       ok: true, tenant_slug: tenantSlug, environment_id: envId, plan,
       trial_ends_at: trialEnd,
-      login_url: `https://${tenantSlug}.vercentic.com`,
-      credentials: { email: email.toLowerCase(), tenant_slug: tenantSlug, url: `https://${tenantSlug}.vercentic.com` },
+      login_url: loginUrl,
+      credentials: { email: email.toLowerCase(), tenant_slug: tenantSlug, url: loginUrl },
     });
   } catch (err) {
     console.error('[Signup] Error:', err);

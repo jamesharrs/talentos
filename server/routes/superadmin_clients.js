@@ -1361,4 +1361,73 @@ router.get('/:id/environments-with-roles', (req, res) => {
 });
 
 
+// ── POST /:id/repair-users — seed admin user into tenant store if missing ─────
+// Used to fix tenants where signup completed but user was not written to tenant store.
+router.post('/:id/repair-users', express.json(), async (req, res) => {
+  ensureCollections();
+  const s = getStore();
+  const client = (s.clients||[]).find(c => c.id === req.params.id && !c.deleted_at);
+  if (!client) return res.status(404).json({ error: 'Client not found' });
+
+  const { email, password, first_name, last_name } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'email and password required' });
+
+  const tenantSlug = client.tenant_slug;
+  const ts = loadTenantStore(tenantSlug);
+
+  // Check if user already exists
+  const existing = (ts.users||[]).find(u => u.email === email.toLowerCase() && !u.deleted_at);
+  if (existing) return res.json({ ok: true, message: 'User already exists', user_id: existing.id });
+
+  // Get environment id
+  const env = (ts.environments||[])[0] || (s.environments||[]).find(e => e.tenant_slug === tenantSlug);
+  if (!env) return res.status(400).json({ error: 'No environment found for tenant' });
+
+  // Get or create super_admin role
+  let saRole = (ts.roles||[]).find(r => r.slug === 'super_admin');
+  if (!saRole) {
+    saRole = { id: require('crypto').randomUUID(), name: 'Super Admin', slug: 'super_admin', color: '#6941C6', is_system: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    if (!ts.roles) ts.roles = [];
+    ts.roles.push(saRole);
+  }
+
+  const crypto = require('crypto');
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.createHash('sha256').update(password + salt).digest('hex');
+  const userId = crypto.randomUUID();
+
+  const user = {
+    id: userId,
+    environment_id: env.id,
+    client_id: client.id,
+    first_name: first_name || 'Admin',
+    last_name:  last_name  || '',
+    email:      email.toLowerCase(),
+    password_hash: `${salt}:${hash}`,
+    role_id:    saRole.id,
+    role_name:  'Super Admin',
+    status:     'active',
+    is_super_admin: true,
+    must_change_password: 0,
+    mfa_enabled: 0,
+    login_count: 0,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    deleted_at: null,
+  };
+
+  if (!ts.users) ts.users = [];
+  ts.users.push(user);
+  saveStoreNow(tenantSlug);
+
+  // Also register in master client_users
+  if (!s.client_users) s.client_users = [];
+  if (!s.client_users.find(u => u.email === email.toLowerCase() && u.tenant_slug === tenantSlug)) {
+    s.client_users.push({ id: userId, client_id: client.id, tenant_slug: tenantSlug, environment_id: env.id, first_name: first_name||'Admin', last_name: last_name||'', email: email.toLowerCase(), role_name: 'Super Admin', status: 'active', source: 'repair', created_at: new Date().toISOString() });
+    saveStore('master');
+  }
+
+  res.json({ ok: true, user_id: userId, environment_id: env.id, tenant_slug: tenantSlug });
+});
+
 module.exports = router;

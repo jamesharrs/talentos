@@ -14,17 +14,19 @@ function getSession() {
 }
 
 function getTenantSlug() {
+  // Check the subdomain FIRST — it's the authoritative source on production.
+  // Only fall back to the session if no subdomain is present (e.g. localhost, app.vercentic.com).
+  const host = window.location.hostname;
+  const parts = host.split('.');
+  const reserved = ['www','app','api','admin','localhost','client','portal'];
+  const isDeployedSubdomain = parts.length >= 2 && !reserved.includes(parts[0]) &&
+    !['vercel','railway','up','netlify','localhost'].some(r => host.includes(r));
+  if (isDeployedSubdomain) return parts[0];
+
   const sess = getSession();
   if (sess?.tenant_slug && sess.tenant_slug !== 'master') return sess.tenant_slug;
   const params = new URLSearchParams(window.location.search);
   if (params.get('tenant')) return params.get('tenant');
-  const host = window.location.hostname;
-  const parts = host.split('.');
-  const reserved = ['www','app','api','admin','localhost','client','portal'];
-  if (parts.length >= 2 && !reserved.includes(parts[0]) &&
-      !['vercel','railway','up','netlify','localhost'].some(r => host.includes(r))) {
-    return parts[0];
-  }
   return null;
 }
 

@@ -1906,6 +1906,21 @@ function App({ onEnvReady }) {
         const def = (userEnvId && envs.find(e => e.id === userEnvId))
                  || envs.find(e => e.is_default)
                  || envs[0];
+        // If the stored environment_id doesn't match any env in this tenant,
+        // update localStorage so all subsequent API calls use the correct ID.
+        if (def && userEnvId && def.id !== userEnvId) {
+          try {
+            const raw = localStorage.getItem('talentos_session');
+            if (raw) {
+              const stored = JSON.parse(raw);
+              if (stored?.user) {
+                stored.user.environment_id = def.id;
+                localStorage.setItem('talentos_session', JSON.stringify(stored));
+                setSession(stored); // sync React state
+              }
+            }
+          } catch {}
+        }
         // Only update selectedEnv if the ID actually changed — prevents spurious
         // re-renders that clear navObjects when environments are re-fetched
         if (def) {

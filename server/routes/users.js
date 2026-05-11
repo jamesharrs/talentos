@@ -190,19 +190,26 @@ router.post('/exchange-impersonation', (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ error: 'Token required' });
 
-  // Load master store to find the token
-  const s = getStore();
-  if (!s.impersonation_tokens) return res.status(401).json({ error: 'Invalid or expired token' });
+  // ALWAYS read impersonation tokens from the master store — they are written
+  // there by the SA console regardless of which tenant subdomain the request
+  // is coming from.  getStore() respects AsyncLocalStorage context, so we
+  // must explicitly run in the master context here.
+  let tokenEntry = null;
+  let masterStore = null;
+  tenantStorage.run('master', () => {
+    masterStore = getStore();
+    if (!masterStore.impersonation_tokens) return;
+    const now = new Date().toISOString();
+    tokenEntry = masterStore.impersonation_tokens.find(t =>
+      t.token === token && !t.used && t.expires_at > now
+    );
+    if (tokenEntry) {
+      tokenEntry.used = true;
+      saveStore('master');
+    }
+  });
 
-  const now = new Date().toISOString();
-  const tokenEntry = s.impersonation_tokens.find(t =>
-    t.token === token && !t.used && t.expires_at > now
-  );
   if (!tokenEntry) return res.status(401).json({ error: 'Invalid or expired token' });
-
-  // Mark as used (single-use)
-  tokenEntry.used = true;
-  saveStore();
 
   // Load user from tenant store
   const ts = loadTenantStore(tokenEntry.tenant_slug);

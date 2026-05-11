@@ -37,6 +37,8 @@ const CATEGORY_KEYWORDS = {
 };
 
 function seedDefaults(environment_id) {
+  // This runs within the tenant middleware context, so query/insert/saveStore
+  // all operate on the correct tenant store automatically.
   const existing = query('stage_categories', c => c.environment_id === environment_id);
   if (existing.length > 0) return; // already seeded
   const now = new Date().toISOString();
@@ -71,7 +73,7 @@ function seedAllEnvironments() {
       }
     });
     if (seeded > 0) {
-      saveStore();
+      saveStore('master');
       console.log(`[stage-categories] Seeded/upgraded defaults for ${seeded} environment(s)`);
     }
   } catch (e) {

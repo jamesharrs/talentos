@@ -166,7 +166,7 @@ const TEMPLATES = {
         ]
       },
       {
-        slug: 'talent_pools', name: 'Talent Pool', plural_name: 'Talent Pools', icon: 'layers', color: '#0CAF77', is_system: true,
+        slug: 'talent-pools', name: 'Talent Pool', plural_name: 'Talent Pools', icon: 'layers', color: '#0CAF77', is_system: true,
         fields: [
           { name:'Pool Name',    api_key:'pool_name',    field_type:'text',     is_required:true,  show_in_list:true  },
           { name:'Description',  api_key:'description',  field_type:'textarea', is_required:false, show_in_list:false },

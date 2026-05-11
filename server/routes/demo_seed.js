@@ -170,7 +170,7 @@ async function runSeed({ environmentId, clearFirst = false, progressCb = () => {
   // Resolve objects by slug
   const peopleObj = s.objects?.find(o => o.slug === 'people'       && o.environment_id === environmentId);
   const jobsObj   = s.objects?.find(o => o.slug === 'jobs'         && o.environment_id === environmentId);
-  const poolObj   = s.objects?.find(o => o.slug === 'talent-pools' && o.environment_id === environmentId);
+  const poolObj   = s.objects?.find(o => (o.slug === 'talent-pools' || o.slug === 'talent_pools') && o.environment_id === environmentId);
   if (!peopleObj || !jobsObj) throw new Error(`Objects not found for environment ${environmentId}`);
 
   const PEOPLE_OBJ = peopleObj.id;

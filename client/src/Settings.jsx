@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, createContext, useContext, lazy, Suspense } from "react";
-import { tFetch } from "./apiClient.js";
+import api, { tFetch } from "./apiClient.js";
 import BrandKitSettings from "./settings/BrandKitSettings.jsx";
 import EmailTemplateBuilder from "./settings/EmailTemplateBuilder.jsx";
 import SettingsDashboard from "./SettingsDashboard.jsx";

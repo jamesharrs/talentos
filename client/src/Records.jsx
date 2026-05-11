@@ -8929,6 +8929,11 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     if (PANEL_META[id]?.hidden) return false;
     if (PANEL_META[id]?.jobOnly    && objectName !== "Job" && objectName !== "Jobs") return false;
     if (PANEL_META[id]?.personOnly && objectName !== "Person") return false;
+    // Reporting panel only visible when person_type is Employee (or not set on non-employee typed objects)
+    if (id === "reporting" && objectName === "Person") {
+      const pt = (record?.data?.person_type || "").toLowerCase().trim();
+      if (pt && pt !== "employee") return false;
+    }
     if (PANEL_META[id]?.personOrJob && objectName !== "Person" && objectName !== "Job" && objectName !== "Jobs") return false;
     // Check per-object override — settings saves using panel config key (panel_notes OR coordination)
     // Try both the flag key AND the panel ID itself as lookup keys in _perObject

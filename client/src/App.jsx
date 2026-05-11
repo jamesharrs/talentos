@@ -2719,6 +2719,8 @@ function App({ onEnvReady }) {
           <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}>
             <SettingsPage
               environment={selectedEnv}
+              appVersion={appVersion}
+              appEnv={appEnv}
               initialSection={window.location.pathname.startsWith('/settings/') ? window.location.pathname.split('/settings/')[1].split('/')[0] : null}
               onSectionChange={(sectionId) => {
                 const url = sectionId ? `/settings/${sectionId}` : '/settings';
@@ -2833,30 +2835,7 @@ function App({ onEnvReady }) {
           />
         </Suspense>
       )}
-      {/* ── Version badge — fixed bottom-right ─────────────────────────────── */}
-      {appVersion && (
-        <div style={{
-          position: "fixed", bottom: 10, right: 12, zIndex: 50,
-          display: "flex", alignItems: "center", gap: 5,
-          padding: "3px 9px", borderRadius: 99,
-          background: "var(--t-surface, #fff)",
-          border: "1px solid var(--t-border, #e5e7eb)",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-          pointerEvents: "none", userSelect: "none",
-        }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: "var(--t-accent, #7c3aed)", letterSpacing: ".02em" }}>
-            v{appVersion}
-          </span>
-          {appEnv && (
-            <span style={{
-              fontSize: 10, fontWeight: 600, letterSpacing: ".03em",
-              color: appEnv === "production" ? "#059669" : "#d97706",
-            }}>
-              · {appEnv === "production" ? "prod" : "dev"}
-            </span>
-          )}
-        </div>
-      )}
+      {/* Version badge moved to Settings sidebar bottom-left */}
       {/* Global bulk compose modal — triggered from list Communicate button */}
       {bulkCompose && (
         <ComposeModal

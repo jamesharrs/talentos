@@ -2621,7 +2621,7 @@ const NAV_GROUPS = [
   },
 ];
 
-export default function SettingsPage({ currentUser, environment, initialSection, onSectionChange }) {
+export default function SettingsPage({ currentUser, environment, initialSection, onSectionChange, appVersion, appEnv }) {
   const [activeSection, setActiveSectionState] = useState(initialSection || null);
   const { canGlobal } = usePermissions();
   const [fullScreenMode, setFullScreenMode] = useState(false);
@@ -2775,6 +2775,29 @@ export default function SettingsPage({ currentUser, environment, initialSection,
             );
           })}
         </div>
+
+        {/* Version badge — bottom of sidebar */}
+        {appVersion && sideExpanded && (
+          <div style={{
+            marginTop: 8, paddingTop: 10,
+            borderTop: `1px solid ${C.border}`,
+            display: "flex", alignItems: "center", gap: 5,
+            paddingLeft: 6, paddingBottom: 2,
+            userSelect: "none",
+          }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: ".02em", fontFamily: F }}>
+              v{appVersion}
+            </span>
+            {appEnv && (
+              <span style={{
+                fontSize: 10, fontWeight: 600, letterSpacing: ".03em", fontFamily: F,
+                color: appEnv === "production" ? "#059669" : "#d97706",
+              }}>
+                · {appEnv === "production" ? "prod" : "dev"}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Content */}

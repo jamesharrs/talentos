@@ -2027,6 +2027,7 @@ function App({ onEnvReady }) {
       items: [
         { id: "getting-started", icon: "zap", label: "Getting Started" },
         { id: "inbox",       icon: "inbox",   label: "Inbox", badge: inboxUnread || null },
+        { id: "calendar",    icon: "calendar-days", label: t("nav.calendar") },
       ]
     },
     {
@@ -2036,13 +2037,9 @@ function App({ onEnvReady }) {
     {
       label: t("nav.tools"),
       items: [
-        featInterviews && { id: "interviews",  icon: "calendar",     label: t("nav.interviews") },
-        { id: "calendar",    icon: "calendar-days", label: t("nav.calendar") },
+        featCampaigns  && { id: "campaigns",   icon: "zap",          label: "Campaigns" },
         featSourcing   && { id: "sourcing",    icon: "sparkles",     label: "Sourcing Hub" },
         featOffers     && { id: "offers",      icon: "dollar",       label: t("nav.offers") || "Offers" },
-        featCampaigns  && { id: "campaigns",   icon: "zap",          label: "Campaigns" },
-        { id: "chat",        icon: "message-circle", label: "Chat" },
-        { id: "documents",   icon: "file-text",    label: "Documents" },
         ...(selectedEnv?.tags && String(selectedEnv.tags).toLowerCase().includes('rpo')
           ? [{ id: "client-hub", icon: "building", label: "Client Hub" }]
           : []),

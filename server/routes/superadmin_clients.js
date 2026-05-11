@@ -1479,6 +1479,12 @@ router.post('/:id/seed-objects', express.json(), async (req, res) => {
     if (!store.fields)  store.fields  = [];
     if (!store.roles)   store.roles   = [];
 
+    // When force=true, wipe ALL existing objects + fields for this environment first
+    if (force) {
+      store.objects = (store.objects||[]).filter(o => o.environment_id !== env.id);
+      store.fields  = (store.fields ||[]).filter(f => f.environment_id !== env.id);
+    }
+
     // Seed objects + fields
     templateObjects.forEach((obj, idx) => {
       const objId = uuidv4();

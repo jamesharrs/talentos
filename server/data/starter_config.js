@@ -110,6 +110,95 @@ function buildScorecardForm(envId) {
   };
 }
 
+
+const ADDITIONAL_WORKFLOWS = [
+  {
+    name: 'Standard Application Process',
+    description: 'Full-cycle recruiting workflow for most roles.',
+    stages: [
+      { name:'Applied',             color:'#6b7280' },
+      { name:'CV Review',           color:'#3b82f6' },
+      { name:'Phone Screen',        color:'#8b5cf6' },
+      { name:'Technical Interview', color:'#f59e0b' },
+      { name:'Final Interview',     color:'#ec4899' },
+      { name:'Offer',               color:'#06b6d4' },
+      { name:'Hired',               color:'#10b981' },
+      { name:'Not Suitable',        color:'#ef4444' },
+    ],
+  },
+  {
+    name: 'Executive Track',
+    description: 'Senior and executive search process.',
+    stages: [
+      { name:'Identified',         color:'#6b7280' },
+      { name:'Initial Briefing',   color:'#3b82f6' },
+      { name:'Long List',          color:'#8b5cf6' },
+      { name:'Short List',         color:'#f59e0b' },
+      { name:'1st Interview',      color:'#ec4899' },
+      { name:'2nd Interview',      color:'#06b6d4' },
+      { name:'Board Interview',    color:'#a855f7' },
+      { name:'Assessment Centre',  color:'#f97316' },
+      { name:'Offer',              color:'#0ea5e9' },
+      { name:'Hired',              color:'#10b981' },
+    ],
+  },
+  {
+    name: 'Technical Engineering Process',
+    description: 'Structured technical hiring with coding assessments.',
+    stages: [
+      { name:'Applied',            color:'#6b7280' },
+      { name:'CV Screen',          color:'#3b82f6' },
+      { name:'Recruiter Call',     color:'#8b5cf6' },
+      { name:'Technical Screen',   color:'#f59e0b' },
+      { name:'Take-Home Task',     color:'#ec4899' },
+      { name:'Technical Interview',color:'#06b6d4' },
+      { name:'Culture Fit',        color:'#a855f7' },
+      { name:'Final Interview',    color:'#f97316' },
+      { name:'Offer',              color:'#0ea5e9' },
+      { name:'Hired',              color:'#10b981' },
+    ],
+  },
+  {
+    name: 'Graduate Scheme',
+    description: 'Campus and early-careers recruitment pipeline.',
+    stages: [
+      { name:'Applied',            color:'#6b7280' },
+      { name:'Application Review', color:'#3b82f6' },
+      { name:'Online Assessment',  color:'#8b5cf6' },
+      { name:'Group Exercise',     color:'#f59e0b' },
+      { name:'Video Interview',    color:'#ec4899' },
+      { name:'Assessment Centre',  color:'#06b6d4' },
+      { name:'Final Interview',    color:'#a855f7' },
+      { name:'Offer',              color:'#0ea5e9' },
+      { name:'Hired',              color:'#10b981' },
+    ],
+  },
+];
+
+function buildAdditionalWorkflows(envId, jobsObjId) {
+  const now = new Date().toISOString();
+  const workflows = [];
+  const steps = [];
+  ADDITIONAL_WORKFLOWS.forEach(wf => {
+    const wfId = uuidv4();
+    workflows.push({
+      id:wfId, environment_id:envId,
+      name:wf.name, description:wf.description,
+      object_id:jobsObjId||null, workflow_type:'people_link', type:'people_link',
+      status:'active', is_active:1, trigger_type:'manual',
+      created_at:now, updated_at:now,
+    });
+    wf.stages.forEach((stage, i) => {
+      steps.push({
+        id:uuidv4(), workflow_id:wfId, name:stage.name, color:stage.color,
+        order:i, automation_type:null, automation_config:null,
+        created_at:now, updated_at:now,
+      });
+    });
+  });
+  return { workflows, steps };
+}
+
 async function applyStarterConfig(tenantSlug, environment, objects, clientData={}) {
   const { getStore, saveStoreNow, tenantStorage } = require('../db/init');
   const envId = environment.id;
@@ -129,6 +218,10 @@ async function applyStarterConfig(tenantSlug, environment, objects, clientData={
     const { workflow, steps } = buildHiringWorkflow(envId, jobsObj?.id);
     store.workflows.push(workflow);
     store.workflow_steps.push(...steps);
+
+    const { workflows: extraWfs, steps: extraSteps } = buildAdditionalWorkflows(envId, jobsObj?.id);
+    store.workflows.push(...extraWfs);
+    store.workflow_steps.push(...extraSteps);
 
     if(!store.portals) store.portals=[];
     store.portals.push(buildCareerSitePortal(envId, companyName));

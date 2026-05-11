@@ -235,6 +235,43 @@ async function applyStarterConfig(tenantSlug, environment, objects, clientData={
     if(!store.forms) store.forms=[];
     store.forms.push(buildScorecardForm(envId));
 
+    // Seed stage categories so dashboards (Screening, Interviews, Offers, Onboarding) work
+    const DEFAULT_STAGE_CATEGORIES = [
+      { name:'New',            color:'#3B82F6', icon:'inbox',        sort_order:0,  is_system:true, is_terminal:false },
+      { name:'Screening',      color:'#F59E0B', icon:'filter',       sort_order:1,  is_system:true, is_terminal:false },
+      { name:'Assessment',     color:'#8B5CF6', icon:'clipboard',    sort_order:2,  is_system:true, is_terminal:false },
+      { name:'Interviewing',   color:'#6366F1', icon:'users',        sort_order:3,  is_system:true, is_terminal:false },
+      { name:'Reference Check',color:'#0891B2', icon:'search',       sort_order:4,  is_system:true, is_terminal:false },
+      { name:'Offer',          color:'#06B6D4', icon:'file-text',    sort_order:5,  is_system:true, is_terminal:false },
+      { name:'Pre-boarding',   color:'#14B8A6', icon:'calendar',     sort_order:6,  is_system:true, is_terminal:false },
+      { name:'Placed',         color:'#10B981', icon:'check',        sort_order:7,  is_system:true, is_terminal:true  },
+      { name:'Not Suitable',   color:'#EF4444', icon:'x-circle',     sort_order:8,  is_system:true, is_terminal:true  },
+      { name:'Withdrawn',      color:'#6B7280', icon:'minus-circle', sort_order:9,  is_system:true, is_terminal:true  },
+      { name:'Offer Declined', color:'#F97316', icon:'x-circle',     sort_order:10, is_system:true, is_terminal:true  },
+      { name:'Talent Pool',    color:'#A855F7', icon:'users',        sort_order:11, is_system:true, is_terminal:false },
+      { name:'On Hold',        color:'#94A3B8', icon:'pause',        sort_order:12, is_system:true, is_terminal:false },
+    ];
+    const { v4: scUuid } = require('uuid');
+    const now2 = new Date().toISOString();
+    if (!store.stage_categories) store.stage_categories = [];
+    const existingCats = store.stage_categories.filter(c => c.environment_id === envId);
+    if (existingCats.length === 0) {
+      DEFAULT_STAGE_CATEGORIES.forEach(cat => {
+        store.stage_categories.push({ id: scUuid(), environment_id: envId, ...cat, created_at: now2, updated_at: now2 });
+      });
+    }
+
+    // Seed default panel layout config so record detail panels match the designed order
+    if (!store.panel_layouts) store.panel_layouts = [];
+    const PEOPLE_PANEL_ORDER = ['profile','linked_records','tasks','interviews','reporting','communications','notes','files','forms'];
+    const JOBS_PANEL_ORDER   = ['profile','insights','interview_plan','tasks','interviews','communications','notes','files'];
+    if (!store.panel_layouts.find(p => p.environment_id === envId && p.object_slug === 'people')) {
+      store.panel_layouts.push({ id: scUuid(), environment_id: envId, object_slug: 'people', panel_order: PEOPLE_PANEL_ORDER, created_at: now2, updated_at: now2 });
+    }
+    if (!store.panel_layouts.find(p => p.environment_id === envId && p.object_slug === 'jobs')) {
+      store.panel_layouts.push({ id: scUuid(), environment_id: envId, object_slug: 'jobs', panel_order: JOBS_PANEL_ORDER, created_at: now2, updated_at: now2 });
+    }
+
     const envIdx=(store.environments||[]).findIndex(e=>e.id===envId);
     if(envIdx!==-1){
       store.environments[envIdx].starter_config_applied=true;

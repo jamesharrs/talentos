@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import api from './apiClient.js';
+import { buildCategoryStepSets } from './utils/stageUtils.js';
 import { DashFilterBtn } from './Dashboard.jsx';
 
 const C = {
@@ -217,18 +218,24 @@ export default function ScreeningDashboard({ environment, onNavigate, session })
         personJobMap[personId].push({ jobId, jobName: job?.data?.job_title||job?.data?.title||'Unknown Job', stage: stageName });
       });
 
-      // 5. Determine SCREENING stage categories (from stage_categories or workflow steps)
-      const screeningStages = new Set();
+      // 5. Resolve stage → category using keyword matching.
+      // We don't need workflow steps from the API — people_links already stores the
+      // stage name as current_stage_name. We build dynamic stage sets by running
+      // keyword matching on all unique stage names present in the link data.
+      // Also fetch stage categories so any explicit mappings get picked up.
+      let stageCategoryMap = {};
       try {
         const cats = await api.get(`/stage-categories?environment_id=${environment.id}`);
-        const arr = Array.isArray(cats)?cats:(cats?.categories||[]);
-        arr.filter(c=>(c.category||c.name||'').toLowerCase().includes('screen')).forEach(c=>{
-          (c.stages||c.values||[c.name]).forEach(s=>screeningStages.add((s||'').toLowerCase()));
-        });
-      } catch(_){}
-      if (screeningStages.size === 0) {
-        ['applied','new','received','screening','pending review','cv review','shortlisting'].forEach(s=>screeningStages.add(s));
+        const catsArr = Array.isArray(cats) ? cats : (cats?.categories||[]);
+        // Build virtual "steps" from the unique stage names in people_links
+        const uniqueStageNames = [...new Set(links.map(lk =>
+          lk.current_stage_name || lk.stage_name || lk.stage || '').filter(Boolean))];
+        const virtualSteps = uniqueStageNames.map(name => ({ name }));
+        stageCategoryMap = buildCategoryStepSets(catsArr, virtualSteps);
+      } catch(e) {
+        stageCategoryMap = buildCategoryStepSets([], []);
       }
+      const screeningStages = stageCategoryMap['Screening'] || new Set(['screening']);
 
       // 6. Helper: build a candidate object from a record
       const toCandidate = (p) => {

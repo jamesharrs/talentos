@@ -2692,10 +2692,10 @@ function AddPersonModal({ steps, personRecords, peopleLinks, environment, onAdd,
 // multiple Linked Person workflows are available for this object.
 // ── Module-level: category keyword auto-mapping ────────────────────────────────
 const CAT_KEYWORDS = {
-  'New':['new','applied','application','received','submitted','sourced','register','enquir'],
-  'Screening':['screen','review','cv','resume','phone','call','pre','qualify','longlist','shortlist','initial'],
+  'New':['new','applied','application','received','submitted','sourced','register','enquir','identif'],
+  'Screening':['screen','review','cv','resume','phone','call','pre','qualify','longlist','shortlist','long list','short list','initial'],
   'Assessment':['assess','test','exercise','task','psychometric','aptitude','technical test','homework'],
-  'Interviewing':['interview','meet','panel','video','zoom','teams','onsite','visit','second','third','final'],
+  'Interviewing':['interview','meet','panel','video','zoom','teams','onsite','visit','second','third','final','culture fit','culture'],
   'Reference Check':['reference','background','check','verify','compliance','right to work','rtw'],
   'Offer':['offer','package','salary','negotiate','verbal','written','contract'],
   'Pre-boarding':['preboard','pre-board','onboard','joining','paperwork','contract signed'],

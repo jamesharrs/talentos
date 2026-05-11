@@ -199,7 +199,7 @@ app.use((req, res, next) => {
 // ── Auth guard ────────────────────────────────────────────────────────────────
 const AUTH_EXEMPT = [
   '/auth/login', '/auth/me',
-  '/users/login', '/users/auth/login', '/users/logout',
+  '/users/login', '/users/auth/login', '/users/logout', '/users/exchange-impersonation',
   '/health', '/environments',
   '/events/stream', '/events/status',
   '/notification-preferences/digest',

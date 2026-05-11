@@ -13,6 +13,7 @@ function setCsrfCookie(res) {
     httpOnly: false,   // must be JS-readable (that's the whole point)
     secure:   process.env.NODE_ENV === 'production',
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    domain:   process.env.NODE_ENV === 'production' ? (process.env.COOKIE_DOMAIN || '.vercentic.com') : undefined,
     maxAge:   8 * 60 * 60 * 1000,
   });
 }
@@ -181,8 +182,16 @@ function completeLogin(req, res, user, tenantSlug, password) {
   const role = findOne('roles', r => r.id === user.role_id);
   req.session.userId     = user.id;
   req.session.tenantSlug = tenantSlug;
-  setCsrfCookie(res);
-  res.json({ token, user: { ...user, password_hash: undefined, role }, tenant_slug: tenantSlug, must_change_password: user.must_change_password });
+
+  // CRITICAL: save() must complete before sending the response.
+  // Without this, the Set-Cookie header is emitted but the session data
+  // hasn't been persisted yet, so the very next request (auth/me, objects, etc.)
+  // finds no session and returns 401 — the "logged in but immediately logged out" bug.
+  req.session.save((err) => {
+    if (err) console.error('[login] session save error:', err);
+    setCsrfCookie(res);
+    res.json({ token, user: { ...user, password_hash: undefined, role }, tenant_slug: tenantSlug, must_change_password: user.must_change_password });
+  });
 }
 
 // POST /api/users/exchange-impersonation — exchange a superadmin impersonation token for a real session
@@ -314,12 +323,17 @@ router.post('/login', validate(loginSchema), (req, res) => {
     } catch (_) {}
   }
 
-  // Set httpOnly session cookie (primary auth mechanism)
+  // Set httpOnly session cookie (primary auth mechanism).
+  // CRITICAL: session.save() must complete before sending the response —
+  // otherwise the session isn't persisted to the store (PostgreSQL on Railway)
+  // and every subsequent request gets 401 ("logged in → immediately logged out").
   req.session.userId     = u.id;
   req.session.tenantSlug = resolvedTenantSlug;
-  setCsrfCookie(res);  // JS-readable CSRF double-submit token
-
-  res.json({ ...u, password_hash: undefined, role, permissions, tenant_slug: resolvedTenantSlug });
+  req.session.save((err) => {
+    if (err) console.error('[login] session save error:', err);
+    setCsrfCookie(res);  // JS-readable CSRF double-submit token
+    res.json({ ...u, password_hash: undefined, role, permissions, tenant_slug: resolvedTenantSlug });
+  });
 });
 
 // POST /api/users/logout — destroy session cookie

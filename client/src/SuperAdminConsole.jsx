@@ -548,14 +548,33 @@ function TemplateEnvironments() {
     if (!createName.trim()) return;
     setCreatingFromLocal(true);
     try {
-      // Fetch the snapshot from the provision/templates endpoint — it always
-      // returns the live local config regardless of where the server is running
-      const tpls = await api.get('/clients/provision/templates');
-      const local = Array.isArray(tpls) ? tpls.find(t => t.is_local) : null;
-      if (!local?.snapshot) { alert('Could not load local environment snapshot. Try again.'); setCreatingFromLocal(false); return; }
-      const r = await api.post('/clients/provision-from-local', { name: createName.trim(), snapshot: local.snapshot });
+      // Step 1: fetch the snapshot from the LOCAL server (localhost:3001).
+      // The live Railway server has no objects — only the local dev server has
+      // the master store with real config data.
+      let snapshot = null;
+      const localUrl = 'http://localhost:3001/api/superadmin/local-snapshot';
+      try {
+        const lr = await fetch(localUrl, { headers: { 'x-super-admin': 'talentos-internal-2026' } });
+        if (lr.ok) { const ld = await lr.json(); snapshot = ld.snapshot; }
+      } catch {}
+
+      // Fallback: try Railway endpoint (will have 0 objects unless Railway has data)
+      if (!snapshot) {
+        const tpls = await api.get('/clients/provision/templates');
+        const local = Array.isArray(tpls) ? tpls.find(t => t.is_local) : null;
+        snapshot = local?.snapshot || null;
+      }
+
+      if (!snapshot || !(snapshot.objects||[]).length) {
+        alert('Could not load local environment snapshot.\n\nMake sure your local dev server is running on port 3001, then try again.');
+        setCreatingFromLocal(false);
+        return;
+      }
+
+      // Step 2: POST snapshot to Railway to create the template environment
+      const r = await api.post('/clients/provision-from-local', { name: createName.trim(), snapshot });
       if (r.error) { alert('Error: ' + r.error); }
-      else { alert(`✓ Template "${createName}" created — ${r.objects_copied} objects, ${r.fields_copied} fields copied.`); await load(); }
+      else { alert(`✓ Template "${createName}" created\n${r.objects_copied} objects, ${r.fields_copied} fields, ${r.roles_copied} roles copied.`); await load(); }
     } catch(e) { alert('Error: ' + e.message); }
     setCreatingFromLocal(false);
   };

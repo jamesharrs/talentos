@@ -652,6 +652,56 @@ router.get('/provision/templates', (req, res) => {
   ]);
 });
 
+
+// GET /provision/local-snapshot — returns just the snapshot from the local master store.
+// Called by the SuperAdmin UI running on localhost to get local config before pushing to Railway.
+router.get('/local-snapshot', (req, res) => {
+  const s = getStore();
+  const localEnv = (s.environments||[]).find(e => e.is_default || e.name === 'Production') || (s.environments||[])[0];
+  if (!localEnv) return res.status(404).json({ error: 'No local environment found' });
+
+  const localObjects   = (s.objects||[]).filter(o => o.environment_id === localEnv.id && !o.deleted_at);
+  const localFields    = (s.fields||[]).filter(f  => f.environment_id === localEnv.id && !f.deleted_at);
+  const localRoles     = (s.roles||[]).filter(r   => !r.deleted_at);
+  const localWorkflows = (s.workflows||[]).filter(w => w.environment_id === localEnv.id && !w.deleted_at);
+  const localTemplates = (s.email_templates||[]).filter(t => !t.deleted_at);
+
+  res.json({
+    object_count: localObjects.length,
+    field_count: localFields.length,
+    snapshot: {
+      environment_name: localEnv.name,
+      objects: localObjects.map(o => ({
+        slug: o.slug, name: o.name, plural_name: o.plural_name,
+        icon: o.icon, color: o.color, is_system: o.is_system,
+        fields: localFields
+          .filter(f => f.object_id === o.id)
+          .sort((a,b) => (a.sort_order||0) - (b.sort_order||0))
+          .map(f => ({
+            name: f.name, api_key: f.api_key, field_type: f.field_type,
+            is_required: f.is_required, show_in_list: f.show_in_list,
+            options: f.options, placeholder: f.placeholder,
+            related_object_slug: f.related_object_slug,
+            people_multi: f.people_multi,
+            condition_field: f.condition_field, condition_value: f.condition_value,
+            collapsible: f.collapsible, section_label: f.section_label,
+            sort_order: f.sort_order,
+          })),
+      })),
+      roles: localRoles.map(r => ({ name: r.name, slug: r.slug, permissions: r.permissions, color: r.color })),
+      workflows: localWorkflows.map(w => ({
+        name: w.name, description: w.description, object_slug: w.object_slug,
+        type: w.type, is_active: w.is_active,
+        steps: (w.steps||[]).map(s => ({
+          name: s.name, step_type: s.step_type, automation_type: s.automation_type,
+          config: s.config, sort_order: s.sort_order,
+        })),
+      })),
+      email_templates: localTemplates.map(t => ({ name: t.name, subject: t.subject, body: t.body, category: t.category })),
+    },
+  });
+});
+
 router.get('/provision/log', (req, res) => {
   ensureCollections();
   res.json((getStore().provision_log||[]).slice().reverse());

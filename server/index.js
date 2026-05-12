@@ -233,7 +233,8 @@ const AUTH_EXEMPT = [
   '/error-logs', '/ai', '/translate', '/linkedin-search',
   '/chrome-import',
   '/hub/request-link', '/hub/verify', '/hub/portal-branding',
-  '/reschedule', // public rescheduling flow — accessed by candidates/interviewers without login
+  '/reschedule',
+  '/cohort-auth', // candidate portal auth — no main app session
 ];
 app.use('/api', (req, res, next) => {
   if (AUTH_EXEMPT.some(p => req.path === p || req.path.startsWith(p + '/'))) return next();
@@ -353,6 +354,9 @@ app.use('/api/interview-types',   require('./routes/interview_types'));
 app.use('/api/interview-plans',   require('./routes/interview_plans'));
 app.use('/api/interview-coordinator', require('./routes/interview_coordinator'));
 app.use('/api/offers',            require('./routes/offers'));
+app.use('/api/cohorts',          require('./routes/cohorts'));
+app.use('/api/cohort-messages',  require('./routes/cohort_messages'));
+app.use('/api/cohort-auth',      require('./routes/cohort_auth'));
 app.use('/api/sourcing',          require('./routes/sourcing'));
 app.use('/api/calendar',          require('./routes/calendar'));
 const { router: sseRouter, broadcast } = require('./routes/sse');

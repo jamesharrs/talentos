@@ -4,6 +4,7 @@ import HMPortal from './portals/HMPortal.jsx'
 import AgencyPortal from './portals/AgencyPortal.jsx'
 import OnboardingPortal from './portals/OnboardingPortal.jsx'
 import PortalPageRenderer from './portals/PortalPageRenderer.jsx'
+import CohortPortal from './portals/CohortPortal.jsx'
 import BotInterview from './BotInterview.jsx'
 import CandidateCopilot from './CandidateCopilot.jsx'
 
@@ -80,6 +81,7 @@ export default function App() {
     onboarding:     OnboardingPortal,
     campaign:       PortalPageRenderer,
     page_builder:   PortalPageRenderer,
+    cohort:         CohortPortal,
   }[portal.type];
 
   if (!PortalComponent) return <ErrorScreen message={`Unknown portal type: ${portal.type}`}/>;

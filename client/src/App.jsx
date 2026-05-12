@@ -66,6 +66,7 @@ const PortalsPage     = lazyWithRetry(() => import("./Portals.jsx"));
 const ReportsPage     = lazyWithRetry(() => import("./Reports.jsx"));
 const Interviews      = lazyWithRetry(() => import("./Interviews.jsx"));
 const OffersModule    = lazyWithRetry(() => import("./Offers.jsx"));
+const CohortsModule   = lazyWithRetry(() => import("./Cohorts.jsx"));
 const SourcingHub     = lazyWithRetry(() => import("./SourcingHub.jsx"));
 const CampaignLinks   = lazyWithRetry(() => import("./CampaignLinks.jsx"));
 const Campaigns       = lazyWithRetry(() => import("./Campaigns.jsx"));
@@ -2742,6 +2743,8 @@ activeNavRef.current = activeNav;
           featOffers
             ? <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}><div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}><OffersModule environment={selectedEnv} /></div></Suspense>
             : <AccessDenied feature="Offers"/>
+        ) : activeNav === "cohorts" ? (
+          <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}><div style={{ flex:1, overflow:"auto" }}><CohortsModule environment={selectedEnv} /></div></Suspense>
         ) : activeNav === "campaigns" ? (
           featCampaigns
             ? <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}><div style={{ flex:1, overflow:"auto" }}><Campaigns environment={selectedEnv} /></div></Suspense>

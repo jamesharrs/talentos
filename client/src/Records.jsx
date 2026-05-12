@@ -11351,19 +11351,31 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
     const loadedFields = Array.isArray(f) ? f : [];
     setFields(loadedFields);
     // Restore saved column order/selection, or use defaults
+    // COL_ORDER_VERSION: bump this number to force-reset cached column orders for all users/envs
+    const COL_ORDER_VERSION = 2;
+    const colVersionKey = `${colStorageKey}_v`;
+    const sortedDefaults = loadedFields
+      .filter(ff => ff.show_in_list)
+      .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999))
+      .slice(0, 6)
+      .map(ff => ff.id);
     // Skip if a saved view was just loaded (it already set the columns)
     if (skipColRestoreRef.current) {
       skipColRestoreRef.current = false;
     } else {
       try {
+        const savedVersion = parseInt(localStorage.getItem(colVersionKey) || '0', 10);
         const saved = JSON.parse(localStorage.getItem(colStorageKey));
-        if (saved && saved.length) {
-          setVisibleFieldIds(saved.filter(id => loadedFields.some(ff => ff.id === id) || id.startsWith("__")));
+        if (savedVersion < COL_ORDER_VERSION || !saved || !saved.length) {
+          // Stale cache or no cache — use sorted defaults and write the new version
+          setVisibleFieldIds(sortedDefaults);
+          localStorage.setItem(colStorageKey, JSON.stringify(sortedDefaults));
+          localStorage.setItem(colVersionKey, String(COL_ORDER_VERSION));
         } else {
-          setVisibleFieldIds(loadedFields.filter(ff => ff.show_in_list).map(ff => ff.id));
+          setVisibleFieldIds(saved.filter(id => loadedFields.some(ff => ff.id === id) || id.startsWith("__")));
         }
       } catch {
-        setVisibleFieldIds(loadedFields.filter(ff => ff.show_in_list).map(ff => ff.id));
+        setVisibleFieldIds(sortedDefaults);
       }
     }
     const loaded = r.records||[];

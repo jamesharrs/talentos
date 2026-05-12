@@ -1127,7 +1127,13 @@ router.post('/provision-from-local', express.json(), async (req, res) => {
     // Provision tenant store
     const ts = provisionTenant(tenantSlug);
     if (!ts.environments) ts.environments = [];
-    ts.environments.push({ ...environment });
+    const tenantEnv = { ...environment, setup_complete: true };
+    ts.environments.push(tenantEnv);
+    // Also mark setup_complete on the master store entry so setup-status returns ready
+    const envIdx = (s.client_environments||[]).findIndex(e => e.id === environment.id);
+    if (envIdx !== -1) s.client_environments[envIdx].setup_complete = true;
+    const masterEnvIdx = (s.environments||[]).findIndex(e => e.id === environment.id);
+    if (masterEnvIdx !== -1) s.environments[masterEnvIdx].setup_complete = true;
 
     // Use snapshot data sent from the client (sourced from GET /provision/templates)
     const snapshotObjects       = snapshot.objects        || [];
@@ -1207,6 +1213,25 @@ router.post('/provision-from-local', express.json(), async (req, res) => {
       });
     }
 
+    // Create admin user in tenant store
+    const adminEmail = req.body.admin_email || 'admin@vercentic.com';
+    const adminPassword = req.body.admin_password || 'Admin1234!';
+    const superAdminRole = ts.roles?.find(r => r.slug === 'super_admin' || r.name === 'Super Admin') || ts.roles?.[0];
+    if (!ts.users) ts.users = [];
+    const adminUser = {
+      id: uuidv4(), environment_id: environment.id, client_id: client.id,
+      first_name: 'Admin', last_name: 'User',
+      email: adminEmail,
+      password_hash: hashPassword(adminPassword),
+      role_id: superAdminRole?.id || null,
+      role_name: superAdminRole?.name || 'Super Admin',
+      status: 'active', is_super_admin: true,
+      must_change_password: 0, mfa_enabled: 0,
+      last_login: null, login_count: 0,
+      created_at: now, updated_at: now, deleted_at: null,
+    };
+    ts.users.push(adminUser);
+
     saveStoreNow(tenantSlug);
     saveStoreNow('master');
 
@@ -1223,6 +1248,7 @@ router.post('/provision-from-local', express.json(), async (req, res) => {
       ok: true, client, environment, tenant_slug: tenantSlug,
       objects_copied: snapshotObjects.length, fields_copied: fieldCount,
       workflows_copied: snapshotWorkflows.length, roles_copied: snapshotRoles.length,
+      credentials: { email: adminEmail, password: adminPassword, tenant_slug: tenantSlug },
     });
   } catch(e) { console.error('[provision-from-local]', e); res.status(500).json({ error: e.message }); }
 });

@@ -326,6 +326,7 @@ const NAV_ICONS = {
   settings2:"M12 15a3 3 0 100-6 3 3 0 000 6zM2 12h2M20 12h2M12 2v2M12 20v2",
   eye:      "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 100 6 3 3 0 000-6z",
   eyeOff:   "M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22",
+  layers:   "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
 };
 
 const NavIcon = ({ id, size=14, color="currentColor" }) => {
@@ -337,6 +338,7 @@ const NAV_ITEMS = [
   { id:'health',   label:'System Health',  icon:'health',   desc:'Server stats & uptime' },
   { id:'clients',  label:'Clients',        icon:'clients',  desc:'Manage client organisations' },
   { id:'provision',label:'Provision',      icon:'provision',desc:'Provision a new client environment' },
+  { id:'templates',label:'Templates',      icon:'layers',   desc:'Template environments — copy config to new clients' },
   { id:'features', label:'Feature Packs',  icon:'features', desc:'Enable/disable feature packs per environment' },
   { id:'perf',     label:'Performance',    icon:'perf',     desc:'Platform-wide stats & usage' },
   { id:'demo',     label:'Demo Data',      icon:'provision',desc:'Generate realistic demo data' },
@@ -528,6 +530,168 @@ function EnvDiagnoseSection() {
   );
 }
 
+// ── Template Environments ─────────────────────────────────────────────────────
+function TemplateEnvironments() {
+  const [templates, setTemplates] = useState([]);
+  const [allEnvs, setAllEnvs]     = useState([]);
+  const [allClients, setAllClients] = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [flagging, setFlagging]   = useState(null);
+  const [copying, setCopying]     = useState(false);
+  const [showCopyModal, setShowCopyModal] = useState(null); // template to copy from
+  const [copyTarget, setCopyTarget] = useState('');
+  const [copyResult, setCopyResult] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [tmpl, clients] = await Promise.all([
+        api.get('/superadmin/templates'),
+        api.get('/superadmin/clients'),
+      ]);
+      setTemplates(Array.isArray(tmpl) ? tmpl : []);
+      const cl = Array.isArray(clients) ? clients : clients?.clients || [];
+      setAllClients(cl);
+      // Flatten all environments
+      const envs = cl.flatMap(c => (c.environments||[]).map(e=>({...e, client_name:c.name, tenant_slug:c.tenant_slug, client_id:c.id})));
+      setAllEnvs(envs);
+    } catch(e) { console.error(e); }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const flagAsTemplate = async (env, isTemplate) => {
+    const name = isTemplate ? (prompt('Template name:', env.name) || env.name) : null;
+    if (isTemplate && !name) return;
+    setFlagging(env.id);
+    try {
+      await api.post(`/superadmin/environments/${env.id}/flag-template`, { is_template: isTemplate, template_name: name });
+      await load();
+    } catch(e) { alert('Error: '+e.message); }
+    setFlagging(null);
+  };
+
+  const doCopy = async () => {
+    if (!copyTarget) return alert('Select a target environment');
+    setCopying(true); setCopyResult(null);
+    try {
+      const result = await api.post('/superadmin/copy-config', { from_env_id: showCopyModal.id, to_env_id: copyTarget });
+      setCopyResult(result);
+    } catch(e) { alert('Error: '+e.message); }
+    setCopying(false);
+  };
+
+  const C = { bg:'#0F172A', card:'#1E293B', border:'#334155', text:'#F1F5F9', text2:'#94A3B8', accent:'#A78BFA', green:'#34D399', red:'#F87171', amber:'#FBBF24' };
+
+  // Non-template environments (candidates to flag)
+  const flaggable = allEnvs.filter(e => !templates.find(t=>t.id===e.id));
+
+  return (
+    <div style={{color:C.text, fontFamily:"'Inter',sans-serif"}}>
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24}}>
+        <div>
+          <h2 style={{margin:0, fontSize:18, fontWeight:700}}>Template Environments</h2>
+          <p style={{margin:'4px 0 0', fontSize:13, color:C.text2}}>Flag an environment as a template to copy its config to new client environments.</p>
+        </div>
+      </div>
+
+      {loading ? <div style={{color:C.text2}}>Loading…</div> : (<>
+
+        {/* Active templates */}
+        <div style={{marginBottom:32}}>
+          <div style={{fontSize:11, fontWeight:700, color:C.text2, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12}}>
+            Active Templates ({templates.length})
+          </div>
+          {templates.length === 0 && (
+            <div style={{background:C.card, borderRadius:10, border:`1px dashed ${C.border}`, padding:24, textAlign:'center', color:C.text2, fontSize:13}}>
+              No template environments yet. Flag an existing environment below.
+            </div>
+          )}
+          <div style={{display:'flex', flexDirection:'column', gap:10}}>
+            {templates.map(t => (
+              <div key={t.id} style={{background:C.card, borderRadius:10, border:`1px solid ${C.border}`, padding:'14px 18px', display:'flex', alignItems:'center', gap:16}}>
+                <div style={{width:40, height:40, borderRadius:10, background:'#312E81', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0}}>🏛</div>
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{fontWeight:700, fontSize:14}}>{t.template_name || t.name}</div>
+                  <div style={{fontSize:12, color:C.text2, marginTop:2}}>
+                    {t.client_name} · {t.tenant_slug} · {t.object_count} objects · {t.field_count} fields · {t.workflow_count} workflows
+                  </div>
+                </div>
+                <div style={{display:'flex', gap:8}}>
+                  <button onClick={()=>{ setCopyTarget(''); setCopyResult(null); setShowCopyModal(t); }}
+                    style={{padding:'6px 14px', borderRadius:8, border:`1px solid ${C.accent}`, background:'transparent', color:C.accent, fontSize:12, fontWeight:600, cursor:'pointer'}}>
+                    Copy to →
+                  </button>
+                  <button onClick={()=>flagAsTemplate(t, false)} disabled={flagging===t.id}
+                    style={{padding:'6px 12px', borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', color:C.text2, fontSize:12, cursor:'pointer'}}>
+                    Unflag
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Flag an environment as template */}
+        <div>
+          <div style={{fontSize:11, fontWeight:700, color:C.text2, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12}}>
+            Available Environments — Flag as Template
+          </div>
+          <div style={{display:'flex', flexDirection:'column', gap:8}}>
+            {flaggable.slice(0,20).map(e => (
+              <div key={e.id} style={{background:C.card, borderRadius:8, border:`1px solid ${C.border}`, padding:'10px 14px', display:'flex', alignItems:'center', gap:12}}>
+                <div style={{flex:1}}>
+                  <span style={{fontWeight:600, fontSize:13}}>{e.name}</span>
+                  <span style={{color:C.text2, fontSize:12, marginLeft:8}}>{e.client_name} · {e.tenant_slug}</span>
+                </div>
+                <button onClick={()=>flagAsTemplate(e, true)} disabled={flagging===e.id}
+                  style={{padding:'5px 12px', borderRadius:7, border:`1px solid ${C.accent}`, background:'transparent', color:C.accent, fontSize:12, fontWeight:600, cursor:'pointer'}}>
+                  {flagging===e.id ? 'Flagging…' : '+ Flag as Template'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Copy config modal */}
+        {showCopyModal && (
+          <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000}}>
+            <div style={{background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:28, width:480, maxWidth:'90vw'}}>
+              <h3 style={{margin:'0 0 6px', fontSize:16, fontWeight:700, color:C.text}}>Copy Config from Template</h3>
+              <p style={{margin:'0 0 20px', fontSize:13, color:C.text2}}>
+                Copies objects, fields, workflows, stage categories, portals and panel layouts from <strong style={{color:C.text}}>{showCopyModal.template_name||showCopyModal.name}</strong> into the selected environment. Records are never copied.
+              </p>
+              <label style={{fontSize:12, fontWeight:600, color:C.text2, display:'block', marginBottom:6}}>Target Environment</label>
+              <select value={copyTarget} onChange={e=>setCopyTarget(e.target.value)}
+                style={{width:'100%', padding:'9px 12px', borderRadius:8, background:C.bg, border:`1px solid ${C.border}`, color:C.text, fontSize:13, marginBottom:20}}>
+                <option value=''>Select an environment…</option>
+                {allEnvs.filter(e=>e.id!==showCopyModal.id).map(e=>(
+                  <option key={e.id} value={e.id}>{e.client_name} — {e.name} ({e.tenant_slug})</option>
+                ))}
+              </select>
+              {copyResult && (
+                <div style={{background:'#064E3B', border:'1px solid #34D399', borderRadius:8, padding:'10px 14px', marginBottom:16, fontSize:13, color:'#34D399'}}>
+                  ✅ Copied: {copyResult.objects} objects · {copyResult.fields} fields · {copyResult.workflows} workflows · {copyResult.stage_categories} stage categories · {copyResult.portals} portals
+                </div>
+              )}
+              <div style={{display:'flex', gap:10, justifyContent:'flex-end'}}>
+                <button onClick={()=>{setShowCopyModal(null);setCopyResult(null);}} style={{padding:'8px 18px', borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', color:C.text2, fontSize:13, cursor:'pointer'}}>
+                  Close
+                </button>
+                <button onClick={doCopy} disabled={copying||!copyTarget}
+                  style={{padding:'8px 20px', borderRadius:8, border:'none', background:C.accent, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', opacity:copying||!copyTarget?0.5:1}}>
+                  {copying ? 'Copying…' : 'Copy Config →'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>)}
+    </div>
+  );
+}
+
 export default function SuperAdminConsole() {
   const [authed,  setAuthed]  = useState(() => !!sessionStorage.getItem('sa_token'));
   const [section, setSection] = useState('clients');
@@ -603,6 +767,7 @@ export default function SuperAdminConsole() {
         {section === 'provision' && (
           <ProvisionWizard onDone={()=>{ setSection('clients'); setClientView('list'); }} onCancel={()=>setSection('clients')}/>
         )}
+        {section === 'templates' && <TemplateEnvironments/>}
         {section === 'perf' && <Performance/>}
         {section === 'features' && <FeaturePacksSection/>}
         {section === 'ai_usage' && <AIUsageReport/>}

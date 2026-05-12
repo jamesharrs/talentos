@@ -3,6 +3,7 @@ import CareerSite from './portals/CareerSite.jsx'
 import HMPortal from './portals/HMPortal.jsx'
 import AgencyPortal from './portals/AgencyPortal.jsx'
 import OnboardingPortal from './portals/OnboardingPortal.jsx'
+import PortalPageRenderer from './portals/PortalPageRenderer.jsx'
 import BotInterview from './BotInterview.jsx'
 import CandidateCopilot from './CandidateCopilot.jsx'
 
@@ -73,8 +74,12 @@ export default function App() {
 
   const props = { portal, objects, api }
   const PortalComponent = {
-    career_site: CareerSite, hm_portal: HMPortal,
-    agency_portal: AgencyPortal, onboarding: OnboardingPortal,
+    career_site:    CareerSite,
+    hm_portal:      HMPortal,
+    agency_portal:  AgencyPortal,
+    onboarding:     OnboardingPortal,
+    campaign:       PortalPageRenderer,
+    page_builder:   PortalPageRenderer,
   }[portal.type];
 
   if (!PortalComponent) return <ErrorScreen message={`Unknown portal type: ${portal.type}`}/>;

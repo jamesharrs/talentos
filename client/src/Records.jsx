@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo, memo, lazy, S
 import { usePermissions as usePermCtx } from "./PermissionContext.jsx";
 import ReactDOM from "react-dom";
 import RichTextEditor from "./RichTextEditor.jsx";
+import AITextEditor from "./AITextEditor.jsx";
 import { MatchingEngine } from "./AI.jsx";
 import CommunicationsPanel from "./Communications.jsx";
 import StyledSelect from "./components/StyledSelect.jsx";
@@ -8175,6 +8176,7 @@ const NotesPanel = ({ record, notes, onNotesChange, canAdd=true, canDelete=true,
 
       {canAdd && (
         <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
+          <AITextEditor context="recruitment note" onApply={t => setNewNote(n => n.replace(window.getSelection()?.toString()||"", t))}>
           <textarea
             value={newNote}
             onChange={e => setNewNote(e.target.value)}
@@ -8183,6 +8185,7 @@ const NotesPanel = ({ record, notes, onNotesChange, canAdd=true, canDelete=true,
             rows={3}
             style={{ padding:"10px 12px", borderRadius:10, border:`1px solid ${C.border}`, fontSize:13, fontFamily:F, outline:"none", color:C.text1, resize:"vertical", width:"100%", boxSizing:"border-box" }}
           />
+          </AITextEditor>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
             {/* Job context picker — only on Person records with linked jobs */}
             {linkedJobRecords.length > 0 ? (

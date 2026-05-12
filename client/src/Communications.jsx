@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import ReactDOM from "react-dom";
 import AiBadge, { isAiGenerated } from "./AiBadge.jsx";
+import AITextEditor from "./AITextEditor.jsx";
 
 // ─── Shared helpers (inline to avoid circular imports) ───────────────────────
 import api from './apiClient.js';
@@ -441,9 +442,12 @@ export function ComposeModal({
 
       {/* Body */}
       {type !== "call" && (
-        <textarea value={body} onChange={e => setBody(e.target.value)}
-          placeholder={type === "email" ? "Write your message…" : `${meta.label} message…`}
-          style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${C.border}`, borderRadius:9, fontSize:13, resize:"vertical", minHeight: type === "email" ? 160 : 100, boxSizing:"border-box", outline:"none", background:C.bg, lineHeight:1.6 }}/>
+        <AITextEditor context={type === "email" ? "outreach email" : `${meta.label} message`}
+          onApply={newText => setBody(b => b.replace(window.getSelection()?.toString()||"", newText))}>
+          <textarea value={body} onChange={e => setBody(e.target.value)}
+            placeholder={type === "email" ? "Write your message…" : `${meta.label} message…`}
+            style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${C.border}`, borderRadius:9, fontSize:13, resize:"vertical", minHeight: type === "email" ? 160 : 100, boxSizing:"border-box", outline:"none", background:C.bg, lineHeight:1.6 }}/>
+        </AITextEditor>
       )}
 
       {/* Call fields */}

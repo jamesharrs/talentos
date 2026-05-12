@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { usePermissions as _usePermCtx } from "./PermissionContext.jsx";
 import { createPortal } from "react-dom";
+import AITextEditor from "./AITextEditor.jsx";
 import ScoreExplainer, { ScoreBadge } from "./ScoreExplainer";
 import { matchCandidateToJob } from "./AI.jsx";
 import SharePicker from "./SharePicker.jsx";
@@ -1229,9 +1230,11 @@ const StepCard = ({ step: rawStep, index, total, onChange, onDelete, onMoveUp, o
 
                   {action.type === "ai_prompt" && (
                     <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                      <AITextEditor context="AI automation prompt" onApply={t=>setActionConfig(action.id,"prompt",p=>(p||"").replace(window.getSelection()?.toString()||"",t))}>
                       <textarea value={cfg.prompt||""} onChange={e=>setActionConfig(action.id,"prompt",e.target.value)} rows={3}
                         placeholder="Prompt — use {{first_name}}, {{skills}} etc."
                         style={{ width:"100%", boxSizing:"border-box", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, fontFamily:F, outline:"none", resize:"vertical", color:C.text1, lineHeight:1.5 }}/>
+                      </AITextEditor>
                       <select value={cfg.output_field||""} onChange={e=>setActionConfig(action.id,"output_field",e.target.value)}
                         style={{ padding:"8px 10px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, outline:"none", background:"white", color:C.text1 }}>
                         <option value="">Don't save output to a field</option>

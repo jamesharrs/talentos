@@ -1145,7 +1145,7 @@ router.post('/provision-from-local', express.json(), async (req, res) => {
 
     const s = getStore();
     const now = new Date().toISOString();
-    const { provisionTenant, saveStoreNow } = require('../db/init');
+    const { provisionTenant, saveStoreNow, reloadTenantStore } = require('../db/init');
 
     // Deduplicate slug
     const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').substring(0,26);
@@ -1491,10 +1491,28 @@ router.get('/:id', (req, res) => {
   const s = getStore();
   const client = (s.clients||[]).find(c=>c.id===req.params.id&&!c.deleted_at);
   if (!client) return res.status(404).json({ error: 'Not found' });
-  const envs  = (s.client_environments||[]).filter(e=>e.client_id===client.id&&!e.deleted_at);
-  const users = (s.users||[]).filter(u=>u.client_id===client.id&&!u.deleted_at);
-  const log   = (s.provision_log||[]).filter(l=>l.client_id===client.id);
-  res.json({ ...client, environments: envs, users, provision_log: log });
+  const envs = (s.client_environments||[]).filter(e=>e.client_id===client.id&&!e.deleted_at);
+  const log  = (s.provision_log||[]).filter(l=>l.client_id===client.id);
+
+  // Load users and objects from the TENANT store (not master) — provisioned
+  // clients store their data in a separate tenant-<slug>.json file.
+  const { reloadTenantStore } = require('../db/init');
+  let tenantUsers = [], tenantObjects = [], tenantFields = [], tenantFlags = [];
+  if (client.tenant_slug) {
+    try {
+      const ts = reloadTenantStore(client.tenant_slug); // always fresh from disk
+      tenantUsers   = (ts.users||[]).filter(u=>!u.deleted_at);
+      tenantObjects = (ts.objects||[]).filter(o=>!o.deleted_at);
+      tenantFields  = (ts.fields||[]).filter(f=>!f.deleted_at);
+      tenantFlags   = (ts.feature_flags||[]).filter(f=>!f.deleted_at);
+    } catch(e) { /* tenant file may not exist yet */ }
+  }
+  // Also include any users stored directly in master (legacy)
+  const masterUsers = (s.users||[]).filter(u=>u.client_id===client.id&&!u.deleted_at);
+  const allUsers = [...tenantUsers, ...masterUsers.filter(u=>!tenantUsers.find(tu=>tu.email===u.email))];
+
+  res.json({ ...client, environments: envs, users: allUsers, provision_log: log,
+    objects: tenantObjects, fields: tenantFields, feature_flags: tenantFlags });
 });
 
 // ── POST /:id/users — create a user for a client ─────────────────────────────
@@ -2111,6 +2129,8 @@ router.post('/:id/repair-tenant', express.json(), async (req, res) => {
   ts.users.push({ id: uuidv4(), environment_id: environment.id, client_id: client.id, first_name: 'Admin', last_name: 'User', email, password_hash: hashPassword(password), role_id: saRole?.id||null, role_name: saRole?.name||'Super Admin', status: 'active', is_super_admin: true, must_change_password: 0, mfa_enabled: 0, last_login: null, login_count: 0, created_at: now, updated_at: now, deleted_at: null });
 
   saveStoreNow(tenantSlug);
+  // Bust the in-memory cache so the next GET /:id reads fresh data from disk
+  reloadTenantStore(tenantSlug);
 
   res.json({ ok: true, tenant_slug: tenantSlug, objects: ts.objects.length, fields: fieldCount, roles: ts.roles.length, flags: ts.feature_flags.length, credentials: { email, password } });
 });

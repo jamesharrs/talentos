@@ -28,10 +28,10 @@ const TEMPLATES = {
         fields: [
           // ── IDENTITY ─────────────────────────────────────────────────────
           { name:'Identity',            api_key:'section_identity',    field_type:'section_separator',is_required:false, show_in_list:false, collapsible:true },
-          { name:'Person Type',         api_key:'person_type',         field_type:'select',           is_required:false, show_in_list:true,
-            options:['Candidate','Employee','Contractor','Consultant','Contact'] },
           { name:'First Name',          api_key:'first_name',          field_type:'text',             is_required:true,  show_in_list:true  },
           { name:'Last Name',           api_key:'last_name',           field_type:'text',             is_required:true,  show_in_list:true  },
+          { name:'Person Type',         api_key:'person_type',         field_type:'select',           is_required:false, show_in_list:true,
+            options:['Candidate','Employee','Contractor','Consultant','Contact'] },
           { name:'Current Title',       api_key:'current_title',       field_type:'text',             is_required:false, show_in_list:true  },
           { name:'Current Company',     api_key:'current_company',     field_type:'text',             is_required:false, show_in_list:false  },
           { name:'Summary / Bio',       api_key:'summary',             field_type:'textarea',         is_required:false, show_in_list:false },

@@ -9033,8 +9033,12 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const openPanelsKey = `talentos_openpanels_${objectName}`;
   const [openPanels, setOpenPanels] = useState(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(`talentos_openpanels_${objectName}`));
-      if (saved && typeof saved === "object") return saved;
+      // Only restore saved panels if the panel version is current — otherwise use defaults
+      const currentVersion = localStorage.getItem(`talentos_panels_version_${objectName}`);
+      if (currentVersion === "v20") {
+        const saved = JSON.parse(localStorage.getItem(`talentos_openpanels_${objectName}`));
+        if (saved && typeof saved === "object") return saved;
+      }
     } catch {}
     return {fields:false,comms:true,notes:true,attachments:true,activity:false,workflows:false,match:false,reporting:true,user:true,forms:false};
   });
@@ -9096,7 +9100,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const leftStorageKey   = `talentos_panels_left_${objectName}`;
   const topStorageKey    = `talentos_panels_top_${objectName}`;
   const bottomStorageKey = `talentos_panels_bottom_${objectName}`;
-  const PANEL_VERSION    = "v19"; // fields panel collapsed by default
+  const PANEL_VERSION    = "v20"; // fields panel collapsed by default, openPanels bust
   const versionKey       = `talentos_panels_version_${objectName}`;
 
   // ── Single atomic layout load — deduplicates all 4 zones together ───────
@@ -9109,7 +9113,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     // Clear stale storage on version mismatch
     if (localStorage.getItem(versionKey) !== PANEL_VERSION) {
       try {
-        [storageKey, leftStorageKey, topStorageKey, bottomStorageKey].forEach(k => localStorage.removeItem(k));
+        [storageKey, leftStorageKey, topStorageKey, bottomStorageKey, openPanelsKey].forEach(k => localStorage.removeItem(k));
         localStorage.setItem(versionKey, PANEL_VERSION);
       } catch {}
       const defaultRight = getDefaultPanelOrder(objectName);

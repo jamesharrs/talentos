@@ -987,6 +987,274 @@ router.post('/purge-test-clients', (req, res) => {
   res.json({ removed_count: removed.length, removed, kept: kept.map(c => c.name) });
 });
 
+// ── Template Environments ────────────────────────────────────────────────────
+
+// GET /api/superadmin/templates — list all template environments across all tenants
+router.get('/templates', (req, res) => {
+  try {
+    const s = getStore();
+    const templates = (s.client_environments||[])
+      .filter(e => e.is_template && !e.deleted_at)
+      .map(e => {
+        const client = (s.clients||[]).find(c=>c.id===e.client_id)||{};
+        // Count config items in tenant store
+        const ts = loadTenantStore(client.tenant_slug);
+        const objCount   = (ts.object_definitions||ts.objects||[]).filter(o=>o.environment_id===e.id&&!o.deleted_at).length;
+        const fieldCount = (ts.fields||[]).filter(f=>f.environment_id===e.id&&!f.deleted_at).length;
+        const wfCount    = (ts.workflows||[]).filter(w=>w.environment_id===e.id&&!w.deleted_at).length;
+        return {
+          ...e,
+          client_name:   client.name,
+          tenant_slug:   client.tenant_slug,
+          object_count:  objCount,
+          field_count:   fieldCount,
+          workflow_count: wfCount,
+        };
+      });
+    res.json(templates);
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+// POST /api/superadmin/environments/:id/flag-template — mark/unmark an env as a template
+router.post('/environments/:id/flag-template', express.json(), (req, res) => {
+  try {
+    const s = getStore();
+    const env = (s.client_environments||[]).find(e=>e.id===req.params.id);
+    if (!env) return res.status(404).json({error:'Environment not found'});
+    env.is_template     = req.body.is_template !== false;
+    env.template_name   = req.body.template_name || env.name;
+    env.template_desc   = req.body.template_desc || '';
+    env.template_tags   = req.body.template_tags || [];
+    env.updated_at      = new Date().toISOString();
+    saveStoreNow('master');
+    res.json(env);
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+// POST /api/superadmin/clients/:id/provision-from-template — provision new client from template env
+router.post('/:id/provision-from-template', express.json(), async (req, res) => {
+  try {
+    const s = getStore();
+    const { template_env_id, admin_user, environment: envData } = req.body;
+    const client = (s.clients||[]).find(c=>c.id===req.params.id);
+    if (!client) return res.status(404).json({error:'Client not found'});
+
+    const templateEnv = (s.client_environments||[]).find(e=>e.id===template_env_id&&e.is_template);
+    if (!templateEnv) return res.status(404).json({error:'Template environment not found'});
+
+    const templateClient = (s.clients||[]).find(c=>c.id===templateEnv.client_id);
+    if (!templateClient) return res.status(404).json({error:'Template client not found'});
+
+    // Create the new environment
+    const now = new Date().toISOString();
+    const newEnv = {
+      id: uuidv4(), client_id: client.id,
+      name: envData?.name || `${client.name} Production`,
+      type: envData?.type||'production', locale: envData?.locale||'en',
+      timezone: envData?.timezone||'UTC', is_default: 0, status: 'active',
+      source_template_id: template_env_id,
+      created_at: now, updated_at: now, deleted_at: null,
+    };
+    s.client_environments.push(newEnv);
+    saveStoreNow('master');
+
+    // Copy config from template tenant store to new tenant store
+    const result = await copyEnvConfig(
+      templateClient.tenant_slug, templateEnv.id,
+      client.tenant_slug,         newEnv.id,
+      { admin_user }
+    );
+
+    res.json({ ok: true, environment: newEnv, ...result });
+  } catch(e) { console.error('[provision-from-template]', e); res.status(500).json({error:e.message}); }
+});
+
+// POST /api/superadmin/copy-config — copy config between any two environments
+router.post('/copy-config', express.json(), async (req, res) => {
+  try {
+    const { from_env_id, to_env_id } = req.body;
+    const s = getStore();
+    const fromEnv = (s.client_environments||[]).find(e=>e.id===from_env_id);
+    const toEnv   = (s.client_environments||[]).find(e=>e.id===to_env_id);
+    if (!fromEnv) return res.status(404).json({error:'Source environment not found'});
+    if (!toEnv)   return res.status(404).json({error:'Target environment not found'});
+    const fromClient = (s.clients||[]).find(c=>c.id===fromEnv.client_id);
+    const toClient   = (s.clients||[]).find(c=>c.id===toEnv.client_id);
+    if (!fromClient||!toClient) return res.status(404).json({error:'Client not found'});
+    const result = await copyEnvConfig(fromClient.tenant_slug, from_env_id, toClient.tenant_slug, to_env_id, {});
+    res.json({ ok: true, ...result });
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+// ── Core config-copy function ────────────────────────────────────────────────
+async function copyEnvConfig(fromSlug, fromEnvId, toSlug, toEnvId, opts={}) {
+  const now = new Date().toISOString();
+  const uid = () => uuidv4();
+  const { loadTenantStore, tenantDbPath, tenantStorage, storeCache } = require('../db/init');
+  const fs = require('fs');
+  const path = require('path');
+
+  // Load source tenant store
+  loadTenantStore(fromSlug);
+  const fromTs = storeCache[fromSlug];
+
+  // Load or provision target tenant store
+  if (!storeCache[toSlug]) loadTenantStore(toSlug);
+  const toTs = storeCache[toSlug];
+
+  ensureTenantCollections(toTs);
+
+  // Wipe existing config in target env (not records)
+  const CONFIG_TABLES = ['object_definitions','objects','fields','workflows','workflow_steps',
+    'email_templates','stage_categories','portals','panel_layouts','forms','scorecard_templates',
+    'interview_types','lists','saved_views'];
+  for (const tbl of CONFIG_TABLES) {
+    if (toTs[tbl]) toTs[tbl] = toTs[tbl].filter(r => r.environment_id !== toEnvId);
+  }
+
+  // Build an id-remap table so all cross-references are updated
+  const idMap = {};
+  const remap = oldId => idMap[oldId] || oldId;
+  const newId = oldId => { const n = uid(); idMap[oldId] = n; return n; };
+
+  // ── 1. Objects ──────────────────────────────────────────────────────────────
+  const srcObjs = (fromTs.object_definitions||fromTs.objects||[])
+    .filter(o => o.environment_id===fromEnvId && !o.deleted_at);
+  const createdObjects = [];
+  for (const obj of srcObjs) {
+    const nid = newId(obj.id);
+    const copy = { ...obj, id: nid, environment_id: toEnvId, created_at: now, updated_at: now };
+    const tbl = toTs.object_definitions ? 'object_definitions' : 'objects';
+    if (!toTs[tbl]) toTs[tbl] = [];
+    toTs[tbl].push(copy);
+    createdObjects.push(copy);
+  }
+
+  // ── 2. Fields ────────────────────────────────────────────────────────────────
+  const srcFields = (fromTs.fields||[]).filter(f => f.environment_id===fromEnvId && !f.deleted_at);
+  for (const f of srcFields) {
+    const nid = newId(f.id);
+    const copy = { ...f, id: nid, environment_id: toEnvId, object_id: remap(f.object_id), created_at: now, updated_at: now };
+    if (!toTs.fields) toTs.fields = [];
+    toTs.fields.push(copy);
+  }
+
+  // ── 3. Workflows ─────────────────────────────────────────────────────────────
+  const srcWfs = (fromTs.workflows||[]).filter(w => w.environment_id===fromEnvId && !w.deleted_at);
+  for (const wf of srcWfs) {
+    const nid = newId(wf.id);
+    const copy = { ...wf, id: nid, environment_id: toEnvId, object_id: remap(wf.object_id), created_at: now, updated_at: now };
+    if (!toTs.workflows) toTs.workflows = [];
+    toTs.workflows.push(copy);
+  }
+  // Workflow steps
+  const srcSteps = (fromTs.workflow_steps||[]).filter(s => {
+    const wf = srcWfs.find(w=>w.id===s.workflow_id);
+    return !!wf;
+  });
+  for (const step of srcSteps) {
+    const nid = newId(step.id);
+    const copy = { ...step, id: nid, workflow_id: remap(step.workflow_id), created_at: now, updated_at: now };
+    if (!toTs.workflow_steps) toTs.workflow_steps = [];
+    toTs.workflow_steps.push(copy);
+  }
+
+  // ── 4. Stage categories ──────────────────────────────────────────────────────
+  const srcCats = (fromTs.stage_categories||[]).filter(c => c.environment_id===fromEnvId && !c.deleted_at);
+  for (const cat of srcCats) {
+    const nid = newId(cat.id);
+    const copy = { ...cat, id: nid, environment_id: toEnvId, created_at: now, updated_at: now };
+    if (!toTs.stage_categories) toTs.stage_categories = [];
+    toTs.stage_categories.push(copy);
+  }
+
+  // ── 5. Email templates ───────────────────────────────────────────────────────
+  const srcEmails = (fromTs.email_templates||[]).filter(e => e.environment_id===fromEnvId && !e.deleted_at);
+  for (const tmpl of srcEmails) {
+    const nid = newId(tmpl.id);
+    const copy = { ...tmpl, id: nid, environment_id: toEnvId, created_at: now, updated_at: now };
+    if (!toTs.email_templates) toTs.email_templates = [];
+    toTs.email_templates.push(copy);
+  }
+
+  // ── 6. Portals (config only, no portal analytics/feedback) ──────────────────
+  const srcPortals = (fromTs.portals||[]).filter(p => p.environment_id===fromEnvId && !p.deleted_at);
+  for (const portal of srcPortals) {
+    const nid = newId(portal.id);
+    const copy = { ...portal, id: nid, environment_id: toEnvId, slug: portal.slug+'-'+toEnvId.slice(0,4), status:'draft', created_at: now, updated_at: now };
+    if (!toTs.portals) toTs.portals = [];
+    toTs.portals.push(copy);
+  }
+
+  // ── 7. Panel layouts ─────────────────────────────────────────────────────────
+  const srcLayouts = (fromTs.panel_layouts||[]).filter(l => l.environment_id===fromEnvId);
+  for (const layout of srcLayouts) {
+    const nid = newId(layout.id);
+    const copy = { ...layout, id: nid, environment_id: toEnvId, created_at: now, updated_at: now };
+    if (!toTs.panel_layouts) toTs.panel_layouts = [];
+    toTs.panel_layouts.push(copy);
+  }
+
+  // ── 8. Forms & scorecard templates ──────────────────────────────────────────
+  for (const tbl of ['forms','scorecard_templates','interview_types']) {
+    const srcItems = (fromTs[tbl]||[]).filter(i => i.environment_id===fromEnvId && !i.deleted_at);
+    for (const item of srcItems) {
+      const nid = newId(item.id);
+      const copy = { ...item, id: nid, environment_id: toEnvId, created_at: now, updated_at: now };
+      if (!toTs[tbl]) toTs[tbl] = [];
+      toTs[tbl].push(copy);
+    }
+  }
+
+  // ── 9. Admin user (if provided) ──────────────────────────────────────────────
+  let adminResult = null;
+  if (opts.admin_user) {
+    const { email, first_name, last_name, password } = opts.admin_user;
+    if (email && password) {
+      const bcrypt = require('bcryptjs');
+      const saltRounds = 10;
+      const hash = bcrypt.hashSync(password, saltRounds);
+      const roles = (toTs.roles||[]);
+      const adminRole = roles.find(r=>r.slug==='super_admin')||roles.find(r=>r.slug==='admin')||roles[0];
+      const user = {
+        id: uid(), email, first_name: first_name||'Admin', last_name: last_name||'User',
+        role_id: adminRole?.id||null, status:'active', auth_provider:'local',
+        password_hash: hash, must_change_password: 0,
+        created_at: now, updated_at: now,
+      };
+      if (!toTs.users) toTs.users = [];
+      toTs.users.push(user);
+      adminResult = { email, id: user.id };
+    }
+  }
+
+  // Persist target store
+  const { tenantDbPath: tdbPath } = require('../db/init');
+  const fs2 = require('fs');
+  try {
+    fs2.writeFileSync(tdbPath(toSlug), JSON.stringify(toTs, null, 2));
+    console.log('[copyEnvConfig] Saved tenant store for', toSlug);
+  } catch(e) { console.error('[copyEnvConfig] Save error:', e.message); }
+
+  return {
+    objects:         createdObjects.length,
+    fields:          srcFields.length,
+    workflows:       srcWfs.length,
+    stage_categories: srcCats.length,
+    email_templates: srcEmails.length,
+    portals:         srcPortals.length,
+    panel_layouts:   srcLayouts.length,
+    admin:           adminResult,
+  };
+}
+
+function ensureTenantCollections(ts) {
+  const cols = ['object_definitions','objects','fields','workflows','workflow_steps',
+    'email_templates','stage_categories','portals','panel_layouts','forms',
+    'scorecard_templates','interview_types','roles','users','records','people_links',
+    'communications','notes','attachments','activity_log','lists','saved_views'];
+  for (const c of cols) { if (!ts[c]) ts[c] = []; }
+}
 router.get('/:id', (req, res) => {
   ensureCollections();
   const s = getStore();
@@ -1647,273 +1915,6 @@ router.post('/:id/seed-objects', express.json(), async (req, res) => {
   });
 });
 
+
 module.exports = router;
 module.exports.buildTemplate = buildTemplate;
-// ── Template Environments ────────────────────────────────────────────────────
-
-// GET /api/superadmin/templates — list all template environments across all tenants
-router.get('/templates', (req, res) => {
-  try {
-    const s = getStore();
-    const templates = (s.client_environments||[])
-      .filter(e => e.is_template && !e.deleted_at)
-      .map(e => {
-        const client = (s.clients||[]).find(c=>c.id===e.client_id)||{};
-        // Count config items in tenant store
-        const ts = getTenantStore(client.tenant_slug||'');
-        const objCount   = (ts.object_definitions||ts.objects||[]).filter(o=>o.environment_id===e.id&&!o.deleted_at).length;
-        const fieldCount = (ts.fields||[]).filter(f=>f.environment_id===e.id&&!f.deleted_at).length;
-        const wfCount    = (ts.workflows||[]).filter(w=>w.environment_id===e.id&&!w.deleted_at).length;
-        return {
-          ...e,
-          client_name:   client.name,
-          tenant_slug:   client.tenant_slug,
-          object_count:  objCount,
-          field_count:   fieldCount,
-          workflow_count: wfCount,
-        };
-      });
-    res.json(templates);
-  } catch(e) { res.status(500).json({error:e.message}); }
-});
-
-// POST /api/superadmin/environments/:id/flag-template — mark/unmark an env as a template
-router.post('/environments/:id/flag-template', express.json(), (req, res) => {
-  try {
-    const s = getStore();
-    const env = (s.client_environments||[]).find(e=>e.id===req.params.id);
-    if (!env) return res.status(404).json({error:'Environment not found'});
-    env.is_template     = req.body.is_template !== false;
-    env.template_name   = req.body.template_name || env.name;
-    env.template_desc   = req.body.template_desc || '';
-    env.template_tags   = req.body.template_tags || [];
-    env.updated_at      = new Date().toISOString();
-    saveStoreNow('master');
-    res.json(env);
-  } catch(e) { res.status(500).json({error:e.message}); }
-});
-
-// POST /api/superadmin/clients/:id/provision-from-template — provision new client from template env
-router.post('/:id/provision-from-template', express.json(), async (req, res) => {
-  try {
-    const s = getStore();
-    const { template_env_id, admin_user, environment: envData } = req.body;
-    const client = (s.clients||[]).find(c=>c.id===req.params.id);
-    if (!client) return res.status(404).json({error:'Client not found'});
-
-    const templateEnv = (s.client_environments||[]).find(e=>e.id===template_env_id&&e.is_template);
-    if (!templateEnv) return res.status(404).json({error:'Template environment not found'});
-
-    const templateClient = (s.clients||[]).find(c=>c.id===templateEnv.client_id);
-    if (!templateClient) return res.status(404).json({error:'Template client not found'});
-
-    // Create the new environment
-    const now = new Date().toISOString();
-    const newEnv = {
-      id: uuidv4(), client_id: client.id,
-      name: envData?.name || `${client.name} Production`,
-      type: envData?.type||'production', locale: envData?.locale||'en',
-      timezone: envData?.timezone||'UTC', is_default: 0, status: 'active',
-      source_template_id: template_env_id,
-      created_at: now, updated_at: now, deleted_at: null,
-    };
-    s.client_environments.push(newEnv);
-    saveStoreNow('master');
-
-    // Copy config from template tenant store to new tenant store
-    const result = await copyEnvConfig(
-      templateClient.tenant_slug, templateEnv.id,
-      client.tenant_slug,         newEnv.id,
-      { admin_user }
-    );
-
-    res.json({ ok: true, environment: newEnv, ...result });
-  } catch(e) { console.error('[provision-from-template]', e); res.status(500).json({error:e.message}); }
-});
-
-// POST /api/superadmin/copy-config — copy config between any two environments
-router.post('/copy-config', express.json(), async (req, res) => {
-  try {
-    const { from_env_id, to_env_id } = req.body;
-    const s = getStore();
-    const fromEnv = (s.client_environments||[]).find(e=>e.id===from_env_id);
-    const toEnv   = (s.client_environments||[]).find(e=>e.id===to_env_id);
-    if (!fromEnv) return res.status(404).json({error:'Source environment not found'});
-    if (!toEnv)   return res.status(404).json({error:'Target environment not found'});
-    const fromClient = (s.clients||[]).find(c=>c.id===fromEnv.client_id);
-    const toClient   = (s.clients||[]).find(c=>c.id===toEnv.client_id);
-    if (!fromClient||!toClient) return res.status(404).json({error:'Client not found'});
-    const result = await copyEnvConfig(fromClient.tenant_slug, from_env_id, toClient.tenant_slug, to_env_id, {});
-    res.json({ ok: true, ...result });
-  } catch(e) { res.status(500).json({error:e.message}); }
-});
-
-// ── Core config-copy function ────────────────────────────────────────────────
-async function copyEnvConfig(fromSlug, fromEnvId, toSlug, toEnvId, opts={}) {
-  const now = new Date().toISOString();
-  const uid = () => uuidv4();
-  const { loadTenantStore, tenantDbPath, tenantStorage, storeCache } = require('../db/init');
-  const fs = require('fs');
-  const path = require('path');
-
-  // Load source tenant store
-  loadTenantStore(fromSlug);
-  const fromTs = storeCache[fromSlug];
-
-  // Load or provision target tenant store
-  if (!storeCache[toSlug]) loadTenantStore(toSlug);
-  const toTs = storeCache[toSlug];
-
-  ensureTenantCollections(toTs);
-
-  // Wipe existing config in target env (not records)
-  const CONFIG_TABLES = ['object_definitions','objects','fields','workflows','workflow_steps',
-    'email_templates','stage_categories','portals','panel_layouts','forms','scorecard_templates',
-    'interview_types','lists','saved_views'];
-  for (const tbl of CONFIG_TABLES) {
-    if (toTs[tbl]) toTs[tbl] = toTs[tbl].filter(r => r.environment_id !== toEnvId);
-  }
-
-  // Build an id-remap table so all cross-references are updated
-  const idMap = {};
-  const remap = oldId => idMap[oldId] || oldId;
-  const newId = oldId => { const n = uid(); idMap[oldId] = n; return n; };
-
-  // ── 1. Objects ──────────────────────────────────────────────────────────────
-  const srcObjs = (fromTs.object_definitions||fromTs.objects||[])
-    .filter(o => o.environment_id===fromEnvId && !o.deleted_at);
-  const createdObjects = [];
-  for (const obj of srcObjs) {
-    const nid = newId(obj.id);
-    const copy = { ...obj, id: nid, environment_id: toEnvId, created_at: now, updated_at: now };
-    const tbl = toTs.object_definitions ? 'object_definitions' : 'objects';
-    if (!toTs[tbl]) toTs[tbl] = [];
-    toTs[tbl].push(copy);
-    createdObjects.push(copy);
-  }
-
-  // ── 2. Fields ────────────────────────────────────────────────────────────────
-  const srcFields = (fromTs.fields||[]).filter(f => f.environment_id===fromEnvId && !f.deleted_at);
-  for (const f of srcFields) {
-    const nid = newId(f.id);
-    const copy = { ...f, id: nid, environment_id: toEnvId, object_id: remap(f.object_id), created_at: now, updated_at: now };
-    if (!toTs.fields) toTs.fields = [];
-    toTs.fields.push(copy);
-  }
-
-  // ── 3. Workflows ─────────────────────────────────────────────────────────────
-  const srcWfs = (fromTs.workflows||[]).filter(w => w.environment_id===fromEnvId && !w.deleted_at);
-  for (const wf of srcWfs) {
-    const nid = newId(wf.id);
-    const copy = { ...wf, id: nid, environment_id: toEnvId, object_id: remap(wf.object_id), created_at: now, updated_at: now };
-    if (!toTs.workflows) toTs.workflows = [];
-    toTs.workflows.push(copy);
-  }
-  // Workflow steps
-  const srcSteps = (fromTs.workflow_steps||[]).filter(s => {
-    const wf = srcWfs.find(w=>w.id===s.workflow_id);
-    return !!wf;
-  });
-  for (const step of srcSteps) {
-    const nid = newId(step.id);
-    const copy = { ...step, id: nid, workflow_id: remap(step.workflow_id), created_at: now, updated_at: now };
-    if (!toTs.workflow_steps) toTs.workflow_steps = [];
-    toTs.workflow_steps.push(copy);
-  }
-
-  // ── 4. Stage categories ──────────────────────────────────────────────────────
-  const srcCats = (fromTs.stage_categories||[]).filter(c => c.environment_id===fromEnvId && !c.deleted_at);
-  for (const cat of srcCats) {
-    const nid = newId(cat.id);
-    const copy = { ...cat, id: nid, environment_id: toEnvId, created_at: now, updated_at: now };
-    if (!toTs.stage_categories) toTs.stage_categories = [];
-    toTs.stage_categories.push(copy);
-  }
-
-  // ── 5. Email templates ───────────────────────────────────────────────────────
-  const srcEmails = (fromTs.email_templates||[]).filter(e => e.environment_id===fromEnvId && !e.deleted_at);
-  for (const tmpl of srcEmails) {
-    const nid = newId(tmpl.id);
-    const copy = { ...tmpl, id: nid, environment_id: toEnvId, created_at: now, updated_at: now };
-    if (!toTs.email_templates) toTs.email_templates = [];
-    toTs.email_templates.push(copy);
-  }
-
-  // ── 6. Portals (config only, no portal analytics/feedback) ──────────────────
-  const srcPortals = (fromTs.portals||[]).filter(p => p.environment_id===fromEnvId && !p.deleted_at);
-  for (const portal of srcPortals) {
-    const nid = newId(portal.id);
-    const copy = { ...portal, id: nid, environment_id: toEnvId, slug: portal.slug+'-'+toEnvId.slice(0,4), status:'draft', created_at: now, updated_at: now };
-    if (!toTs.portals) toTs.portals = [];
-    toTs.portals.push(copy);
-  }
-
-  // ── 7. Panel layouts ─────────────────────────────────────────────────────────
-  const srcLayouts = (fromTs.panel_layouts||[]).filter(l => l.environment_id===fromEnvId);
-  for (const layout of srcLayouts) {
-    const nid = newId(layout.id);
-    const copy = { ...layout, id: nid, environment_id: toEnvId, created_at: now, updated_at: now };
-    if (!toTs.panel_layouts) toTs.panel_layouts = [];
-    toTs.panel_layouts.push(copy);
-  }
-
-  // ── 8. Forms & scorecard templates ──────────────────────────────────────────
-  for (const tbl of ['forms','scorecard_templates','interview_types']) {
-    const srcItems = (fromTs[tbl]||[]).filter(i => i.environment_id===fromEnvId && !i.deleted_at);
-    for (const item of srcItems) {
-      const nid = newId(item.id);
-      const copy = { ...item, id: nid, environment_id: toEnvId, created_at: now, updated_at: now };
-      if (!toTs[tbl]) toTs[tbl] = [];
-      toTs[tbl].push(copy);
-    }
-  }
-
-  // ── 9. Admin user (if provided) ──────────────────────────────────────────────
-  let adminResult = null;
-  if (opts.admin_user) {
-    const { email, first_name, last_name, password } = opts.admin_user;
-    if (email && password) {
-      const bcrypt = require('bcryptjs');
-      const saltRounds = 10;
-      const hash = bcrypt.hashSync(password, saltRounds);
-      const roles = (toTs.roles||[]);
-      const adminRole = roles.find(r=>r.slug==='super_admin')||roles.find(r=>r.slug==='admin')||roles[0];
-      const user = {
-        id: uid(), email, first_name: first_name||'Admin', last_name: last_name||'User',
-        role_id: adminRole?.id||null, status:'active', auth_provider:'local',
-        password_hash: hash, must_change_password: 0,
-        created_at: now, updated_at: now,
-      };
-      if (!toTs.users) toTs.users = [];
-      toTs.users.push(user);
-      adminResult = { email, id: user.id };
-    }
-  }
-
-  // Persist target store
-  const { tenantDbPath: tdbPath } = require('../db/init');
-  const fs2 = require('fs');
-  try {
-    fs2.writeFileSync(tdbPath(toSlug), JSON.stringify(toTs, null, 2));
-    console.log('[copyEnvConfig] Saved tenant store for', toSlug);
-  } catch(e) { console.error('[copyEnvConfig] Save error:', e.message); }
-
-  return {
-    objects:         createdObjects.length,
-    fields:          srcFields.length,
-    workflows:       srcWfs.length,
-    stage_categories: srcCats.length,
-    email_templates: srcEmails.length,
-    portals:         srcPortals.length,
-    panel_layouts:   srcLayouts.length,
-    admin:           adminResult,
-  };
-}
-
-function ensureTenantCollections(ts) {
-  const cols = ['object_definitions','objects','fields','workflows','workflow_steps',
-    'email_templates','stage_categories','portals','panel_layouts','forms',
-    'scorecard_templates','interview_types','roles','users','records','people_links',
-    'communications','notes','attachments','activity_log','lists','saved_views'];
-  for (const c of cols) { if (!ts[c]) ts[c] = []; }
-}

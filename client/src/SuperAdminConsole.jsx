@@ -546,8 +546,8 @@ function TemplateEnvironments() {
     setLoading(true);
     try {
       const [tmpl, clients] = await Promise.all([
-        api.get('/templates'),
-        api.get('/clients'),
+        api.get('/clients/templates'),
+        api.get('/clients/'),
       ]);
       setTemplates(Array.isArray(tmpl) ? tmpl : []);
       const cl = Array.isArray(clients) ? clients : clients?.clients || [];
@@ -566,7 +566,7 @@ function TemplateEnvironments() {
     if (isTemplate && !name) return;
     setFlagging(env.id);
     try {
-      await api.post(`/environments/${env.id}/flag-template`, { is_template: isTemplate, template_name: name });
+      await api.post(`/clients/environments/${env.id}/flag-template`, { is_template: isTemplate, template_name: name });
       await load();
     } catch(e) { alert('Error: '+e.message); }
     setFlagging(null);
@@ -576,7 +576,7 @@ function TemplateEnvironments() {
     if (!copyTarget) return alert('Select a target environment');
     setCopying(true); setCopyResult(null);
     try {
-      const result = await api.post('/copy-config', { from_env_id: showCopyModal.id, to_env_id: copyTarget });
+      const result = await api.post('/clients/copy-config', { from_env_id: showCopyModal.id, to_env_id: copyTarget });
       setCopyResult(result);
     } catch(e) { alert('Error: '+e.message); }
     setCopying(false);

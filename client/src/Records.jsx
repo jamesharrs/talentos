@@ -9038,7 +9038,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     try {
       // Only restore saved panels if the panel version is current — otherwise use defaults
       const currentVersion = localStorage.getItem(`talentos_panels_version_${objectName}`);
-      if (currentVersion === "v23") {
+      if (currentVersion === "v24") {
         const saved = JSON.parse(localStorage.getItem(`talentos_openpanels_${objectName}`));
         if (saved && typeof saved === "object") return saved;
       }
@@ -9103,7 +9103,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const leftStorageKey   = `talentos_panels_left_${objectName}`;
   const topStorageKey    = `talentos_panels_top_${objectName}`;
   const bottomStorageKey = `talentos_panels_bottom_${objectName}`;
-  const PANEL_VERSION    = "v23"; // only Recommendations expanded by default on Jobs
+  const PANEL_VERSION    = "v24"; // fix duplicate panels caused by nested array groups
   const versionKey       = `talentos_panels_version_${objectName}`;
 
   // ── Single atomic layout load — deduplicates all 4 zones together ───────
@@ -9151,7 +9151,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     // Use PANEL_META as source of truth — not just getDefaultPanelOrder —
     // so any newly added panel auto-appears even if it wasn't in the saved layout
     const allSaved = new Set([...flatPanelIds(top), ...flatPanelIds(left), ...flatPanelIds(right), ...flatPanelIds(bottom)]);
-    const newPanels = getDefaultPanelOrder(objectName).filter(id => !allSaved.has(id));
+    const defaultOrder = getDefaultPanelOrder(objectName);
+    const newPanels = flatPanelIds(defaultOrder).filter(id => !allSaved.has(id));
     const allNewFromMeta = Object.keys(PANEL_META).filter(id => !allSaved.has(id) && !newPanels.includes(id));
     if (newPanels.length || allNewFromMeta.length) right = [...right, ...newPanels, ...allNewFromMeta];
 

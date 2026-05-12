@@ -174,10 +174,13 @@ const Sel = ({ label, value, onChange, options }) => (
 
 /* ─── field renderer ───────────────────────────────────────────────────────── */
 const STATUS_COLORS = {
+  // Record statuses
   "Active":"#0ca678","Passive":"#f59f00","Not Looking":"#868e96","Placed":"#3b5bdb","Archived":"#adb5bd",
   "Open":"#0ca678","Draft":"#868e96","On Hold":"#f59f00","Filled":"#3b5bdb","Cancelled":"#e03131",
   "High":"#e03131","Critical":"#c92a2a","Medium":"#f59f00","Low":"#0ca678",
   "Remote":"#3b5bdb","Hybrid":"#7048e8","On-site":"#0ca678",
+  // Person types
+  "Candidate":"#4361EE","Employee":"#0ca678","Contractor":"#f59f00","Consultant":"#7048e8","Contact":"#868e96",
 };
 
 // Emit a filter-navigate event so the app shell can navigate to a filtered records list

@@ -80,6 +80,7 @@ const importCSV = async (objectId, environmentId, file, mode='create') => {
 const Ic = ({ n, s=16, c="currentColor" }) => {
   const P = {
     list:"M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
+    layoutGrid:"M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
     kanban:"M3 3h7v18H3zM14 3h7v11h-7zM14 17h7v4h-7z",
     plus:"M12 5v14M5 12h14",
     x:"M18 6L6 18M6 6l12 12",
@@ -10985,6 +10986,143 @@ function buildListContext(object, records, total, fields) {
 }
 
 
+// ── Talent Card Grid View ─────────────────────────────────────────────────────
+// Renders records as cards using visible list columns as the card layout
+function TalentCardGrid({ records, fields, visibleFieldIds, objectColor, onProfile }) {
+  const F2 = F; // same font
+  const accent = objectColor || C.accent;
+
+  // Derive the ordered visible fields (same as table columns)
+  const visibleFields = visibleFieldIds
+    ? visibleFieldIds.map(id => fields.find(f => f.id === id)).filter(Boolean)
+    : fields.filter(f => f.show_in_list).slice(0, 8);
+
+  // Primary field = first text-like field (name/title)
+  const primaryField = visibleFields.find(f => ["text","email"].includes(f.field_type)) || visibleFields[0];
+  const secondaryField = visibleFields.find(f => f.id !== primaryField?.id && ["text","select","email"].includes(f.field_type));
+  const remainingFields = visibleFields.filter(f => f.id !== primaryField?.id && f.id !== secondaryField?.id);
+
+  const initials = (record) => {
+    const fn = record.data?.first_name || "";
+    const ln = record.data?.last_name  || "";
+    if (fn || ln) return `${fn[0]||""}${ln[0]||""}`.toUpperCase();
+    const title = record.data?.[primaryField?.api_key] || "";
+    return title.slice(0, 2).toUpperCase() || "?";
+  };
+
+  const avatarSrc = (record) => record.data?.avatar || record.data?.photo || record.data?.profile_photo || null;
+
+  const renderVal = (record, field) => {
+    const val = record.data?.[field.api_key];
+    if (val === null || val === undefined || val === "") return null;
+    if (field.field_type === "select" || field.field_type === "boolean") {
+      const col = STATUS_COLORS?.[val] || accent;
+      return (
+        <span style={{ display:"inline-flex", alignItems:"center", padding:"2px 8px", borderRadius:99,
+          fontSize:11, fontWeight:600, background:`${col}18`, color:col, border:`1px solid ${col}28`,
+          whiteSpace:"nowrap", maxWidth:140, overflow:"hidden", textOverflow:"ellipsis" }}>
+          {String(val)}
+        </span>
+      );
+    }
+    if (field.field_type === "multi_select") {
+      const arr = Array.isArray(val) ? val : String(val).split(",").map(v=>v.trim()).filter(Boolean);
+      return (
+        <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+          {arr.slice(0,3).map((v,i) => {
+            const col = STATUS_COLORS?.[v] || accent;
+            return <span key={i} style={{ display:"inline-flex", alignItems:"center", padding:"2px 7px", borderRadius:99, fontSize:10, fontWeight:600, background:`${col}18`, color:col }}>{v}</span>;
+          })}
+          {arr.length > 3 && <span style={{ fontSize:10, color:C.text3 }}>+{arr.length-3}</span>}
+        </div>
+      );
+    }
+    if (field.field_type === "rating") {
+      return <div style={{ display:"flex", gap:1 }}>{[1,2,3,4,5].map(i=>(
+        <svg key={i} width="12" height="12" viewBox="0 0 24 24" fill={i<=val?"#f59f00":"#e5e7eb"} stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      ))}</div>;
+    }
+    if (field.field_type === "url") return <a href={val} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{ color:accent, fontSize:11, textDecoration:"none", maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"block" }}>{String(val).replace(/^https?:\/\/(www\.)?/,"").slice(0,30)}</a>;
+    if (field.field_type === "email") return <span style={{ color:accent, fontSize:11 }}>{String(val)}</span>;
+    if (field.field_type === "currency") return <span style={{ fontWeight:600, fontSize:12 }}>${Number(val).toLocaleString()}</span>;
+    if (field.field_type === "date") return <span style={{ fontSize:11, color:C.text2 }}>{new Date(val).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</span>;
+    const str = String(val);
+    return <span style={{ fontSize:12, color:C.text1, lineHeight:1.4, display:"-webkit-box", WebkitLineClamp:1, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{str}</span>;
+  };
+
+  if (!records.length) return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:200, color:C.text3, gap:8 }}>
+      <Ic n="users" s={32} c={C.text3}/>
+      <span style={{ fontSize:13 }}>No records to display</span>
+    </div>
+  );
+
+  return (
+    <div style={{ padding:"16px 0", display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(260px, 1fr))", gap:14 }}>
+      {records.map(record => {
+        const src = avatarSrc(record);
+        const ini = initials(record);
+        const primaryVal = record.data?.[primaryField?.api_key] || "";
+        const secondaryVal = secondaryField ? record.data?.[secondaryField.api_key] || "" : "";
+
+        return (
+          <div key={record.id} onClick={() => onProfile?.(record)}
+            style={{ background:C.surface, borderRadius:14, border:`1px solid ${C.border}`,
+              padding:"16px", cursor:"pointer", transition:"all .15s", position:"relative",
+              boxShadow:"0 1px 4px rgba(0,0,0,.04)" }}
+            onMouseEnter={e=>{ e.currentTarget.style.boxShadow=`0 4px 16px rgba(0,0,0,.10)`; e.currentTarget.style.borderColor=accent+"60"; e.currentTarget.style.transform="translateY(-1px)"; }}
+            onMouseLeave={e=>{ e.currentTarget.style.boxShadow="0 1px 4px rgba(0,0,0,.04)"; e.currentTarget.style.borderColor=C.border; e.currentTarget.style.transform="none"; }}>
+
+            {/* Avatar + name row */}
+            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
+              {src ? (
+                <img src={src} alt={ini} style={{ width:42, height:42, borderRadius:"50%", objectFit:"cover", flexShrink:0 }}/>
+              ) : (
+                <div style={{ width:42, height:42, borderRadius:"50%", background:`${accent}20`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  <span style={{ fontSize:15, fontWeight:700, color:accent, fontFamily:F2 }}>{ini}</span>
+                </div>
+              )}
+              <div style={{ minWidth:0, flex:1 }}>
+                <div style={{ fontSize:14, fontWeight:700, color:C.text1, fontFamily:F2, lineHeight:1.3,
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {primaryVal || "—"}
+                </div>
+                {secondaryVal && (
+                  <div style={{ fontSize:12, color:C.text2, marginTop:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    {secondaryVal}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Remaining visible columns as field rows */}
+            {remainingFields.length > 0 && (
+              <div style={{ display:"flex", flexDirection:"column", gap:6, borderTop:`1px solid ${C.border}`, paddingTop:10 }}>
+                {remainingFields.slice(0, 6).map(field => {
+                  const rendered = renderVal(record, field);
+                  if (!rendered) return null;
+                  return (
+                    <div key={field.id} style={{ display:"flex", alignItems:"flex-start", gap:8, minWidth:0 }}>
+                      <span style={{ fontSize:11, color:C.text3, fontWeight:500, minWidth:80, flexShrink:0, paddingTop:1, fontFamily:F2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        {field.name}
+                      </span>
+                      <div style={{ flex:1, minWidth:0 }}>{rendered}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Accent strip at bottom */}
+            <div style={{ position:"absolute", bottom:0, left:16, right:16, height:2, borderRadius:"0 0 2px 2px",
+              background:`linear-gradient(90deg, ${accent}40, ${accent}10)` }}/>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function RecordsView({ environment, object, onOpenRecord, initialFilter, session, autoCreate, onAutoCreateConsumed, allObjects = [], featureFlags = {} }) {
   // Destructure feature flags with safe defaults (all on unless explicitly disabled)
   const ff = { bulk_actions:true, communications_panel:true, duplicate_detection:true,
@@ -11734,7 +11872,7 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
 
         {/* View toggle */}
         <div style={{ display:"flex", border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden" }}>
-          {[{v:"table",i:"list"}].map(({v,i})=>(
+          {[{v:"table",i:"list"},{v:"card",i:"layoutGrid"}].map(({v,i})=>(
             <button key={v} onClick={()=>setView(v)}
               style={{ padding:"7px 12px", border:"none", cursor:"pointer", background:view===v?C.accentLight:"transparent", color:view===v?C.accent:C.text3, display:"flex", alignItems:"center", transition:"all .12s" }}>
               <Ic n={i} s={15}/>
@@ -11927,6 +12065,14 @@ export default function RecordsView({ environment, object, onOpenRecord, initial
       <div style={{ flex:1, background:C.surface, borderRadius:14, border:`1px solid ${C.border}`, overflow:"hidden" }}>
         {loading ? (
           <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:C.text3 }}>Loading…</div>
+        ) : view === "card" ? (
+          <TalentCardGrid
+            records={displayedRecords}
+            fields={fields}
+            visibleFieldIds={visibleFieldIds}
+            objectColor={object.color||C.accent}
+            onProfile={r=>onOpenRecord?.(r.id, object.id, r.record_number)}
+          />
         ) : (
           <TableView records={displayedRecords} fields={fields} visibleFieldIds={visibleFieldIds} objectColor={object.color||C.accent}
             onProfile={r=>onOpenRecord?.(r.id, object.id, r.record_number)}

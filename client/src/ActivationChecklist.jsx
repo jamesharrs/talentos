@@ -41,8 +41,7 @@ export default function ActivationChecklist({ environmentId, compact=false }) {
 
   const load = () => {
     if (!environmentId) return;
-    tFetch(`/api/onboarding/${environmentId}`)
-      .then(r=>r.json()).then(d=>{ setData(d); setLoading(false); })
+    tFetch(`/api/onboarding/${environmentId}`).then(d=>{ setData(d); setLoading(false); })
       .catch(()=>setLoading(false));
   };
 

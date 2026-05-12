@@ -1273,7 +1273,7 @@ const DatasetPicker = ({ field, value, onChange }) => {
     if (!field.dataset_id) return;
     const cacheKey = field.dataset_id;
     if (_datasetCache[cacheKey]) { setOptions(_datasetCache[cacheKey]); return; }
-    tFetch(`/api/datasets/${cacheKey}`).then(r=>r.json()).then(d => {
+    tFetch(`/api/datasets/${cacheKey}`).then(d => {
       const opts = (d.options||[]).filter(o=>o.is_active!==false).map(o=>({ id: o.id, label: o.label, color: o.color }));
       _datasetCache[cacheKey] = opts;
       setOptions(opts);
@@ -5613,14 +5613,14 @@ function ReportingPanel({ record, environment }) {
   const load = useCallback(async () => {
     if (!record?.id || !environment?.id) return;
     const [r, pplObj] = await Promise.all([
-      tFetch(`/api/relationships?environment_id=${environment.id}&record_id=${record.id}`).then(r=>r.json()),
-      tFetch(`/api/objects?environment_id=${environment.id}`).then(r=>r.json()),
+      tFetch(`/api/relationships?environment_id=${environment.id}&record_id=${record.id}`),
+      tFetch(`/api/objects?environment_id=${environment.id}`),
     ]);
     setRels(Array.isArray(r) ? r : []);
     // Find people objects with relationships enabled
     const personObj = (Array.isArray(pplObj) ? pplObj : []).find(o => o.slug === "people");
     if (personObj) {
-      const ppl = await tFetch(`/api/records?object_id=${personObj.id}&environment_id=${environment.id}&limit=200`).then(r=>r.json());
+      const ppl = await tFetch(`/api/records?object_id=${personObj.id}&environment_id=${environment.id}&limit=200`);
       setAllPeople(Array.isArray(ppl?.records) ? ppl.records : []);
     }
   }, [record?.id, environment?.id]);
@@ -6419,7 +6419,7 @@ const CoordinationPanel = ({ record, environment }) => {
   const appUrl = window.location.origin;
   const load = useCallback(async () => {
     setLoading(true);
-    try { const r = await tFetch(`/api/interview-coordinator/runs?candidate_id=${record.id}`).then(r=>r.json()); setRuns(Array.isArray(r)?r:[]); } catch(e){}
+    try { const r = await tFetch(`/api/interview-coordinator/runs?candidate_id=${record.id}`); setRuns(Array.isArray(r)?r:[]); } catch(e){}
     setLoading(false);
   }, [record.id]);
   useEffect(() => { load(); }, [load]);

@@ -1240,11 +1240,11 @@ const PeopleFieldConfig = ({ form, set, selEnv, F }) => {
     if (peopleRecords.length > 0) return;
     setLoadingPeople(true);
     const slug = form.related_object_slug || "people";
-    tFetch(`/api/objects?environment_id=${selEnv.id}`).then(r => r.json())
+    tFetch(`/api/objects?environment_id=${selEnv.id}`)
       .then(objs => {
         const obj = (Array.isArray(objs) ? objs : []).find(o => o.slug === slug);
         if (!obj) { setLoadingPeople(false); return; }
-        return tFetch(`/api/records?object_id=${obj.id}&environment_id=${selEnv.id}&limit=500`).then(r => r.json());
+        return tFetch(`/api/records?object_id=${obj.id}&environment_id=${selEnv.id}&limit=500`);
       })
       .then(res => {
         if (!res) return;
@@ -1263,17 +1263,17 @@ const PeopleFieldConfig = ({ form, set, selEnv, F }) => {
   useEffect(() => {
     if (!selEnv?.id) return;
     const slug = form.related_object_slug || "people";
-    tFetch(`/api/objects?environment_id=${selEnv.id}`).then(r => r.json())
+    tFetch(`/api/objects?environment_id=${selEnv.id}`)
       .then(objs => {
         const obj = (Array.isArray(objs) ? objs : []).find(o => o.slug === slug);
         if (!obj) return;
         // Load fields
-        tFetch(`/api/fields?object_id=${obj.id}`).then(r => r.json()).then(fields => {
+        tFetch(`/api/fields?object_id=${obj.id}`).then(fields => {
           const flds = Array.isArray(fields) ? fields : [];
           setLinkedFields(flds);
         });
         // Load records to extract distinct values per field
-        tFetch(`/api/records?object_id=${obj.id}&environment_id=${selEnv.id}&limit=500`).then(r => r.json()).then(res => {
+        tFetch(`/api/records?object_id=${obj.id}&environment_id=${selEnv.id}&limit=500`).then(res => {
           const recs = Array.isArray(res) ? res : (res.records || []);
           const vals = {};
           recs.forEach(r => {
@@ -1289,7 +1289,7 @@ const PeopleFieldConfig = ({ form, set, selEnv, F }) => {
           setFieldValues(result);
         });
         // Load saved lists for the linked object
-        tFetch(`/api/saved-views?object_id=${obj.id}&environment_id=${selEnv.id}`).then(r => r.json())
+        tFetch(`/api/saved-views?object_id=${obj.id}&environment_id=${selEnv.id}`)
           .then(lists => setSavedLists(Array.isArray(lists) ? lists : []))
           .catch(() => {});
       }).catch(() => {});

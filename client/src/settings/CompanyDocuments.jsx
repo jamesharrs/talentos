@@ -70,7 +70,7 @@ export default function CompanyDocuments({ environment }) {
     fd.append('name', file.name.replace(/\.[^.]+$/, ''));
     fd.append('category', 'Other');
     fd.append('visibility', 'internal');
-    await tFetch('/api/company-documents', { method: 'POST', body: fd }).then(r => r.json());
+    await tFetch('/api/company-documents', { method: 'POST', body: fd });
     if (fileRef.current) fileRef.current.value = '';
     setUploading(false);
     setShowUpload(false);

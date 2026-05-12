@@ -308,7 +308,7 @@ export default function IntegrationsPage({environment}){
   };
   const handleRetest=async(id)=>{
     try {
-      const result = await tFetch(`/integrations/${id}/test`,{method:'POST'}).then(r=>r.json());
+      const result = await tFetch(`/integrations/${id}/test`,{method:'POST'});
       await load();
       return result;
     } catch(e) { console.warn('retest failed',e); }

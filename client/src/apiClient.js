@@ -92,5 +92,13 @@ export function tFetch(url, opts = {}) {
   const csrf = isMutation ? getCsrfToken() : '';
   const h = { ...authHeaders(), ...(opts.headers || {}) };
   if (csrf) h['X-CSRF-Token'] = csrf;
-  return fetch(url, { ...opts, headers: h });
+
+  // Auto-stringify plain object bodies and set Content-Type
+  let body = opts.body;
+  if (body && typeof body === 'object' && !(body instanceof FormData) && !(body instanceof URLSearchParams)) {
+    body = JSON.stringify(body);
+    if (!h['Content-Type']) h['Content-Type'] = 'application/json';
+  }
+
+  return fetch(url, { ...opts, headers: h, body }).then(r => r.json());
 }

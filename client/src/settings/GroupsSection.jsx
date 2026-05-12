@@ -210,8 +210,8 @@ export default function GroupsSection({ environment }) {
   const load = async () => {
     setLoading(true);
     const [g, u] = await Promise.all([
-      tFetch(`/api/groups?environment_id=${environment?.id}`).then(r=>r.json()).catch(()=>[]),
-      tFetch('/api/users').then(r=>r.json()).catch(()=>[]),
+      tFetch(`/api/groups?environment_id=${environment?.id}`).catch(()=>[]),
+      tFetch('/api/users').catch(()=>[]),
     ]);
     setGroups(Array.isArray(g)?g:[]);
     setUsers(Array.isArray(u)?u:[]);

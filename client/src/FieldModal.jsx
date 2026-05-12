@@ -577,15 +577,15 @@ function PeopleConfig({ form, set, objects, selEnv }) {
   // Load saved lists + fields + distinct values from the linked object
   useEffect(() => {
     if (!selEnv?.id) return;
-    tFetch(`/api/objects?environment_id=${selEnv.id}`).then(r => r.json()).then(objs => {
+    tFetch(`/api/objects?environment_id=${selEnv.id}`).then(objs => {
       const obj = (Array.isArray(objs) ? objs : []).find(o => o.slug === slug);
       if (!obj) return;
-      tFetch(`/api/saved-views?object_id=${obj.id}&environment_id=${selEnv.id}`).then(r => r.json())
+      tFetch(`/api/saved-views?object_id=${obj.id}&environment_id=${selEnv.id}`)
         .then(lists => setSavedLists(Array.isArray(lists) ? lists : [])).catch(()=>{});
-      tFetch(`/api/fields?object_id=${obj.id}`).then(r => r.json()).then(fields => {
+      tFetch(`/api/fields?object_id=${obj.id}`).then(fields => {
         setLinkedFields(Array.isArray(fields) ? fields : []);
       });
-      tFetch(`/api/records?object_id=${obj.id}&environment_id=${selEnv.id}&limit=300`).then(r => r.json()).then(res => {
+      tFetch(`/api/records?object_id=${obj.id}&environment_id=${selEnv.id}&limit=300`).then(res => {
         const recs = Array.isArray(res) ? res : (res?.records || []);
         const vals = {};
         recs.forEach(r => Object.entries(r.data||{}).forEach(([k,v]) => {
@@ -604,10 +604,10 @@ function PeopleConfig({ form, set, objects, selEnv }) {
   useEffect(() => {
     if (form.people_selection_mode !== "specific" || !selEnv?.id || peopleRecords.length > 0) return;
     setLoadingPeople(true);
-    tFetch(`/api/objects?environment_id=${selEnv.id}`).then(r => r.json()).then(objs => {
+    tFetch(`/api/objects?environment_id=${selEnv.id}`).then(objs => {
       const obj = (Array.isArray(objs) ? objs : []).find(o => o.slug === slug);
       if (!obj) { setLoadingPeople(false); return; }
-      tFetch(`/api/records?object_id=${obj.id}&environment_id=${selEnv.id}&limit=500`).then(r => r.json()).then(res => {
+      tFetch(`/api/records?object_id=${obj.id}&environment_id=${selEnv.id}&limit=500`).then(res => {
         const recs = Array.isArray(res) ? res : (res?.records || []);
         setPeopleRecords(recs.map(r => ({
           id: r.id,
@@ -1255,9 +1255,9 @@ export default function FieldModal({ field, selEnv, selObj, onSaved, onClose }) 
   // ── Load supporting data ────────────────────────────────────────────────
   useEffect(() => {
     if (selEnv?.id) {
-      tFetch(`/api/datasets?environment_id=${selEnv.id}`).then(r=>r.json()).then(d=>setDatasets(Array.isArray(d)?d:[])).catch(()=>{});
-      tFetch(`/api/objects?environment_id=${selEnv.id}`).then(r=>r.json()).then(d=>setObjects(Array.isArray(d)?d:[])).catch(()=>{});
-      tFetch(`/api/roles`).then(r=>r.json()).then(d=>setRoles(Array.isArray(d)?d:[])).catch(()=>{});
+      tFetch(`/api/datasets?environment_id=${selEnv.id}`).then(d=>setDatasets(Array.isArray(d)?d:[])).catch(()=>{});
+      tFetch(`/api/objects?environment_id=${selEnv.id}`).then(d=>setObjects(Array.isArray(d)?d:[])).catch(()=>{});
+      tFetch(`/api/roles`).then(d=>setRoles(Array.isArray(d)?d:[])).catch(()=>{});
     }
   }, [selEnv?.id]);
 
@@ -1277,7 +1277,7 @@ export default function FieldModal({ field, selEnv, selObj, onSaved, onClose }) 
 
   useEffect(() => {
     if (selObj?.id) {
-      tFetch(`/api/fields?object_id=${selObj.id}`).then(r=>r.json()).then(d=>setObjectFields(Array.isArray(d)?d:[])).catch(()=>{});
+      tFetch(`/api/fields?object_id=${selObj.id}`).then(d=>setObjectFields(Array.isArray(d)?d:[])).catch(()=>{});
     }
   }, [selObj?.id]);
 

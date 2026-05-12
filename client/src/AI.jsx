@@ -3069,7 +3069,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     if (!parsedPerson || !environment?.id) return;
     setCreating(true);
     try {
-      const objs = await tFetch(`/api/objects?environment_id=${environment.id}`).then(r=>r.json());
+      const objs = await tFetch(`/api/objects?environment_id=${environment.id}`);
       const peopleObj = (Array.isArray(objs)?objs:[]).find(o=>o.slug==='people'||o.name?.toLowerCase().includes('person')||o.name?.toLowerCase().includes('people'));
       if (!peopleObj) throw new Error('People object not found');
       const rec = await tFetch('/api/records',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -3093,7 +3093,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     if (!parsedJob || !environment?.id) return;
     setCreating(true);
     try {
-      const objs = await tFetch(`/api/objects?environment_id=${environment.id}`).then(r=>r.json());
+      const objs = await tFetch(`/api/objects?environment_id=${environment.id}`);
       const jobObj = (Array.isArray(objs)?objs:[]).find(o=>o.slug==='jobs'||o.name?.toLowerCase().includes('job'));
       if (!jobObj) throw new Error('Jobs object not found');
       const rec2 = await tFetch('/api/records',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -3163,7 +3163,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
       // ── Update a single field on a record ───────────────────────────────────
       } else if (action_type === 'update_field' && payload?.record_id && payload?.field) {
-        const rec = await tFetch(`/api/records/${payload.record_id}`).then(r => r.json());
+        const rec = await tFetch(`/api/records/${payload.record_id}`);
         await tFetch(`/api/records/${payload.record_id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -3175,7 +3175,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
       // ── Legacy: status_change (alias for update_field) ──────────────────────
       } else if (action_type === 'status_change' && payload?.record_id && payload?.field && payload?.value) {
-        const rec = await tFetch(`/api/records/${payload.record_id}`).then(r => r.json());
+        const rec = await tFetch(`/api/records/${payload.record_id}`);
         await tFetch(`/api/records/${payload.record_id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -3214,7 +3214,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 
       // ── Assign a record to a user / recruiter ───────────────────────────────
       } else if (action_type === 'assign' && payload?.record_id) {
-        const rec = await tFetch(`/api/records/${payload.record_id}`).then(r => r.json());
+        const rec = await tFetch(`/api/records/${payload.record_id}`);
         await tFetch(`/api/records/${payload.record_id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },

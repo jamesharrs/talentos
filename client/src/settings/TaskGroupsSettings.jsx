@@ -190,8 +190,8 @@ function TemplateEditorModal({ template, environment, onSave, onClose }) {
   useEffect(() => {
     const envId = environment?.id;
     if (!envId) return;
-    tFetch(`/api/forms?environment_id=${envId}`).then(r=>r.json()).then(d=>setForms(Array.isArray(d)?d:[])).catch(()=>{});
-    tFetch('/api/file-types').then(r=>r.json()).then(d=>setFileTypes(Array.isArray(d)?d:[])).catch(()=>{});
+    tFetch(`/api/forms?environment_id=${envId}`).then(d=>setForms(Array.isArray(d)?d:[])).catch(()=>{});
+    tFetch('/api/file-types').then(d=>setFileTypes(Array.isArray(d)?d:[])).catch(()=>{});
   }, [environment?.id]);
 
   const addTask = () => set('task_definitions', [...form.task_definitions, {

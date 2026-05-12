@@ -500,7 +500,7 @@ export function useInboxUnreadCount(environmentId) {
     try { sess = JSON.parse(localStorage.getItem('talentos_session') || 'null'); } catch {}
     if (!sess?.user?.id) return;
     const poll = async () => {
-      try { const d = await tFetch(`/api/inbox/unread-count?environment_id=${environmentId}`).then(r => r.json()); setCount(d.count || 0); } catch {}
+      try { const d = await tFetch(`/api/inbox/unread-count?environment_id=${environmentId}`); setCount(d.count || 0); } catch {}
     };
     poll();
     const i = setInterval(poll, 30000);

@@ -259,19 +259,19 @@ function CompletionConfigEditor({ type, config, onChange, environmentId }) {
   useEffect(() => {
     if (!environmentId) return;
     if (type === 'form') {
-      tFetch(`/api/forms?environment_id=${environmentId}`).then(r=>r.json())
+      tFetch(`/api/forms?environment_id=${environmentId}`)
         .then(d=>setForms(Array.isArray(d)?d:[])).catch(()=>{});
     }
     if (type === 'file_upload') {
-      tFetch('/api/file-types').then(r=>r.json())
+      tFetch('/api/file-types')
         .then(d=>setFileTypes(Array.isArray(d)?d:[])).catch(()=>{});
     }
     if (type === 'document_read' || type === 'e_signature') {
-      tFetch(`/api/company-documents?environment_id=${environmentId}`).then(r=>r.json())
+      tFetch(`/api/company-documents?environment_id=${environmentId}`)
         .then(d=>setCompanyDocs(Array.isArray(d)?d:[])).catch(()=>{});
     }
     if (type === 'approval') {
-      tFetch(`/api/users?environment_id=${environmentId}`).then(r=>r.json())
+      tFetch(`/api/users?environment_id=${environmentId}`)
         .then(d=>setUsers(Array.isArray(d)?d:[])).catch(()=>{});
     }
   }, [type, environmentId]);
@@ -489,7 +489,7 @@ export default function TaskModal({ task, defaultValues={}, environmentId, onSav
 
   useEffect(() => {
     if (!environmentId) return;
-    tFetch(`/api/users?environment_id=${environmentId}`).then(r=>r.json())
+    tFetch(`/api/users?environment_id=${environmentId}`)
       .then(d=>setUsers(Array.isArray(d)?d:[])).catch(()=>{});
   }, [environmentId]);
 

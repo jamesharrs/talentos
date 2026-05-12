@@ -196,7 +196,7 @@ function TaskFormModal({ task, config, onComplete, onClose }) {
 
   useEffect(() => {
     if (!config.form_id) return;
-    tFetch(`/api/forms/${config.form_id}`).then(r=>r.json())
+    tFetch(`/api/forms/${config.form_id}`)
       .then(d => { if (d.id) setForm(d); })
       .catch(() => setError('Could not load form.'));
   }, [config.form_id]);
@@ -537,8 +537,8 @@ export function TasksEventsPanel({ record, environment, linkedJobRecords=[], job
     if (!recId) return;
     setLoading(true);
     const [t, e] = await Promise.all([
-      tFetch(`/api/calendar/tasks?record_id=${recId}`).then(r=>r.json()),
-      tFetch(`/api/calendar/events?record_id=${recId}`).then(r=>r.json()),
+      tFetch(`/api/calendar/tasks?record_id=${recId}`),
+      tFetch(`/api/calendar/events?record_id=${recId}`),
     ]);
     setTasks(Array.isArray(t)?t:[]); setEvents(Array.isArray(e)?e:[]); setLoading(false);
   }, [recId]);

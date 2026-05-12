@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { invalidateFlagCache } from '../FeatureFlags.jsx';
 import { useFeatures } from '../hooks/useFeature.jsx';
-import { authHeaders } from '../apiClient.js';
+import { authHeaders, tFetch } from '../apiClient.js';
 
 const F = "'Geist', -apple-system, sans-serif";
 const C = { accent:'#4361EE', text1:'#1a1a2e', text2:'#4b5563', text3:'#9ca3af', border:'#e5e7eb', surface:'#ffffff' };
@@ -155,8 +155,7 @@ function RecordPanelsSection({ flagMap, saving, toggle, toggleAll, bulkSaving, B
   // Load all objects to get custom types (Talent Pools, etc.)
   useEffect(() => {
     if (!environment?.id) return;
-    fetch(`/api/objects?environment_id=${environment.id}`, { headers: authHeaders() })
-      .then(r => r.json())
+    tFetch(`/api/objects?environment_id=${environment.id}`)
       .then(d => { if (Array.isArray(d)) setObjects(d); })
       .catch(() => {});
   }, [environment?.id]);
@@ -170,7 +169,7 @@ function RecordPanelsSection({ flagMap, saving, toggle, toggleAll, bulkSaving, B
     const obj = objects.find(o => typeKey === 'person' ? o.slug === 'people' : typeKey === 'job' ? o.slug === 'jobs' : o.slug === typeKey);
     if (!obj) return;
     try {
-      const r = await fetch(`/api/fields?object_id=${obj.id}`, { headers: authHeaders() });
+      const r = await tFetch(`/api/fields?object_id=${obj.id}`);
       if (r.ok) { const d = await r.json(); setFieldsCache(prev => ({ ...prev, [typeKey]: Array.isArray(d) ? d : [] })); }
     } catch {}
   };
@@ -340,10 +339,10 @@ export default function FeatureFlagsSettings({ environment }) {
     if (!silent) setLoading(true);
     try {
       // Load base flags (for the admin table)
-      const res = await fetch(`/api/feature-flags/all?environment_id=${environment.id}`, { headers: authHeaders() });
+      const res = await tFetch(`/api/feature-flags/all?environment_id=${environment.id}`);
       if (res.ok) setFlags((await res.json()).flags || []);
       // Also load per-object overrides from the main GET endpoint
-      const res2 = await fetch(`/api/feature-flags?environment_id=${environment.id}`, { headers: authHeaders() });
+      const res2 = await tFetch(`/api/feature-flags?environment_id=${environment.id}`);
       if (res2.ok) {
         const d = await res2.json();
         setPerObject(d._perObject || {});
@@ -366,24 +365,10 @@ export default function FeatureFlagsSettings({ environment }) {
     }
     setSaving(key);
     try {
-      const res = await fetch(`/api/feature-flags/${key}`, {
+      await tFetch(`/api/feature-flags/${key}`, {
         method: 'PUT',
-        headers: { 'Content-Type':'application/json', ...authHeaders() },
-        body: JSON.stringify({ environment_id: environment.id, enabled: !currentlyEnabled }),
+        body: { environment_id: environment.id, enabled: !currentlyEnabled },
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error('Feature flag toggle failed:', err);
-        // Revert optimistic update on failure
-        if (key.includes('__')) {
-          const [baseKey, slug] = key.split('__');
-          setPerObject(prev => ({ ...prev, [slug]: { ...(prev[slug]||{}), [baseKey]: currentlyEnabled } }));
-        } else {
-          setFlags(prev => prev.map(f => f.key === key ? { ...f, enabled: currentlyEnabled } : f));
-        }
-        setSaving(null);
-        return;
-      }
       invalidateFlagCache();
       // Silent background refresh to sync server state — no loading flash, no scroll reset
       load(true);
@@ -403,10 +388,7 @@ export default function FeatureFlagsSettings({ environment }) {
 
   const reset = async (key) => {
     setSaving(key);
-    await fetch(`/api/feature-flags/${key}?environment_id=${environment.id}`, {
-      method: 'DELETE',
-      headers: authHeaders(),
-    });
+    await tFetch(`/api/feature-flags/${key}?environment_id=${environment.id}`, { method: 'DELETE' });
     invalidateFlagCache();
     load(true);
     scheduleRefresh();
@@ -421,10 +403,9 @@ export default function FeatureFlagsSettings({ environment }) {
       return next;
     });
     const flagKey = `${panelKey}__condition__${scope}`;
-    await fetch(`/api/feature-flags/${encodeURIComponent(flagKey)}`, {
+    await tFetch(`/api/feature-flags/${encodeURIComponent(flagKey)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ environment_id: environment.id, enabled: true, condition }),
+      body: { environment_id: environment.id, enabled: true, condition },
     }).catch(console.error);
     invalidateFlagCache();
     scheduleRefresh();
@@ -440,10 +421,9 @@ export default function FeatureFlagsSettings({ environment }) {
     setFlags(prev => prev.map(f => keys.includes(f.key) ? { ...f, enabled: enable, overridden: true } : f));
     try {
       await Promise.all(keys.map(key =>
-        fetch(`/api/feature-flags/${key}`, {
+        tFetch(`/api/feature-flags/${key}`, {
           method: 'PUT',
-          headers: { 'Content-Type':'application/json', ...authHeaders() },
-          body: JSON.stringify({ environment_id: environment.id, enabled: enable }),
+          body: { environment_id: environment.id, enabled: enable },
         })
       ));
       invalidateFlagCache();

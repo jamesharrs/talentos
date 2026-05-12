@@ -7320,10 +7320,13 @@ export const getDefaultPanelOrder = (objectName) => {
     "tasks","linked","coordination","comms","notes","attachments","forms",
     "activity","agents","match","assessments","engagement"
   ];
-  // Job: Insights > Recommendations > Interview Plan > Interviews > Screening & IQ > Scorecard > Job Tasks > Tasks > Notes > Files > Forms > AI Agents > Communications > Bias Scanner > Activity
+  // Job: Recommendations > [Interview Plan, Interviews, Screening & IQ, Scorecard] > [Job Tasks, Tasks] > [Notes, Files, Forms] > AI Agents > Bias Scanner > Activity
   if (objectName === "Job" || objectName === "Jobs") return [
-    "insights","match","interview_plan","coordination","questions","scorecard",
-    "job_tasks","tasks","notes","attachments","forms","agents","comms","bias_scan","activity"
+    "match",
+    ["interview_plan","coordination","questions","scorecard"],
+    ["job_tasks","tasks"],
+    ["notes","attachments","forms"],
+    "agents","bias_scan","activity"
   ];
   // Default for other objects
   return ["tasks","comms","notes","attachments","forms","activity","agents","match"];
@@ -9035,12 +9038,12 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     try {
       // Only restore saved panels if the panel version is current — otherwise use defaults
       const currentVersion = localStorage.getItem(`talentos_panels_version_${objectName}`);
-      if (currentVersion === "v21") {
+      if (currentVersion === "v22") {
         const saved = JSON.parse(localStorage.getItem(`talentos_openpanels_${objectName}`));
         if (saved && typeof saved === "object") return saved;
       }
     } catch {}
-    return {fields:true,comms:true,notes:true,attachments:true,activity:false,workflows:false,match:false,reporting:true,user:true,forms:false};
+    return {fields:true,comms:true,notes:true,attachments:true,activity:false,workflows:false,match:true,reporting:false,user:true,forms:false,interview_plan:true,coordination:false,questions:false,scorecard:false,job_tasks:false,tasks:false,agents:false,bias_scan:false,insights:false};
   });
   const [composeType, setComposeType] = useState(null);   // drives compose modal in CommunicationsPanel
   const [showCommMenu, setShowCommMenu] = useState(null); // null or DOMRect
@@ -9100,7 +9103,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const leftStorageKey   = `talentos_panels_left_${objectName}`;
   const topStorageKey    = `talentos_panels_top_${objectName}`;
   const bottomStorageKey = `talentos_panels_bottom_${objectName}`;
-  const PANEL_VERSION    = "v21"; // fields panel expanded by default
+  const PANEL_VERSION    = "v22"; // Job panel layout matches design, comms removed from Jobs
   const versionKey       = `talentos_panels_version_${objectName}`;
 
   // ── Single atomic layout load — deduplicates all 4 zones together ───────

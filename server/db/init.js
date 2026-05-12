@@ -765,10 +765,10 @@ function migrateStandardCandidateFields() {
 
       for (const [sort_order, api_key, name, field_type, options, cond_field, cond_value] of SCHEMA) {
         if (byKey[api_key]) {
-          // Update sort_order, name, options, condition on existing fields
+          // Update name, options, condition on existing fields — but NOT sort_order
+          // (sort_order may have been manually repositioned by admins, never override it)
           const f = byKey[api_key];
           let dirty = false;
-          if (f.sort_order !== sort_order)           { f.sort_order = sort_order; dirty = true; }
           if (f.name !== name)                        { f.name = name; dirty = true; }
           if (options && JSON.stringify(f.options) !== JSON.stringify(options)) { f.options = options; dirty = true; }
           if (cond_field !== undefined && f.condition_field !== cond_field)     { f.condition_field = cond_field; dirty = true; }

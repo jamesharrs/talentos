@@ -11,6 +11,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import ReactDOM from "react-dom";
+import api from "./apiClient.js";
 
 const T = {
   ink:    "#0D0D0F",
@@ -117,13 +118,10 @@ function AIToolbar({ rect, selectedText, context, onApply, onClose }) {
     const instr = action.isCustom ? customText : undefined;
     const prompt = action.prompt(selectedText, context, sub||instr);
     try {
-      const res = await fetch("/api/ai/chat",{
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ messages:[{role:"user",content:prompt}],
-          system:"You are a precise writing assistant. Return ONLY the requested text — no preamble, no explanation." })
+      const data = await api.post("/ai/chat", {
+        messages:[{role:"user",content:prompt}],
+        system:"You are a precise writing assistant. Return ONLY the requested text — no preamble, no explanation, no surrounding quotes.",
       });
-      if (!res.ok) throw new Error(`API ${res.status}`);
-      const data = await res.json();
       const text = typeof data.content==="string" ? data.content : (data.content?.[0]?.text??"");
       setResult(text.trim()); setState("result");
     } catch(err) { setError(err.message||"Error"); setState("error"); }

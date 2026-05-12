@@ -7315,10 +7315,14 @@ export const PANEL_META = {
 };
 
 export const getDefaultPanelOrder = (objectName) => {
-  // Person: Tasks > Linked Records > Interviews > Communications > Notes > Files > Forms > Activity > AI Agents > Recommendations > Assessments > Engagement
+  // Person: Linked Records > Engagement > [Interviews, Assessments] > [Communications, Tasks] > [Notes, Files, Forms] > [Recommendations, AI Agents] > Activity
   if (objectName === "Person") return [
-    "tasks","linked","coordination","comms","notes","attachments","forms",
-    "activity","agents","match","assessments","engagement"
+    "linked","engagement",
+    ["coordination","assessments"],
+    ["comms","tasks"],
+    ["notes","attachments","forms"],
+    ["match","agents"],
+    "activity"
   ];
   // Job: Recommendations > [Interview Plan, Interviews, Screening & IQ, Scorecard] > [Job Tasks, Tasks] > [Notes, Files, Forms] > AI Agents > Bias Scanner > Activity
   if (objectName === "Job" || objectName === "Jobs") return [
@@ -9038,12 +9042,12 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     try {
       // Only restore saved panels if the panel version is current — otherwise use defaults
       const currentVersion = localStorage.getItem(`talentos_panels_version_${objectName}`);
-      if (currentVersion === "v24") {
+      if (currentVersion === "v25") {
         const saved = JSON.parse(localStorage.getItem(`talentos_openpanels_${objectName}`));
         if (saved && typeof saved === "object") return saved;
       }
     } catch {}
-    return {fields:true,comms:false,notes:false,attachments:false,activity:false,workflows:false,match:true,reporting:false,user:false,forms:false,interview_plan:false,coordination:false,questions:false,scorecard:false,job_tasks:false,tasks:false,agents:false,bias_scan:false,insights:false};
+    return {fields:true,comms:false,notes:false,attachments:false,activity:false,workflows:false,match:false,reporting:false,user:false,forms:false,interview_plan:false,coordination:false,questions:false,scorecard:false,job_tasks:false,tasks:false,agents:false,bias_scan:false,insights:false,linked:false,engagement:true,assessments:false};
   });
   const [composeType, setComposeType] = useState(null);   // drives compose modal in CommunicationsPanel
   const [showCommMenu, setShowCommMenu] = useState(null); // null or DOMRect
@@ -9103,7 +9107,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const leftStorageKey   = `talentos_panels_left_${objectName}`;
   const topStorageKey    = `talentos_panels_top_${objectName}`;
   const bottomStorageKey = `talentos_panels_bottom_${objectName}`;
-  const PANEL_VERSION    = "v24"; // fix duplicate panels caused by nested array groups
+  const PANEL_VERSION    = "v25"; // Person panel layout updated, only engagement expanded
   const versionKey       = `talentos_panels_version_${objectName}`;
 
   // ── Single atomic layout load — deduplicates all 4 zones together ───────

@@ -5,7 +5,8 @@ const { query, findOne, insert, update, getStore, getCurrentTenant } = require('
 const { cacheResponse, invalidatePath } = require('../utils/cache');
 
 router.get('/', cacheResponse(120_000), (req, res) => {
-  const userId = req.headers['x-user-id'];
+  // x-user-id header is sent by the React app; fall back to session for server-side / curl calls
+  const userId = req.headers['x-user-id'] || req.session?.userId;
   const user = userId ? require('../db/init').findOne('users', u => u.id === userId) : null;
   const isSuperAdmin = user?.role_id && (() => {
     const role = require('../db/init').findOne('roles', r => r.id === user.role_id);

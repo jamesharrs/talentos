@@ -3126,22 +3126,23 @@ const AddRowBar = ({ onAdd }) => {
 const PortalCanvas = ({ page, onUpdate, theme, isEditing, environmentId }) => {
   const [dragFrom, setDragFrom] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
+  const safeRows = page?.rows || [];
 
-  const updateRow = (i, updated) => onUpdate({...page, rows:page.rows.map((r,j)=>j===i?updated:r)});
-  const deleteRow = (i) => onUpdate({...page, rows:page.rows.filter((_,j)=>j!==i)});
+  const updateRow = (i, updated) => onUpdate({...page, rows:safeRows.map((r,j)=>j===i?updated:r)});
+  const deleteRow = (i) => onUpdate({...page, rows:safeRows.filter((_,j)=>j!==i)});
   const addRow = (preset, afterIdx) => {
-    const rows = [...page.rows];
+    const rows = [...safeRows];
     rows.splice(afterIdx+1, 0, defaultRow(preset));
     onUpdate({...page, rows});
   };
   const moveRow = (i, dir) => {
-    const rows = [...page.rows]; const j = i+dir;
+    const rows = [...safeRows]; const j = i+dir;
     if(j<0||j>=rows.length) return;
     [rows[i],rows[j]]=[rows[j],rows[i]];
     onUpdate({...page, rows});
   };
   const duplicateRow = (i) => {
-    const rows = [...page.rows];
+    const rows = [...safeRows];
     const copy = JSON.parse(JSON.stringify(rows[i]));
     copy.id = uid(); copy.cells = copy.cells.map(c=>({...c,id:uid()}));
     rows.splice(i+1,0,copy);
@@ -3149,7 +3150,7 @@ const PortalCanvas = ({ page, onUpdate, theme, isEditing, environmentId }) => {
   };
   const handleDrop = (toIdx) => {
     if(dragFrom===null||dragFrom===toIdx) return;
-    const rows=[...page.rows];
+    const rows=[...safeRows];
     const [moved]=rows.splice(dragFrom,1);
     rows.splice(toIdx,0,moved);
     onUpdate({...page,rows});
@@ -3158,10 +3159,10 @@ const PortalCanvas = ({ page, onUpdate, theme, isEditing, environmentId }) => {
 
   return (
     <div style={{background:isEditing?C.bg:(theme.bgColor||"#fff"),minHeight:400,padding:isEditing?"12px":"0"}}>
-      {page.rows.map((row,i)=>(
+      {safeRows.map((row,i)=>(
         <div key={row.id}>
           {isEditing&&<AddRowBar onAdd={preset=>addRow(preset,i-1)}/>}
-          <CanvasRow row={row} index={i} total={page.rows.length}
+          <CanvasRow row={row} index={i} total={safeRows.length}
             onUpdate={u=>updateRow(i,u)} onDelete={()=>deleteRow(i)}
             onMoveUp={()=>moveRow(i,-1)} onMoveDown={()=>moveRow(i,1)}
             onDuplicate={()=>duplicateRow(i)}
@@ -3171,7 +3172,7 @@ const PortalCanvas = ({ page, onUpdate, theme, isEditing, environmentId }) => {
             environmentId={environmentId}/>
         </div>
       ))}
-      {isEditing&&<AddRowBar onAdd={preset=>addRow(preset,page.rows.length-1)}/>}
+      {isEditing&&<AddRowBar onAdd={preset=>addRow(preset,safeRows.length-1)}/>}
     </div>
   );
 };

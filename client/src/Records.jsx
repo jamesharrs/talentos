@@ -874,7 +874,7 @@ const FieldEditor = ({ field, value, onChange, autoFocus, environment, recordDat
   switch(field.field_type) {
     case "textarea":
       return (
-        <AITextEditor context={field.name} onApply={t => onChange((value||"").replace(window.getSelection()?.toString()||"", t))}>
+        <AITextEditor context={field.name} onApply={t => onChange(t)}>
           <Inp multiline value={value} onChange={onChange} placeholder={field.placeholder||field.name} autoFocus={autoFocus}/>
         </AITextEditor>
       );
@@ -8184,7 +8184,7 @@ const NotesPanel = ({ record, notes, onNotesChange, canAdd=true, canDelete=true,
 
       {canAdd && (
         <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
-          <AITextEditor context="recruitment note" onApply={t => setNewNote(n => n.replace(window.getSelection()?.toString()||"", t))}>
+          <AITextEditor context="recruitment note" onApply={t => setNewNote(t)}>
           <textarea
             value={newNote}
             onChange={e => setNewNote(e.target.value)}

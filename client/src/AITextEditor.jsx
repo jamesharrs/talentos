@@ -303,7 +303,30 @@ export default function AITextEditor({ children, context="", onApply, disabled=f
   const [toolbar, setToolbar] = useState(null);
   const wrapperRef            = useRef(null);
   const timer                 = useRef(null);
+  // Track the last active textarea so onApply can replace its text
+  const activeTextareaRef     = useRef(null);
 
+  // Handle textarea/input elements — window.getSelection() doesn't work for them
+  const handleTextareaSelect = useCallback((e) => {
+    if (disabled) return;
+    const el = e.target;
+    if (!el || (el.tagName !== "TEXTAREA" && el.tagName !== "INPUT")) return;
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      const start = el.selectionStart;
+      const end   = el.selectionEnd;
+      if (end <= start + 2) { setToolbar(null); return; }
+      const text = el.value.slice(start, end).trim();
+      if (text.length < 3) { setToolbar(null); return; }
+      // Build a rect from the textarea's bounding box — we can't get exact glyph rect
+      // so we use the element rect as anchor (toolbar appears above the textarea)
+      const rect = el.getBoundingClientRect();
+      activeTextareaRef.current = { el, start, end };
+      setToolbar({ rect, text });
+    }, 150);
+  }, [disabled]);
+
+  // Handle contentEditable (RichTextEditor) — uses window.getSelection()
   const onSel = useCallback(() => {
     if (disabled) return;
     clearTimeout(timer.current);
@@ -313,17 +336,51 @@ export default function AITextEditor({ children, context="", onApply, disabled=f
       const text = sel.toString().trim();
       if (text.length < 3) { setToolbar(null); return; }
       const range = sel.getRangeAt(0);
-      if (!wrapperRef.current?.contains(range.commonAncestorContainer)) { setToolbar(null); return; }
+      const ancestor = range.commonAncestorContainer;
+      if (!wrapperRef.current?.contains(ancestor)) { setToolbar(null); return; }
+      // Don't fire if focus is on a textarea (handled by handleTextareaSelect)
+      if (document.activeElement?.tagName === "TEXTAREA") return;
+      activeTextareaRef.current = null;
       setToolbar({ rect: range.getBoundingClientRect(), text });
     }, 220);
   }, [disabled]);
 
   useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    // Listen on the wrapper for textarea mouseup (works even inside portals)
+    wrapper.addEventListener("mouseup", handleTextareaSelect);
+    wrapper.addEventListener("keyup",   handleTextareaSelect);
     document.addEventListener("selectionchange", onSel);
-    return () => { document.removeEventListener("selectionchange", onSel); clearTimeout(timer.current); };
-  }, [onSel]);
+    return () => {
+      wrapper.removeEventListener("mouseup", handleTextareaSelect);
+      wrapper.removeEventListener("keyup",   handleTextareaSelect);
+      document.removeEventListener("selectionchange", onSel);
+      clearTimeout(timer.current);
+    };
+  }, [onSel, handleTextareaSelect]);
 
   const handleApply = useCallback((newText) => {
+    // Textarea case — replace using selectionStart/End
+    const ta = activeTextareaRef.current;
+    if (ta) {
+      const { el, start, end } = ta;
+      const before = el.value.slice(0, start);
+      const after  = el.value.slice(end);
+      const next   = before + newText + after;
+      // Trigger React's onChange by setting the native value and dispatching input event
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
+      if (nativeInputValueSetter) {
+        nativeInputValueSetter.call(el, next);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      // Restore cursor after the inserted text
+      el.selectionStart = el.selectionEnd = start + newText.length;
+      activeTextareaRef.current = null;
+      onApply?.(next);
+      return;
+    }
+    // contentEditable case — use DOM Selection
     const sel = window.getSelection();
     if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
       const range = sel.getRangeAt(0);

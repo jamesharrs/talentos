@@ -340,9 +340,9 @@ async function seedEnvironmentAndObjects() {
       { name:'First Name', ak:'first_name', type:'text', req:1, list:1, o:1 },
       { name:'Last Name', ak:'last_name', type:'text', req:1, list:1, o:2 },
       { name:'Email', ak:'email', type:'email', req:1, list:1, uniq:1, o:3 },
-      { name:'Phone', ak:'phone', type:'phone', list:0, o:4 },
-      { name:'Location', ak:'location', type:'text', list:1, o:5 },
-      { name:'Person Type', ak:'person_type', type:'select', list:1, o:6, opts:['Employee','Contractor','Consultant','Candidate','Contact'] },
+      { name:'Phone', ak:'phone', type:'phone', list:1, o:4 },
+      { name:'Person Type', ak:'person_type', type:'select', list:1, o:5, opts:['Employee','Contractor','Consultant','Candidate','Contact'] },
+      { name:'Location', ak:'location', type:'text', list:1, o:6 },
       { name:'Current Title', ak:'current_title', type:'text', list:1, o:7 },
       { name:'Current Company', ak:'current_company', type:'text', list:1, o:8 },
       { name:'Status', ak:'status', type:'select', list:1, o:9, opts:['Active','Passive','Not Looking','Placed','Archived'] },
@@ -391,7 +391,7 @@ async function seedPersonTypeFields(tenantKey) {
     if (obj.relationships_enabled === undefined) obj.relationships_enabled = 0;
     const existing = (store.fields || []).filter(f => f.object_id === obj.id);
     const newFields = [
-      { name:'Person Type', ak:'person_type', type:'select', list:1, o:6, opts:['Employee','Contractor','Consultant','Candidate','Contact'], cond_field:null, cond_val:null },
+      { name:'Person Type', ak:'person_type', type:'select', list:1, o:13, opts:['Employee','Contractor','Consultant','Candidate','Contact'], cond_field:null, cond_val:null },
       { name:'Job Title', ak:'job_title', type:'text', list:1, o:16, cond_field:'person_type', cond_val:'Employee' },
       { name:'Department', ak:'department', type:'select', list:1, o:17, opts:['Engineering','Product','Design','Sales','Marketing','HR','Finance','Operations','Legal','Other'], cond_field:'person_type', cond_val:'Employee' },
     ];
@@ -702,7 +702,6 @@ function migrateStandardCandidateFields() {
   const SCHEMA = [
     // ── IDENTITY ─────────────────────────────────────────────────────────────
     [1,  'section_identity',   'Identity',            'section_separator', null, null, null],
-    [2,  'person_type',        'Person Type',         'select',            ['Candidate','Employee','Contractor','Consultant','Contact'], null, null],
     [3,  'first_name',         'First Name',          'text',              null, null, null],
     [4,  'last_name',          'Last Name',           'text',              null, null, null],
     [5,  'current_title',      'Current Title',       'text',              null, null, null],
@@ -712,8 +711,9 @@ function migrateStandardCandidateFields() {
     [10, 'section_contact',    'Contact',             'section_separator', null, null, null],
     [11, 'email',              'Email',               'email',             null, null, null],
     [12, 'phone',              'Phone',               'phone',             null, null, null],
-    [13, 'location',           'Location',            'text',              null, null, null],
-    [14, 'country',            'Country',             'country',           null, null, null],
+    [13, 'person_type',        'Person Type',         'select',            ['Candidate','Employee','Contractor','Consultant','Contact'], null, null],
+    [14, 'location',           'Location',            'text',              null, null, null],
+    [15, 'country',            'Country',             'country',           null, null, null],
     // ── PROFESSIONAL ─────────────────────────────────────────────────────────
     [20, 'section_professional','Professional',       'section_separator', null, null, null],
     [21, 'work_history',       'Work History',        'table',             null, null, null],
@@ -780,7 +780,7 @@ function migrateStandardCandidateFields() {
             id: uid(), object_id: obj.id, environment_id: obj.environment_id,
             name, api_key, field_type,
             sort_order, is_required: false, is_unique: false,
-            show_in_list: ['first_name','last_name','current_title','status','email'].includes(api_key),
+            show_in_list: ['first_name','last_name','current_title','status','email','phone','person_type'].includes(api_key),
             show_in_form: true, is_system: true,
             options: options || null,
             condition_field: cond_field || null,

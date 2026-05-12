@@ -1,27 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, createContext, useContext, lazy, Suspense } from "react";
 import api, { tFetch } from "./apiClient.js";
-import BrandKitSettings from "./settings/BrandKitSettings.jsx";
-import EmailTemplateBuilder from "./settings/EmailTemplateBuilder.jsx";
-import SettingsDashboard from "./SettingsDashboard.jsx";
 import { usePermissions, Gate } from "./PermissionContext.jsx";
 import ReactDOM from "react-dom";
-import { TalentProfileBuilder } from "./TalentProfileView.jsx";
-import FileTypesSettings from "./settings/FileTypesSettings.jsx";
-import TaskGroupsSettings from "./settings/TaskGroupsSettings.jsx";
-import CompanyDocuments from "./settings/CompanyDocuments.jsx";
-import DuplicatesSettings from "./settings/DuplicatesSettings.jsx";
-import FieldModal from "./FieldModal.jsx";
-import GroupsSection from "./settings/GroupsSection.jsx";
-import AgentsSettings from "./settings/AgentsSettings.jsx";
-import DataImportSettings from "./settings/DataImportSettings.jsx";
-import AiGovernance from "./settings/AiGovernance.jsx";
-import QuestionBankSettings from "./settings/QuestionBankSettings.jsx";
-import StageCategoriesSection from "./settings/StageCategoriesSection.jsx";
-import FeatureFlagsSettings from "./settings/FeatureFlagsSettings.jsx";
-import AiMatchingSettings from "./settings/AiMatchingSettings.jsx";
-import NotificationsSection from './NotificationsSection';
-import DatasetsSection from "./settings/DatasetsSection.jsx";
-import SandboxManager from "./SandboxManager.jsx";
 import { useTheme, SCHEMES, FONTS, DENSITIES } from "./Theme.jsx";
 import { useI18n, LANGUAGES } from "./i18n/I18nContext.jsx";
 
@@ -30,6 +10,28 @@ const WorkflowsPage      = lazy(() => import("./Workflows.jsx"));
 const PortalsPage        = lazy(() => import("./Portals.jsx").then(m => ({ default: m.default || m.PortalsPage })));
 const OrgChart           = lazy(() => import("./OrgChart.jsx"));
 const EnterpriseSettings = lazy(() => import("./EnterpriseSettings.jsx"));
+
+// Settings sub-sections — lazy loaded so they don't bloat the initial bundle
+const BrandKitSettings = lazy(() => import("./settings/BrandKitSettings.jsx"));
+const EmailTemplateBuilder = lazy(() => import("./settings/EmailTemplateBuilder.jsx"));
+const FileTypesSettings = lazy(() => import("./settings/FileTypesSettings.jsx"));
+const TaskGroupsSettings = lazy(() => import("./settings/TaskGroupsSettings.jsx"));
+const CompanyDocuments = lazy(() => import("./settings/CompanyDocuments.jsx"));
+const DuplicatesSettings = lazy(() => import("./settings/DuplicatesSettings.jsx"));
+const GroupsSection = lazy(() => import("./settings/GroupsSection.jsx"));
+const AgentsSettings = lazy(() => import("./settings/AgentsSettings.jsx"));
+const DataImportSettings = lazy(() => import("./settings/DataImportSettings.jsx"));
+const AiGovernance = lazy(() => import("./settings/AiGovernance.jsx"));
+const QuestionBankSettings = lazy(() => import("./settings/QuestionBankSettings.jsx"));
+const StageCategoriesSection = lazy(() => import("./settings/StageCategoriesSection.jsx"));
+const FeatureFlagsSettings = lazy(() => import("./settings/FeatureFlagsSettings.jsx"));
+const AiMatchingSettings = lazy(() => import("./settings/AiMatchingSettings.jsx"));
+const DatasetsSection = lazy(() => import("./settings/DatasetsSection.jsx"));
+const SandboxManager = lazy(() => import("./SandboxManager.jsx"));
+const SettingsDashboard = lazy(() => import("./SettingsDashboard.jsx"));
+const FieldModal = lazy(() => import("./FieldModal.jsx"));
+const TalentProfileBuilder = lazy(() => import("./TalentProfileView.jsx").then(m => ({default: m.TalentProfileBuilder})));
+const NotificationsSection = lazy(() => import("./NotificationsSection"));
 const IntegrationHub     = lazy(() => import("./IntegrationHub.jsx"));
 const IntegrationsSettings = lazy(() => import("./IntegrationsSettings.jsx"));
 const FormsList          = lazy(() => import("./Forms.jsx").then(m => ({ default: m.FormsList })));
@@ -1946,7 +1948,7 @@ const ImportExportTabs = ({ environment }) => {
           }}>{t.label}</button>
         )}
       </div>
-      {ietab==="config" ? <ConfigSection environment={environment}/> : <DataImportSettings environment={environment}/>}
+      {ietab==="config" ? <ConfigSection environment={environment}/> : <LazyTab><DataImportSettings environment={environment}/></LazyTab>}
     </div>
   );
 };
@@ -2810,21 +2812,21 @@ export default function SettingsPage({ currentUser, environment, initialSection,
         )}
         {activeSection==="datamodel"  && <DataModelSection environment={environment}/>}
         {activeSection==="users"      && <UsersSection/>}
-        {activeSection==="groups"     && <GroupsSection environment={environment}/>}
+        {activeSection==="groups"     && <LazyTab><GroupsSection environment={environment}/></LazyTab>}
         {activeSection==="roles"      && <RolesSection environment={environment}/>}
         {activeSection==="org"        && <LazyTab><OrgChart environment={environment}/></LazyTab>}
         {activeSection==="security"   && <SecuritySection/>}
         {activeSection==="sessions"   && <SessionsSection/>}
         {activeSection==="audit"      && <AuditLogSection/>}
-        {activeSection==="ai_governance" && <AiGovernance environment={environment}/>}
-        {activeSection==="ai_matching"  && <AiMatchingSettings/>}
-        {activeSection==="file_types"   && <FileTypesSettings environment={environment} objects={[]}/>}
-        {activeSection==="task_groups"  && <TaskGroupsSettings environment={environment}/>}
-        {activeSection==="company_docs" && <CompanyDocuments environment={environment}/>}
-        {activeSection==="duplicates" && <DuplicatesSettings environment={environment}/>}
+        {activeSection==="ai_governance" && <LazyTab><AiGovernance environment={environment}/></LazyTab>}
+        {activeSection==="ai_matching"  && <LazyTab><AiMatchingSettings/></LazyTab>}
+        {activeSection==="file_types"   && <LazyTab><FileTypesSettings environment={environment} objects={[]}/></LazyTab>}
+        {activeSection==="task_groups"  && <LazyTab><TaskGroupsSettings environment={environment}/></LazyTab>}
+        {activeSection==="company_docs" && <LazyTab><CompanyDocuments environment={environment}/></LazyTab>}
+        {activeSection==="duplicates" && <LazyTab><DuplicatesSettings environment={environment}/></LazyTab>}
         {activeSection==="forms"      && <LazyTab><FormsList environment={environment}/></LazyTab>}
         {activeSection==="appearance" && <AppearanceSection/>}
-        {activeSection==="notifications" && <NotificationsSection/>}
+        {activeSection==="notifications" && <LazyTab><NotificationsSection/></LazyTab>}
         {activeSection==="language"   && <LanguageSection/>}
         {activeSection==="workflows"     && <LazyTab><WorkflowsPage environment={environment}/></LazyTab>}
         {activeSection==="portals"       && <LazyTab><PortalsPage environment={environment} onFullScreen={setFullScreenMode}/></LazyTab>}
@@ -2837,15 +2839,15 @@ export default function SettingsPage({ currentUser, environment, initialSection,
             <TalentProfileBuilder environmentId={environment?.id}/>
           </div>
         )}
-        {activeSection==="questions"  && <QuestionBankSettings/>}
-        {activeSection==="stage_categories" && <StageCategoriesSection environment={environment}/>}
-        {activeSection==="agents"     && <AgentsSettings environment={environment}/>}
-        {activeSection==="feature-flags" && <FeatureFlagsSettings environment={environment}/>}
-        {activeSection==="sandbox"     && <SandboxManager environment={environment}/>}
-        {activeSection==="brand_kits"  && <BrandKitSettings environment={environment}/>}
-        {activeSection==="email_templates" && <EmailTemplateBuilder environment={environment}/>}
+        {activeSection==="questions"  && <LazyTab><QuestionBankSettings/></LazyTab>}
+        {activeSection==="stage_categories" && <LazyTab><StageCategoriesSection environment={environment}/></LazyTab>}
+        {activeSection==="agents"     && <LazyTab><AgentsSettings environment={environment}/></LazyTab>}
+        {activeSection==="feature-flags" && <LazyTab><FeatureFlagsSettings environment={environment}/></LazyTab>}
+        {activeSection==="sandbox"     && <LazyTab><SandboxManager environment={environment}/></LazyTab>}
+        {activeSection==="brand_kits"  && <LazyTab><BrandKitSettings environment={environment}/></LazyTab>}
+        {activeSection==="email_templates" && <LazyTab><EmailTemplateBuilder environment={environment}/></LazyTab>}
         {activeSection==="config"      && <ImportExportTabs environment={environment}/>}
-        {activeSection==="datasets"    && <DatasetsSection environment={environment}/>}
+        {activeSection==="datasets"    && <LazyTab><DatasetsSection environment={environment}/></LazyTab>}
         {activeSection==="enterprise"  && <LazyTab><EnterpriseSettings environment={environment}/></LazyTab>}
         {activeSection==="integration_hub" && <LazyTab><IntegrationHub environment={environment}/></LazyTab>}
         {activeSection==="company_profile" && (

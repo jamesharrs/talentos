@@ -1756,7 +1756,8 @@ function App({ onEnvReady }) {
   const [activeNav, setActiveNav] = useState(() => navFromPath(window.location.pathname));
   const activeNavRef = useRef(activeNav);
   // Keep activeNavRef in sync — used by effects that need current activeNav without re-registering
-  useEffect(() => { activeNavRef.current = activeNav; });
+  // Sync ref every render (no dep array needed - intentional)
+activeNavRef.current = activeNav;
   // ── Collapsible sidebar ──
   const [navCollapsed, setNavCollapsed] = useState(
     () => localStorage.getItem('vrc_nav_collapsed') === 'true'
@@ -2191,9 +2192,9 @@ function App({ onEnvReady }) {
 
   // Keep refs so event listeners always call the latest version — prevents stale closure bugs
   const openRecordRef = useRef(openRecord);
-  useEffect(() => { openRecordRef.current = openRecord; });
+  openRecordRef.current = openRecord;
   const switchNavRef = useRef(switchNav);
-  useEffect(() => { switchNavRef.current = switchNav; });
+  switchNavRef.current = switchNav;
 
   // Global event listener — anything can fire talentos:openRecord to navigate to a record page
   useEffect(() => {

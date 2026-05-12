@@ -15,7 +15,26 @@ router.get('/', cacheResponse(120_000), (req, res) => {
   const currentTenant = getCurrentTenant();
   const isTenantContext = currentTenant && currentTenant !== 'master';
 
-  // Super admins always see all environments regardless of tenant context
+  // Super admins in a TENANT context see only their own environment
+  // (otherwise they'd see zero results because tenant stores don't have master envs)
+  if (isSuperAdmin && isTenantContext && user?.environment_id) {
+    let env = findOne('environments', e => e.id === user.environment_id);
+    if (!env) {
+      // Fall back to master client_environments
+      const masterStore = require('../db/init').loadTenantStore(null);
+      env = (masterStore.client_environments || []).find(e => e.id === user.environment_id && !e.deleted_at);
+      if (env) {
+        // Seed into tenant store
+        const ts = getStore();
+        if (!ts.environments) ts.environments = [];
+        if (!ts.environments.find(e => e.id === env.id)) ts.environments.push(env);
+        require('../db/init').saveStore(currentTenant);
+      }
+    }
+    return res.json(env ? [env] : []);
+  }
+
+  // Super admins in master context see all environments
   if (isSuperAdmin) {
     const envs = query('environments', () => true)
       .sort((a, b) => {

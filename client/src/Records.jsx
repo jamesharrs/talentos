@@ -8396,7 +8396,7 @@ const GroupCard = ({ ids, overSlot, overZone, openPanels, setOpenPanels, openPan
   const isOver  = overSlot === repId;
   const zone    = isOver ? overZone : null;
   const groupOpenKey = `grp_${ids.join("_")}`;
-  const isGroupOpen  = openPanels[groupOpenKey] !== false;
+  const isGroupOpen  = openPanels[groupOpenKey] === true;
   const [activeTab, setActiveTab] = useState(ids[0]);
   const safeActive = ids.includes(activeTab) ? activeTab : ids[0];
 
@@ -9042,12 +9042,29 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     try {
       // Only restore saved panels if the panel version is current — otherwise use defaults
       const currentVersion = localStorage.getItem(`talentos_panels_version_${objectName}`);
-      if (currentVersion === "v25") {
+      if (currentVersion === "v26") {
         const saved = JSON.parse(localStorage.getItem(`talentos_openpanels_${objectName}`));
         if (saved && typeof saved === "object") return saved;
       }
     } catch {}
-    return {fields:true,comms:false,notes:false,attachments:false,activity:false,workflows:false,match:false,reporting:false,user:false,forms:false,interview_plan:false,coordination:false,questions:false,scorecard:false,job_tasks:false,tasks:false,agents:false,bias_scan:false,insights:false,linked:false,engagement:true,assessments:false};
+    return {
+      // Individual panels
+      fields:true, comms:false, notes:false, attachments:false, activity:false,
+      workflows:false, match:false, reporting:false, user:false, forms:false,
+      interview_plan:false, coordination:false, questions:false, scorecard:false,
+      job_tasks:false, tasks:false, agents:false, bias_scan:false, insights:false,
+      linked:false, engagement:true, assessments:false,
+      // Tabbed group open/closed (key = grp_ + all ids joined by _)
+      // Person groups
+      "grp_coordination_assessments": false,
+      "grp_comms_tasks": false,
+      "grp_notes_attachments_forms": false,
+      "grp_match_agents": false,
+      // Job groups
+      "grp_interview_plan_coordination_questions_scorecard": false,
+      "grp_job_tasks_tasks": false,
+      "grp_notes_attachments_forms": false,
+    };
   });
   const [composeType, setComposeType] = useState(null);   // drives compose modal in CommunicationsPanel
   const [showCommMenu, setShowCommMenu] = useState(null); // null or DOMRect
@@ -9107,7 +9124,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const leftStorageKey   = `talentos_panels_left_${objectName}`;
   const topStorageKey    = `talentos_panels_top_${objectName}`;
   const bottomStorageKey = `talentos_panels_bottom_${objectName}`;
-  const PANEL_VERSION    = "v25"; // Person panel layout updated, only engagement expanded
+  const PANEL_VERSION    = "v26"; // tabbed groups collapsed by default, fix isGroupOpen logic
   const versionKey       = `talentos_panels_version_${objectName}`;
 
   // ── Single atomic layout load — deduplicates all 4 zones together ───────

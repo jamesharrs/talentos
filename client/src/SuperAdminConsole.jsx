@@ -548,7 +548,12 @@ function TemplateEnvironments() {
     if (!createName.trim()) return;
     setCreatingFromLocal(true);
     try {
-      const r = await api.post('/clients/provision-from-local', { name: createName.trim() });
+      // Fetch the snapshot from the provision/templates endpoint — it always
+      // returns the live local config regardless of where the server is running
+      const tpls = await api.get('/clients/provision/templates');
+      const local = Array.isArray(tpls) ? tpls.find(t => t.is_local) : null;
+      if (!local?.snapshot) { alert('Could not load local environment snapshot. Try again.'); setCreatingFromLocal(false); return; }
+      const r = await api.post('/clients/provision-from-local', { name: createName.trim(), snapshot: local.snapshot });
       if (r.error) { alert('Error: ' + r.error); }
       else { alert(`✓ Template "${createName}" created — ${r.objects_copied} objects, ${r.fields_copied} fields copied.`); await load(); }
     } catch(e) { alert('Error: ' + e.message); }

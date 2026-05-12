@@ -1090,23 +1090,25 @@ router.post('/copy-config', express.json(), async (req, res) => {
 // Creates a new "Vercentic Template" client+env, copies local master config into it, flags as template
 router.post('/provision-from-local', express.json(), async (req, res) => {
   try {
-    const { name = 'Vercentic Template' } = req.body;
+    const { name = 'Vercentic Template', snapshot } = req.body;
+    if (!snapshot) return res.status(400).json({ error: 'snapshot required — send the snapshot from GET /provision/templates' });
+
     const s = getStore();
     const now = new Date().toISOString();
-    const { provisionTenant, tenantStorage, saveStoreNow, storeCache } = require('../db/init');
+    const { provisionTenant, saveStoreNow } = require('../db/init');
 
-    // Find (or read) the local production environment
-    const localEnv = (s.environments||[]).find(e => e.is_default || e.name === 'Production') || (s.environments||[])[0];
-    if (!localEnv) return res.status(400).json({ error: 'No local environment found' });
+    // Deduplicate slug
+    const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').substring(0,26);
+    let tenantSlug = baseSlug + '-tpl';
+    let suffix = 2;
+    while ((s.clients||[]).find(c => c.tenant_slug === tenantSlug && !c.deleted_at)) {
+      tenantSlug = `${baseSlug}-tpl${suffix++}`;
+    }
 
-    // Create a template client in the master store
-    const tenantSlug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').substring(0,30) + '-tpl';
-    const existingClient = (s.clients||[]).find(c => c.tenant_slug === tenantSlug && !c.deleted_at);
-    if (existingClient) return res.status(409).json({ error: `Template "${name}" already exists` });
-
+    // Create client + environment in master store
     const client = {
       id: uuidv4(), name, plan: 'internal', status: 'active', tenant_slug: tenantSlug,
-      source: 'template', notes: 'Auto-created from local environment config',
+      source: 'template', notes: 'Cloned from local environment snapshot',
       created_at: now, updated_at: now, deleted_at: null,
     };
     if (!s.clients) s.clients = [];
@@ -1114,7 +1116,7 @@ router.post('/provision-from-local', express.json(), async (req, res) => {
 
     const environment = {
       id: uuidv4(), client_id: client.id, name: `${name} - Production`,
-      type: 'production', locale: 'en', timezone: 'UTC',
+      type: 'production', locale: 'en', timezone: 'Asia/Dubai',
       is_default: 0, status: 'active', is_template: true,
       template_name: name, template_desc: 'Cloned from local environment',
       created_at: now, updated_at: now, deleted_at: null,
@@ -1122,49 +1124,87 @@ router.post('/provision-from-local', express.json(), async (req, res) => {
     if (!s.client_environments) s.client_environments = [];
     s.client_environments.push(environment);
 
-    // Provision the tenant store
+    // Provision tenant store
     const ts = provisionTenant(tenantSlug);
     if (!ts.environments) ts.environments = [];
     ts.environments.push({ ...environment });
 
-    // Copy objects + fields from master store into tenant store
-    const localObjects = (s.objects||[]).filter(o => o.environment_id === localEnv.id && !o.deleted_at);
-    const localFields  = (s.fields||[]).filter(f  => f.environment_id === localEnv.id && !f.deleted_at);
-    const localWorkflows = (s.workflows||[]).filter(w => w.environment_id === localEnv.id && !w.deleted_at);
-    const localEmailTemplates = (s.email_templates||[]).filter(t => !t.deleted_at);
-    const localRoles = (s.roles||[]).filter(r => !r.deleted_at);
+    // Use snapshot data sent from the client (sourced from GET /provision/templates)
+    const snapshotObjects       = snapshot.objects        || [];
+    const snapshotRoles         = snapshot.roles          || [];
+    const snapshotWorkflows     = snapshot.workflows      || [];
+    const snapshotEmailTemplates= snapshot.email_templates|| [];
 
+    // Remap IDs so all cross-references stay consistent
     const idMap = {};
     const newId = oldId => { const n = uuidv4(); idMap[oldId] = n; return n; };
     const remap = id => idMap[id] || id;
 
+    // Objects + Fields
     if (!ts.objects) ts.objects = [];
-    for (const obj of localObjects) {
-      const nid = newId(obj.id);
-      ts.objects.push({ ...obj, id: nid, environment_id: environment.id, created_at: now, updated_at: now });
+    if (!ts.fields)  ts.fields  = [];
+    let fieldCount = 0;
+    for (const obj of snapshotObjects) {
+      const nObjId = newId(obj.id || uuidv4());
+      ts.objects.push({
+        id: nObjId, environment_id: environment.id,
+        slug: obj.slug, name: obj.name, plural_name: obj.plural_name,
+        icon: obj.icon||'database', color: obj.color||'#4361EE',
+        is_system: obj.is_system!==false, sort_order: ts.objects.length,
+        created_at: now, updated_at: now, deleted_at: null,
+      });
+      for (const f of (obj.fields||[])) {
+        ts.fields.push({
+          id: uuidv4(), environment_id: environment.id, object_id: nObjId,
+          name: f.name, api_key: f.api_key, field_type: f.field_type,
+          is_required: f.is_required||false,
+          show_in_list: f.show_in_list ? 1 : 0, show_in_form: 1,
+          options: f.options||null,
+          related_object_slug: f.related_object_slug||null,
+          people_multi: f.people_multi!==undefined ? f.people_multi : null,
+          condition_field: f.condition_field||null, condition_value: f.condition_value||null,
+          collapsible: f.collapsible ? 1 : 0, section_label: f.section_label||null,
+          placeholder: f.placeholder||'', help_text: '', is_system: true,
+          sort_order: f.sort_order||0,
+          created_at: now, updated_at: now, deleted_at: null,
+        });
+        fieldCount++;
+      }
     }
 
-    if (!ts.fields) ts.fields = [];
-    for (const f of localFields) {
-      ts.fields.push({ ...f, id: uuidv4(), object_id: remap(f.object_id), environment_id: environment.id, created_at: now, updated_at: now });
-    }
-
-    if (!ts.workflows) ts.workflows = [];
-    for (const w of localWorkflows) {
-      const nwid = uuidv4();
-      const wCopy = { ...w, id: nwid, environment_id: environment.id, created_at: now, updated_at: now };
-      if (wCopy.steps) wCopy.steps = wCopy.steps.map(st => ({ ...st, id: uuidv4(), workflow_id: nwid }));
-      ts.workflows.push(wCopy);
-    }
-
-    if (!ts.email_templates) ts.email_templates = [];
-    for (const t of localEmailTemplates) {
-      ts.email_templates.push({ ...t, id: uuidv4(), environment_id: environment.id, created_at: now, updated_at: now });
-    }
-
+    // Roles
     if (!ts.roles) ts.roles = [];
-    for (const r of localRoles) {
-      ts.roles.push({ ...r, id: uuidv4(), environment_id: environment.id, created_at: now, updated_at: now });
+    for (const r of snapshotRoles) {
+      const slug = (r.slug||r.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'_');
+      ts.roles.push({
+        id: uuidv4(), environment_id: environment.id,
+        name: r.name, slug, permissions: r.permissions||{},
+        color: r.color||'#4361EE', is_system: true,
+        created_at: now, updated_at: now, deleted_at: null,
+      });
+    }
+
+    // Workflows
+    if (!ts.workflows) ts.workflows = [];
+    for (const w of snapshotWorkflows) {
+      const nwid = uuidv4();
+      ts.workflows.push({
+        id: nwid, environment_id: environment.id,
+        name: w.name, description: w.description||'',
+        object_slug: w.object_slug, type: w.type, is_active: w.is_active,
+        steps: (w.steps||[]).map((st,i) => ({ ...st, id: uuidv4(), workflow_id: nwid, sort_order: i })),
+        created_at: now, updated_at: now, deleted_at: null,
+      });
+    }
+
+    // Email templates
+    if (!ts.email_templates) ts.email_templates = [];
+    for (const t of snapshotEmailTemplates) {
+      ts.email_templates.push({
+        id: uuidv4(), environment_id: environment.id,
+        name: t.name, subject: t.subject, body: t.body, category: t.category,
+        created_at: now, updated_at: now, deleted_at: null,
+      });
     }
 
     saveStoreNow(tenantSlug);
@@ -1173,16 +1213,16 @@ router.post('/provision-from-local', express.json(), async (req, res) => {
     if (!s.provision_log) s.provision_log = [];
     s.provision_log.push({
       id: uuidv4(), client_id: client.id, environment_id: environment.id,
-      template: 'local_snapshot', objects_seeded: localObjects.length,
-      fields_seeded: localFields.length, roles_seeded: localRoles.length,
+      template: 'local_snapshot', objects_seeded: snapshotObjects.length,
+      fields_seeded: fieldCount, roles_seeded: snapshotRoles.length,
       provisioned_at: now, status: 'success',
     });
     saveStoreNow('master');
 
     res.json({
       ok: true, client, environment, tenant_slug: tenantSlug,
-      objects_copied: localObjects.length, fields_copied: localFields.length,
-      workflows_copied: localWorkflows.length, roles_copied: localRoles.length,
+      objects_copied: snapshotObjects.length, fields_copied: fieldCount,
+      workflows_copied: snapshotWorkflows.length, roles_copied: snapshotRoles.length,
     });
   } catch(e) { console.error('[provision-from-local]', e); res.status(500).json({ error: e.message }); }
 });

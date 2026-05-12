@@ -2129,8 +2129,9 @@ router.post('/:id/repair-tenant', express.json(), async (req, res) => {
   ts.users.push({ id: uuidv4(), environment_id: environment.id, client_id: client.id, first_name: 'Admin', last_name: 'User', email, password_hash: hashPassword(password), role_id: saRole?.id||null, role_name: saRole?.name||'Super Admin', status: 'active', is_super_admin: true, must_change_password: 0, mfa_enabled: 0, last_login: null, login_count: 0, created_at: now, updated_at: now, deleted_at: null });
 
   saveStoreNow(tenantSlug);
-  // Bust the in-memory cache so the next GET /:id reads fresh data from disk
+  // Bust caches so the repaired tenant is immediately visible
   reloadTenantStore(tenantSlug);
+  invalidateTenantCache(); // ensure tenant appears in knownTenants within 30s window
 
   res.json({ ok: true, tenant_slug: tenantSlug, objects: ts.objects.length, fields: fieldCount, roles: ts.roles.length, flags: ts.feature_flags.length, credentials: { email, password } });
 });

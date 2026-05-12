@@ -873,9 +873,17 @@ const AddressInput = ({ field, value, onChange }) => {
 const FieldEditor = ({ field, value, onChange, autoFocus, environment, recordData }) => {
   switch(field.field_type) {
     case "textarea":
-      return <Inp multiline value={value} onChange={onChange} placeholder={field.placeholder||field.name} autoFocus={autoFocus}/>;
+      return (
+        <AITextEditor context={field.name} onApply={t => onChange((value||"").replace(window.getSelection()?.toString()||"", t))}>
+          <Inp multiline value={value} onChange={onChange} placeholder={field.placeholder||field.name} autoFocus={autoFocus}/>
+        </AITextEditor>
+      );
     case "rich_text":
-      return <RichTextEditor value={value||""} onChange={onChange} placeholder={field.placeholder||field.name} autoFocus={autoFocus} minHeight={140}/>;
+      return (
+        <AITextEditor context={field.name} onApply={t => onChange((value||"").replace(window.getSelection()?.toString()||"", t))}>
+          <RichTextEditor value={value||""} onChange={onChange} placeholder={field.placeholder||field.name} autoFocus={autoFocus} minHeight={140}/>
+        </AITextEditor>
+      );
     case "select":
       return <Sel value={value} onChange={onChange} options={(field.options||[]).map(o=>({value:o,label:o}))}/>;
     case "multi_select": {

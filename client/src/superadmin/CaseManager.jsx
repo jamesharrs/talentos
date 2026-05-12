@@ -198,7 +198,7 @@ export default function CaseManager(){
   const[search,setSearch]=useState('');
   const[filters,setFilters]=useState({status:'',type:'',priority:''});
   const[total,setTotal]=useState(0);
-  const load=useCallback(async()=>{setLoading(true);try{const params=new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([,v])=>v)));if(search)params.set('search',search);const[cRes,sRes,clRes]=await Promise.all([api.get(`/cases?${params}`),api.get('/cases/stats'),api.get('/superadmin/clients')]);setCases(Array.isArray(cRes.cases)?cRes.cases:[]);setTotal(cRes.total||0);setStats(sRes||{});setClients(Array.isArray(clRes)?clRes:[]);}finally{setLoading(false);}},[filters,search]);
+  const load=useCallback(async()=>{setLoading(true);try{const params=new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([,v])=>v)));if(search)params.set('search',search);const[cRes,sRes,clRes]=await Promise.all([api.get(`/cases?${params}`),api.get('/cases/stats'),api.get('/clients/')]);setCases(Array.isArray(cRes.cases)?cRes.cases:[]);setTotal(cRes.total||0);setStats(sRes||{});setClients(Array.isArray(clRes)?clRes:[]);}finally{setLoading(false);}},[filters,search]);
   useEffect(()=>{load();},[load]);
   const openCase=async(c)=>{try{const full=await api.get(`/cases/${c.id}`);if(full&&!full.error)setSelected(full);}catch(e){console.error(e);}};
   const handleUpdate=updated=>{setCases(cs=>cs.map(c=>c.id===updated.id?{...c,...updated}:c));setSelected(updated);};

@@ -44,3 +44,7 @@ data/tenant-production.json
 data/tenant-*.json
 data/*.bak*
 data/*.bak2
+
+# All local data files (never commit live data)
+data/*.json
+!data/talentos.sample.json

@@ -57,6 +57,7 @@ const PlanBadge = ({plan}) => {
 export function ClientList({ onProvision, onSelectClient }) {
   const [clients,setClients]=useState([]); const [loading,setLoading]=useState(true);
   const [search,setSearch]=useState(''); const [filter,setFilter]=useState('all');
+  const [sortField,setSortField]=useState('created_at'); const [sortDir,setSortDir]=useState('desc');
 
   const [error, setError] = useState(null);
   const load = useCallback(async()=>{ 
@@ -71,10 +72,25 @@ export function ClientList({ onProvision, onSelectClient }) {
   },[]);
   useEffect(()=>{ load(); },[load]);
 
-  const filtered = clients.filter(c=>{
-    const ms=!search||c.name.toLowerCase().includes(search.toLowerCase())||c.primary_contact_email?.toLowerCase().includes(search.toLowerCase());
-    return ms && (filter==='all'||c.status===filter);
-  });
+  const sortVal = c => {
+    if (sortField==='name') return c.name?.toLowerCase()||'';
+    if (sortField==='plan') return c.plan||'';
+    if (sortField==='status') return c.status||'';
+    if (sortField==='records') return c.record_count||0;
+    if (sortField==='created_at') return c.created_at||'';
+    if (sortField==='contact') return c.primary_contact_name?.toLowerCase()||c.primary_email?.toLowerCase()||'';
+    return '';
+  };
+  const filtered = clients
+    .filter(c=>{
+      const ms=!search||c.name.toLowerCase().includes(search.toLowerCase())||c.primary_contact_email?.toLowerCase().includes(search.toLowerCase());
+      return ms && (filter==='all'||c.status===filter);
+    })
+    .sort((a,b)=>{
+      const av=sortVal(a), bv=sortVal(b);
+      const cmp = typeof av==='number' ? av-bv : av.localeCompare?.(bv)||0;
+      return sortDir==='asc' ? cmp : -cmp;
+    });
 
   return (
     <div>
@@ -109,8 +125,15 @@ export function ClientList({ onProvision, onSelectClient }) {
           <table style={{width:'100%',borderCollapse:'collapse'}}>
             <thead>
               <tr style={{background:C.surface2,borderBottom:`1px solid ${C.border}`}}>
-                {['Client','Plan','Status','Environment','Records','Created','Contact','Actions'].map(h=>(
-                  <th key={h} style={{padding:'10px 14px',textAlign:'left',fontSize:10,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em',whiteSpace:'nowrap'}}>{h}</th>
+                {[
+                  {label:'Client',field:'name'},{label:'Plan',field:'plan'},{label:'Status',field:'status'},
+                  {label:'Environment',field:null},{label:'Records',field:'records'},
+                  {label:'Created',field:'created_at'},{label:'Contact',field:'contact'},{label:'Actions',field:null}
+                ].map(({label,field})=>(
+                  <th key={label} onClick={field?()=>{if(sortField===field){setSortDir(d=>d==='asc'?'desc':'asc');}else{setSortField(field);setSortDir('asc');}}:undefined}
+                    style={{padding:'10px 14px',textAlign:'left',fontSize:10,fontWeight:700,color:field?C.accent:C.text3,textTransform:'uppercase',letterSpacing:'0.06em',whiteSpace:'nowrap',cursor:field?'pointer':'default',userSelect:'none'}}>
+                    {label}{field&&<span style={{marginLeft:4,opacity:.6}}>{sortField===field?(sortDir==='asc'?'↑':'↓'):'↕'}</span>}
+                  </th>
                 ))}
               </tr>
             </thead>

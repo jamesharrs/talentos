@@ -936,13 +936,13 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
           <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, background: "var(--t-surface)", borderRadius: 12, border: "1px solid var(--t-border)", boxShadow: "0 8px 32px rgba(0,0,0,.14)", zIndex: 700, overflow: "hidden", minWidth: 190 }}>
             {[
               { id: "overview",    label: "Overview",    icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>, desc: "Hiring summary" },
-              { id: "interviews",  label: "Interviews",  icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>, desc: "Scheduling & pipeline" },
-              { id: "offers",      label: "Offers",      icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>, desc: "Acceptance & approvals" },
               { id: "campaigns",   label: "Campaigns",   icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>, desc: "Recruitment marketing" },
               { id: "screening",   label: "Screening",   icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 100 6 3 3 0 000-6z"/></svg>, desc: "Candidates & AI review" },
+              { id: "interviews",  label: "Interviews",  icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>, desc: "Scheduling & pipeline" },
+              { id: "offers",      label: "Offers",      icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>, desc: "Acceptance & approvals" },
               { id: "onboarding",  label: "Onboarding",  icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>, desc: "Pre & post start" },
-              { id: "admin",       label: "Admin Stats", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>, desc: "Platform stats" },
               { id: "insights",    label: "Insights",    icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 10 10-12h-9l1-10z"/></svg>, desc: "Predictive analytics" },
+              { id: "admin",       label: "Admin Stats", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>, desc: "Platform stats" },
               { id: "custom",      label: "My Dashboards", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="4"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="10" width="7" height="7"/></svg>, desc: "Custom dashboards" },
             ].map(item => {
               const active = activeDashTab === item.id || (!activeDashTab && item.id === "overview");
@@ -1726,7 +1726,7 @@ function App({ onEnvReady }) {
     const named = [
       'dashboard','dashboard_interviews','dashboard_offers','dashboard_agents',
       'dashboard_screening','dashboard_onboarding','dashboard_admin','dashboard_custom',
-      'dashboard_insights',
+      'dashboard_insights','dashboard_campaigns',
       'search','interviews','offers','reports','calendar',
       'org-chart','org_chart','settings','workflows','portals',
       'inbox','admin_stats','admin-stats','client-hub','client_hub',
@@ -2054,7 +2054,7 @@ function App({ onEnvReady }) {
   const filteredNavSections = navSections.map(section => ({
     ...section,
     items: section.items.filter(item => {
-      if (['dashboard','dashboard_interviews','dashboard_offers','dashboard_agents','dashboard_admin','dashboard_screening','dashboard_onboarding','dashboard_custom','dashboard_insights'].includes(item.id))
+      if (['dashboard','dashboard_interviews','dashboard_offers','dashboard_agents','dashboard_admin','dashboard_screening','dashboard_onboarding','dashboard_custom','dashboard_insights','dashboard_campaigns'].includes(item.id))
         return canGlobal('access_dashboard');
       if (item.id === 'org_chart')    return canGlobal('access_org_chart')    && featOrgChart;
       if (item.id === 'interviews')   return canGlobal('access_interviews')   && featInterviews;
@@ -2489,7 +2489,7 @@ function App({ onEnvReady }) {
               <div style={{ fontSize: 10, fontWeight: 700, color: "var(--t-text3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6, paddingLeft: 4, height: navExpanded ? undefined : 0, overflow: "hidden", opacity: navExpanded ? 1 : 0, transition: "opacity 0.15s, height 0.15s" }}>{section.label}</div>
               {section.items.map(item => {
                 const isDashboard = item.id === "dashboard";
-                const dashActive = activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers" || activeNav === "dashboard_admin" || activeNav === "dashboard_agents" || activeNav === "dashboard_screening" || activeNav === "dashboard_onboarding" || activeNav === "dashboard_custom" || activeNav === "dashboard_insights";
+                const dashActive = activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers" || activeNav === "dashboard_admin" || activeNav === "dashboard_agents" || activeNav === "dashboard_screening" || activeNav === "dashboard_onboarding" || activeNav === "dashboard_custom" || activeNav === "dashboard_insights" || activeNav === "dashboard_campaigns";
                 const isActive = isDashboard ? dashActive : (activeNav === item.id || (activeObjectId && item.id === `obj_${activeObjectId}`));
                 return (
                   <div key={item.id}>
@@ -2618,7 +2618,7 @@ function App({ onEnvReady }) {
           <GettingStarted environment={selectedEnv} navObjects={navObjects} onNavigate={switchNav} />
         ) : activeNav === "inbox" ? (
           <InboxModule environment={selectedEnv} session={session} onNavigate={openRecord} />
-        ) : activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers" || activeNav === "dashboard_admin" || activeNav === "dashboard_agents" || activeNav === "dashboard_screening" || activeNav === "dashboard_onboarding" || activeNav === "dashboard_custom" || activeNav === "dashboard_insights" ? (
+        ) : activeNav === "dashboard" || activeNav === "dashboard_interviews" || activeNav === "dashboard_offers" || activeNav === "dashboard_admin" || activeNav === "dashboard_agents" || activeNav === "dashboard_screening" || activeNav === "dashboard_onboarding" || activeNav === "dashboard_custom" || activeNav === "dashboard_insights" || activeNav === "dashboard_campaigns" ? (
           <Suspense fallback={<div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:"#9ca3af", fontSize:13 }}>Loading…</div>}>
             <DashboardHub
               tab={activeNav === "dashboard" ? "overview" : activeNav.replace("dashboard_", "")}
@@ -2633,7 +2633,7 @@ function App({ onEnvReady }) {
                 if (slug === "search")   { setActiveNav("search");   return; }
                 if (slug === "overview") { setActiveNav("dashboard"); return; }
                 // Dashboard sub-tab navigation from pill buttons
-                const dashTabs = ["screening","interviews","offers","onboarding","insights","agents","admin"];
+                const dashTabs = ["campaigns","screening","interviews","offers","onboarding","insights","agents","admin"];
                 if (dashTabs.includes(slug)) {
                   setActiveNav(`dashboard_${slug}`);
                   return;
@@ -3097,7 +3097,7 @@ export default function AppRoot() {
   const portalSlug = _path.match(/^\/portal\/(.+)$/)?.[1];
   if (portalSlug) return <PortalApp slug={portalSlug}/>;
 
-  const _appRoutes = /^\/(hub|support|superadmin|availability|bot|interview|api|dashboard|dashboard_custom|dashboard_interviews|dashboard_offers|dashboard_screening|dashboard_onboarding|dashboard_admin|dashboard_agents|dashboard_insights|people|jobs|talent-pools|search|interviews|offers|sourcing|campaign-links|campaigns|reports|insights|calendar|org-chart|org_chart|settings|workflows|portals|inbox|admin_stats|admin-stats|client-hub|client_hub|help|matching|record|chat|documents|agents|integrations|orgchart|org.chart|app|schema|overview|onboarding|screening|getting-started)(\/|$)/;
+  const _appRoutes = /^\/(hub|support|superadmin|availability|bot|interview|api|dashboard|dashboard_custom|dashboard_interviews|dashboard_offers|dashboard_screening|dashboard_onboarding|dashboard_admin|dashboard_agents|dashboard_insights|dashboard_campaigns|people|jobs|talent-pools|search|interviews|offers|sourcing|campaign-links|campaigns|reports|insights|calendar|org-chart|org_chart|settings|workflows|portals|inbox|admin_stats|admin-stats|client-hub|client_hub|help|matching|record|chat|documents|agents|integrations|orgchart|org.chart|app|schema|overview|onboarding|screening|getting-started)(\/|$)/;
   if (_path !== '/' && !_appRoutes.test(_path)) {
     const segments = _path.replace(/^\//, '').split('/');
     const cleanSlug = segments[0];

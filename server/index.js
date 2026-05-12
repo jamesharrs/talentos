@@ -143,7 +143,10 @@ if (!sessionStore) {
 app.use(session({
   name:   'vercentic_sid',
   store:  sessionStore,   // undefined = MemoryStore in dev
-  secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
+  secret: process.env.SESSION_SECRET || (() => {
+    console.warn('[WARN] SESSION_SECRET not set — using fallback. All sessions will be invalidated on restart. Set SESSION_SECRET in Railway environment variables.');
+    return 'dev-secret-change-in-production';
+  })(),
   resave: false,
   saveUninitialized: false,
   cookie: {

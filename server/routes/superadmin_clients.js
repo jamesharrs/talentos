@@ -1086,6 +1086,107 @@ router.post('/copy-config', express.json(), async (req, res) => {
   } catch(e) { res.status(500).json({error:e.message}); }
 });
 
+// POST /api/superadmin/clients/provision-from-local
+// Creates a new "Vercentic Template" client+env, copies local master config into it, flags as template
+router.post('/provision-from-local', express.json(), async (req, res) => {
+  try {
+    const { name = 'Vercentic Template' } = req.body;
+    const s = getStore();
+    const now = new Date().toISOString();
+    const { provisionTenant, tenantStorage, saveStoreNow, storeCache } = require('../db/init');
+
+    // Find (or read) the local production environment
+    const localEnv = (s.environments||[]).find(e => e.is_default || e.name === 'Production') || (s.environments||[])[0];
+    if (!localEnv) return res.status(400).json({ error: 'No local environment found' });
+
+    // Create a template client in the master store
+    const tenantSlug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').substring(0,30) + '-tpl';
+    const existingClient = (s.clients||[]).find(c => c.tenant_slug === tenantSlug && !c.deleted_at);
+    if (existingClient) return res.status(409).json({ error: `Template "${name}" already exists` });
+
+    const client = {
+      id: uuidv4(), name, plan: 'internal', status: 'active', tenant_slug: tenantSlug,
+      source: 'template', notes: 'Auto-created from local environment config',
+      created_at: now, updated_at: now, deleted_at: null,
+    };
+    if (!s.clients) s.clients = [];
+    s.clients.push(client);
+
+    const environment = {
+      id: uuidv4(), client_id: client.id, name: `${name} - Production`,
+      type: 'production', locale: 'en', timezone: 'UTC',
+      is_default: 0, status: 'active', is_template: true,
+      template_name: name, template_desc: 'Cloned from local environment',
+      created_at: now, updated_at: now, deleted_at: null,
+    };
+    if (!s.client_environments) s.client_environments = [];
+    s.client_environments.push(environment);
+
+    // Provision the tenant store
+    const ts = provisionTenant(tenantSlug);
+    if (!ts.environments) ts.environments = [];
+    ts.environments.push({ ...environment });
+
+    // Copy objects + fields from master store into tenant store
+    const localObjects = (s.objects||[]).filter(o => o.environment_id === localEnv.id && !o.deleted_at);
+    const localFields  = (s.fields||[]).filter(f  => f.environment_id === localEnv.id && !f.deleted_at);
+    const localWorkflows = (s.workflows||[]).filter(w => w.environment_id === localEnv.id && !w.deleted_at);
+    const localEmailTemplates = (s.email_templates||[]).filter(t => !t.deleted_at);
+    const localRoles = (s.roles||[]).filter(r => !r.deleted_at);
+
+    const idMap = {};
+    const newId = oldId => { const n = uuidv4(); idMap[oldId] = n; return n; };
+    const remap = id => idMap[id] || id;
+
+    if (!ts.objects) ts.objects = [];
+    for (const obj of localObjects) {
+      const nid = newId(obj.id);
+      ts.objects.push({ ...obj, id: nid, environment_id: environment.id, created_at: now, updated_at: now });
+    }
+
+    if (!ts.fields) ts.fields = [];
+    for (const f of localFields) {
+      ts.fields.push({ ...f, id: uuidv4(), object_id: remap(f.object_id), environment_id: environment.id, created_at: now, updated_at: now });
+    }
+
+    if (!ts.workflows) ts.workflows = [];
+    for (const w of localWorkflows) {
+      const nwid = uuidv4();
+      const wCopy = { ...w, id: nwid, environment_id: environment.id, created_at: now, updated_at: now };
+      if (wCopy.steps) wCopy.steps = wCopy.steps.map(st => ({ ...st, id: uuidv4(), workflow_id: nwid }));
+      ts.workflows.push(wCopy);
+    }
+
+    if (!ts.email_templates) ts.email_templates = [];
+    for (const t of localEmailTemplates) {
+      ts.email_templates.push({ ...t, id: uuidv4(), environment_id: environment.id, created_at: now, updated_at: now });
+    }
+
+    if (!ts.roles) ts.roles = [];
+    for (const r of localRoles) {
+      ts.roles.push({ ...r, id: uuidv4(), environment_id: environment.id, created_at: now, updated_at: now });
+    }
+
+    saveStoreNow(tenantSlug);
+    saveStoreNow('master');
+
+    if (!s.provision_log) s.provision_log = [];
+    s.provision_log.push({
+      id: uuidv4(), client_id: client.id, environment_id: environment.id,
+      template: 'local_snapshot', objects_seeded: localObjects.length,
+      fields_seeded: localFields.length, roles_seeded: localRoles.length,
+      provisioned_at: now, status: 'success',
+    });
+    saveStoreNow('master');
+
+    res.json({
+      ok: true, client, environment, tenant_slug: tenantSlug,
+      objects_copied: localObjects.length, fields_copied: localFields.length,
+      workflows_copied: localWorkflows.length, roles_copied: localRoles.length,
+    });
+  } catch(e) { console.error('[provision-from-local]', e); res.status(500).json({ error: e.message }); }
+});
+
 // ── Core config-copy function ────────────────────────────────────────────────
 async function copyEnvConfig(fromSlug, fromEnvId, toSlug, toEnvId, opts={}) {
   const now = new Date().toISOString();

@@ -541,6 +541,19 @@ function TemplateEnvironments() {
   const [showCopyModal, setShowCopyModal] = useState(null); // template to copy from
   const [copyTarget, setCopyTarget] = useState('');
   const [copyResult, setCopyResult] = useState(null);
+  const [creatingFromLocal, setCreatingFromLocal] = useState(false);
+  const [createName, setCreateName] = useState('Vercentic Template');
+
+  const createFromLocal = async () => {
+    if (!createName.trim()) return;
+    setCreatingFromLocal(true);
+    try {
+      const r = await api.post('/clients/provision-from-local', { name: createName.trim() });
+      if (r.error) { alert('Error: ' + r.error); }
+      else { alert(`✓ Template "${createName}" created — ${r.objects_copied} objects, ${r.fields_copied} fields copied.`); await load(); }
+    } catch(e) { alert('Error: ' + e.message); }
+    setCreatingFromLocal(false);
+  };
 
   const load = async () => {
     setLoading(true);
@@ -589,6 +602,19 @@ function TemplateEnvironments() {
 
   return (
     <div style={{color:C.text, fontFamily:"'Inter',sans-serif"}}>
+      <div style={{padding:'14px 18px',borderRadius:10,border:'1.5px solid #8b5cf6',background:'rgba(139,92,246,0.08)',marginBottom:20}}>
+        <div style={{fontWeight:700,color:C.accent,fontSize:13,marginBottom:8}}>⚡ Create Template from Local Config</div>
+        <div style={{fontSize:12,color:C.text2,marginBottom:12}}>Snapshot your current local environment — all objects, fields, workflows and email templates — into a new reusable template.</div>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <input value={createName} onChange={e=>setCreateName(e.target.value)}
+            placeholder="Template name…"
+            style={{flex:1,padding:'8px 12px',borderRadius:8,border:`1px solid ${C.border2}`,background:C.surface2,color:C.text1,fontSize:13,fontFamily:'inherit'}}/>
+          <button onClick={createFromLocal} disabled={creatingFromLocal||!createName.trim()}
+            style={{padding:'8px 16px',borderRadius:8,border:'none',background:C.accent,color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',opacity:creatingFromLocal?0.6:1,whiteSpace:'nowrap'}}>
+            {creatingFromLocal ? 'Creating…' : 'Create Template'}
+          </button>
+        </div>
+      </div>
       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24}}>
         <div>
           <h2 style={{margin:0, fontSize:18, fontWeight:700}}>Template Environments</h2>

@@ -445,11 +445,19 @@ const { router: flowsRouter, initScheduler } = require('./routes/flows');
 app.use('/api/flows', flowsRouter);
 
 // ── Admin & super admin ───────────────────────────────────────────────────────
+// Superadmin routes always run in master store context so getStore() returns
+// the master store regardless of the caller's session/tenant context.
+const _saRouter = express.Router();
+_saRouter.use((req, res, next) => {
+  const { tenantStorage } = require('./db/init');
+  tenantStorage.run('master', () => next());
+});
+_saRouter.use('/',        require('./routes/superadmin'));
+_saRouter.use('/clients', require('./routes/superadmin_clients'));
+_saRouter.use('/demo',    require('./routes/demo_seed'));
+app.use('/api/superadmin', _saRouter);
 app.use('/api/admin',             require('./routes/admin_dashboard').router);
-app.use('/api/superadmin',        require('./routes/superadmin'));
-app.use('/api/superadmin/clients', require('./routes/superadmin_clients'));
 app.use('/api/sequencer',         require('./routes/email_sequencer').router);
-app.use('/api/superadmin/demo',   require('./routes/demo_seed'));
 app.use('/api/tenant-reset',      require('./routes/admin_reset'));
 app.use('/api/signup',            require('./routes/signup'));
 

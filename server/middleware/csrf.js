@@ -27,6 +27,7 @@ const CSRF_EXEMPT_PREFIXES = [
   '/api/users/auth/login',
   '/api/users/logout',
   '/api/users/exchange-impersonation',
+  '/api/ai',               // AI proxy — read-through to Anthropic, no data mutation
   '/api/portals',          // public portal apply / job list / session endpoints
   '/api/portal-auth',
   '/api/portal-public',

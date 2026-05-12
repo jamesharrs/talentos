@@ -1163,6 +1163,7 @@ export function ProvisionWizard({ onDone, onCancel }) {
         environment:{name:form.env_name||`${form.client_name} Production`,type:form.env_type,locale:form.locale,timezone:form.timezone},
         admin_user:{first_name:form.admin_first,last_name:form.admin_last,email:form.admin_email,password:form.admin_password},
         template:form.template,
+        snapshot:form.snapshot||undefined,
       })});
       const d=await r.json();
       if(r.ok){ setResult(d); setStep(5); }
@@ -1333,11 +1334,12 @@ export function ProvisionWizard({ onDone, onCancel }) {
             {key:'agency',label:'Recruitment Agency',description:'Adds Client Companies and Placements',object_count:5},
             {key:'hr_platform',label:'HR Platform',description:'Adds Employees and Leave Requests',object_count:5},
           ]).map(t=>(
-            <div key={t.key} onClick={()=>set('template',t.key)}
-              style={{padding:'14px 18px',borderRadius:10,border:`2px solid ${form.template===t.key?C.accent:C.border2}`,background:form.template===t.key?`${C.accent}10`:C.surface2,cursor:'pointer'}}>
+            <div key={t.key} onClick={()=>{set('template',t.key);set('snapshot',t.snapshot||null);}}
+              style={{padding:'14px 18px',borderRadius:10,border:`2px solid ${form.template===t.key?(t.is_local?'#8B7EC8':C.accent):C.border2}`,background:form.template===t.key?`${t.is_local?'#8B7EC8':C.accent}10`:C.surface2,cursor:'pointer',position:'relative'}}>
+              {t.is_local&&<div style={{position:'absolute',top:10,right:10,padding:'2px 8px',borderRadius:99,background:'#8B7EC8',color:'#fff',fontSize:10,fontWeight:700,letterSpacing:'.05em'}}>CURRENT CONFIG</div>}
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                <div style={{fontWeight:700,color:form.template===t.key?C.accent:C.text1}}>{t.label}</div>
-                <span style={{fontSize:11,color:C.text3}}>{t.object_count} objects</span>
+                <div style={{fontWeight:700,color:form.template===t.key?(t.is_local?'#8B7EC8':C.accent):C.text1,paddingRight:t.is_local?80:0}}>{t.label}</div>
+                <span style={{fontSize:11,color:C.text3,paddingRight:t.is_local?80:0}}>{t.object_count} objects</span>
               </div>
               <div style={{fontSize:12,color:C.text3,marginTop:4}}>{t.description}</div>
             </div>

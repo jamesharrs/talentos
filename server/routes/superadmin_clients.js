@@ -2037,6 +2037,85 @@ router.post('/:id/repair-users', express.json(), async (req, res) => {
   res.json({ ok: true, user_id: userId, environment_id: env.id, tenant_slug: tenantSlug });
 });
 
+// ── POST /:id/repair-tenant — rebuild full tenant store from a snapshot ───────
+// Used when a tenant store loses its data (e.g. before volume was set up).
+router.post('/:id/repair-tenant', express.json(), async (req, res) => {
+  const s = getStore();
+  const client = (s.clients||[]).find(c => c.id === req.params.id && !c.deleted_at);
+  if (!client) return res.status(404).json({ error: 'Client not found' });
+
+  const { snapshot, admin_email, admin_password } = req.body;
+  if (!snapshot) return res.status(400).json({ error: 'snapshot required' });
+
+  const tenantSlug = client.tenant_slug;
+  const { provisionTenant, saveStoreNow } = require('../db/init');
+  const ts = provisionTenant(tenantSlug);
+  const now = new Date().toISOString();
+
+  // Get existing environment
+  const env = (ts.environments||[])[0] || (s.client_environments||[]).find(e => e.client_id === client.id && !e.deleted_at);
+  if (!env) return res.status(400).json({ error: 'No environment found for tenant' });
+  if (!ts.environments?.length) { if (!ts.environments) ts.environments = []; ts.environments.push({...env, setup_complete: true}); }
+
+  const environment = { ...env, setup_complete: true };
+  // Ensure setup_complete on env
+  if (ts.environments[0]) ts.environments[0].setup_complete = true;
+
+  const idMap = {};
+  const newId = oldId => { const n = uuidv4(); idMap[oldId] = n; return n; };
+
+  // Objects + Fields
+  ts.objects = [];
+  ts.fields = [];
+  let fieldCount = 0;
+  for (const obj of (snapshot.objects||[])) {
+    const nObjId = newId(obj.id || uuidv4());
+    ts.objects.push({ id: nObjId, environment_id: environment.id, slug: obj.slug, name: obj.name, plural_name: obj.plural_name, icon: obj.icon||'database', color: obj.color||'#4361EE', is_system: obj.is_system!==false, sort_order: ts.objects.length, created_at: now, updated_at: now, deleted_at: null });
+    for (const f of (obj.fields||[])) {
+      ts.fields.push({ id: uuidv4(), environment_id: environment.id, object_id: nObjId, name: f.name, api_key: f.api_key, field_type: f.field_type, is_required: f.is_required||false, show_in_list: f.show_in_list ? 1 : 0, show_in_form: 1, is_system: true, options: f.options||null, related_object_slug: f.related_object_slug||null, people_multi: f.people_multi!==undefined?f.people_multi:null, condition_field: f.condition_field||null, condition_value: f.condition_value||null, collapsible: f.collapsible?1:0, section_label: f.section_label||null, placeholder: f.placeholder||'', help_text: '', sort_order: f.sort_order||0, created_at: now, updated_at: now, deleted_at: null });
+      fieldCount++;
+    }
+  }
+
+  // Roles
+  ts.roles = [];
+  for (const r of (snapshot.roles||[])) {
+    const slug = (r.slug||r.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'_');
+    ts.roles.push({ id: uuidv4(), environment_id: environment.id, name: r.name, slug, permissions: r.permissions||{}, color: r.color||'#4361EE', is_system: true, created_at: now, updated_at: now, deleted_at: null });
+  }
+
+  // Workflows
+  ts.workflows = [];
+  for (const w of (snapshot.workflows||[])) {
+    const nwid = uuidv4();
+    ts.workflows.push({ id: nwid, environment_id: environment.id, name: w.name, description: w.description||'', object_slug: w.object_slug, type: w.type, is_active: w.is_active, steps: (w.steps||[]).map((st,i)=>({...st,id:uuidv4(),workflow_id:nwid,sort_order:i})), created_at: now, updated_at: now, deleted_at: null });
+  }
+
+  // Email templates
+  ts.email_templates = [];
+  for (const t of (snapshot.email_templates||[])) {
+    ts.email_templates.push({ id: uuidv4(), environment_id: environment.id, name: t.name, subject: t.subject, body: t.body, category: t.category, created_at: now, updated_at: now, deleted_at: null });
+  }
+
+  // Feature flags
+  ts.feature_flags = [];
+  for (const f of (snapshot.feature_flags||[])) {
+    ts.feature_flags.push({ id: uuidv4(), environment_id: environment.id, flag_key: f.flag_key, enabled: f.enabled, created_at: now, updated_at: now, deleted_at: null });
+  }
+
+  // Admin user
+  const saRole = ts.roles?.find(r => r.slug === 'super_admin') || ts.roles?.[0];
+  ts.users = [];
+  const email = admin_email || 'admin@vercentic.com';
+  const password = admin_password || 'Admin1234!';
+  ts.users.push({ id: uuidv4(), environment_id: environment.id, client_id: client.id, first_name: 'Admin', last_name: 'User', email, password_hash: hashPassword(password), role_id: saRole?.id||null, role_name: saRole?.name||'Super Admin', status: 'active', is_super_admin: true, must_change_password: 0, mfa_enabled: 0, last_login: null, login_count: 0, created_at: now, updated_at: now, deleted_at: null });
+
+  saveStoreNow(tenantSlug);
+
+  res.json({ ok: true, tenant_slug: tenantSlug, objects: ts.objects.length, fields: fieldCount, roles: ts.roles.length, flags: ts.feature_flags.length, credentials: { email, password } });
+});
+
+
 // ── POST /:id/seed-objects — seed full template into existing tenant (repair empty tenants) ──
 router.post('/:id/seed-objects', express.json(), async (req, res) => {
   ensureCollections();

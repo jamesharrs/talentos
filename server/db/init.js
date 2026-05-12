@@ -223,11 +223,24 @@ async function initDB() {
         storeCache['master'] = { ...base, ...pgStore };
         console.log('[PG] Master store loaded from PostgreSQL');
       } else {
-        // PG is empty — load from JSON and migrate up
-        loadTenantStore(null);
-        console.log('[PG] PostgreSQL empty — migrating from JSON file...');
-        await pg.migrateFromJson(DATA_DIR);
-        console.log('[PG] Migration complete');
+        // PG is empty — try JSON migration first, then fresh seed if no JSON either
+        const jsonExists = require('fs').existsSync(require('path').join(DATA_DIR, 'talentos.json'));
+        if (jsonExists) {
+          loadTenantStore(null);
+          console.log('[PG] PostgreSQL empty — migrating from JSON file...');
+          await pg.migrateFromJson(DATA_DIR);
+          console.log('[PG] Migration complete');
+        } else {
+          // No JSON either — fresh seed directly into PG
+          console.log('[PG] No data found anywhere — running fresh seed into PostgreSQL...');
+          storeCache['master'] = { ...EMPTY_STORE() };
+          await tenantStorage.run('master', async () => {
+            await seedEnvironmentAndObjects();
+            await seedUsersAndRoles('master');
+          });
+          await pg.saveTenant('master', storeCache['master']);
+          console.log('[PG] Fresh seed complete');
+        }
       }
     } catch (e) {
       console.error('[PG] Load failed, falling back to JSON:', e.message);

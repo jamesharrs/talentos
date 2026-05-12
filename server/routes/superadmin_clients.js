@@ -338,7 +338,14 @@ const TEMPLATES = {
   }
 };
 
-function buildTemplate(key) {
+function buildTemplate(key, snapshotData) {
+  // Local environment snapshot — use the pre-built objects/roles from the snapshot
+  if (key === 'local_environment' && snapshotData) {
+    return {
+      objects: snapshotData.objects || [],
+      roles: snapshotData.roles || TEMPLATES.core_recruitment.default_roles,
+    };
+  }
   const tpl = TEMPLATES[key];
   if (!tpl) throw new Error(`Unknown template: ${key}`);
   let objects = [...(tpl.objects || [])];
@@ -356,7 +363,7 @@ function buildTemplate(key) {
   return { objects, roles: tpl.default_roles || TEMPLATES.core_recruitment.default_roles };
 }
 
-async function provisionClient(clientData, envData, adminUser, templateKey) {
+async function provisionClient(clientData, envData, adminUser, templateKey, snapshotData) {
   const s = getStore(); ensureCollections();
   const now = new Date().toISOString();
 
@@ -393,7 +400,7 @@ async function provisionClient(clientData, envData, adminUser, templateKey) {
 
   // Build objects/fields/roles in memory only — do NOT push to master store (s).
   // Everything goes exclusively into the isolated tenant store below.
-  const { objects, roles } = buildTemplate(templateKey || 'core_recruitment');
+  const { objects, roles } = buildTemplate(templateKey || 'core_recruitment', snapshotData);
   const createdObjects = [];
   const createdFields  = [];
 
@@ -575,10 +582,74 @@ router.get('/', (req, res) => {
 });
 
 router.get('/provision/templates', (req, res) => {
-  res.json(Object.entries(TEMPLATES).map(([key, tpl]) => ({
+  const s = getStore();
+
+  // Build a "Local Environment" template from the current master store's
+  // objects and fields — always shown first so you can clone your live config.
+  const localEnv = (s.environments||[]).find(e => e.is_default || e.name === 'Production') || (s.environments||[])[0];
+  let localTemplate = null;
+
+  if (localEnv) {
+    const localObjects = (s.objects||[]).filter(o => o.environment_id === localEnv.id && !o.deleted_at);
+    const localFields  = (s.fields||[]).filter(f  => f.environment_id === localEnv.id && !f.deleted_at);
+    const localRoles   = (s.roles||[]).filter(r   => !r.deleted_at);
+    const localWorkflows = (s.workflows||[]).filter(w => w.environment_id === localEnv.id && !w.deleted_at);
+    const localTemplates = (s.email_templates||[]).filter(t => !t.deleted_at);
+
+    localTemplate = {
+      key: 'local_environment',
+      label: 'Local Environment (Current Config)',
+      description: `Clone your live configuration — ${localObjects.length} objects, ${localFields.length} fields, ${localWorkflows.length} workflows, ${localTemplates.length} email templates`,
+      icon: 'home',
+      object_count: localObjects.length,
+      is_local: true,
+      snapshot: {
+        environment_name: localEnv.name,
+        objects: localObjects.map(o => ({
+          slug: o.slug, name: o.name, plural_name: o.plural_name,
+          icon: o.icon, color: o.color, is_system: o.is_system,
+          fields: localFields
+            .filter(f => f.object_id === o.id)
+            .sort((a,b) => (a.sort_order||0) - (b.sort_order||0))
+            .map(f => ({
+              name: f.name, api_key: f.api_key, field_type: f.field_type,
+              is_required: f.is_required, show_in_list: f.show_in_list,
+              options: f.options, placeholder: f.placeholder,
+              related_object_slug: f.related_object_slug,
+              people_multi: f.people_multi,
+              condition_field: f.condition_field, condition_value: f.condition_value,
+              collapsible: f.collapsible, section_label: f.section_label,
+              sort_order: f.sort_order,
+            })),
+        })),
+        roles: localRoles.map(r => ({
+          name: r.name, slug: r.slug, permissions: r.permissions, color: r.color,
+        })),
+        workflows: localWorkflows.map(w => ({
+          name: w.name, description: w.description, object_slug: w.object_slug,
+          type: w.type, is_active: w.is_active,
+          steps: (w.steps||[]).map(s => ({
+            name: s.name, step_type: s.step_type, automation_type: s.automation_type,
+            config: s.config, sort_order: s.sort_order,
+          })),
+        })),
+        email_templates: localTemplates.map(t => ({
+          name: t.name, subject: t.subject, body: t.body, category: t.category,
+        })),
+      },
+    };
+  }
+
+  const standardTemplates = Object.entries(TEMPLATES).map(([key, tpl]) => ({
     key, label: tpl.label, description: tpl.description, icon: tpl.icon,
     object_count: (tpl.objects||[]).length + ((tpl.extra_objects||[]).length),
-  })));
+    is_local: false,
+  }));
+
+  res.json([
+    ...(localTemplate ? [localTemplate] : []),
+    ...standardTemplates,
+  ]);
 });
 
 router.get('/provision/log', (req, res) => {
@@ -1027,14 +1098,14 @@ router.get('/:id/activity', (req, res) => {
 });
 
 router.post('/provision', express.json(), async (req, res) => {
-  const { client, environment, admin_user, template } = req.body;
+  const { client, environment, admin_user, template, snapshot } = req.body;
   if (!client?.name)      return res.status(400).json({ error: 'client.name required' });
   if (!admin_user?.email) return res.status(400).json({ error: 'admin_user.email required' });
   ensureCollections();
   const existing = (getStore().clients||[]).find(c=>!c.deleted_at&&c.name.toLowerCase()===client.name.toLowerCase());
   if (existing) return res.status(409).json({ error: `Client "${client.name}" already exists` });
   try {
-    res.status(201).json(await provisionClient(client, environment||{}, admin_user, template||'core_recruitment'));
+    res.status(201).json(await provisionClient(client, environment||{}, admin_user, template||'core_recruitment', snapshot||null));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -3,6 +3,11 @@ const router = express.Router();
 const { getStore, saveStore } = require('../db/init');
 const { v4: uuid } = require('uuid');
 
+// Wraps async route handlers so unhandled promise rejections flow to Express
+// global error handler instead of silently crashing the request.
+const ah = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+
 // GET /api/reports/:envId  — list saved reports
 router.get('/:envId', (req, res) => {
   const store = getStore();

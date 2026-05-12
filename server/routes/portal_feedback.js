@@ -5,6 +5,11 @@ const router = express.Router();
 const { v4: uid } = require('uuid');
 const { getStore, saveStore } = require('../db/init');
 
+// Wraps async route handlers so unhandled promise rejections flow to Express
+// global error handler instead of silently crashing the request.
+const ah = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+
 const ensure = () => { const s = getStore(); if (!s.portal_feedback) { s.portal_feedback = []; saveStore(); } };
 
 // ── PUBLIC: Submit feedback (no auth — portal visitors) ──────────────────────

@@ -3,6 +3,11 @@ const router  = express.Router();
 const { query, insert, update, remove, getStore, saveStore } = require('../db/init');
 const { v4: uuidv4 } = require('uuid');
 
+// Wraps async route handlers so unhandled promise rejections flow to Express
+// global error handler instead of silently crashing the request.
+const ah = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+
 // ─── Default section configuration ─────────────────────────────────────────
 const DEFAULT_SECTIONS = [
   { id:'application',   label:'Application Details', icon:'briefcase', enabled:true,  order:0 },
@@ -49,9 +54,9 @@ router.put('/config', (req, res) => {
 
 // ─── GET full person profile ─────────────────────────────────────────────────
 // Returns person record, fields, attachments, notes, activity, form responses, link data
-router.get('/person', async (req, res) => {
+router.get('/person', ah(async (req, res) => {
   const { person_record_id, link_id, environment_id } = req.query;
-  if (!person_record_id) return res.status(400).json({ error:'person_record_id required' });
+  if (!person_record_id) return res.status(400).json({ error:'person_record_id required' }));
   const store = getStore();
 
   // Person record

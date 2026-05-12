@@ -2,6 +2,11 @@ const router = require('express').Router();
 const { v4: uuidv4 } = require('uuid');
 const { query, insert, update, remove } = require('../db/init');
 
+// Wraps async route handlers so unhandled promise rejections flow to Express
+// global error handler instead of silently crashing the request.
+const ah = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+
 // GET /api/email-templates?environment_id=X
 router.get('/', (req, res) => {
   let all = query('email_templates', () => true);

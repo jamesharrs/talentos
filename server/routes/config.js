@@ -2,6 +2,11 @@ const express = require('express');
 const router  = express.Router();
 const { getStore, saveStore, query } = require('../db/init');
 
+// Wraps async route handlers so unhandled promise rejections flow to Express
+// global error handler instead of silently crashing the request.
+const ah = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+
 const CONFIG_VERSION = 1;
 
 // ── Export config ─────────────────────────────────────────────────────────────

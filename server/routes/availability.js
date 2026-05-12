@@ -2,6 +2,11 @@
 const router = require('express').Router();
 const { getStore, saveStore } = require('../db/init');
 
+// Wraps async route handlers so unhandled promise rejections flow to Express
+// global error handler instead of silently crashing the request.
+const ah = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+
 const IDLE_THRESHOLD_MS    = 15 * 60 * 1000;
 const OFFLINE_THRESHOLD_MS = 60 * 60 * 1000;
 

@@ -3,6 +3,11 @@ const router  = express.Router();
 const crypto  = require('crypto');
 const { query, insert, getStore, saveStore } = require('../db/init');
 
+// Wraps async route handlers so unhandled promise rejections flow to Express
+// global error handler instead of silently crashing the request.
+const ah = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+
 function hashPw(pw) {
   return crypto.createHash('sha256').update(pw + 'vrc_portal_2026').digest('hex');
 }
@@ -124,10 +129,10 @@ router.get('/tasks', (req, res) => {
 });
 
 // PATCH /api/portal-auth/tasks/:id — complete a task from the portal
-router.patch('/tasks/:id', async (req, res) => {
+router.patch('/tasks/:id', ah(async (req, res) => {
   ensureCollections();
   const user = getPortalUser(req);
-  if (!user) return res.status(401).json({ error: 'Unauthenticated' });
+  if (!user) return res.status(401).json({ error: 'Unauthenticated' }));
 
   const s = getStore();
   const task = (s.calendar_tasks || []).find(t => t.id === req.params.id && !t.deleted_at);

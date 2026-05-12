@@ -194,7 +194,6 @@ export function useLinkedInAutoSearch({ record, fields, onFound }) {
     const ageSeconds = createdAt ? (Date.now() - createdAt.getTime()) / 1000 : 9999;
     if (ageSeconds > 60) return;
     setAutoSearched(true);
-    console.log("[LinkedInFinder] Auto-searching:", d.first_name, d.last_name);
     try {
       const resp = await tFetch("/linkedin-search", {
         method: "POST",

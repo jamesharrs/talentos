@@ -3,6 +3,11 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { query, findOne, insert, update, remove } = require('../db/init');
 
+// Wraps async route handlers so unhandled promise rejections flow to Express
+// global error handler instead of silently crashing the request.
+const ah = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+
 router.get('/', (req, res) => {
   const { record_id, related_record_id } = req.query;
   if (!record_id) return res.status(400).json({ error: 'record_id required' });

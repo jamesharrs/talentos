@@ -4,6 +4,11 @@ const router = express.Router();
 const { getStore } = require('../db/init');
 const { hasGlobalAction } = require('../middleware/rbac');
 
+// Wraps async route handlers so unhandled promise rejections flow to Express
+// global error handler instead of silently crashing the request.
+const ah = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+
 function checkAccess(req, res) {
   const user = req.currentUser;
   if (!user) { res.status(401).json({ error: 'Authentication required' }); return false; }

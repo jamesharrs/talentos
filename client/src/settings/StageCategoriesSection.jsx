@@ -4,12 +4,7 @@ import apiClient from "../apiClient.js";
 const C = { accent: '#4361EE', text1: '#111827', text2: '#374151', text3: '#6B7280', bg: '#EEF2FF', white: 'white', border: '#E5E7EB', red: '#EF4444', accentLight: '#EEF2FF' };
 const F = "'Space Grotesk', 'DM Sans', system-ui, sans-serif";
 
-const api = {
-  get:    (path)        => apiClient.get(path),
-  post:   (path, body)  => apiClient.post(path, body),
-  patch:  (path, body)  => apiClient.patch(path, body),
-  delete: (path)        => apiClient.delete(path),
-};
+// api calls use apiClient directly
 
 const PRESET_COLORS = ['#3B82F6','#F59E0B','#8B5CF6','#06B6D4','#10B981','#EF4444','#6B7280','#F97316','#EC4899','#14B8A6'];
 
@@ -173,8 +168,8 @@ export default function StageCategoriesSection({ environment }) {
     setLoading(true);
     try {
       const [data, wfData] = await Promise.all([
-        api.get(`/stage-categories?environment_id=${envId}`),
-        api.get(`/workflows?environment_id=${envId}`),
+        apiClient.get(`/stage-categories?environment_id=${envId}`),
+        apiClient.get(`/workflows?environment_id=${envId}`),
       ]);
       setCats(Array.isArray(data) ? data : []);
       setWorkflows(Array.isArray(wfData) ? wfData : []);
@@ -215,9 +210,9 @@ export default function StageCategoriesSection({ environment }) {
     setSaving(true);
     try {
       if (editing === 'new') {
-        await api.post('/stage-categories', { ...form, environment_id: envId });
+        await apiClient.post('/stage-categories', { ...form, environment_id: envId });
       } else {
-        await api.patch(`/stage-categories/${editing.id}`, form);
+        await apiClient.patch(`/stage-categories/${editing.id}`, form);
       }
       await load();
       setEditing(null);
@@ -231,7 +226,7 @@ export default function StageCategoriesSection({ environment }) {
   const handleDelete = async (cat) => {
     if (!confirm(`Delete "${cat.name}"? This cannot be undone.`)) return;
     try {
-      await api.delete(`/stage-categories/${cat.id}`);
+      await apiClient.delete(`/stage-categories/${cat.id}`);
       await load();
     } catch (err) {
       console.error('[StageCats] delete error:', err?.message);
@@ -242,7 +237,7 @@ export default function StageCategoriesSection({ environment }) {
     if (idx === 0) return;
     const ordered = [...cats];
     [ordered[idx - 1], ordered[idx]] = [ordered[idx], ordered[idx - 1]];
-    await api.post('/stage-categories/reorder', { environment_id: envId, ordered_ids: ordered.map(c => c.id) });
+    await apiClient.post('/stage-categories/reorder', { environment_id: envId, ordered_ids: ordered.map(c => c.id) });
     await load();
   };
 
@@ -250,7 +245,7 @@ export default function StageCategoriesSection({ environment }) {
     if (idx === cats.length - 1) return;
     const ordered = [...cats];
     [ordered[idx], ordered[idx + 1]] = [ordered[idx + 1], ordered[idx]];
-    await api.post('/stage-categories/reorder', { environment_id: envId, ordered_ids: ordered.map(c => c.id) });
+    await apiClient.post('/stage-categories/reorder', { environment_id: envId, ordered_ids: ordered.map(c => c.id) });
     await load();
   };
 

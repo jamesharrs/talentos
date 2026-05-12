@@ -7,6 +7,11 @@ const { v4: uuidv4 } = require('uuid');
 const { query, findOne, insert, update, remove } = require('../db/init');
 const { cacheResponse, invalidatePath } = require('../utils/cache');
 
+// Wraps async route handlers so unhandled promise rejections flow to Express
+// global error handler instead of silently crashing the request.
+const ah = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+
 // GET all roles with user counts — cached 5 minutes (roles rarely change)
 router.get('/', cacheResponse(300_000), (req, res) => {
   const roles = query('roles').map(role => ({

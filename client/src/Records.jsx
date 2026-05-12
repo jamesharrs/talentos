@@ -4547,7 +4547,7 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
   const statusOptions = statusField?.options || [];
   const listFields = visibleFieldIds
     ? visibleFieldIds.map(id => fields.find(f => f.id === id) || SYSTEM_COLS.find(s => s.id === id)).filter(Boolean)
-    : fields.filter(f => f.show_in_list).slice(0, 6);
+    : fields.filter(f => f.show_in_list);
 
   // Apply column order — only use saved order if it covers all visible fields
   // If a new column was added, it won't be in visibleColOrder yet, so fall back to listFields order
@@ -11098,7 +11098,7 @@ function TalentCardGrid({ records, fields, visibleFieldIds, objectColor, onProfi
             {/* Remaining visible columns as field rows */}
             {remainingFields.length > 0 && (
               <div style={{ display:"flex", flexDirection:"column", gap:6, borderTop:`1px solid ${C.border}`, paddingTop:10 }}>
-                {remainingFields.slice(0, 6).map(field => {
+                {remainingFields.map(field => {
                   const rendered = renderVal(record, field);
                   if (!rendered) return null;
                   return (

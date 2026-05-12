@@ -99,10 +99,10 @@ router.get('/assignments', (req, res) => {
 });
 
 // Assign a template to a record — spawns the actual calendar_tasks
-router.post('/assignments', ah(async (req, res) => {
+router.post('/assignments', async (req, res) => { try {
   const s = getStore(); ensure(s);
   const { template_id, record_id, record_name, environment_id, assigned_by, anchor_date, due_offset_anchor } = req.body;
-  if (!template_id || !record_id) return res.status(400).json({ error: 'template_id and record_id required' }));
+  if (!template_id || !record_id) return res.status(400).json({ error: 'template_id and record_id required' });
 
   const tpl = s.task_group_templates.find(t => t.id === template_id && !t.deleted_at);
   if (!tpl) return res.status(404).json({ error: 'Template not found' });
@@ -175,6 +175,7 @@ router.post('/assignments', ah(async (req, res) => {
 
   saveStore();
   res.status(201).json({ assignment, spawned_tasks: spawnedTasks.length });
+} catch(e){next(e);}
 });
 
 // Cancel / delete an assignment

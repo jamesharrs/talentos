@@ -54,9 +54,9 @@ router.put('/config', (req, res) => {
 
 // ─── GET full person profile ─────────────────────────────────────────────────
 // Returns person record, fields, attachments, notes, activity, form responses, link data
-router.get('/person', ah(async (req, res) => {
+router.get('/person', async (req, res) => { try {
   const { person_record_id, link_id, environment_id } = req.query;
-  if (!person_record_id) return res.status(400).json({ error:'person_record_id required' }));
+  if (!person_record_id) return res.status(400).json({ error:'person_record_id required' });
   const store = getStore();
 
   // Person record
@@ -106,6 +106,7 @@ router.get('/person', ah(async (req, res) => {
     .slice(0, 20);
 
   res.json({ record: { ...record }, fields, attachments, notes, activity, formResponses, link, stageHistory, comms });
+} catch(e){next(e);}
 });
 
 module.exports = router;

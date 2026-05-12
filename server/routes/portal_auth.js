@@ -129,10 +129,10 @@ router.get('/tasks', (req, res) => {
 });
 
 // PATCH /api/portal-auth/tasks/:id — complete a task from the portal
-router.patch('/tasks/:id', ah(async (req, res) => {
+router.patch('/tasks/:id', async (req, res) => { try {
   ensureCollections();
   const user = getPortalUser(req);
-  if (!user) return res.status(401).json({ error: 'Unauthenticated' }));
+  if (!user) return res.status(401).json({ error: 'Unauthenticated' });
 
   const s = getStore();
   const task = (s.calendar_tasks || []).find(t => t.id === req.params.id && !t.deleted_at);
@@ -149,6 +149,7 @@ router.patch('/tasks/:id', ah(async (req, res) => {
   task.updated_at = new Date().toISOString();
   saveStore();
   res.json(task);
+} catch(e){next(e);}
 });
 
 // GET /api/portal-auth/users

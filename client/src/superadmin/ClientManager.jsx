@@ -109,7 +109,7 @@ export function ClientList({ onProvision, onSelectClient }) {
           <table style={{width:'100%',borderCollapse:'collapse'}}>
             <thead>
               <tr style={{background:C.surface2,borderBottom:`1px solid ${C.border}`}}>
-                {['Client','Plan','Status','Environment','Records','Contact','Actions'].map(h=>(
+                {['Client','Plan','Status','Environment','Records','Created','Contact','Actions'].map(h=>(
                   <th key={h} style={{padding:'10px 14px',textAlign:'left',fontSize:10,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em',whiteSpace:'nowrap'}}>{h}</th>
                 ))}
               </tr>
@@ -157,6 +157,7 @@ export function ClientList({ onProvision, onSelectClient }) {
                     )}
                   </td>
                   <td style={{padding:'12px 14px',color:C.text2,fontSize:13}}>{c.record_count||0}</td>
+                  <td style={{padding:'12px 14px',color:C.text3,fontSize:12,whiteSpace:'nowrap'}}>{c.created_at ? new Date(c.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
                   <td style={{padding:'12px 14px'}}>
                     <div style={{fontSize:12,color:C.text2}}>{c.primary_contact_name||'—'}</div>
                     <div style={{fontSize:11,color:C.text3}}>{c.primary_contact_email||''}</div>

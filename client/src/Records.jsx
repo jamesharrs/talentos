@@ -4640,7 +4640,7 @@ const TableView = ({ records, fields, visibleFieldIds, objectColor, onSelect, on
                       : <Ic n="chevronDown" s={10} c="#d1d5db"/>}
                     {/* Column filter button */}
                     {!f.isSystem && <button
-                      onClick={e => { e.stopPropagation(); onColumnFilter?.(f); }}
+                      onClick={e => { e.stopPropagation(); onColumnFilter?.(f, e.currentTarget.getBoundingClientRect()); }}
                       title={`Filter by ${f.name}`}
                       style={{ background:"none", border:"none", cursor:"pointer", padding:"1px 3px", borderRadius:4, opacity:0.5, display:"flex", marginLeft:1 }}
                       onMouseEnter={e => e.currentTarget.style.opacity="1"}

@@ -2137,7 +2137,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       const pageLabel = getPageLabel();
       setMessages(prev => [
         ...prev,
-        { role: 'system_notice', content: `📍 Navigated to ${pageLabel}`, ts: new Date() },
+        { role: 'system_notice', content: `→ Navigated to ${pageLabel}`, ts: new Date() },
         { role: 'user',      content: `[Page navigation: I am now on ${pageLabel}]`, ts: new Date(), hidden: true },
         { role: 'assistant', content: `Understood — I can see you're now on ${pageLabel}. I'll answer based on this new context.`, ts: new Date(), hidden: true },
       ]);
@@ -2489,7 +2489,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     const isTxt   = ["txt","md","csv"].includes(ext);
 
     // Show file received message
-    setMessages(m=>[...m,{role:"user",content:`📎 ${file.name}`,ts:new Date(),isFile:true}]);
+    setMessages(m=>[...m,{role:"user",content:`Attached: ${file.name}`,ts:new Date(),isFile:true}]);
 
     try {
       let base64 = null, textContent = null, mediaType = null;
@@ -2731,7 +2731,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
 - Match the company's communication tone: ${tone}.
 - All drafted content (job descriptions, emails, portal copy, EVP statements) must reflect ${companyName}'s brand voice and EVP.
 - Never refer to yourself as Claude, ChatGPT or any other AI — you are Vercentic Copilot.
-- Vercentic is the platform, not the user's company.`;
+- Vercentic is the platform, not the user's company.
+- Never use emoji characters in your responses. Use plain text only — no emoji bullets, icons, or decorative characters of any kind.`;
         })(),
       ].join("");
 
@@ -2770,7 +2771,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
           : "No results found.";
         const followUp = [...newMessages.filter(m=>m.role!=="system_notice").map(m=>({role:m.role,content:m.content})),
           {role:"assistant", content:reply},
-          {role:"user", content:`[SEARCH_RESULTS]\n${resultsWithIds}\n\nIMPORTANT: The record_id values above are the actual database IDs — use them directly in action blocks (e.g. candidate_id in SCHEDULE_INTERVIEW). Now continue what you were doing before the search — if gathering interview details, proceed to the next step using the found record.`}
+          {role:"user", content:`[SEARCH_RESULTS] Found: ${searchHits.length} record${searchHits.length!==1?"s":""}\n${resultsWithIds}\n\nIMPORTANT: You found exactly ${searchHits.length} record${searchHits.length!==1?"s":""}. Do NOT say you found a different number. The record_id values above are the actual database IDs — use them directly in action blocks. Now answer based on exactly these ${searchHits.length} results.`}
         ];
         const r2 = await tFetch("/api/ai/chat",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({system:systemFull,messages:followUp})});
         const d2 = await r2.json();
@@ -3282,7 +3283,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       setMessages(m => [...m, { role: 'assistant', content: resultMsg, ts: new Date() }]);
       setProposedAction(null);
     } catch (err) {
-      setMessages(m => [...m, { role: 'assistant', content: `❌ Failed: ${err.message}`, ts: new Date(), error: true }]);
+      setMessages(m => [...m, { role: 'assistant', content: `Failed: ${err.message}`, ts: new Date(), error: true }]);
     }
     setCreating(false);
   };
@@ -4173,7 +4174,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                       <span style={{fontSize:10,background:"#e0f2fe",color:"#0284c7",fontWeight:700,padding:"3px 8px",borderRadius:99}}>CV</span>
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:10}}>
-                      {[parsedPerson.email&&["✉️","Email",parsedPerson.email],parsedPerson.phone&&["📞","Phone",parsedPerson.phone],parsedPerson.location&&["📍","Location",parsedPerson.location],parsedPerson.years_experience&&["⏱","Experience",`${parsedPerson.years_experience} yrs`]].filter(Boolean).map(([icon,label,val])=>(
+                      {[parsedPerson.email&&["@","Email",parsedPerson.email],parsedPerson.phone&&["#","Phone",parsedPerson.phone],parsedPerson.location&&["~","Location",parsedPerson.location],parsedPerson.years_experience&&["*","Experience",`${parsedPerson.years_experience} yrs`]].filter(Boolean).map(([icon,label,val])=>(
                         <div key={label} style={{background:"white",borderRadius:7,padding:"6px 9px",border:"1px solid #bae6fd",fontSize:11}}>
                           <div style={{color:"#94a3b8",fontSize:9,marginBottom:1}}>{icon} {label}</div>
                           <div style={{color:"#0c4a6e",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{val}</div>
@@ -4204,7 +4205,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                       <span style={{fontSize:10,background:"#fef3c7",color:"#d97706",fontWeight:700,padding:"3px 8px",borderRadius:99}}>JD</span>
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:10}}>
-                      {[parsedJob.employment_type&&["💼","Type",parsedJob.employment_type],parsedJob.work_type&&["🏢","Work",parsedJob.work_type],(parsedJob.salary_min||parsedJob.salary_max)&&["💰","Salary",parsedJob.salary_min&&parsedJob.salary_max?`${parsedJob.salary_min.toLocaleString()}–${parsedJob.salary_max.toLocaleString()}`:`${(parsedJob.salary_min||parsedJob.salary_max).toLocaleString()}+`],parsedJob.location&&["📍","Location",parsedJob.location]].filter(Boolean).map(([icon,label,val])=>(
+                      {[parsedJob.employment_type&&["#","Type",parsedJob.employment_type],parsedJob.work_type&&["~","Work",parsedJob.work_type],(parsedJob.salary_min||parsedJob.salary_max)&&["$","Salary",parsedJob.salary_min&&parsedJob.salary_max?`${parsedJob.salary_min.toLocaleString()}–${parsedJob.salary_max.toLocaleString()}`:`${(parsedJob.salary_min||parsedJob.salary_max).toLocaleString()}+`],parsedJob.location&&["@","Location",parsedJob.location]].filter(Boolean).map(([icon,label,val])=>(
                         <div key={label} style={{background:"white",borderRadius:7,padding:"6px 9px",border:"1px solid #fde68a",fontSize:11}}>
                           <div style={{color:"#94a3b8",fontSize:9,marginBottom:1}}>{icon} {label}</div>
                           <div style={{color:"#78350f",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{val}</div>
@@ -4274,7 +4275,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                           <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
                             <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth={2.5} style={{flexShrink:0,marginTop:1}}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
                             <div>
-                              <div style={{fontSize:11,fontWeight:800,color:"#92400e",marginBottom:2}}>⚠ Automated actions may trigger</div>
+                              <div style={{fontSize:11,fontWeight:800,color:"#92400e",marginBottom:2}}>Automated actions may trigger</div>
                               <div style={{fontSize:11,color:"#78350f",lineHeight:1.5}}>{pendingBulk.automation_warning}</div>
                             </div>
                           </div>
@@ -4508,7 +4509,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
                         <div style={{fontSize:13,fontWeight:700,color:"#111827"}}>{pendingForm.name}</div>
                         <div style={{fontSize:11,color:"#0CAF77",fontWeight:600,textTransform:"capitalize"}}>
                           {pendingForm.category} · {(pendingForm.applies_to||[]).join(', ')}
-                          {pendingForm.confidential&&" · 🔒 Confidential"}
+                          {pendingForm.confidential&&" · Confidential"}
                         </div>
                       </div>
                       <div style={{fontSize:11,color:"#0CAF77",fontWeight:700,background:"#DCFCE7",padding:"3px 8px",borderRadius:99,flexShrink:0}}>

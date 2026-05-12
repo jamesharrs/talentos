@@ -1263,6 +1263,20 @@ router.post('/provision-from-local', express.json(), async (req, res) => {
       });
     }
 
+    // Feature flags — copy overrides from snapshot so panel config carries over
+    const snapshotFlags = snapshot.feature_flags || [];
+    if (!ts.feature_flags) ts.feature_flags = [];
+    for (const f of snapshotFlags) {
+      // Skip if already exists
+      if (!ts.feature_flags.find(x => x.flag_key === f.flag_key)) {
+        ts.feature_flags.push({
+          id: uuidv4(), environment_id: environment.id,
+          flag_key: f.flag_key, enabled: f.enabled,
+          created_at: now, updated_at: now, deleted_at: null,
+        });
+      }
+    }
+
     // Create admin user in tenant store
     const adminEmail = req.body.admin_email || 'admin@vercentic.com';
     const adminPassword = req.body.admin_password || 'Admin1234!';

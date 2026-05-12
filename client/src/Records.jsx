@@ -7291,7 +7291,7 @@ const JobTasksPanel = ({ record, environment }) => {
 };
 
 export const PANEL_META = {
-  fields:       { icon:"edit",          label:"Profile Fields",      defaultOpen:true  },
+  fields:       { icon:"edit",          label:"Profile Fields",      defaultOpen:false  },
   tasks:        { icon:"checkSquare",   label:"Tasks & Reminders",   defaultOpen:true  },
   comms:        { icon:"mail",          label:"Communications",      defaultOpen:true  },
   coordination: { icon:"calendar",      label:"Interviews",             defaultOpen:true,  personOrJob:true },
@@ -9036,7 +9036,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       const saved = JSON.parse(localStorage.getItem(`talentos_openpanels_${objectName}`));
       if (saved && typeof saved === "object") return saved;
     } catch {}
-    return {comms:true,notes:true,attachments:true,activity:false,workflows:false,match:false,reporting:true,user:true,forms:false};
+    return {fields:false,comms:true,notes:true,attachments:true,activity:false,workflows:false,match:false,reporting:true,user:true,forms:false};
   });
   const [composeType, setComposeType] = useState(null);   // drives compose modal in CommunicationsPanel
   const [showCommMenu, setShowCommMenu] = useState(null); // null or DOMRect
@@ -9096,7 +9096,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
   const leftStorageKey   = `talentos_panels_left_${objectName}`;
   const topStorageKey    = `talentos_panels_top_${objectName}`;
   const bottomStorageKey = `talentos_panels_bottom_${objectName}`;
-  const PANEL_VERSION    = "v18"; // panel order matches Job/Person screenshots
+  const PANEL_VERSION    = "v19"; // fields panel collapsed by default
   const versionKey       = `talentos_panels_version_${objectName}`;
 
   // ── Single atomic layout load — deduplicates all 4 zones together ───────

@@ -1515,6 +1515,45 @@ router.get('/:id', (req, res) => {
     objects: tenantObjects, fields: tenantFields, feature_flags: tenantFlags });
 });
 
+// ── DELETE /:id — hard delete client + all associated data ───────────────────
+router.delete('/:id', express.json(), (req, res) => {
+  ensureCollections();
+  const { getStore, saveStoreNow } = require('../db/init');
+  const s = getStore();
+  const client = (s.clients||[]).find(c=>c.id===req.params.id);
+  if (!client) return res.status(404).json({ error: 'Client not found' });
+
+  const clientId   = client.id;
+  const tenantSlug = client.tenant_slug;
+
+  // Find all environments belonging to this client
+  const envIds = (s.client_environments||[])
+    .filter(e=>e.client_id===clientId)
+    .map(e=>e.id);
+
+  // Delete from master store — client, environments, users, provision log
+  s.clients              = (s.clients||[]).filter(c=>c.id!==clientId);
+  s.client_environments  = (s.client_environments||[]).filter(e=>e.client_id!==clientId);
+  s.provision_log        = (s.provision_log||[]).filter(l=>l.client_id!==clientId);
+  s.users                = (s.users||[]).filter(u=>u.client_id!==clientId && !envIds.includes(u.environment_id));
+
+  // Also remove any environments from the main environments table
+  if (s.environments) s.environments = s.environments.filter(e=>!envIds.includes(e.id));
+
+  saveStoreNow();
+
+  // Delete the tenant JSON file if it exists
+  if (tenantSlug) {
+    const path = require('path');
+    const fs   = require('fs');
+    const DATA_DIR = process.env.DATA_PATH || path.join(__dirname, '../../data');
+    const tenantFile = path.join(DATA_DIR, `tenant-${tenantSlug}.json`);
+    try { if (fs.existsSync(tenantFile)) fs.unlinkSync(tenantFile); } catch(e) {}
+  }
+
+  res.json({ success: true, deleted: { client: client.name, environments: envIds.length, tenant_slug: tenantSlug } });
+});
+
 // ── POST /:id/users — create a user for a client ─────────────────────────────
 router.post('/:id/users', express.json(), async (req, res) => {
   ensureCollections();

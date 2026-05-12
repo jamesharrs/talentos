@@ -57,6 +57,9 @@ const PlanBadge = ({plan}) => {
 export function ClientList({ onProvision, onSelectClient }) {
   const [clients,setClients]=useState([]); const [loading,setLoading]=useState(true);
   const [search,setSearch]=useState(''); const [filter,setFilter]=useState('all');
+  const [confirmDelete, setConfirmDelete] = useState(null); // client obj awaiting delete confirm
+  const [deleteTyped,   setDeleteTyped]   = useState('');
+  const [deleting,      setDeleting]      = useState(false);
   const [sortField,setSortField]=useState('created_at'); const [sortDir,setSortDir]=useState('desc');
 
   const [error, setError] = useState(null);
@@ -92,8 +95,47 @@ export function ClientList({ onProvision, onSelectClient }) {
       return sortDir==='asc' ? cmp : -cmp;
     });
 
+  const handleDeleteClient = async () => {
+    if (!confirmDelete || deleteTyped !== confirmDelete.name) return;
+    setDeleting(true);
+    try {
+      await sa.del(`/${confirmDelete.id}`);
+      setConfirmDelete(null); setDeleteTyped('');
+      load();
+    } catch(e) { alert('Delete failed: ' + e.message); }
+    finally { setDeleting(false); }
+  };
+
   return (
     <div>
+      {/* Delete confirmation modal */}
+      {confirmDelete && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div style={{background:'white',borderRadius:16,padding:32,width:440,boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
+            <div style={{fontSize:18,fontWeight:800,color:C.red,marginBottom:8}}>Delete Client</div>
+            <p style={{fontSize:13,color:C.text2,marginBottom:16,lineHeight:1.6}}>
+              This will permanently delete <strong>{confirmDelete.name}</strong> and all associated data —
+              environments, users, records, and configuration. <strong>This cannot be undone.</strong>
+            </p>
+            <div style={{fontSize:12,color:C.text2,marginBottom:8}}>Type <strong>{confirmDelete.name}</strong> to confirm:</div>
+            <input
+              autoFocus
+              value={deleteTyped}
+              onChange={e=>setDeleteTyped(e.target.value)}
+              onKeyDown={e=>{ if(e.key==='Enter' && deleteTyped===confirmDelete.name) handleDeleteClient(); if(e.key==='Escape') { setConfirmDelete(null); setDeleteTyped(''); } }}
+              placeholder={confirmDelete.name}
+              style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`2px solid ${deleteTyped===confirmDelete.name?C.red:'#e5e7eb'}`,fontSize:13,outline:'none',boxSizing:'border-box',marginBottom:16}}
+            />
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button onClick={()=>{ setConfirmDelete(null); setDeleteTyped(''); }} style={{padding:'8px 16px',borderRadius:8,border:'1px solid #e5e7eb',background:'white',fontSize:13,cursor:'pointer'}}>Cancel</button>
+              <button onClick={handleDeleteClient} disabled={deleteTyped!==confirmDelete.name||deleting}
+                style={{padding:'8px 20px',borderRadius:8,border:'none',background:deleteTyped===confirmDelete.name?C.red:'#fca5a5',color:'white',fontSize:13,fontWeight:700,cursor:deleteTyped===confirmDelete.name?'pointer':'not-allowed'}}>
+                {deleting ? 'Deleting…' : 'Delete permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20,flexWrap:'wrap',gap:12}}>
         <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search clients…" style={{...inputSt,width:220}}/>
@@ -200,6 +242,7 @@ export function ClientList({ onProvision, onSelectClient }) {
                       {c.status==='active'
                         ? <Btn sz='sm' v='danger' onClick={async()=>{ await sa.patch(`/${c.id}/status`,{status:'suspended'}); load(); }}>Suspend</Btn>
                         : <Btn sz='sm' v='success' onClick={async()=>{ await sa.patch(`/${c.id}/status`,{status:'active'}); load(); }}>Activate</Btn>}
+                      <Btn sz='sm' v='danger' onClick={()=>{ setConfirmDelete(c); setDeleteTyped(''); }}>Delete</Btn>
                     </div>
                   </td>
                 </tr>

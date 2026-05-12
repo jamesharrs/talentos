@@ -1,0 +1,41 @@
+#!/bin/sh
+# prepare-commit-msg: auto-insert branch name as scope when writing a new commit
+# Only fires for fresh commits (not merges, amends, or squashes)
+
+MSG_FILE="$1"
+COMMIT_SOURCE="$2"
+
+# Only touch fresh commits (no source = interactive, or 'message' = -m flag)
+if [ -n "$COMMIT_SOURCE" ] && [ "$COMMIT_SOURCE" != "message" ]; then
+  exit 0
+fi
+
+BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+
+# Skip for main/develop/detached HEAD
+case "$BRANCH" in
+  main|develop|HEAD) exit 0 ;;
+esac
+
+# Extract a short scope from the branch name
+# feature/offer-approval → offer-approval
+# fix/calendar-tooltip   → calendar-tooltip
+SCOPE="$(echo "$BRANCH" | sed 's|^feature/||; s|^fix/||; s|^ci/||; s|^chore/||')"
+
+CURRENT="$(cat "$MSG_FILE")"
+
+# Only prepend if the message doesn't already have a prefix
+case "$CURRENT" in
+  feat:*|fix:*|ci:*|chore:*|perf:*|docs:*|refactor:*|test:*|style:*|build:*)
+    exit 0
+    ;;
+esac
+
+# Prepend a comment hint — the user still writes the actual message
+# (comments starting with # are stripped by git)
+{
+  echo "$CURRENT"
+  echo ""
+  echo "# Branch: $BRANCH"
+  echo "# Suggested prefix: feat($SCOPE): or fix($SCOPE):"
+} > "$MSG_FILE"

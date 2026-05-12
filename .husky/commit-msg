@@ -1,0 +1,58 @@
+#!/bin/sh
+# commit-msg: enforce conventional commit format and block commits directly on main
+
+ROOT="$(git rev-parse --show-toplevel)"
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+MSG_FILE="$1"
+MSG="$(cat "$MSG_FILE")"
+
+# ── 1. Block commits directly on main ────────────────────────────────────────
+if [ "$BRANCH" = "main" ]; then
+  echo ""
+  echo "  ✗ Direct commits to main are not allowed."
+  echo ""
+  echo "  Workflow:"
+  echo "    git checkout develop"
+  echo "    git checkout -b feature/your-feature"
+  echo "    # ... make changes ..."
+  echo "    git push origin feature/your-feature"
+  echo "    # Then open a PR: feature/* → develop → main"
+  echo ""
+  exit 1
+fi
+
+# ── 2. Allow merge/rebase/fixup commits through unchanged ────────────────────
+case "$MSG" in
+  Merge*|Rebase*|fixup\!*|squash\!*)
+    exit 0
+    ;;
+esac
+
+# ── 3. Enforce conventional commit prefix ────────────────────────────────────
+VALID_PREFIXES="feat fix ci chore perf docs refactor test style build"
+PREFIX="$(echo "$MSG" | cut -d: -f1 | sed 's/(.*)//g' | tr -d ' ')"
+
+for p in $VALID_PREFIXES; do
+  if [ "$PREFIX" = "$p" ]; then
+    exit 0
+  fi
+done
+
+echo ""
+echo "  ✗ Commit message must start with a conventional prefix:"
+echo ""
+echo "    feat:    new feature"
+echo "    fix:     bug fix"
+echo "    ci:      CI/CD or deploy config"
+echo "    chore:   cleanup, deps, non-functional"
+echo "    perf:    performance improvement"
+echo "    docs:    documentation only"
+echo "    refactor: code restructure, no behaviour change"
+echo "    test:    adding or fixing tests"
+echo ""
+echo "  Your message: \"$MSG\""
+echo "  Detected prefix: \"$PREFIX\""
+echo ""
+echo "  Example: git commit -m \"feat: add offer approval workflow\""
+echo ""
+exit 1

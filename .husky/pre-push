@@ -1,0 +1,31 @@
+#!/bin/sh
+# pre-push: block direct pushes to main
+# This is the safety net for anyone who used --no-verify on commit-msg
+
+REMOTE="$1"
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+
+if [ "$BRANCH" = "main" ]; then
+  echo ""
+  echo "  ✗ Direct pushes to main are not allowed."
+  echo ""
+  echo "  Production deploys happen automatically when PRs are merged."
+  echo "  To deploy: open a PR from develop → main on GitHub."
+  echo ""
+  echo "  If you need an emergency deploy, ask via Slack and use:"
+  echo "    cd client && vercel --prod --yes   (frontend only)"
+  echo "    Railway dashboard → Redeploy       (server only)"
+  echo ""
+  exit 1
+fi
+
+# ── Warn if pushing directly to develop without a feature branch ──────────────
+if [ "$BRANCH" = "develop" ]; then
+  echo ""
+  echo "  ⚠  You are pushing directly to develop."
+  echo "  Prefer: feature/* branch → PR → develop"
+  echo "  Continuing in 3 seconds... (Ctrl-C to abort)"
+  sleep 3
+fi
+
+exit 0

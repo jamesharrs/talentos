@@ -171,6 +171,95 @@ function NoteDetail({ note, onBack }) {
   );
 }
 
+// ── Note editor form ─────────────────────────────────────────────────────────
+function NoteEditor({ note, onSave, onCancel, saving }) {
+  const [form, setForm] = useState({
+    version:   note.version   || '',
+    title:     note.title     || '',
+    category:  note.category  || 'feature',
+    summary:   note.summary   || '',
+    features:  note.features  || [],
+    published: note.published ?? false,
+    id:        note.id        || null,
+  });
+  const [newFeature, setNewFeature] = useState('');
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const addFeature = () => {
+    const t = newFeature.trim();
+    if (!t) return;
+    set('features', [...form.features, t]);
+    setNewFeature('');
+  };
+  const removeFeature = i => set('features', form.features.filter((_, idx) => idx !== i));
+
+  const S = { input: { width:'100%', padding:'8px 12px', borderRadius:8, border:'1px solid var(--t-border,#334155)', background:'var(--t-surface2,#1e293b)', color:'var(--t-text1,#e2e8f0)', fontSize:13, fontFamily:F, boxSizing:'border-box', outline:'none' } };
+
+  return (
+    <div style={{ padding:'24px 28px', fontFamily:F, color:'var(--t-text1,#e2e8f0)', maxWidth:640 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:24 }}>
+        <button onClick={onCancel} style={{ background:'none', border:'none', cursor:'pointer', padding:0 }}>
+          <Ic n="back" s={18} c="#7C3AED"/>
+        </button>
+        <div style={{ fontSize:18, fontWeight:800 }}>{form.id ? 'Edit Release Note' : 'New Release Note'}</div>
+      </div>
+
+      {[['Version','version','e.g. 1.4.0'],['Title','title','e.g. AI Matching Improvements']].map(([label,key,ph])=>(
+        <div key={key} style={{ marginBottom:14 }}>
+          <label style={{ fontSize:12, fontWeight:700, color:'var(--t-text3,#94a3b8)', display:'block', marginBottom:5 }}>{label}</label>
+          <input value={form[key]} onChange={e=>set(key,e.target.value)} placeholder={ph} style={S.input}/>
+        </div>
+      ))}
+
+      <div style={{ marginBottom:14 }}>
+        <label style={{ fontSize:12, fontWeight:700, color:'var(--t-text3,#94a3b8)', display:'block', marginBottom:5 }}>Category</label>
+        <select value={form.category} onChange={e=>set('category',e.target.value)}
+          style={{ ...S.input, background:'var(--t-surface2,#1e293b)' }}>
+          {Object.entries(CATEGORY_META).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+        </select>
+      </div>
+
+      <div style={{ marginBottom:14 }}>
+        <label style={{ fontSize:12, fontWeight:700, color:'var(--t-text3,#94a3b8)', display:'block', marginBottom:5 }}>Summary</label>
+        <textarea value={form.summary} onChange={e=>set('summary',e.target.value)} rows={3}
+          placeholder="Brief description shown in the What's New panel…"
+          style={{ ...S.input, resize:'vertical' }}/>
+      </div>
+
+      <div style={{ marginBottom:20 }}>
+        <label style={{ fontSize:12, fontWeight:700, color:'var(--t-text3,#94a3b8)', display:'block', marginBottom:8 }}>Feature Bullets</label>
+        {form.features.map((f,i)=>(
+          <div key={i} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+            <div style={{ flex:1, padding:'6px 10px', borderRadius:6, background:'var(--t-surface2,#1e293b)', fontSize:13, color:'var(--t-text2,#cbd5e1)' }}>{f}</div>
+            <button onClick={()=>removeFeature(i)} style={{ background:'none', border:'none', cursor:'pointer', padding:4 }}><Ic n="x" s={14} c="#EF4444"/></button>
+          </div>
+        ))}
+        <div style={{ display:'flex', gap:8, marginTop:8 }}>
+          <input value={newFeature} onChange={e=>setNewFeature(e.target.value)}
+            onKeyDown={e=>e.key==='Enter'&&(e.preventDefault(),addFeature())}
+            placeholder="Add a feature bullet and press Enter…" style={{ ...S.input, flex:1 }}/>
+          <button onClick={addFeature} style={{ padding:'7px 14px', borderRadius:8, background:'#334155', color:'#e2e8f0', border:'none', cursor:'pointer', fontSize:13 }}>Add</button>
+        </div>
+      </div>
+
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:24 }}>
+        <button onClick={()=>set('published',!form.published)} style={{ width:40, height:22, borderRadius:99, border:'none', cursor:'pointer', position:'relative', background:form.published?'#7C3AED':'#334155', transition:'background 0.2s' }}>
+          <div style={{ width:16, height:16, borderRadius:'50%', background:'white', position:'absolute', top:3, left:form.published?21:3, transition:'left 0.2s' }}/>
+        </button>
+        <span style={{ fontSize:13, color:'var(--t-text2,#cbd5e1)' }}>Published — visible to all platform users</span>
+      </div>
+
+      <div style={{ display:'flex', gap:10 }}>
+        <button onClick={onCancel} style={{ padding:'9px 20px', borderRadius:8, border:'1px solid var(--t-border,#334155)', background:'transparent', color:'var(--t-text2,#cbd5e1)', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:F }}>Cancel</button>
+        <button onClick={()=>onSave(form)} disabled={saving||!form.title||!form.version}
+          style={{ padding:'9px 20px', borderRadius:8, border:'none', background:'#7C3AED', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, opacity:saving||!form.title||!form.version?0.5:1 }}>
+          {saving ? 'Saving…' : form.id ? 'Save Changes' : 'Create Note'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Admin panel (for /superadmin only) ───────────────────────────────────────
 export function ReleaseNotesAdmin() {
   const [notes,   setNotes]   = useState([]);

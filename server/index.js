@@ -321,7 +321,9 @@ app.use('/api/groups',            require('./routes/groups'));
 app.use('/api/notification-preferences', require('./routes/notification_preferences'));
 
 // ── AI & intelligence ─────────────────────────────────────────────────────────
-app.use('/api/ai',                require('./routes/ai-proxy'));
+const aiCreditsMiddleware = require('./middleware/aiCredits');
+app.use('/api/ai-credits',        require('./routes/ai_credits'));
+app.use('/api/ai',                aiCreditsMiddleware, require('./routes/ai-proxy'));
 app.use('/api/translate',         require('./routes/translate'));
 app.use('/api/cv-parse',          require('./routes/cv_parse'));
 app.use('/api/bias-scan',         require('./routes/bias_scan'));

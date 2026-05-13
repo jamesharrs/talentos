@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { ClientList, ClientDetail, ProvisionWizard, Performance } from './superadmin/ClientManager.jsx';
+import AiCreditsManager from './superadmin/AiCreditsManager.jsx';
 import ActivityReport from './superadmin/ActivityReport.jsx';
 import AIUsageReport from './superadmin/AIUsageReport.jsx';
 import DemoDataManager from './superadmin/DemoDataManager';
@@ -348,6 +349,7 @@ const NAV_ITEMS = [
   { id:'diagnose', label:'AI Diagnose',    icon:'health',   desc:'AI environment health check for any client' },
   { id:'sequencer',label:'Email Sequencer',icon:'mail',     desc:'Client onboarding email automation' },
   { id:'ai_usage', label:'AI Usage',       icon:'cpu',      desc:'Token usage, costs & quota management' },
+  { id:'ai_credits',label:'AI Credits',   icon:'zap',      desc:'Per-environment budgets, 5× margin, enforcement' },
   { id:'activity', label:'Activity Report',icon:'activity', desc:'Environment activity & usage analytics' },
   { id:'platform_events', label:'Platform Events', icon:'zap', desc:'Digest sends, scheduler runs, SSE connections & system events' },
 ];
@@ -821,6 +823,7 @@ export default function SuperAdminConsole() {
         {section === 'perf' && <Performance/>}
         {section === 'features' && <FeaturePacksSection/>}
         {section === 'ai_usage' && <AIUsageReport/>}
+        {section === 'ai_credits' && <AiCreditsManager/>}
         {section === 'activity' && <ActivityReport clientId={clientView==='detail'?selectedClientId:null}/>}
         {section === 'platform_events' && <PlatformEvents/>}
         {section === 'demo' && <DemoDataManager/>}

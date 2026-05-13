@@ -96,10 +96,10 @@ export default function ActivityReport({ clientId, clientName }) {
     try {
       if (clientId) {
         const envQ = envFilter ? `&environment_id=${envFilter}` : '';
-        const d = await api.get(`/clients/${clientId}/activity-report?days=${days}${envQ}`);
+        const d = await api.get(`/superadmin/clients/${clientId}/activity-report?days=${days}${envQ}`);
         setData(d);
       }
-      const g = await api.get(`/clients/reports/activity-summary?days=${days}`);
+      const g = await api.get(`/superadmin/clients/reports/activity-summary?days=${days}`);
       setGlobalData(g);
     } catch (e) { console.error('Activity report load error:', e); }
     setLoading(false);

@@ -918,6 +918,37 @@ router.get('/stats/platform', (req, res) => {
   });
 });
 
+
+// ── Global activity summary (all clients) ────────────────────────────────────
+router.get('/reports/activity-summary', (req, res) => {
+  ensureCollections();
+  const s = getStore();
+  const days = parseInt(req.query.days) || 30;
+  const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+  const clients = (s.clients||[]).filter(c=>!c.deleted_at);
+  const envs    = (s.client_environments||[]).filter(e=>!e.deleted_at);
+  let total_activity = 0, total_records = 0, total_users = 0;
+  const clientRows = clients.map(c => {
+    const cEnvs  = envs.filter(e=>e.client_id===c.id);
+    const envIds = new Set(cEnvs.map(e=>e.id));
+    const ts     = c.tenant_slug ? loadTenantStore(c.tenant_slug) : s;
+    const records  = (ts.records||[]).filter(r=>envIds.has(r.environment_id)&&!r.deleted_at);
+    const activity = (ts.activity||[]).filter(a=>envIds.has(a.environment_id)&&a.created_at>=cutoff);
+    const tsU = (ts.users||[]).filter(u=>(u.client_id===c.id||envIds.has(u.environment_id))&&!u.deleted_at);
+    const msU = (s.users||[]).filter(u=>(u.client_id===c.id||envIds.has(u.environment_id))&&!u.deleted_at);
+    const seenU = new Set();
+    const users = [...tsU,...msU].filter(u=>{ if(seenU.has(u.id)) return false; seenU.add(u.id); return true; });
+    const activeUsers = users.filter(u=>u.last_login&&u.last_login>=cutoff);
+    const lastActivity = [...activity].sort((a,b)=>b.created_at.localeCompare(a.created_at))[0]?.created_at || null;
+    total_activity += activity.length; total_records += records.length; total_users += users.length;
+    return { id:c.id, name:c.name, plan:c.plan, status:c.status,
+      total_records:records.length, recent_activity:activity.length,
+      total_users:users.length, active_users:activeUsers.length, last_activity:lastActivity };
+  }).sort((a,b)=>b.recent_activity-a.recent_activity);
+  res.json({ total_clients:clients.length, total_activity, total_records, total_users,
+    clients:clientRows, period_days:days, generated_at:new Date().toISOString() });
+});
+
 router.get('/:id/stats', (req, res) => {
   ensureCollections();
   const s = getStore();

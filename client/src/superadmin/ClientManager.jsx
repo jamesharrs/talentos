@@ -1435,69 +1435,218 @@ export function ProvisionWizard({ onDone, onCancel }) {
 }
 
 export function Performance() {
-  const [stats,setStats]=useState(null); const [loading,setLoading]=useState(true); const [r,setR]=useState(0);
-  useEffect(()=>{ setLoading(true); saFetch('/api/superadmin/clients/stats/platform').then(x=>x.json()).then(d=>{ setStats(d); setLoading(false); }); },[r]);
+  const [stats,setStats]   = useState(null);
+  const [rt,setRt]         = useState(null);
+  const [ai,setAi]         = useState(null);
+  const [loading,setLoading] = useState(true);
+  const [tab,setTab]       = useState('overview'); // overview | latency | ai
+  const [r,setR]           = useState(0);
 
-  if(loading) return <div style={{color:C.text3,padding:40,textAlign:'center'}}>Loading…</div>;
-  if(!stats)  return <div style={{color:C.red,padding:40}}>Failed to load stats.</div>;
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      saFetch('/api/superadmin/clients/stats/platform').then(x=>x.json()).catch(()=>null),
+      saFetch('/api/superadmin/perf/response-times').then(x=>x.json()).catch(()=>null),
+      saFetch('/api/superadmin/perf/ai-usage').then(x=>x.json()).catch(()=>null),
+    ]).then(([s,r,a]) => { setStats(s); setRt(r); setAi(a); setLoading(false); });
+  }, [r]);
 
-  const BarRow=({label,value,max,color})=>(
+  if (loading) return <div style={{color:C.text3,padding:40,textAlign:'center'}}>Loading…</div>;
+
+  const BarRow = ({label,value,max,color,suffix=''}) => (
     <div style={{marginBottom:10}}>
       <div style={{display:'flex',justifyContent:'space-between',marginBottom:4,fontSize:12}}>
-        <span style={{color:C.text2}}>{label}</span><span style={{color:C.text1,fontWeight:600}}>{value}</span>
+        <span style={{color:C.text2}}>{label}</span>
+        <span style={{color:C.text1,fontWeight:600}}>{value}{suffix}</span>
       </div>
       <div style={{height:6,borderRadius:99,background:C.surface2,overflow:'hidden'}}>
         <div style={{height:'100%',borderRadius:99,background:color||C.accent,width:`${Math.min(100,max?value/max*100:0)}%`,transition:'width .4s'}}/>
       </div>
     </div>
   );
-  const topMax=Math.max(...(stats.top_environments||[]).map(e=>e.record_count),1);
+
+  const StatCard = ({label,value,color,sub}) => (
+    <div style={{...cardSt,padding:'16px 18px'}}>
+      <div style={{fontSize:22,fontWeight:800,color:color||C.accent}}>{value}</div>
+      <div style={{fontSize:11,color:C.text2,marginTop:4,fontWeight:700}}>{label}</div>
+      {sub && <div style={{fontSize:11,color:C.text3,marginTop:2}}>{sub}</div>}
+    </div>
+  );
+
+  const SectionHeader = ({title}) => (
+    <div style={{padding:'12px 18px',borderBottom:`1px solid ${C.border}`,fontSize:11,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em'}}>{title}</div>
+  );
+
+  // Mini sparkline bar chart
+  const MiniBar = ({data,valueKey,color,height=32}) => {
+    const max = Math.max(...data.map(d=>d[valueKey]),1);
+    return (
+      <div style={{display:'flex',alignItems:'flex-end',gap:2,height}}>
+        {data.map((d,i) => (
+          <div key={i} title={`${d[valueKey]}`} style={{flex:1,background:color||C.accent,borderRadius:'2px 2px 0 0',
+            height:`${Math.max(4,Math.round((d[valueKey]/max)*height))}px`,opacity:0.7+0.3*(d[valueKey]/max)}}/>
+        ))}
+      </div>
+    );
+  };
+
+  const tabs = [{id:'overview',label:'Overview'},{id:'latency',label:'Response Times'},{id:'ai',label:'AI Usage'}];
+
+  const fmtCost = v => v < 0.01 ? '<$0.01' : `$${v.toFixed(2)}`;
+  const fmtMs   = v => v >= 1000 ? `${(v/1000).toFixed(1)}s` : `${v}ms`;
 
   return (
     <div>
+      {/* Header */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-        <div style={{fontSize:11,color:C.text3}}>As of {stats.generated_at?.slice(0,16).replace('T',' ')} UTC</div>
+        <div style={{display:'flex',gap:4}}>
+          {tabs.map(t=>(
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'6px 14px',borderRadius:8,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,
+              background:tab===t.id?C.accent:'transparent',color:tab===t.id?'#fff':C.text2,transition:'all .15s'}}>
+              {t.label}
+            </button>
+          ))}
+        </div>
         <Btn sz='sm' v='secondary' onClick={()=>setR(x=>x+1)}>↻ Refresh</Btn>
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:12,marginBottom:24}}>
-        {[['Clients',stats.totals?.clients,C.accent],['Environments',stats.totals?.environments,C.cyan],
-          ['Records',stats.totals?.records,C.green],['Users',stats.totals?.users,C.purple],
-          ['Data Store',`${stats.store_size_kb}KB`,C.amber]].map(([l,v,c])=>(
-          <div key={l} style={{...cardSt,padding:'16px 18px'}}>
-            <div style={{fontSize:24,fontWeight:800,color:c}}>{v}</div>
-            <div style={{fontSize:11,color:C.text2,marginTop:4,fontWeight:700}}>{l}</div>
+
+      {/* ── OVERVIEW TAB ── */}
+      {tab==='overview' && stats && (
+        <div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:12,marginBottom:24}}>
+            <StatCard label='Clients'      value={stats.totals?.clients}      color={C.accent}/>
+            <StatCard label='Environments' value={stats.totals?.environments}  color={C.cyan}/>
+            <StatCard label='Records'      value={stats.totals?.records}       color={C.green}/>
+            <StatCard label='Users'        value={stats.totals?.users}         color={C.purple}/>
+            <StatCard label='Data Store'   value={`${stats.store_size_kb}KB`}  color={C.amber}/>
           </div>
-        ))}
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16}}>
-        <div style={cardSt}>
-          <div style={{padding:'12px 18px',borderBottom:`1px solid ${C.border}`,fontSize:11,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em'}}>By Status</div>
-          <div style={{padding:'16px 18px'}}>
-            {Object.entries(stats.status_breakdown||{}).map(([s,c])=>(
-              <BarRow key={s} label={s.charAt(0).toUpperCase()+s.slice(1)} value={c} max={stats.totals?.clients||1}
-                color={s==='active'?C.green:s==='trial'?C.amber:s==='suspended'?C.red:C.text3}/>
-            ))}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16}}>
+            <div style={cardSt}>
+              <SectionHeader title='By Status'/>
+              <div style={{padding:'16px 18px'}}>
+                {Object.entries(stats.status_breakdown||{}).map(([s,c])=>(
+                  <BarRow key={s} label={s.charAt(0).toUpperCase()+s.slice(1)} value={c} max={stats.totals?.clients||1}
+                    color={s==='active'?C.green:s==='trial'?C.amber:s==='suspended'?C.red:C.text3}/>
+                ))}
+              </div>
+            </div>
+            <div style={cardSt}>
+              <SectionHeader title='By Plan'/>
+              <div style={{padding:'16px 18px'}}>
+                {Object.entries(stats.plan_breakdown||{}).map(([p,c])=>(
+                  <BarRow key={p} label={p.charAt(0).toUpperCase()+p.slice(1)} value={c} max={stats.totals?.clients||1}
+                    color={p==='enterprise'?C.purple:p==='growth'?C.accent:C.cyan}/>
+                ))}
+              </div>
+            </div>
+            <div style={cardSt}>
+              <SectionHeader title='Top Environments'/>
+              <div style={{padding:'16px 18px'}}>
+                {!(stats.top_environments||[]).length
+                  ? <div style={{color:C.text3,fontSize:12,textAlign:'center',padding:'20px 0'}}>No data yet</div>
+                  : stats.top_environments.map(e=><BarRow key={e.id} label={e.name} value={e.record_count}
+                      max={Math.max(...stats.top_environments.map(x=>x.record_count),1)} color={C.green}/>)
+                }
+              </div>
+            </div>
           </div>
         </div>
-        <div style={cardSt}>
-          <div style={{padding:'12px 18px',borderBottom:`1px solid ${C.border}`,fontSize:11,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em'}}>By Plan</div>
-          <div style={{padding:'16px 18px'}}>
-            {Object.entries(stats.plan_breakdown||{}).map(([p,c])=>(
-              <BarRow key={p} label={p.charAt(0).toUpperCase()+p.slice(1)} value={c} max={stats.totals?.clients||1}
-                color={p==='enterprise'?C.purple:p==='growth'?C.accent:C.cyan}/>
-            ))}
+      )}
+
+      {/* ── RESPONSE TIMES TAB ── */}
+      {tab==='latency' && (
+        <div>
+          {!rt?.summary ? (
+            <div style={{...cardSt,padding:40,textAlign:'center',color:C.text3}}>
+              No request data yet — metrics accumulate as the server handles traffic.
+            </div>
+          ) : (
+            <div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+                {[
+                  ['Avg Response',  fmtMs(rt.summary.avg_ms), C.cyan],
+                  ['p95 Response',  fmtMs(rt.summary.p95_ms), C.amber],
+                  ['p99 Response',  fmtMs(rt.summary.p99_ms), rt.summary.p99_ms>2000?C.red:C.purple],
+                  ['Error Rate',    `${rt.summary.error_rate}%`, rt.summary.error_rate>5?C.red:C.green],
+                ].map(([l,v,c])=>(
+                  <StatCard key={l} label={l} value={v} color={c} sub={l==='Error Rate'?`${rt.summary.total_requests} req / 24h`:null}/>
+                ))}
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+                <div style={cardSt}>
+                  <SectionHeader title='Requests per hour (last 12h)'/>
+                  <div style={{padding:'16px 18px'}}>
+                    <MiniBar data={rt.by_hour} valueKey='count' color={C.accent} height={48}/>
+                    <div style={{display:'flex',justifyContent:'space-between',marginTop:6,fontSize:10,color:C.text3}}>
+                      <span>{rt.by_hour[0]?.hour}</span><span>{rt.by_hour[rt.by_hour.length-1]?.hour}</span>
+                    </div>
+                  </div>
+                </div>
+                <div style={cardSt}>
+                  <SectionHeader title='Avg latency per hour (ms)'/>
+                  <div style={{padding:'16px 18px'}}>
+                    <MiniBar data={rt.by_hour} valueKey='avg_ms' color={C.cyan} height={48}/>
+                    <div style={{display:'flex',justifyContent:'space-between',marginTop:6,fontSize:10,color:C.text3}}>
+                      <span>{rt.by_hour[0]?.hour}</span><span>{rt.by_hour[rt.by_hour.length-1]?.hour}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div style={{...cardSt,marginTop:16}}>
+                <SectionHeader title='Slowest endpoints (24h avg)'/>
+                <div style={{padding:'16px 18px'}}>
+                  {rt.slowest.map((e,i)=>(
+                    <div key={i} style={{display:'grid',gridTemplateColumns:'1fr auto auto auto',gap:12,alignItems:'center',
+                      padding:'8px 0',borderBottom:i<rt.slowest.length-1?`1px solid ${C.border}`:'none',fontSize:12}}>
+                      <span style={{color:C.text2,fontFamily:'monospace',fontSize:11,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.path}</span>
+                      <span style={{color:C.text3}}>{e.calls} calls</span>
+                      <span style={{color:C.amber,fontWeight:700}}>p95 {fmtMs(e.p95_ms)}</span>
+                      <span style={{color:e.avg_ms>1000?C.red:e.avg_ms>500?C.amber:C.green,fontWeight:700}}>{fmtMs(e.avg_ms)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── AI USAGE TAB ── */}
+      {tab==='ai' && ai && (
+        <div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+            {[
+              ['Calls this month',  ai.this_month?.calls,                            C.purple],
+              ['Tokens this month', (ai.this_month?.tokens_in+ai.this_month?.tokens_out||0).toLocaleString(), C.cyan],
+              ['Cost this month',   fmtCost(ai.this_month?.cost||0),                 C.amber],
+              ['Calls last 7d',     ai.last_7d?.calls,                               C.green],
+            ].map(([l,v,c])=><StatCard key={l} label={l} value={v} color={c}/>)}
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16}}>
+            <div style={cardSt}>
+              <SectionHeader title='Daily AI calls (last 30 days)'/>
+              <div style={{padding:'16px 18px'}}>
+                <MiniBar data={ai.daily} valueKey='calls' color={C.purple} height={56}/>
+                <div style={{display:'flex',justifyContent:'space-between',marginTop:6,fontSize:10,color:C.text3}}>
+                  <span>{ai.daily[0]?.date?.slice(5)}</span><span>{ai.daily[ai.daily.length-1]?.date?.slice(5)}</span>
+                </div>
+              </div>
+            </div>
+            <div style={cardSt}>
+              <SectionHeader title='Usage by feature (30d)'/>
+              <div style={{padding:'16px 18px'}}>
+                {!ai.by_feature?.length
+                  ? <div style={{color:C.text3,fontSize:12,textAlign:'center',padding:'20px 0'}}>No AI usage yet</div>
+                  : ai.by_feature.slice(0,6).map(f=>(
+                    <BarRow key={f.feature} label={f.label} value={f.calls}
+                      max={ai.by_feature[0].calls} color={C.purple}/>
+                  ))
+                }
+              </div>
+            </div>
           </div>
         </div>
-        <div style={cardSt}>
-          <div style={{padding:'12px 18px',borderBottom:`1px solid ${C.border}`,fontSize:11,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em'}}>Top Environments</div>
-          <div style={{padding:'16px 18px'}}>
-            {!(stats.top_environments||[]).length
-              ? <div style={{color:C.text3,fontSize:12,textAlign:'center',padding:'20px 0'}}>No data yet</div>
-              : (stats.top_environments||[]).map(e=><BarRow key={e.id} label={e.name} value={e.record_count} max={topMax} color={C.green}/>)
-            }
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

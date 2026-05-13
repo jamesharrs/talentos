@@ -159,6 +159,23 @@ app.use(session({
 }));
 app.use(tenantMiddleware);        // tenant isolation — must come before routes
 
+// ── Request timing — rolling 24h log for superadmin perf metrics ─────────────
+global._reqLog = global._reqLog || [];
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - start;
+    // Only log /api/ paths, skip health checks
+    if (req.path.startsWith('/api/') && req.path !== '/api/health') {
+      global._reqLog.push({ path: req.path, method: req.method, ms, status: res.statusCode, ts: Date.now() });
+      // Keep only last 24h (cap at 50k entries to prevent memory bloat)
+      const cutoff = Date.now() - 86400000;
+      if (global._reqLog.length > 50000) global._reqLog = global._reqLog.filter(e => e.ts >= cutoff);
+    }
+  });
+  next();
+});
+
 // ── Dev auto-login — creates a session for admin when none exists in local dev ──
 if (process.env.NODE_ENV !== 'production') {
   app.use((req, res, next) => {
@@ -454,6 +471,7 @@ app.use('/api/flows', flowsRouter);
 app.use('/api/admin',             require('./routes/admin_dashboard').router);
 app.use('/api/superadmin',        require('./routes/superadmin'));
 app.use('/api/superadmin/clients', require('./routes/superadmin_clients'));
+app.use('/api/superadmin/perf',    require('./routes/superadmin_perf'));
 app.use('/api/sequencer',         require('./routes/email_sequencer').router);
 app.use('/api/superadmin/demo',   require('./routes/demo_seed'));
 app.use('/api/tenant-reset',      require('./routes/admin_reset'));

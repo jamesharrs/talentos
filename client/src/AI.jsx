@@ -2397,8 +2397,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       // scope: record = filter to current record, global = all
       if (scope === 'record' && currentRecord?.id) params.set('record_id', currentRecord.id);
       const r = await tFetch(`/api/calendar/tasks?${params}`);
-      let tasks = await r.json();
-      if (!Array.isArray(tasks)) tasks = [];
+      let tasks = Array.isArray(r) ? r : (r?.data || r?.tasks || []);
       // Apply due filter client-side
       const today = new Date().toISOString().slice(0,10);
       if (due === 'today') tasks = tasks.filter(t => t.due_date === today);
@@ -2508,8 +2507,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         const fd = new FormData();
         fd.append("file", file);
         const res = await tFetch("/api/cv-parse", { method:"POST", body:fd });
-        if (res.ok) {
-          const data = await res.json();
+        if (res && !res.error) {
+          const data = res;
           // Inject the extracted text into the conversation
           textContent = data.text || "";
         }
@@ -2548,12 +2547,11 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       }
 
       setLoading(true);
-      const res2 = await tFetch("/api/ai/chat", {
+      const d2 = await tFetch("/api/ai/chat", {
         method:"POST",
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ messages: apiMessages, system: SYSTEM_PROMPT })
       });
-      const d2 = await res2.json();
       const reply = d2.content?.[0]?.text || d2.content || "I couldn't process that file.";
 
       const cvData   = parseParsedCV(reply);
@@ -2741,7 +2739,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         method:"POST", headers:{'Content-Type':'application/json'},
         body:JSON.stringify({system:systemFull,messages:newMessages.filter(m=>m.role!=="system_notice").map(m=>({role:m.role,content:m.content}))}),
       });
-      const data = await response.json();
+      // tFetch already resolves to JSON — do not call .json() again
+      const data = response;
       if(data.error) throw new Error(data.error);
       let reply = data.content||"Sorry, I couldn't generate a response.";
 
@@ -2773,8 +2772,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
           {role:"assistant", content:reply},
           {role:"user", content:`[SEARCH_RESULTS] Found: ${searchHits.length} record${searchHits.length!==1?"s":""}\n${resultsWithIds}\n\nIMPORTANT: You found exactly ${searchHits.length} record${searchHits.length!==1?"s":""}. Do NOT say you found a different number. The record_id values above are the actual database IDs — use them directly in action blocks. Now answer based on exactly these ${searchHits.length} results.`}
         ];
-        const r2 = await tFetch("/api/ai/chat",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({system:systemFull,messages:followUp})});
-        const d2 = await r2.json();
+        const d2 = await tFetch("/api/ai/chat",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({system:systemFull,messages:followUp})});
         reply = d2.content || reply;
       }
 
@@ -2799,8 +2797,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
             {role:"assistant", content: reply},
             {role:"user", content:`[DB_QUERY_RESULTS for: ${dbQ.description||'query'}]\nTotal matches: ${total}\n${summaryLines}${countNote}\n\nSummarise these results clearly for the user. Include the count, key details, and any patterns you notice. Do not include record_ids in your response text.`},
           ];
-          const r3 = await tFetch("/api/ai/chat",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({system:systemFull,messages:dbFollowUp})});
-          const d3 = await r3.json();
+          const d3 = await tFetch("/api/ai/chat",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({system:systemFull,messages:dbFollowUp})});
           reply = d3.content || reply;
         } catch(e) { console.warn('[db_query] parse error:', e); }
       }
@@ -2823,9 +2820,8 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
           {role:"assistant", content: reply},
           {role:"user", content:`Here are the tasks from the system:\n\n${taskText}\n\nNow summarise these tasks clearly. Group as: overdue → due today → upcoming. For each task include its linked record name. Do NOT include <SEARCH_TASKS> in your response.`}
         ];
-        const r2 = await tFetch("/api/ai/chat",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({system:systemFull,messages:taskFollowUp})});
-        const d2 = await r2.json();
-        reply = d2.content || reply;
+        const taskD2 = await tFetch("/api/ai/chat",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({system:systemFull,messages:taskFollowUp})});
+        reply = taskD2.content || reply;
       }
 
       const updateMatch = reply.match(/<UPDATE_RECORD>([\s\S]*?)<\/UPDATE_RECORD>/);
@@ -2861,8 +2857,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
               {role:"assistant", content:reply},
               {role:"user", content:`Here are relevant excerpts from the company knowledge base:\n\n${snippets}\n\nNow rewrite your response incorporating this information naturally. Cite document names where appropriate (e.g. "According to our Benefits Guide..."). Do NOT include <DOC_SEARCH> tags in your response.`}
             ];
-            const dr = await tFetch("/api/ai/chat",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({system:systemFull,messages:docFollowUp})});
-            const dd = await dr.json();
+            const dd = await tFetch("/api/ai/chat",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({system:systemFull,messages:docFollowUp})});
             reply = dd.content || reply;
           }
         } catch(e) { console.warn('Doc search failed:', e); }
@@ -3128,10 +3123,9 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
       const payload = { ...pendingTask, environment_id:environment.id, created_by:'copilot',
         reminder_at:reminderAt, tags:JSON.stringify(['copilot']) };
       delete payload.reminder;
-      const r = await tFetch('/api/calendar/tasks', {
+      const created = await tFetch('/api/calendar/tasks', {
         method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload),
       });
-      const created = await r.json();
       setPendingTask(null);
       setMessages(m=>[...m,{role:'assistant',content:`**Done** — Task created: **${created.title||pendingTask.title}**${pendingTask.due_date?` · Due ${pendingTask.due_date}`:''}`,ts:new Date()}]);
       window.dispatchEvent(new CustomEvent('talentos:tasks-updated'));

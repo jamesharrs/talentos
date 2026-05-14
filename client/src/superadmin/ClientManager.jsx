@@ -234,7 +234,7 @@ export function ClientList({ onProvision, onSelectClient }) {
                         <Btn sz='sm' v='primary' onClick={async()=>{
                           try {
                             const d = await sa.post(`/${c.id}/impersonate`, {});
-                            if (d.app_url) window.open(d.app_url, '_blank');
+                            if (d.login_url) window.open(d.login_url, '_blank');
                             else alert(d.error || 'Impersonation failed');
                           } catch(e) { alert('Error: ' + e.message); }
                         }}>Login as →</Btn>
@@ -778,7 +778,7 @@ export function ClientDetail({ clientId, onBack, onProvisionEnv }) {
           <Btn v='secondary' onClick={async()=>{
             try {
               const d = await sa.post(`/${client.id}/impersonate`, {});
-              if (d.app_url) window.open(d.app_url, '_blank');
+              if (d.login_url) window.open(d.login_url, '_blank');
               else alert(d.error || 'Impersonation failed');
             } catch(e) { alert('Error: ' + e.message); }
           }}>Login as client →</Btn>

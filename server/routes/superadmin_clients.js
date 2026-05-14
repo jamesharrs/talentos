@@ -752,34 +752,44 @@ router.post('/:id/impersonate', async (req, res) => {
     const slug = client.tenant_slug;
     if (!slug) return res.status(400).json({ error: 'Client has no tenant slug' });
 
-    let result;
+    // Try tenant store first
+    let adminUser = null;
     await tenantStorage.run(slug, async () => {
       const ts = getStore();
-      const adminUser = (ts.users||[]).find(u =>
+      adminUser = (ts.users||[]).find(u =>
         !u.deleted_at && (u.is_super_admin || u.role_name === 'Super Admin' || u.role_name === 'Admin')
       ) || (ts.users||[]).find(u => !u.deleted_at);
-
-      if (!adminUser) { result = { error: 'No users found for this client' }; return; }
-
-      const token = uuidv4() + '-' + uuidv4();
-      if (!ts.sessions) ts.sessions = [];
-      ts.sessions.push({
-        id: uuidv4(), user_id: adminUser.id, token,
-        tenant_slug: slug, impersonated_by: 'superadmin',
-        created_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 8*60*60*1000).toISOString(),
-      });
-      saveStore(slug);
-
-      result = {
-        ok: true, token, tenant_slug: slug,
-        user_id: adminUser.id, email: adminUser.email,
-        login_url: 'https://' + slug + '.vercentic.com?impersonate=' + token,
-      };
     });
 
-    if (result && result.error) return res.status(404).json(result);
-    res.json(result);
+    // Fall back to master store (self-serve signups live here)
+    if (!adminUser) {
+      adminUser = (s.users||[]).find(u =>
+        !u.deleted_at && (u.client_id === client.id || u.email === client.primary_contact_email)
+      );
+    }
+
+    const logs = (s.provision_log||[]).filter(l => l.client_id === client.id);
+    const adminEmail = adminUser?.email || logs.slice(-1)[0]?.admin_email || client.primary_contact_email;
+    const tenantUrl = 'https://' + slug + '.vercentic.com';
+
+    if (adminUser) {
+      const token = uuidv4() + '-' + uuidv4();
+      await tenantStorage.run(slug, async () => {
+        const ts = getStore();
+        if (!ts.sessions) ts.sessions = [];
+        ts.sessions.push({
+          id: uuidv4(), user_id: adminUser.id, token,
+          tenant_slug: slug, impersonated_by: 'superadmin',
+          created_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 8*60*60*1000).toISOString(),
+        });
+        saveStore(slug);
+      });
+      return res.json({ ok: true, token, tenant_slug: slug, user_id: adminUser.id, email: adminUser.email, login_url: tenantUrl + '?impersonate=' + token });
+    }
+
+    // No user found — send to tenant login page
+    res.json({ ok: true, token: null, tenant_slug: slug, email: adminEmail, login_url: tenantUrl + '?tenant=' + slug });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

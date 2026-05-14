@@ -305,7 +305,7 @@ function NoteDetail({ note, onBack }) {
 export function ReleaseNotesLoginModal({ userId, onDone }) {
   const [notes,   setNotes]   = useState([]);
   const [idx,     setIdx]     = useState(0);
-  const [noShow,  setNoShow]  = useState(false);
+  const [dismissed, setDismissed] = useState(new Set()); // per-note dismiss tracking
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -329,15 +329,29 @@ export function ReleaseNotesLoginModal({ userId, onDone }) {
   const note   = notes[idx];
   const meta   = CATEGORY_META[note.category] || CATEGORY_META.feature;
   const isLast = idx === notes.length - 1;
+  const isChecked = dismissed.has(note.id);
 
-  const dismiss = async () => {
-    if (noShow) {
-      await Promise.all(notes.map(n => api.post(`/release-notes/${n.id}/dismiss`, { user_id: userId })));
+  const toggleDismiss = async (checked) => {
+    const next = new Set(dismissed);
+    if (checked) {
+      next.add(note.id);
+      // Fire dismiss API immediately so it persists even if user closes modal
+      api.post(`/release-notes/${note.id}/dismiss`, { user_id: userId }).catch(() => {});
+    } else {
+      next.delete(note.id);
     }
-    onDone?.();
+    setDismissed(next);
   };
 
-  const handleNext = () => { if (isLast || noShow) dismiss(); else setIdx(i => i + 1); };
+  const handleNext = () => {
+    if (isLast) {
+      onDone?.();
+    } else {
+      setIdx(i => i + 1);
+    }
+  };
+
+  const handleClose = () => { onDone?.(); };
 
   return ReactDOM.createPortal(
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
@@ -353,6 +367,9 @@ export function ReleaseNotesLoginModal({ userId, onDone }) {
               <div style={{ fontSize:18, fontWeight:800, color:'#111827', lineHeight:1.2 }}>{note.title}</div>
             </div>
             <div style={{ fontSize:12, fontWeight:600, color:'#9CA3AF' }}>v{note.version}</div>
+            <button onClick={handleClose} style={{ background:'none', border:'none', cursor:'pointer', padding:4, color:'#9CA3AF', display:'flex', marginLeft:4 }}>
+              <Ic n="x" s={16} c="#9CA3AF"/>
+            </button>
           </div>
         </div>
         {/* Body */}
@@ -379,7 +396,7 @@ export function ReleaseNotesLoginModal({ userId, onDone }) {
         {/* Footer */}
         <div style={{ padding:'14px 24px', borderTop:'1px solid #F3F4F6', display:'flex', alignItems:'center', gap:12, background:'#FAFAFA' }}>
           <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', flex:1 }}>
-            <input type="checkbox" checked={noShow} onChange={e=>setNoShow(e.target.checked)}
+            <input type="checkbox" checked={isChecked} onChange={e => toggleDismiss(e.target.checked)}
               style={{ width:15, height:15, accentColor:meta.color, cursor:'pointer' }} />
             <span style={{ fontSize:12, color:'#6B7280', fontFamily:F }}>Don't show this again</span>
           </label>
@@ -392,7 +409,7 @@ export function ReleaseNotesLoginModal({ userId, onDone }) {
           )}
           <button onClick={handleNext}
             style={{ padding:'9px 20px', borderRadius:9, border:'none', background:meta.color, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, flexShrink:0 }}>
-            {isLast || noShow ? 'Got it' : 'Next →'}
+            {isLast ? 'Got it' : 'Next →'}
           </button>
         </div>
       </div>

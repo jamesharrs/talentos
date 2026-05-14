@@ -3,6 +3,21 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom";
 import api from "./apiClient.js";
 
+// Global styles for rich content display
+if (!document.getElementById('rn-rich-styles')) {
+  const s = document.createElement('style');
+  s.id = 'rn-rich-styles';
+  s.textContent = `
+    .rn-rich-body img { max-width: 100%; border-radius: 8px; margin: 8px 0; display: block; }
+    .rn-rich-body b, .rn-rich-body strong { font-weight: 700; }
+    .rn-rich-body i, .rn-rich-body em { font-style: italic; }
+    .rn-rich-body a { color: var(--t-accent, #4361EE); text-decoration: underline; }
+    .rn-rich-body iframe { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+    .rn-rich-body p { margin: 0 0 8px; }
+  `;
+  document.head.appendChild(s);
+}
+
 const F = "var(--t-font, 'Geist', sans-serif)";
 
 export const CATEGORY_META = {
@@ -261,7 +276,7 @@ function NoteDetail({ note, onBack }) {
           {new Date(note.published_at).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
         </div>
         {note.summary_rich ? (
-          <div style={{ fontSize: 13, color: 'var(--t-text2, #374151)', lineHeight: 1.7, marginBottom: 14 }}
+          <div className="rn-rich-body" style={{ fontSize: 13, color: 'var(--t-text2, #374151)', lineHeight: 1.7, marginBottom: 14 }}
             dangerouslySetInnerHTML={{ __html: note.summary_rich }} />
         ) : note.summary ? (
           <div style={{ fontSize: 13, color: 'var(--t-text2, #374151)', lineHeight: 1.6, marginBottom: 14, padding: '10px 12px', background: 'var(--t-bg, #f7f8fc)', borderRadius: 8 }}>
@@ -334,7 +349,7 @@ export function ReleaseNotesLoginModal({ userId, onDone }) {
         {/* Body */}
         <div style={{ padding:'20px 24px', maxHeight:340, overflowY:'auto' }}>
           {note.summary_rich ? (
-            <div style={{ fontSize:14, color:'#374151', lineHeight:1.7, marginBottom:14 }}
+            <div className="rn-rich-body" style={{ fontSize:14, color:'#374151', lineHeight:1.7, marginBottom:14 }}
               dangerouslySetInnerHTML={{ __html: note.summary_rich }} />
           ) : note.summary ? (
             <div style={{ fontSize:14, color:'#374151', lineHeight:1.6, marginBottom:14 }}>{note.summary}</div>

@@ -311,7 +311,16 @@ export function ReleaseNotesLoginModal({ userId, onDone }) {
   useEffect(() => {
     if (!userId) { onDone?.(); return; }
     api.get(`/release-notes/login-modal?user_id=${userId}`)
-      .then(d => { setNotes(Array.isArray(d) ? d : []); setLoading(false); });
+      .then(d => {
+        const arr = Array.isArray(d) ? d : [];
+        console.log('[ReleaseNotes] login-modal response:', d, '→', arr.length, 'notes');
+        setNotes(arr);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('[ReleaseNotes] login-modal error:', err);
+        setLoading(false);
+      });
   }, [userId]); // eslint-disable-line
 
   if (loading) return null;

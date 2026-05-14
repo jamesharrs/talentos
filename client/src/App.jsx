@@ -2364,7 +2364,7 @@ activeNavRef.current = activeNav;
 
   // Show login page if no session
   if (!session) {
-    return <LoginPage onLogin={(s) => { setSession(s); setShowLoginModal(true); }} />;
+    return <LoginPage onLogin={(s) => { setSession(s); if (s?.user?.id) setShowLoginModal(true); }} />;
   }
 
   // Show setup screen while provisioning is in progress
@@ -2849,9 +2849,9 @@ activeNavRef.current = activeNav;
           onClose={() => setBulkCompose(null)}
         />
       )}
-      {showLoginModal && userId && (
+      {showLoginModal && session?.user?.id && (
         <ReleaseNotesLoginModal
-          userId={userId}
+          userId={session.user.id}
           onDone={() => setShowLoginModal(false)}
         />
       )}

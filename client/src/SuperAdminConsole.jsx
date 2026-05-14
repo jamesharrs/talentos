@@ -750,6 +750,11 @@ export default function SuperAdminConsole() {
   const [clientView,       setClientView]       = useState('list');
   const [selectedClientId, setSelectedClientId] = useState(null);
 
+  // Reset client detail view whenever we navigate away from the clients section
+  useEffect(() => {
+    if (section !== 'clients') { setClientView('list'); setSelectedClientId(null); }
+  }, [section]);
+
   if (!authed) return <LoginScreen onAuth={(token, userId) => {
     sessionStorage.setItem('sa_token', token);
     if (userId) sessionStorage.setItem('sa_uid', userId);
@@ -777,7 +782,7 @@ export default function SuperAdminConsole() {
         <div style={{ flex:1, padding:'10px 10px' }}>
           <div style={{ fontSize:9, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.1em', padding:'4px 8px 8px' }}>Console</div>
           {NAV_ITEMS.map(item => (
-            <button key={item.id} onClick={()=>setSection(item.id)}
+            <button key={item.id} onClick={()=>{ if(item.id==='clients'){ setClientView('list'); setSelectedClientId(null); } setSection(item.id); }}
               style={{ width:'100%', display:'flex', alignItems:'center', gap:8, padding:'9px 10px', borderRadius:8, border:'none',
                 background: section===item.id ? `${C.purple}18` : 'transparent',
                 color: section===item.id ? C.purple : C.text2,
@@ -802,7 +807,9 @@ export default function SuperAdminConsole() {
         {/* Header */}
         <div style={{ marginBottom:24 }}>
           <h1 style={{ margin:'0 0 4px', fontSize:22, fontWeight:800, color:C.text1 }}>
-            {section==='clients' && clientView==='detail' ? '← Client Detail' : NAV_ITEMS.find(n=>n.id===section)?.label}
+            {section==='clients' && clientView==='detail'
+              ? <span onClick={()=>{ setClientView('list'); setSelectedClientId(null); }} style={{cursor:'pointer'}}>← Clients</span>
+              : NAV_ITEMS.find(n=>n.id===section)?.label}
           </h1>
           <p style={{ margin:0, fontSize:13, color:C.text3 }}>
             {NAV_ITEMS.find(n=>n.id===section)?.desc}

@@ -469,11 +469,11 @@ app.use('/api/flows', flowsRouter);
 
 // ── Admin & super admin ───────────────────────────────────────────────────────
 app.use('/api/admin',             require('./routes/admin_dashboard').router);
-app.use('/api/superadmin',        require('./routes/superadmin'));
 app.use('/api/superadmin/clients', require('./routes/superadmin_clients'));
 app.use('/api/superadmin/perf',    require('./routes/superadmin_perf'));
-app.use('/api/sequencer',         require('./routes/email_sequencer').router);
 app.use('/api/superadmin/demo',   require('./routes/demo_seed'));
+app.use('/api/sequencer',         require('./routes/email_sequencer').router);
+app.use('/api/superadmin',        require('./routes/superadmin'));
 app.use('/api/tenant-reset',      require('./routes/admin_reset'));
 app.use('/api/signup',            require('./routes/signup'));
 

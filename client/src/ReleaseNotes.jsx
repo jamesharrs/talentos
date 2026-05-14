@@ -1,10 +1,11 @@
 // client/src/ReleaseNotes.jsx
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import ReactDOM from "react-dom";
 import api from "./apiClient.js";
 
 const F = "var(--t-font, 'Geist', sans-serif)";
 
-const CATEGORY_META = {
+export const CATEGORY_META = {
   feature:     { label: 'New Feature',  color: 'var(--t-accent, #4361EE)',  bg: 'var(--t-accent-light, #EEF2FF)' },
   improvement: { label: 'Improvement',  color: '#0CAF77', bg: '#F0FDF4' },
   fix:         { label: 'Bug Fix',      color: '#F59F00', bg: '#FFFBEB' },
@@ -12,14 +13,21 @@ const CATEGORY_META = {
 };
 
 const PATHS = {
-  bell:    "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0",
-  x:       "M18 6L6 18M6 6l12 12",
-  check:   "M20 6L9 17l-5-5",
-  plus:    "M12 5v14M5 12h14",
-  edit:    "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
-  trash:   "M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6",
-  sparkle: "M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2",
-  back:    "M19 12H5M12 19l-7-7 7-7",
+  bell:     "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0",
+  x:        "M18 6L6 18M6 6l12 12",
+  check:    "M20 6L9 17l-5-5",
+  plus:     "M12 5v14M5 12h14",
+  edit:     "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
+  trash:    "M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6",
+  sparkle:  "M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2",
+  back:     "M19 12H5M12 19l-7-7 7-7",
+  calendar: "M8 7V3M16 7V3M3 11h18M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+  login:    "M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3",
+  image:    "M21 19V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2zM8.5 10a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM21 15l-5-5L5 21",
+  video:    "M22.54 6.42a2.78 2.78 0 00-1.95-1.97C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 00-1.95 1.96C1 8.14 1 12 1 12s0 3.86.46 5.58a2.78 2.78 0 001.95 1.97C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 001.95-1.97C23 15.86 23 12 23 12s0-3.86-.46-5.58zM9.75 15.02V8.98L15.5 12l-5.75 3.02z",
+  link:     "M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71",
+  bold:     "M6 4h8a4 4 0 010 8H6zM6 12h9a4 4 0 010 8H6z",
+  italic:   "M19 4h-9M14 20H5M15 4L9 20",
 };
 const Ic = ({ n, s = 16, c = "currentColor" }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none"
@@ -28,9 +36,113 @@ const Ic = ({ n, s = 16, c = "currentColor" }) => (
   </svg>
 );
 
+// ── Rich text editor ──────────────────────────────────────────────────────────
+function RichEditor({ value, onChange }) {
+  const editorRef  = useRef(null);
+  const imageRef   = useRef(null);
+  const savedRange = useRef(null);
+  const [showLink,  setShowLink]  = useState(false);
+  const [linkUrl,   setLinkUrl]   = useState('');
+  const [showVideo, setShowVideo] = useState(false);
+  const [videoUrl,  setVideoUrl]  = useState('');
 
+  useEffect(() => {
+    if (editorRef.current && value && editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value || '';
+    }
+  }, []); // eslint-disable-line
 
-// ── WhatsNew bell button (for top bar) ───────────────────────────────────────
+  const exec  = cmd => { document.execCommand(cmd, false, null); editorRef.current?.focus(); };
+  const notify = ()  => { if (editorRef.current) onChange(editorRef.current.innerHTML); };
+
+  const saveRange = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount) savedRange.current = sel.getRangeAt(0).cloneRange();
+  };
+  const restoreRange = () => {
+    const sel = window.getSelection();
+    if (savedRange.current && sel) { sel.removeAllRanges(); sel.addRange(savedRange.current); }
+  };
+
+  const handleImage = e => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      document.execCommand('insertHTML', false,
+        `<img src="${ev.target.result}" style="max-width:100%;border-radius:8px;margin:8px 0;" />`);
+      notify();
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const insertLink = () => {
+    restoreRange();
+    if (linkUrl) document.execCommand('createLink', false, linkUrl);
+    setShowLink(false); setLinkUrl(''); notify();
+  };
+
+  const insertVideo = () => {
+    let src = videoUrl.trim();
+    const yt = src.match(/(?:youtu\.be\/|youtube\.com\/watch\?v=)([^&?/]+)/);
+    const vi = src.match(/vimeo\.com\/(\d+)/);
+    if (yt) src = `https://www.youtube.com/embed/${yt[1]}`;
+    else if (vi) src = `https://player.vimeo.com/video/${vi[1]}`;
+    restoreRange();
+    document.execCommand('insertHTML', false,
+      `<div style="position:relative;padding-bottom:56.25%;height:0;margin:12px 0;border-radius:10px;overflow:hidden;">` +
+      `<iframe src="${src}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen></iframe></div>`);
+    setShowVideo(false); setVideoUrl(''); notify();
+  };
+
+  const TB = ({ icon, title, onClick }) => (
+    <button type="button" title={title} onClick={onClick}
+      style={{ background:'none', border:'none', cursor:'pointer', padding:'4px 6px', borderRadius:4, display:'flex', alignItems:'center', color:'#6B7280' }}
+      onMouseEnter={e=>e.currentTarget.style.background='#F3F4F6'}
+      onMouseLeave={e=>e.currentTarget.style.background='none'}>
+      <Ic n={icon} s={14} c="currentColor"/>
+    </button>
+  );
+
+  const Dialog = ({ show, onClose, title, hint, value, onChange, onConfirm, placeholder }) =>
+    show ? ReactDOM.createPortal(
+      <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <div onClick={e=>e.stopPropagation()} style={{ background:'#fff', borderRadius:12, padding:20, width:360, boxShadow:'0 20px 60px rgba(0,0,0,0.25)' }}>
+          <div style={{ fontSize:14, fontWeight:700, marginBottom: hint ? 4 : 12, fontFamily:F }}>{title}</div>
+          {hint && <div style={{ fontSize:12, color:'#6B7280', marginBottom:10, fontFamily:F }}>{hint}</div>}
+          <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} autoFocus
+            onKeyDown={e=>{ if(e.key==='Enter') onConfirm(); if(e.key==='Escape') onClose(); }}
+            style={{ width:'100%', padding:'8px 10px', border:'1.5px solid #E5E7EB', borderRadius:8, fontSize:13, outline:'none', fontFamily:F, boxSizing:'border-box' }} />
+          <div style={{ display:'flex', gap:8, marginTop:12 }}>
+            <button onClick={onClose} style={{ flex:1, padding:'8px', borderRadius:8, border:'1px solid #E5E7EB', background:'transparent', cursor:'pointer', fontSize:13, fontFamily:F }}>Cancel</button>
+            <button onClick={onConfirm} style={{ flex:1, padding:'8px', borderRadius:8, border:'none', background:'#7C3AED', color:'#fff', cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:F }}>Insert</button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    ) : null;
+
+  return (
+    <div style={{ border:'1.5px solid var(--t-border,#E5E7EB)', borderRadius:10, overflow:'hidden', background:'#fff' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:2, padding:'6px 8px', borderBottom:'1px solid #E5E7EB', background:'#F9FAFB', flexWrap:'wrap' }}>
+        <TB icon="bold"   title="Bold"         onClick={()=>exec('bold')} />
+        <TB icon="italic" title="Italic"       onClick={()=>exec('italic')} />
+        <div style={{ width:1, height:16, background:'#E5E7EB', margin:'0 4px' }} />
+        <TB icon="link"   title="Insert link"  onClick={()=>{ saveRange(); setShowLink(true); }} />
+        <TB icon="image"  title="Insert image" onClick={()=>imageRef.current?.click()} />
+        <TB icon="video"  title="Embed video"  onClick={()=>{ saveRange(); setShowVideo(true); }} />
+        <input ref={imageRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleImage} />
+        <div style={{ width:1, height:16, background:'#E5E7EB', margin:'0 4px' }} />
+        <TB icon="x" title="Clear formatting"  onClick={()=>exec('removeFormat')} />
+      </div>
+      <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={notify}
+        style={{ minHeight:120, maxHeight:300, overflowY:'auto', padding:'12px 14px', fontSize:14, color:'#111827', lineHeight:1.7, outline:'none' }} />
+      <Dialog show={showLink}  onClose={()=>setShowLink(false)}  title="Insert Link"  placeholder="https://…"  value={linkUrl}  onChange={setLinkUrl}  onConfirm={insertLink} />
+      <Dialog show={showVideo} onClose={()=>setShowVideo(false)} title="Embed Video"  hint="YouTube or Vimeo URL" placeholder="https://www.youtube.com/watch?v=…" value={videoUrl} onChange={setVideoUrl} onConfirm={insertVideo} />
+    </div>
+  );
+}
+
+// ── WhatsNew bell button (existing — for top bar) ────────────────────────────
 export function WhatsNewButton() {
   const [open,     setOpen]     = useState(false);
   const [notes,    setNotes]    = useState([]);
@@ -73,7 +185,6 @@ export function WhatsNewButton() {
           }}>{unread > 9 ? '9+' : unread}</span>
         )}
       </button>
-
       {open && (
         <div style={{
           position: 'absolute', top: 42, right: 0, width: 380, zIndex: 800,
@@ -130,6 +241,7 @@ export function WhatsNewButton() {
   );
 }
 
+// ── Note detail (read-only, used in bell panel and inline) ───────────────────
 function NoteDetail({ note, onBack }) {
   const meta = CATEGORY_META[note.category] || CATEGORY_META.feature;
   return (
@@ -148,11 +260,14 @@ function NoteDetail({ note, onBack }) {
         <div style={{ fontSize: 11, color: 'var(--t-text3)', marginBottom: 10 }}>
           {new Date(note.published_at).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
         </div>
-        {note.summary && (
+        {note.summary_rich ? (
+          <div style={{ fontSize: 13, color: 'var(--t-text2, #374151)', lineHeight: 1.7, marginBottom: 14 }}
+            dangerouslySetInnerHTML={{ __html: note.summary_rich }} />
+        ) : note.summary ? (
           <div style={{ fontSize: 13, color: 'var(--t-text2, #374151)', lineHeight: 1.6, marginBottom: 14, padding: '10px 12px', background: 'var(--t-bg, #f7f8fc)', borderRadius: 8 }}>
             {note.summary}
           </div>
-        )}
+        ) : null}
         {note.features?.length > 0 && (
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--t-text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>What's included</div>
@@ -171,88 +286,205 @@ function NoteDetail({ note, onBack }) {
   );
 }
 
-// ── Note editor form ─────────────────────────────────────────────────────────
-function NoteEditor({ note, onSave, onCancel, saving }) {
+// ── Login modal ───────────────────────────────────────────────────────────────
+export function ReleaseNotesLoginModal({ userId, onDone }) {
+  const [notes,   setNotes]   = useState([]);
+  const [idx,     setIdx]     = useState(0);
+  const [noShow,  setNoShow]  = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userId) { onDone?.(); return; }
+    api.get(`/release-notes/login-modal?user_id=${userId}`)
+      .then(d => { setNotes(Array.isArray(d) ? d : []); setLoading(false); });
+  }, [userId]); // eslint-disable-line
+
+  if (loading) return null;
+  if (notes.length === 0) { onDone?.(); return null; }
+
+  const note   = notes[idx];
+  const meta   = CATEGORY_META[note.category] || CATEGORY_META.feature;
+  const isLast = idx === notes.length - 1;
+
+  const dismiss = async () => {
+    if (noShow) {
+      await Promise.all(notes.map(n => api.post(`/release-notes/${n.id}/dismiss`, { user_id: userId })));
+    }
+    onDone?.();
+  };
+
+  const handleNext = () => { if (isLast || noShow) dismiss(); else setIdx(i => i + 1); };
+
+  return ReactDOM.createPortal(
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+      <div style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:520, boxShadow:'0 32px 80px rgba(0,0,0,0.3)', overflow:'hidden', fontFamily:F }}>
+        {/* Coloured header */}
+        <div style={{ background:`linear-gradient(135deg, ${meta.color}18, ${meta.color}06)`, borderBottom:`3px solid ${meta.color}`, padding:'20px 24px' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <div style={{ width:40, height:40, borderRadius:12, background:meta.color, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <Ic n="sparkle" s={18} c="#fff"/>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:meta.color, marginBottom:3 }}>{meta.label}</div>
+              <div style={{ fontSize:18, fontWeight:800, color:'#111827', lineHeight:1.2 }}>{note.title}</div>
+            </div>
+            <div style={{ fontSize:12, fontWeight:600, color:'#9CA3AF' }}>v{note.version}</div>
+          </div>
+        </div>
+        {/* Body */}
+        <div style={{ padding:'20px 24px', maxHeight:340, overflowY:'auto' }}>
+          {note.summary_rich ? (
+            <div style={{ fontSize:14, color:'#374151', lineHeight:1.7, marginBottom:14 }}
+              dangerouslySetInnerHTML={{ __html: note.summary_rich }} />
+          ) : note.summary ? (
+            <div style={{ fontSize:14, color:'#374151', lineHeight:1.6, marginBottom:14 }}>{note.summary}</div>
+          ) : null}
+          {note.features?.length > 0 && (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {note.features.map((f, i) => (
+                <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, fontSize:13, color:'#374151', lineHeight:1.5 }}>
+                  <div style={{ width:18, height:18, borderRadius:99, background:`${meta.color}22`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:1 }}>
+                    <Ic n="check" s={10} c={meta.color}/>
+                  </div>
+                  {f}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* Footer */}
+        <div style={{ padding:'14px 24px', borderTop:'1px solid #F3F4F6', display:'flex', alignItems:'center', gap:12, background:'#FAFAFA' }}>
+          <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', flex:1 }}>
+            <input type="checkbox" checked={noShow} onChange={e=>setNoShow(e.target.checked)}
+              style={{ width:15, height:15, accentColor:meta.color, cursor:'pointer' }} />
+            <span style={{ fontSize:12, color:'#6B7280', fontFamily:F }}>Don't show this again</span>
+          </label>
+          {notes.length > 1 && (
+            <div style={{ display:'flex', gap:5 }}>
+              {notes.map((_, i) => (
+                <div key={i} onClick={()=>setIdx(i)} style={{ width: i===idx ? 16 : 6, height:6, borderRadius:99, background: i===idx ? meta.color : '#D1D5DB', transition:'all .2s', cursor:'pointer' }} />
+              ))}
+            </div>
+          )}
+          <button onClick={handleNext}
+            style={{ padding:'9px 20px', borderRadius:9, border:'none', background:meta.color, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, flexShrink:0 }}>
+            {isLast || noShow ? 'Got it' : 'Next →'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ── NoteEditor (used in ReleaseNotesAdmin) ───────────────────────────────────
+function NoteEditor({ note = {}, onSave, onCancel, saving }) {
   const [form, setForm] = useState({
-    version:   note.version   || '',
-    title:     note.title     || '',
-    category:  note.category  || 'feature',
-    summary:   note.summary   || '',
-    features:  note.features  || [],
-    published: note.published ?? false,
-    id:        note.id        || null,
+    version:         note.version || '',
+    title:           note.title   || '',
+    summary:         note.summary || '',
+    summary_rich:    note.summary_rich || '',
+    category:        note.category || 'feature',
+    features:        (note.features || []).join('\n'),
+    published:       !!note.published,
+    display_at_login:!!note.display_at_login,
+    scheduled_at:    note.scheduled_at ? note.scheduled_at.slice(0, 16) : '',
+    id:              note.id,
   });
-  const [newFeature, setNewFeature] = useState('');
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const addFeature = () => {
-    const t = newFeature.trim();
-    if (!t) return;
-    set('features', [...form.features, t]);
-    setNewFeature('');
+  const handleSubmit = () => {
+    onSave({
+      ...form,
+      features:     form.features.split('\n').map(s => s.trim()).filter(Boolean),
+      summary_rich: form.summary_rich || null,
+      scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null,
+    });
   };
-  const removeFeature = i => set('features', form.features.filter((_, idx) => idx !== i));
 
-  const S = { input: { width:'100%', padding:'8px 12px', borderRadius:8, border:'1px solid var(--t-border,#334155)', background:'var(--t-surface2,#1e293b)', color:'var(--t-text1,#e2e8f0)', fontSize:13, fontFamily:F, boxSizing:'border-box', outline:'none' } };
+  const S = {
+    input: { width:'100%', padding:'8px 12px', borderRadius:8, border:'1px solid var(--t-border,#334155)', background:'var(--t-surface2,#1e293b)', color:'var(--t-text1,#e2e8f0)', fontSize:13, fontFamily:F, boxSizing:'border-box', outline:'none' },
+  };
+  const Label = ({ children }) => <label style={{ fontSize:12, fontWeight:700, color:'var(--t-text3,#94a3b8)', display:'block', marginBottom:5 }}>{children}</label>;
+  const Field = ({ label, children }) => <div style={{ marginBottom:14 }}><Label>{label}</Label>{children}</div>;
+
+  const Toggle = ({ checked, onChange, label, sublabel }) => (
+    <label style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer', marginBottom:12 }}>
+      <div onClick={()=>onChange(!checked)}
+        style={{ width:36, height:20, borderRadius:99, background: checked ? '#7C3AED' : '#334155', position:'relative', cursor:'pointer', transition:'background .2s', flexShrink:0 }}>
+        <div style={{ width:16, height:16, borderRadius:99, background:'#fff', position:'absolute', top:2, left: checked ? 18 : 2, transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }}/>
+      </div>
+      <div>
+        <div style={{ fontSize:13, fontWeight:600, color:'var(--t-text1,#e2e8f0)', fontFamily:F }}>{label}</div>
+        {sublabel && <div style={{ fontSize:11, color:'var(--t-text3,#64748b)', fontFamily:F }}>{sublabel}</div>}
+      </div>
+    </label>
+  );
 
   return (
-    <div style={{ padding:'24px 28px', fontFamily:F, color:'var(--t-text1,#e2e8f0)', maxWidth:640 }}>
-      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:24 }}>
+    <div style={{ padding:'24px 28px', fontFamily:F, color:'var(--t-text1,#e2e8f0)', maxHeight:'90vh', overflowY:'auto' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
         <button onClick={onCancel} style={{ background:'none', border:'none', cursor:'pointer', padding:0 }}>
           <Ic n="back" s={18} c="#7C3AED"/>
         </button>
         <div style={{ fontSize:18, fontWeight:800 }}>{form.id ? 'Edit Release Note' : 'New Release Note'}</div>
       </div>
 
-      {[['Version','version','e.g. 1.4.0'],['Title','title','e.g. AI Matching Improvements']].map(([label,key,ph])=>(
-        <div key={key} style={{ marginBottom:14 }}>
-          <label style={{ fontSize:12, fontWeight:700, color:'var(--t-text3,#94a3b8)', display:'block', marginBottom:5 }}>{label}</label>
-          <input value={form[key]} onChange={e=>set(key,e.target.value)} placeholder={ph} style={S.input}/>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+        <Field label="Version *">
+          <input value={form.version} onChange={e=>set('version',e.target.value)} placeholder="1.8.0" style={S.input}/>
+        </Field>
+        <Field label="Category">
+          <select value={form.category} onChange={e=>set('category',e.target.value)} style={{ ...S.input, background:'var(--t-surface2,#1e293b)' }}>
+            {Object.entries(CATEGORY_META).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+          </select>
+        </Field>
+      </div>
+
+      <Field label="Title *">
+        <input value={form.title} onChange={e=>set('title',e.target.value)} placeholder="Feature name or summary" style={S.input}/>
+      </Field>
+
+      <Field label="Plain summary (shown in cards and dropdowns)">
+        <textarea value={form.summary} onChange={e=>set('summary',e.target.value)} rows={2} placeholder="One or two sentence summary…" style={{ ...S.input, resize:'vertical' }}/>
+      </Field>
+
+      <Field label="Rich description (supports text, images, video)">
+        <div style={{ background:'#fff', borderRadius:10 }}>
+          <RichEditor value={form.summary_rich} onChange={v => set('summary_rich', v)} />
         </div>
-      ))}
+      </Field>
 
-      <div style={{ marginBottom:14 }}>
-        <label style={{ fontSize:12, fontWeight:700, color:'var(--t-text3,#94a3b8)', display:'block', marginBottom:5 }}>Category</label>
-        <select value={form.category} onChange={e=>set('category',e.target.value)}
-          style={{ ...S.input, background:'var(--t-surface2,#1e293b)' }}>
-          {Object.entries(CATEGORY_META).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-        </select>
-      </div>
+      <Field label="Feature list (one per line)">
+        <textarea value={form.features} onChange={e=>set('features',e.target.value)} rows={5} placeholder="Each feature on its own line…" style={{ ...S.input, resize:'vertical' }}/>
+      </Field>
 
-      <div style={{ marginBottom:14 }}>
-        <label style={{ fontSize:12, fontWeight:700, color:'var(--t-text3,#94a3b8)', display:'block', marginBottom:5 }}>Summary</label>
-        <textarea value={form.summary} onChange={e=>set('summary',e.target.value)} rows={3}
-          placeholder="Brief description shown in the What's New panel…"
-          style={{ ...S.input, resize:'vertical' }}/>
-      </div>
-
-      <div style={{ marginBottom:20 }}>
-        <label style={{ fontSize:12, fontWeight:700, color:'var(--t-text3,#94a3b8)', display:'block', marginBottom:8 }}>Feature Bullets</label>
-        {form.features.map((f,i)=>(
-          <div key={i} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
-            <div style={{ flex:1, padding:'6px 10px', borderRadius:6, background:'var(--t-surface2,#1e293b)', fontSize:13, color:'var(--t-text2,#cbd5e1)' }}>{f}</div>
-            <button onClick={()=>removeFeature(i)} style={{ background:'none', border:'none', cursor:'pointer', padding:4 }}><Ic n="x" s={14} c="#EF4444"/></button>
+      {/* Publishing options */}
+      <div style={{ background:'#0f172a', borderRadius:10, border:'1px solid #334155', padding:16, marginBottom:16 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:'#64748b', marginBottom:14, textTransform:'uppercase', letterSpacing:'0.06em' }}>Publishing</div>
+        <Toggle checked={form.published} onChange={v=>set('published',v)} label="Published" sublabel="Visible to all users in the What's New panel" />
+        {!form.published && (
+          <div style={{ marginBottom:12 }}>
+            <Label><span style={{ display:'flex', alignItems:'center', gap:5 }}><Ic n="calendar" s={12} c="#7C3AED"/> Schedule publish date</span></Label>
+            <input type="datetime-local" value={form.scheduled_at} onChange={e=>set('scheduled_at',e.target.value)}
+              min={new Date().toISOString().slice(0,16)}
+              style={{ ...S.input }}/>
+            {form.scheduled_at && (
+              <div style={{ fontSize:11, color:'#7C3AED', marginTop:5, fontFamily:F }}>
+                Will publish on {new Date(form.scheduled_at).toLocaleString()}
+              </div>
+            )}
           </div>
-        ))}
-        <div style={{ display:'flex', gap:8, marginTop:8 }}>
-          <input value={newFeature} onChange={e=>setNewFeature(e.target.value)}
-            onKeyDown={e=>e.key==='Enter'&&(e.preventDefault(),addFeature())}
-            placeholder="Add a feature bullet and press Enter…" style={{ ...S.input, flex:1 }}/>
-          <button onClick={addFeature} style={{ padding:'7px 14px', borderRadius:8, background:'#334155', color:'#e2e8f0', border:'none', cursor:'pointer', fontSize:13 }}>Add</button>
-        </div>
-      </div>
-
-      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:24 }}>
-        <button onClick={()=>set('published',!form.published)} style={{ width:40, height:22, borderRadius:99, border:'none', cursor:'pointer', position:'relative', background:form.published?'#7C3AED':'#334155', transition:'background 0.2s' }}>
-          <div style={{ width:16, height:16, borderRadius:'50%', background:'white', position:'absolute', top:3, left:form.published?21:3, transition:'left 0.2s' }}/>
-        </button>
-        <span style={{ fontSize:13, color:'var(--t-text2,#cbd5e1)' }}>Published — visible to all platform users</span>
+        )}
+        <Toggle checked={form.display_at_login} onChange={v=>set('display_at_login',v)}
+          label={<span style={{ display:'flex', alignItems:'center', gap:5 }}><Ic n="login" s={12} c="#e2e8f0"/> Show at login</span>}
+          sublabel="Pop up as a modal when users log in (until they dismiss it)" />
       </div>
 
       <div style={{ display:'flex', gap:10 }}>
-        <button onClick={onCancel} style={{ padding:'9px 20px', borderRadius:8, border:'1px solid var(--t-border,#334155)', background:'transparent', color:'var(--t-text2,#cbd5e1)', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:F }}>Cancel</button>
-        <button onClick={()=>onSave(form)} disabled={saving||!form.title||!form.version}
-          style={{ padding:'9px 20px', borderRadius:8, border:'none', background:'#7C3AED', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, opacity:saving||!form.title||!form.version?0.5:1 }}>
+        <button onClick={onCancel} style={{ padding:'9px 20px', borderRadius:8, border:'1px solid #334155', background:'transparent', color:'#cbd5e1', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:F }}>Cancel</button>
+        <button onClick={handleSubmit} disabled={saving || !form.version || !form.title}
+          style={{ padding:'9px 20px', borderRadius:8, border:'none', background:'#7C3AED', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, opacity: saving || !form.version || !form.title ? 0.5 : 1 }}>
           {saving ? 'Saving…' : form.id ? 'Save Changes' : 'Create Note'}
         </button>
       </div>
@@ -260,20 +492,20 @@ function NoteEditor({ note, onSave, onCancel, saving }) {
   );
 }
 
-// ── Admin panel (for /superadmin only) ───────────────────────────────────────
+// ── Admin panel (for /superadmin) ─────────────────────────────────────────────
 export function ReleaseNotesAdmin() {
   const [notes,   setNotes]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [saving,  setSaving]  = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const d = await api.get('/release-notes?published_only=false');
     setNotes(Array.isArray(d) ? d : []);
     setLoading(false);
-  };
-  useEffect(() => { load(); }, []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
 
   const handleSave = async form => {
     setSaving(true);
@@ -285,12 +517,13 @@ export function ReleaseNotesAdmin() {
   };
 
   const handleDelete = async id => {
-    if (!(await window.__confirm({ title:'Delete this release note?', danger:true }))) return;
+    if (!(await window.__confirm?.({ title:'Delete this release note?', danger:true }) ?? confirm('Delete?'))) return;
     await api.del(`/release-notes/${id}`); await load();
   };
 
   const handleTogglePublish = async note => {
-    await api.patch(`/release-notes/${note.id}`, { published: !note.published }); await load();
+    await api.patch(`/release-notes/${note.id}`, { published: !note.published });
+    await load();
   };
 
   if (editing !== null) return <NoteEditor note={editing} onSave={handleSave} onCancel={() => setEditing(null)} saving={saving} />;
@@ -316,18 +549,26 @@ export function ReleaseNotesAdmin() {
         <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
           {notes.map(note => {
             const meta = CATEGORY_META[note.category] || CATEGORY_META.feature;
+            const isScheduled = !note.published && note.scheduled_at && new Date(note.scheduled_at) > new Date();
             return (
               <div key={note.id} style={{ background:'#1e293b', borderRadius:12, border:'1px solid #334155', padding:'14px 16px', display:'flex', alignItems:'flex-start', gap:12 }}>
-                <div style={{ width:36, height:36, borderRadius:10, flexShrink:0, background: meta.bg + '22', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <div style={{ width:36, height:36, borderRadius:10, flexShrink:0, background: meta.color + '22', display:'flex', alignItems:'center', justifyContent:'center' }}>
                   <Ic n="sparkle" s={16} c={meta.color} />
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:4, flexWrap:'wrap' }}>
                     <span style={{ fontSize:14, fontWeight:700, color:'#e2e8f0' }}>{note.title}</span>
                     <span style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:99, background: meta.color + '22', color: meta.color }}>{meta.label}</span>
-                    {!note.published && <span style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:99, background:'#334155', color:'#94a3b8' }}>DRAFT</span>}
+                    {!note.published && !isScheduled && <span style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:99, background:'#334155', color:'#94a3b8' }}>DRAFT</span>}
+                    {isScheduled && <span style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:99, background:'#1D4ED822', color:'#60A5FA', display:'inline-flex', alignItems:'center', gap:4 }}><Ic n="calendar" s={10} c="#60A5FA"/> SCHEDULED</span>}
+                    {note.display_at_login && <span style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:99, background:'#7C3AED22', color:'#A78BFA', display:'inline-flex', alignItems:'center', gap:4 }}><Ic n="login" s={10} c="#A78BFA"/> LOGIN</span>}
+                    {note.summary_rich && <span style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:99, background:'#0CAF7722', color:'#34D399' }}>RICH</span>}
                   </div>
-                  <div style={{ fontSize:12, color:'#64748b', marginBottom:3 }}>v{note.version} · {new Date(note.published_at || note.created_at).toLocaleDateString()} · {note.features?.length || 0} features</div>
+                  <div style={{ fontSize:12, color:'#64748b', marginBottom:3 }}>
+                    v{note.version} · {isScheduled ? `Publishes ${new Date(note.scheduled_at).toLocaleString()}` : note.published_at ? new Date(note.published_at).toLocaleDateString() : 'Unpublished'}
+                    {' '}· {note.features?.length || 0} features
+                    {note.dismissed_by?.length > 0 && ` · ${note.dismissed_by.length} dismissed`}
+                  </div>
                   <div style={{ fontSize:12, color:'#94a3b8' }}>{note.summary}</div>
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>

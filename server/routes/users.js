@@ -220,13 +220,28 @@ router.post('/exchange-impersonation', (req, res) => {
 
   if (!tokenEntry) return res.status(401).json({ error: 'Invalid or expired token' });
 
-  // Load user from tenant store
+  // Load user — try tenant store first, fall back to master (self-serve signups live there)
   const ts = loadTenantStore(tokenEntry.tenant_slug);
-  const user = (ts.users||[]).find(u => u.id === tokenEntry.user_id);
-  if (!user) return res.status(401).json({ error: 'User not found in tenant' });
+  let user = (ts.users||[]).find(u => u.id === tokenEntry.user_id);
+  let role = null;
+  let permissions = [];
 
-  const role = (ts.roles||[]).find(r => r.id === user.role_id) || null;
-  const permissions = role ? ['view','create','edit','delete','export'] : [];
+  if (user) {
+    role = (ts.roles||[]).find(r => r.id === user.role_id) || null;
+    permissions = role ? ['view','create','edit','delete','export'] : [];
+  } else {
+    // Self-serve: user is in master store
+    tenantStorage.run('master', () => {
+      const ms = getStore();
+      user = (ms.users||[]).find(u => u.id === tokenEntry.user_id);
+      if (user) {
+        role = (ms.roles||[]).find(r => r.id === user.role_id) || null;
+        permissions = role ? ['view','create','edit','delete','export'] : [];
+      }
+    });
+  }
+
+  if (!user) return res.status(401).json({ error: 'User not found' });
 
   // ── Establish a real server-side session (same as normal login) ────────────
   // Without this, all subsequent API calls from the client have no valid

@@ -774,16 +774,20 @@ router.post('/:id/impersonate', async (req, res) => {
 
     if (adminUser) {
       const token = uuidv4() + '-' + uuidv4();
-      await tenantStorage.run(slug, async () => {
-        const ts = getStore();
-        if (!ts.sessions) ts.sessions = [];
-        ts.sessions.push({
-          id: uuidv4(), user_id: adminUser.id, token,
-          tenant_slug: slug, impersonated_by: 'superadmin',
+      // Write to master store impersonation_tokens — that's where exchange-impersonation reads from
+      tenantStorage.run('master', () => {
+        const ms = getStore();
+        if (!ms.impersonation_tokens) ms.impersonation_tokens = [];
+        ms.impersonation_tokens.push({
+          id: uuidv4(), token,
+          user_id: adminUser.id,
+          tenant_slug: slug,
+          impersonated_by: 'superadmin',
+          used: false,
           created_at: new Date().toISOString(),
-          expires_at: new Date(Date.now() + 8*60*60*1000).toISOString(),
+          expires_at: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
         });
-        saveStore(slug);
+        saveStore('master');
       });
       return res.json({ ok: true, token, tenant_slug: slug, user_id: adminUser.id, email: adminUser.email, login_url: tenantUrl + '?impersonate=' + token });
     }

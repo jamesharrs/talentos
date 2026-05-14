@@ -233,6 +233,7 @@ const AUTH_EXEMPT = [
   '/campaign-links',
     '/integrations',  
   '/feature-packs',
+  '/release-notes',  // public read — published notes shown to all logged-in users
   '/superadmin', '/bot', '/analytics',
   '/sequencer/unsubscribe',
   '/attachments/file',

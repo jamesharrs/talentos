@@ -742,7 +742,7 @@ router.delete('/:id', (req, res) => {
 });
 
 // POST /:id/impersonate — generate a login URL for the client's admin user
-router.post('/:id/impersonate', (req, res) => {
+router.post('/:id/impersonate', async (req, res) => {
   try {
     ensureCollections();
     const s = getStore();
@@ -752,30 +752,34 @@ router.post('/:id/impersonate', (req, res) => {
     const slug = client.tenant_slug;
     if (!slug) return res.status(400).json({ error: 'Client has no tenant slug' });
 
-    // Load the tenant store to find the admin user
-    const ts = loadTenantStore(slug);
-    const adminUser = (ts.users||[]).find(u =>
-      !u.deleted_at && (u.is_super_admin || u.role_name === 'Super Admin')
-    ) || (ts.users||[])[0];
+    let result;
+    await tenantStorage.run(slug, async () => {
+      const ts = getStore();
+      const adminUser = (ts.users||[]).find(u =>
+        !u.deleted_at && (u.is_super_admin || u.role_name === 'Super Admin' || u.role_name === 'Admin')
+      ) || (ts.users||[]).find(u => !u.deleted_at);
 
-    if (!adminUser) return res.status(404).json({ error: 'No admin user found for this client' });
+      if (!adminUser) { result = { error: 'No users found for this client' }; return; }
 
-    // Create a session token in the tenant store
-    const token = uuidv4() + '-' + uuidv4();
-    if (!ts.sessions) ts.sessions = [];
-    ts.sessions.push({
-      id: uuidv4(), user_id: adminUser.id, token,
-      tenant_slug: slug, impersonated_by: 'superadmin',
-      created_at: new Date().toISOString(),
+      const token = uuidv4() + '-' + uuidv4();
+      if (!ts.sessions) ts.sessions = [];
+      ts.sessions.push({
+        id: uuidv4(), user_id: adminUser.id, token,
+        tenant_slug: slug, impersonated_by: 'superadmin',
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 8*60*60*1000).toISOString(),
+      });
+      saveStore(slug);
+
+      result = {
+        ok: true, token, tenant_slug: slug,
+        user_id: adminUser.id, email: adminUser.email,
+        login_url: 'https://' + slug + '.vercentic.com?impersonate=' + token,
+      };
     });
-    saveStore(slug);
 
-    const tenantUrl = 'https://' + slug + '.vercentic.com';
-    res.json({
-      ok: true, token, tenant_slug: slug,
-      user_id: adminUser.id, email: adminUser.email,
-      login_url: tenantUrl + '?impersonate=' + token,
-    });
+    if (result && result.error) return res.status(404).json(result);
+    res.json(result);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

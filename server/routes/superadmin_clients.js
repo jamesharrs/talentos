@@ -741,4 +741,43 @@ router.delete('/:id', (req, res) => {
   saveStore(); res.json({ success: true });
 });
 
+// POST /:id/impersonate — generate a login URL for the client's admin user
+router.post('/:id/impersonate', (req, res) => {
+  try {
+    ensureCollections();
+    const s = getStore();
+    const client = (s.clients||[]).find(c => c.id === req.params.id && !c.deleted_at);
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+
+    const slug = client.tenant_slug;
+    if (!slug) return res.status(400).json({ error: 'Client has no tenant slug' });
+
+    // Load the tenant store to find the admin user
+    const ts = loadTenantStore(slug);
+    const adminUser = (ts.users||[]).find(u =>
+      !u.deleted_at && (u.is_super_admin || u.role_name === 'Super Admin')
+    ) || (ts.users||[])[0];
+
+    if (!adminUser) return res.status(404).json({ error: 'No admin user found for this client' });
+
+    // Create a session token in the tenant store
+    const token = uuidv4() + '-' + uuidv4();
+    if (!ts.sessions) ts.sessions = [];
+    ts.sessions.push({
+      id: uuidv4(), user_id: adminUser.id, token,
+      tenant_slug: slug, impersonated_by: 'superadmin',
+      created_at: new Date().toISOString(),
+    });
+    saveStore(slug);
+
+    const tenantUrl = 'https://' + slug + '.vercentic.com';
+    res.json({
+      ok: true, token, tenant_slug: slug,
+      user_id: adminUser.id, email: adminUser.email,
+      login_url: tenantUrl + '?impersonate=' + token,
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+
 module.exports = router;

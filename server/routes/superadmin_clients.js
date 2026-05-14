@@ -619,6 +619,31 @@ router.get('/stats/overview', (req, res) => {
   res.json({ total_clients: clients.length, by_status: byStatus, by_plan: byPlan, total_environments: totalEnvs, total_client_users: totalUsers, total_records: totalRecs, data_store_kb: fileSizeKB, top_environments: topEnvs });
 });
 
+router.get('/:id/stats', (req, res) => {
+  const s = getStore(); ensureCollections();
+  const client = (s.clients||[]).find(c=>c.id===req.params.id&&!c.deleted_at);
+  if (!client) return res.status(404).json({ error: 'Client not found' });
+  const envs    = (s.client_environments||[]).filter(e=>e.client_id===client.id&&!e.deleted_at);
+  const users   = (s.users||[]).filter(u=>u.client_id===client.id&&!u.deleted_at);
+  const objects = (s.objects||[]).filter(o=>!o.deleted_at&&envs.some(e=>e.id===o.environment_id));
+  const records = (s.records||[]).filter(r=>!r.deleted_at&&objects.some(o=>o.id===r.object_id));
+  const logs    = (s.provision_log||[]).filter(l=>l.client_id===client.id);
+  const envsWithStats = envs.map(env => {
+    const objCount = objects.filter(o=>o.environment_id===env.id).length;
+    const recCount = records.filter(r=>objects.find(o=>o.id===r.object_id)?.environment_id===env.id).length;
+    return { ...env, object_count: objCount, record_count: recCount };
+  });
+  res.json({
+    environment_count: envs.length,
+    record_count:      records.length,
+    user_count:        users.length,
+    object_count:      objects.length,
+    environments:      envsWithStats,
+    provision_log:     logs,
+    sandboxes:         [],
+  });
+});
+
 router.get('/:id', (req, res) => {
   const s = getStore(); ensureCollections();
   const client = (s.clients||[]).find(c=>c.id===req.params.id&&!c.deleted_at);

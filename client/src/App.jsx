@@ -757,6 +757,21 @@ const EnvironmentBadge = ({ env, selected, onClick }) => (
   </button>
 );
 
+// ─── Rich content styles for release notes (shared with ReleaseNotes.jsx) ────
+if (typeof document !== 'undefined' && !document.getElementById('rn-rich-styles')) {
+  const _s = document.createElement('style');
+  _s.id = 'rn-rich-styles';
+  _s.textContent = [
+    '.rn-rich-body img{max-width:100%;border-radius:8px;margin:8px 0;display:block}',
+    '.rn-rich-body b,.rn-rich-body strong{font-weight:700}',
+    '.rn-rich-body i,.rn-rich-body em{font-style:italic}',
+    '.rn-rich-body a{color:var(--t-accent,#4361EE);text-decoration:underline}',
+    '.rn-rich-body iframe{max-width:100%;border-radius:8px;margin:8px 0}',
+    '.rn-rich-body p{margin:0 0 8px}',
+  ].join('');
+  document.head.appendChild(_s);
+}
+
 // ─── Global Search Bar ────────────────────────────────────────────────────────
 const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateToRecord, onCreateRecord, onNavigateToCalendar, historySlot, activeDashTab, onDashboardNav }) => {
   // userId must be read locally — GlobalSearch is module-level, not inside App()
@@ -1301,11 +1316,14 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
                             <div style={{ fontSize:11, color:"var(--t-text3)", marginBottom:10 }}>
                               {new Date(selRelease.published_at).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
                             </div>
-                            {selRelease.summary && (
+                            {selRelease.summary_rich ? (
+                              <div className="rn-rich-body" style={{ fontSize:13, color:"var(--t-text2)", lineHeight:1.7, marginBottom:14 }}
+                                dangerouslySetInnerHTML={{ __html: selRelease.summary_rich }} />
+                            ) : selRelease.summary ? (
                               <div style={{ fontSize:13, color:"var(--t-text2)", lineHeight:1.6, marginBottom:14, padding:"10px 12px", background:"var(--t-bg,#f7f8fc)", borderRadius:8 }}>
                                 {selRelease.summary}
                               </div>
-                            )}
+                            ) : null}
                             {selRelease.features?.length > 0 && (
                               <div>
                                 <div style={{ fontSize:11, fontWeight:700, color:"var(--t-text3)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>What's included</div>
@@ -1587,6 +1605,7 @@ function App({ onEnvReady }) {
   // clear the stale session so the user is prompted to log in fresh.
   // This prevents cross-tenant bleed when a user visits a different subdomain.
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const loginModalChecked = useRef(false);
   const [session, setSession] = useState(() => {
     const sess = getSession();
     const subdomainSlug = getTenantSlug();
@@ -1859,6 +1878,13 @@ activeNavRef.current = activeNav;
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiOnline, session]);
+
+  // Trigger login modal once per session — fires whether session came from fresh login or localStorage
+  useEffect(() => {
+    if (!session?.user?.id || loginModalChecked.current) return;
+    loginModalChecked.current = true;
+    setShowLoginModal(true);
+  }, [session?.user?.id]);
 
   // When any API call returns 401, clear the local session and show the login screen
   useEffect(() => {
@@ -2364,7 +2390,7 @@ activeNavRef.current = activeNav;
 
   // Show login page if no session
   if (!session) {
-    return <LoginPage onLogin={(s) => { setSession(s); if (s?.user?.id) setShowLoginModal(true); }} />;
+    return <LoginPage onLogin={(s) => { setSession(s); }} />;
   }
 
   // Show setup screen while provisioning is in progress

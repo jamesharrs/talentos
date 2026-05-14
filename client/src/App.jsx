@@ -78,6 +78,7 @@ const HelpPage          = lazyWithRetry(() => import("./Help.jsx"));
 const CompanySetupWizard = lazyWithRetry(() => import("./CompanySetupWizard.jsx"));
 import GettingStarted, { WelcomeModal } from "./GettingStarted";
 import { ComposeModal } from "./Communications.jsx";
+import { ReleaseNotesLoginModal } from "./ReleaseNotes.jsx";
 const MatchingEngine    = lazyWithRetry(() => import("./AI.jsx").then(m => ({ default: m.MatchingEngine })));
 const useInboxUnreadCount = () => 0; // lightweight stub until Inbox lazy-loads
 const useIsMobile       = () => typeof window !== 'undefined' && window.innerWidth < 768;
@@ -1585,6 +1586,7 @@ function App({ onEnvReady }) {
   // If the subdomain doesn't match the stored session's tenant_slug,
   // clear the stale session so the user is prompted to log in fresh.
   // This prevents cross-tenant bleed when a user visits a different subdomain.
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [session, setSession] = useState(() => {
     const sess = getSession();
     const subdomainSlug = getTenantSlug();
@@ -2362,7 +2364,7 @@ activeNavRef.current = activeNav;
 
   // Show login page if no session
   if (!session) {
-    return <LoginPage onLogin={(s) => setSession(s)} />;
+    return <LoginPage onLogin={(s) => { setSession(s); setShowLoginModal(true); }} />;
   }
 
   // Show setup screen while provisioning is in progress
@@ -2845,6 +2847,12 @@ activeNavRef.current = activeNav;
           environment={selectedEnv}
           onSave={() => setBulkCompose(null)}
           onClose={() => setBulkCompose(null)}
+        />
+      )}
+      {showLoginModal && userId && (
+        <ReleaseNotesLoginModal
+          userId={userId}
+          onDone={() => setShowLoginModal(false)}
         />
       )}
     </PermissionProvider>

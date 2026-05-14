@@ -377,6 +377,35 @@ export function ReleaseNotesLoginModal({ userId, onDone }) {
   );
 }
 
+// ── Shared editor primitives (module-level — never inside a render fn) ────────
+const S_INPUT = {
+  width:'100%', padding:'8px 12px', borderRadius:8,
+  border:'1px solid var(--t-border,#334155)',
+  background:'var(--t-surface2,#1e293b)', color:'var(--t-text1,#e2e8f0)',
+  fontSize:13, fontFamily:F, boxSizing:'border-box', outline:'none',
+};
+
+function EditorLabel({ children }) {
+  return <label style={{ fontSize:12, fontWeight:700, color:'var(--t-text3,#94a3b8)', display:'block', marginBottom:5 }}>{children}</label>;
+}
+function EditorField({ label, children }) {
+  return <div style={{ marginBottom:14 }}><EditorLabel>{label}</EditorLabel>{children}</div>;
+}
+function EditorToggle({ checked, onChange, label, sublabel }) {
+  return (
+    <label style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer', marginBottom:12 }}>
+      <div onClick={() => onChange(!checked)}
+        style={{ width:36, height:20, borderRadius:99, background: checked ? '#7C3AED' : '#334155', position:'relative', cursor:'pointer', transition:'background .2s', flexShrink:0 }}>
+        <div style={{ width:16, height:16, borderRadius:99, background:'#fff', position:'absolute', top:2, left: checked ? 18 : 2, transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }}/>
+      </div>
+      <div>
+        <div style={{ fontSize:13, fontWeight:600, color:'var(--t-text1,#e2e8f0)', fontFamily:F }}>{label}</div>
+        {sublabel && <div style={{ fontSize:11, color:'var(--t-text3,#64748b)', fontFamily:F }}>{sublabel}</div>}
+      </div>
+    </label>
+  );
+}
+
 // ── NoteEditor (used in ReleaseNotesAdmin) ───────────────────────────────────
 function NoteEditor({ note = {}, onSave, onCancel, saving }) {
   const [form, setForm] = useState({
@@ -402,25 +431,6 @@ function NoteEditor({ note = {}, onSave, onCancel, saving }) {
     });
   };
 
-  const S = {
-    input: { width:'100%', padding:'8px 12px', borderRadius:8, border:'1px solid var(--t-border,#334155)', background:'var(--t-surface2,#1e293b)', color:'var(--t-text1,#e2e8f0)', fontSize:13, fontFamily:F, boxSizing:'border-box', outline:'none' },
-  };
-  const Label = ({ children }) => <label style={{ fontSize:12, fontWeight:700, color:'var(--t-text3,#94a3b8)', display:'block', marginBottom:5 }}>{children}</label>;
-  const Field = ({ label, children }) => <div style={{ marginBottom:14 }}><Label>{label}</Label>{children}</div>;
-
-  const Toggle = ({ checked, onChange, label, sublabel }) => (
-    <label style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer', marginBottom:12 }}>
-      <div onClick={()=>onChange(!checked)}
-        style={{ width:36, height:20, borderRadius:99, background: checked ? '#7C3AED' : '#334155', position:'relative', cursor:'pointer', transition:'background .2s', flexShrink:0 }}>
-        <div style={{ width:16, height:16, borderRadius:99, background:'#fff', position:'absolute', top:2, left: checked ? 18 : 2, transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }}/>
-      </div>
-      <div>
-        <div style={{ fontSize:13, fontWeight:600, color:'var(--t-text1,#e2e8f0)', fontFamily:F }}>{label}</div>
-        {sublabel && <div style={{ fontSize:11, color:'var(--t-text3,#64748b)', fontFamily:F }}>{sublabel}</div>}
-      </div>
-    </label>
-  );
-
   return (
     <div style={{ padding:'24px 28px', fontFamily:F, color:'var(--t-text1,#e2e8f0)', maxHeight:'90vh', overflowY:'auto' }}>
       <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
@@ -431,44 +441,44 @@ function NoteEditor({ note = {}, onSave, onCancel, saving }) {
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-        <Field label="Version *">
-          <input value={form.version} onChange={e=>set('version',e.target.value)} placeholder="1.8.0" style={S.input}/>
-        </Field>
-        <Field label="Category">
-          <select value={form.category} onChange={e=>set('category',e.target.value)} style={{ ...S.input, background:'var(--t-surface2,#1e293b)' }}>
+        <EditorField label="Version *">
+          <input value={form.version} onChange={e=>set('version',e.target.value)} placeholder="1.8.0" style={S_INPUT}/>
+        </EditorField>
+        <EditorField label="Category">
+          <select value={form.category} onChange={e=>set('category',e.target.value)} style={{ ...S_INPUT, background:'var(--t-surface2,#1e293b)' }}>
             {Object.entries(CATEGORY_META).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
           </select>
-        </Field>
+        </EditorField>
       </div>
 
-      <Field label="Title *">
-        <input value={form.title} onChange={e=>set('title',e.target.value)} placeholder="Feature name or summary" style={S.input}/>
-      </Field>
+      <EditorField label="Title *">
+        <input value={form.title} onChange={e=>set('title',e.target.value)} placeholder="Feature name or summary" style={S_INPUT}/>
+      </EditorField>
 
-      <Field label="Plain summary (shown in cards and dropdowns)">
-        <textarea value={form.summary} onChange={e=>set('summary',e.target.value)} rows={2} placeholder="One or two sentence summary…" style={{ ...S.input, resize:'vertical' }}/>
-      </Field>
+      <EditorField label="Plain summary (shown in cards and dropdowns)">
+        <textarea value={form.summary} onChange={e=>set('summary',e.target.value)} rows={2} placeholder="One or two sentence summary…" style={{ ...S_INPUT, resize:'vertical' }}/>
+      </EditorField>
 
-      <Field label="Rich description (supports text, images, video)">
+      <EditorField label="Rich description (supports text, images, video)">
         <div style={{ background:'#fff', borderRadius:10 }}>
           <RichEditor value={form.summary_rich} onChange={v => set('summary_rich', v)} />
         </div>
-      </Field>
+      </EditorField>
 
-      <Field label="Feature list (one per line)">
-        <textarea value={form.features} onChange={e=>set('features',e.target.value)} rows={5} placeholder="Each feature on its own line…" style={{ ...S.input, resize:'vertical' }}/>
-      </Field>
+      <EditorField label="Feature list (one per line)">
+        <textarea value={form.features} onChange={e=>set('features',e.target.value)} rows={5} placeholder="Each feature on its own line…" style={{ ...S_INPUT, resize:'vertical' }}/>
+      </EditorField>
 
       {/* Publishing options */}
       <div style={{ background:'#0f172a', borderRadius:10, border:'1px solid #334155', padding:16, marginBottom:16 }}>
         <div style={{ fontSize:11, fontWeight:700, color:'#64748b', marginBottom:14, textTransform:'uppercase', letterSpacing:'0.06em' }}>Publishing</div>
-        <Toggle checked={form.published} onChange={v=>set('published',v)} label="Published" sublabel="Visible to all users in the What's New panel" />
+        <EditorToggle checked={form.published} onChange={v=>set('published',v)} label="Published" sublabel="Visible to all users in the What's New panel" />
         {!form.published && (
           <div style={{ marginBottom:12 }}>
-            <Label><span style={{ display:'flex', alignItems:'center', gap:5 }}><Ic n="calendar" s={12} c="#7C3AED"/> Schedule publish date</span></Label>
+            <EditorLabel><span style={{ display:'flex', alignItems:'center', gap:5 }}><Ic n="calendar" s={12} c="#7C3AED"/> Schedule publish date</span></EditorLabel>
             <input type="datetime-local" value={form.scheduled_at} onChange={e=>set('scheduled_at',e.target.value)}
               min={new Date().toISOString().slice(0,16)}
-              style={{ ...S.input }}/>
+              style={S_INPUT}/>
             {form.scheduled_at && (
               <div style={{ fontSize:11, color:'#7C3AED', marginTop:5, fontFamily:F }}>
                 Will publish on {new Date(form.scheduled_at).toLocaleString()}
@@ -476,7 +486,7 @@ function NoteEditor({ note = {}, onSave, onCancel, saving }) {
             )}
           </div>
         )}
-        <Toggle checked={form.display_at_login} onChange={v=>set('display_at_login',v)}
+        <EditorToggle checked={form.display_at_login} onChange={v=>set('display_at_login',v)}
           label={<span style={{ display:'flex', alignItems:'center', gap:5 }}><Ic n="login" s={12} c="#e2e8f0"/> Show at login</span>}
           sublabel="Pop up as a modal when users log in (until they dismiss it)" />
       </div>

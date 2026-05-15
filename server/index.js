@@ -356,6 +356,7 @@ app.use('/api/ai-interview',      require('./routes/ai_interview'));
 
 // ── Communications ────────────────────────────────────────────────────────────
 app.use('/api/comms',             require('./routes/communications'));
+app.use('/api/email-domains',     require('./routes/email_domains'));
 app.use('/api/engagement',        require('./routes/engagement'));
 app.use('/api/inbox',             require('./routes/inbox'));
 app.use('/api/feature-packs',     require('./routes/feature_packs'));

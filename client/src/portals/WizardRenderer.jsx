@@ -490,7 +490,25 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
   const color = c.primary || '#4361EE';
   const br = portal.branding || {};
 
-  const pages = (wizard.pages || []).filter(p => !p.hidden);
+  // ── Resolve pages: check if a conditional flow variant matches the job ───
+  const resolvedPages = (() => {
+    const variants = wizard.flow_variants || [];
+    if (variants.length && job?.data) {
+      const jd = job.data;
+      // Sort by priority ascending (lower number = higher priority)
+      const sorted = [...variants].sort((a,b) => (a.priority||99) - (b.priority||99));
+      for (const v of sorted) {
+        const {field, op, value} = v.filter || {};
+        if (!field || !value) continue;
+        const jv = String(jd[field] || '').toLowerCase();
+        const fv = String(value || '').toLowerCase();
+        const matches = op === 'contains' ? jv.includes(fv) : op === 'not' ? jv !== fv : jv === fv;
+        if (matches && v.pages?.length) return v.pages.filter(p => !p.hidden);
+      }
+    }
+    return (wizard.pages || []).filter(p => !p.hidden);
+  })();
+  const pages = resolvedPages;
   const showProgress = wizard.show_progress !== false && pages.length > 1;
   const allowDraft   = wizard.allow_save_draft !== false;
 

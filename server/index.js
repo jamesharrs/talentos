@@ -235,6 +235,7 @@ const AUTH_EXEMPT = [
   '/feature-packs',
   '/release-notes',  // public read — published notes shown to all logged-in users
   '/superadmin', '/bot', '/analytics',
+  '/candidate-hub/verify',  // public — candidate opens hub link, no auth
   '/sequencer/unsubscribe',
   '/attachments/file',
   '/attachments/upload',
@@ -375,6 +376,7 @@ app.use('/api/interview-types',   require('./routes/interview_types'));
 app.use('/api/interview-plans',   require('./routes/interview_plans'));
 app.use('/api/interview-coordinator', require('./routes/interview_coordinator'));
 app.use('/api/offers',            require('./routes/offers'));
+app.use('/api/candidate-hub',     require('./routes/candidate_hub'));
 app.use('/api/cohorts',          require('./routes/cohorts'));
 app.use('/api/cohort-messages',  require('./routes/cohort_messages'));
 app.use('/api/cohort-auth',      require('./routes/cohort_auth'));

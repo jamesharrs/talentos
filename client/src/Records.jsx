@@ -5602,9 +5602,118 @@ const UserPanel = ({ record }) => {
   );
 };
 
+// CandidateHubPanel — generate and manage hub links for candidates
+function CandidateHubPanel({ record, environment }) {
+  const [tokens, setTokens]       = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [copied, setCopied]       = useState(false);
+  const [error, setError]         = useState(null);
+
+  const load = useCallback(async () => {
+    if (!record?.id) return;
+    setLoading(true);
+    try {
+      const data = await api.get(`/candidate-hub/tokens?candidate_id=${record.id}`);
+      setTokens(Array.isArray(data) ? data : []);
+    } catch { setError('Failed to load hub tokens'); }
+    finally { setLoading(false); }
+  }, [record?.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const activeToken = tokens.find(t => t.status === 'active');
+
+  const generate = async () => {
+    setGenerating(true); setError(null);
+    try {
+      const data = await api.post('/candidate-hub/token', { candidate_id: record.id, environment_id: environment?.id, expires_days: 30 });
+      await load();
+      if (data.hub_url) { navigator.clipboard.writeText(data.hub_url).catch(()=>{}); setCopied(true); setTimeout(()=>setCopied(false), 3000); }
+    } catch { setError('Failed to generate hub link'); }
+    finally { setGenerating(false); }
+  };
+
+  const revoke = async (tokenId) => {
+    if (!window.confirm('Revoke this hub link? The candidate will no longer be able to access their hub.')) return;
+    await api.delete(`/candidate-hub/tokens/${tokenId}`);
+    await load();
+  };
+
+  const copyLink = (url) => { navigator.clipboard.writeText(url).catch(()=>{}); setCopied(true); setTimeout(()=>setCopied(false), 3000); };
+
+  const formatExpiry = (str) => {
+    if (!str) return '';
+    const days = Math.ceil((new Date(str) - Date.now()) / 86400000);
+    if (days <= 0) return 'Expired';
+    if (days === 1) return 'Expires tomorrow';
+    if (days <= 7) return `Expires in ${days} days`;
+    return `Expires ${new Date(str).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`;
+  };
+
+  if (loading) return <div style={{padding:20,textAlign:'center',color:C.text3,fontSize:13}}>Loading…</div>;
+
+  return (
+    <div style={{padding:'16px 20px'}}>
+      <div style={{marginBottom:16,padding:'12px 14px',background:C.accentLight||'#EEF0FF',borderRadius:10,border:`1px solid ${C.accent}20`,fontSize:12,color:C.text2,lineHeight:1.6}}>
+        The Candidate Hub gives this candidate a private, secure link to view their application status, interviews, offers, and messages.
+      </div>
+      {error && <div style={{marginBottom:12,padding:'10px 14px',background:'#FEF2F2',border:'1px solid #DC262620',borderRadius:8,fontSize:12,color:'#DC2626'}}>{error}</div>}
+      {activeToken ? (
+        <div style={{background:'#F0FDF4',border:'1px solid #0CA67830',borderRadius:12,overflow:'hidden',marginBottom:12}}>
+          <div style={{padding:'12px 16px',borderBottom:'1px solid #0CA67820',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <div style={{width:8,height:8,borderRadius:'50%',background:'#0CA678'}}/>
+              <span style={{fontSize:13,fontWeight:700,color:'#065F46'}}>Active Hub Link</span>
+            </div>
+            <span style={{fontSize:11,color:C.text3}}>{formatExpiry(activeToken.expires_at)}</span>
+          </div>
+          <div style={{padding:'12px 16px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,padding:'8px 12px',background:'white',borderRadius:8,border:`1px solid ${C.border}`}}>
+              <span style={{flex:1,fontSize:11,color:C.text3,fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{activeToken.hub_url}</span>
+              <button onClick={()=>copyLink(activeToken.hub_url)} style={{flexShrink:0,padding:'4px 10px',borderRadius:6,border:`1px solid ${C.accent}`,background:copied?C.accent:'white',color:copied?'white':C.accent,fontSize:11,fontWeight:700,cursor:'pointer',transition:'all 0.15s'}}>
+                {copied?'✓ Copied':'Copy'}
+              </button>
+            </div>
+            <div style={{display:'flex',gap:16,fontSize:12,color:C.text3,marginBottom:12}}>
+              <span><strong style={{color:C.text1}}>{activeToken.access_count||0}</strong> views</span>
+              {activeToken.last_accessed && <span>Last accessed {new Date(activeToken.last_accessed).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>}
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <a href={activeToken.hub_url} target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:8,fontSize:12,fontWeight:600,background:C.accent,color:'white',textDecoration:'none'}}>Preview ↗</a>
+              <button onClick={generate} disabled={generating} style={{padding:'7px 14px',borderRadius:8,fontSize:12,fontWeight:600,border:`1px solid ${C.border}`,background:'white',color:C.text2,cursor:'pointer'}}>
+                {generating?'Regenerating…':'Regenerate'}
+              </button>
+              <button onClick={()=>revoke(activeToken.id)} style={{padding:'7px 14px',borderRadius:8,fontSize:12,fontWeight:600,border:'1px solid #FEE2E2',background:'#FEF2F2',color:'#DC2626',cursor:'pointer',marginLeft:'auto'}}>Revoke</button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div style={{textAlign:'center',padding:'20px 0'}}>
+          <div style={{fontSize:13,color:C.text3,marginBottom:16}}>No active hub link. Generate one to share with the candidate.</div>
+          <button onClick={generate} disabled={generating} style={{padding:'10px 24px',borderRadius:10,border:'none',background:C.accent,color:'white',fontSize:14,fontWeight:700,cursor:generating?'wait':'pointer',display:'inline-flex',alignItems:'center',gap:8}}>
+            {generating?'Generating…':'⚡ Generate Hub Link'}
+          </button>
+        </div>
+      )}
+      {tokens.filter(t=>t.status!=='active').length>0 && (
+        <details style={{marginTop:8}}>
+          <summary style={{fontSize:12,color:C.text3,cursor:'pointer',padding:'4px 0'}}>{tokens.filter(t=>t.status!=='active').length} previous link(s)</summary>
+          <div style={{marginTop:8}}>{tokens.filter(t=>t.status!=='active').map(t=>(
+            <div key={t.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',fontSize:12,color:C.text3,borderBottom:`1px solid ${C.border}`}}>
+              <span>{t.status} · {new Date(t.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span>
+              <span>{t.access_count||0} views</span>
+            </div>
+          ))}</div>
+        </details>
+      )}
+    </div>
+  );
+}
+
 function ReportingPanel({ record, environment }) {
-  const [rels, setRels]         = useState([]);
   const [allPeople, setAllPeople] = useState([]);
+  const [rels, setRels]         = useState([]);
   const [adding, setAdding]     = useState(false);
   const [form, setForm]         = useState({ type:"reports_to", to_record_id:"" });
   const [search, setSearch]     = useState("");
@@ -7304,6 +7413,7 @@ export const PANEL_META = {
   match:        { icon:"sparkles",      label:"Recommendations",     defaultOpen:false },
   reporting:    { icon:"gitBranch",     label:"Reporting",           defaultOpen:true,  personOnly:true },
   user:         { icon:"user",          label:"Platform User",       defaultOpen:false, hidden:true },
+  hub:          { icon:"link",          label:"Candidate Hub",       defaultOpen:false, personOnly:true },
   scorecard:    { icon:"clipboard",     label:"Scorecards",          defaultOpen:false, jobOnly:true },
   job_tasks:    { icon:"checkSquare",   label:"Job Tasks",           defaultOpen:true,  jobOnly:true },
   assessments:  { icon:"clipboard",     label:"Assessments",         defaultOpen:true,  personOnly:true },
@@ -9063,7 +9173,7 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
       // Job groups
       "grp_interview_plan_coordination_questions_scorecard": false,
       "grp_job_tasks_tasks": false,
-      "grp_notes_attachments_forms": false,
+      "grp_notes_attachments_forms_job": false,
     };
   });
   const [composeType, setComposeType] = useState(null);   // drives compose modal in CommunicationsPanel
@@ -10301,7 +10411,8 @@ export const RecordDetail = ({ record, fields, allObjects, environment, objectNa
     if (id==="linked") return <LinkedRecordsPanel record={record} environment={environment} onNavigate={onNavigate} activeJobContext={activeJobContext} onSetJobContext={setActiveJobContext}/>;
     if (id==="reporting") return <ReportingPanel record={record} environment={environment}/>;
     if (id==="user") return <UserPanel record={record}/>;
-    if (id==="scorecard")    return ff.interviews ? <ScorecardPanel record={record} environment={environment}/> : null;
+    if (id==="hub")  return <CandidateHubPanel record={record} environment={environment}/>;
+    if (id==="scorecard") return ff.interviews ? <ScorecardPanel record={record} environment={environment}/> : null;
     if (id==="interview_plan") return ff.interviews ? <Suspense fallback={<div style={{padding:"20px",textAlign:"center",color:"#9ca3af",fontSize:13}}>Loading…</div>}><InterviewPlanPanelLazy record={record} environment={environment} onNavigate={onNavigate}/></Suspense> : null;    if (id==="assessments")  return <AssessmentsPanel record={record} environment={environment}/>;
     if (id==="engagement") return <EngagementPanel recordId={record?.id}/>;
     if (id==="questions") return <JobQuestionsPanel record={record} environment={environment}/>;

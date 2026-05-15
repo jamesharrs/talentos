@@ -31,6 +31,9 @@ const CSRF_EXEMPT_PREFIXES = [
   '/api/portals',          // public portal apply / job list / session endpoints
   '/api/portal-auth',
   '/api/portal-public',
+  '/api/portal-copilot',   // candidate-facing copilot — public, no cookie session
+  '/api/portal-analytics', // public analytics tracking
+  '/api/portal-feedback',  // public feedback widget
   '/api/comms/webhook',    // Twilio inbound webhooks
   '/api/campaign-links',
   '/api/superadmin/auth',

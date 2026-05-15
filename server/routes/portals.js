@@ -127,7 +127,7 @@ router.patch('/:id', (req, res) => {
     if (conflict) return res.status(409).json({ error: `Slug "${newSlug}" already exists in this environment`, existing_id: conflict.id });
   }
 
-  const allowed = ['name', 'slug', 'description', 'status', 'theme', 'pages', 'nav', 'footer', 'branding', 'gdpr', 'feedback', 'config', 'custom_domain', 'type', 'access_type', 'allowed_roles', 'copilot'];
+  const allowed = ['name', 'slug', 'description', 'status', 'theme', 'pages', 'nav', 'footer', 'branding', 'gdpr', 'feedback', 'config', 'custom_domain', 'type', 'access_type', 'allowed_roles', 'copilot', 'hub', 'wizard', 'equal_opps', 'ab_variants'];
   const updates = { updated_at: new Date().toISOString() };
   allowed.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
   store.portals[idx] = { ...store.portals[idx], ...updates };

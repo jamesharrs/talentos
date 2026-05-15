@@ -20,7 +20,7 @@ router.post('/auth', (req, res) => {
     ) || (store.users||[])[0];
     // Set a server-side session so API calls from the SA console are authenticated
     req.session.userId     = admin?.id;
-    req.session.tenantSlug = store.tenant?.slug || 'production';
+    req.session.tenantSlug = 'master'; // SA console always operates in master store context
     req.session.save(() => {});
     res.json({
       ok: true,

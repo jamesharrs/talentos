@@ -419,11 +419,43 @@ const JobsWidget = ({ cfg, theme, portal, api, track, defaultSlug }) => {
           const fieldDef = objFields.find(fd => fd.api_key === k);
           return { key: k, label: fieldDef?.name || k.replace(/_/g,' '), type: fieldDef?.field_type || 'text' };
         });
+
+    // Skill pill renderer
+    const renderSkillPills = (val, color, border) => {
+      const skills = (Array.isArray(val) ? val : String(val).split(',')).map(s => s.trim()).filter(Boolean);
+      return (
+        <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:4 }}>
+          {skills.map((s,i) => (
+            <span key={i} style={{ display:'inline-flex', alignItems:'center', padding:'3px 10px', borderRadius:99,
+              fontSize:12, fontWeight:600, background:color, color:border, border:`1.5px solid ${border}30` }}>
+              {s}
+            </span>
+          ))}
+        </div>
+      );
+    };
+
     return (
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:12 }}>
+        {/* Required skills — full width, accent coloured pills */}
+        {d.required_skills && (
+          <div style={{ gridColumn:'1 / -1', padding:'10px 0', borderBottom:'1px solid #F1F5F9' }}>
+            <div style={{ fontSize:11, fontWeight:700, color:pr, opacity:0.8, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:3 }}>Required Skills</div>
+            {renderSkillPills(d.required_skills, pr+'18', pr)}
+          </div>
+        )}
+        {/* Nice-to-have skills — full width, grey pills */}
+        {d.nice_to_have_skills && (
+          <div style={{ gridColumn:'1 / -1', padding:'10px 0', borderBottom:'1px solid #F1F5F9' }}>
+            <div style={{ fontSize:11, fontWeight:700, color:'#6B7280', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:3 }}>Nice-to-have Skills</div>
+            {renderSkillPills(d.nice_to_have_skills, '#F3F4F6', '#6B7280')}
+          </div>
+        )}
         {fieldList.map(f => {
           const v = d[f.key];
           if (v === undefined || v === null || v === '') return null;
+          // Skip skills — already rendered above
+          if (f.key === 'required_skills' || f.key === 'nice_to_have_skills') return null;
           const isLong = f.type === 'textarea' || f.type === 'rich_text' || (typeof v === 'string' && v.length > 120);
           return (
             <div key={f.key} style={{ padding:'10px 0', borderBottom:'1px solid #F1F5F9', ...(isLong ? { gridColumn:'1 / -1' } : {}) }}>
@@ -447,28 +479,31 @@ const JobsWidget = ({ cfg, theme, portal, api, track, defaultSlug }) => {
         <div style={{ fontSize:13, color:tc+'99', marginBottom:16 }}>{[d.department, d.location, d.work_type].filter(Boolean).join(' · ')}</div>
         {renderDetailFields(d)}
         <div style={{ marginTop:20 }}>
-          {wizardOpen && portal.wizard?.enabled && portal.wizard?.pages?.length ? (
-            <WizardRenderer
-              wizard={portal.wizard}
-              portal={portal}
-              job={selected}
-              api={api}
-              onBack={() => setWizardOpen(false)}
-              onSuccess={() => { setWizardOpen(false); setSelected(null); setApplying(true); }}
-            />
+          {wizardOpen ? (
+            portal.wizard?.enabled && portal.wizard?.pages?.length ? (
+              <WizardRenderer
+                wizard={portal.wizard}
+                portal={portal}
+                job={selected}
+                api={api}
+                onBack={() => setWizardOpen(false)}
+                onSuccess={() => { setWizardOpen(false); setSelected(null); setApplying(true); }}
+              />
+            ) : (
+              <div style={{ padding:16, background:pr+'08', borderRadius:br, border:'1px solid '+pr+'20' }}>
+                <p style={{ margin:'0 0 8px', fontSize:14, fontWeight:600, color:tc }}>✓ Application submitted!</p>
+                <p style={{ margin:0, fontSize:13, color:tc+'80' }}>Thank you. We'll be in touch.</p>
+              </div>
+            )
           ) : applying ? (
             <div style={{ padding:16, background:pr+'08', borderRadius:br, border:'1px solid '+pr+'20' }}>
-              <p style={{ margin:'0 0 8px', fontSize:14, fontWeight:600, color:tc }}>Application submitted!</p>
+              <p style={{ margin:'0 0 8px', fontSize:14, fontWeight:600, color:tc }}>✓ Application submitted!</p>
               <p style={{ margin:0, fontSize:13, color:tc+'80' }}>Thank you. We'll be in touch.</p>
             </div>
           ) : (
             <button onClick={() => {
                 if(track) track('job_click', { job_id: selected.id, title: d.job_title });
-                if (portal.wizard?.enabled && portal.wizard?.pages?.length) {
-                  setWizardOpen(true);
-                } else {
-                  setApplying(true);
-                }
+                setWizardOpen(true);
               }}
               style={{ padding:'12px 28px', borderRadius:br, background:pr, color:'white', border:'none', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:ff }}>
               {portal.wizard?.trigger?.apply_label || 'Apply Now'}
@@ -496,19 +531,63 @@ const JobsWidget = ({ cfg, theme, portal, api, track, defaultSlug }) => {
     );
   }
 
+  const PAGE_SIZE = cfg.pageSize || 25;
+  const [page, setPage] = useState(1);
+  // Extra configurable filters from widget settings
+  const extraFilters = cfg.extraFilters || []; // [{field:'work_type',label:'Work type'},{field:'employment_type',label:'Type'}]
+  const [extraVals, setExtraVals] = useState({});
+
+  const fullyFiltered = filtered.filter(r => {
+    const d = r.data || {};
+    return extraFilters.every(ef => {
+      const val = extraVals[ef.field];
+      if (!val || val === 'all') return true;
+      return String(d[ef.field]||'').toLowerCase() === val.toLowerCase();
+    });
+  });
+
+  const totalPages = Math.ceil(fullyFiltered.length / PAGE_SIZE);
+  const pageRecords = fullyFiltered.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+
+  // Reset page when filters change
+  const resetPage = () => setPage(1);
+
   const placeholder = isPeople ? 'Search people...' : 'Search roles...';
-  const countLabel = isJobs ? filtered.length+' open position'+(filtered.length!==1?'s':'') : filtered.length+' '+(objMeta?.plural_name||'records').toLowerCase();
+  const countLabel = isJobs
+    ? fullyFiltered.length+' open position'+(fullyFiltered.length!==1?'s':'')
+    : fullyFiltered.length+' '+(objMeta?.plural_name||'records').toLowerCase();
+
+  const selStyle = { padding:'8px 12px', borderRadius:br, border:'1px solid '+pr+'30', fontSize:13, fontFamily:ff, background:'white', outline:'none' };
 
   return (
     <div style={{ fontFamily:ff }}>
       <h2 style={{ fontSize:clamp(cfg.headingSize||22), fontWeight:700, color:tc, margin:'0 0 16px', fontFamily:theme.headingFont||ff }}>{cfg.heading || (isPeople ? 'Our Team' : 'Open Positions')}</h2>
       <div style={{ display:'flex', gap:8, marginBottom:16, flexWrap:'wrap' }}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={placeholder} style={{ flex:'1 1 200px', padding:'8px 12px', borderRadius:br, border:'1px solid '+pr+'30', fontSize:13, fontFamily:ff, outline:'none' }}/>
-        {depts.length > 1 && <select value={dept} onChange={e=>setDept(e.target.value)} style={{ padding:'8px 12px', borderRadius:br, border:'1px solid '+pr+'30', fontSize:13, fontFamily:ff, background:'white' }}><option value="all">All departments</option>{depts.map(d=><option key={d} value={d}>{d}</option>)}</select>}
-        {locs.length > 1 && cfg.showLocationFilter && <select value={location} onChange={e=>setLocation(e.target.value)} style={{ padding:'8px 12px', borderRadius:br, border:'1px solid '+pr+'30', fontSize:13, fontFamily:ff, background:'white' }}><option value="all">All locations</option>{locs.map(l=><option key={l} value={l}>{l}</option>)}</select>}
+        <input value={search} onChange={e=>{setSearch(e.target.value);resetPage();}} placeholder={placeholder}
+          style={{ flex:'1 1 200px', padding:'8px 12px', borderRadius:br, border:'1px solid '+pr+'30', fontSize:13, fontFamily:ff, outline:'none' }}/>
+        {depts.length > 1 && (
+          <select value={dept} onChange={e=>{setDept(e.target.value);resetPage();}} style={selStyle}>
+            <option value="all">All departments</option>{depts.map(d=><option key={d} value={d}>{d}</option>)}
+          </select>
+        )}
+        {locs.length > 1 && cfg.showLocationFilter && (
+          <select value={location} onChange={e=>{setLocation(e.target.value);resetPage();}} style={selStyle}>
+            <option value="all">All locations</option>{locs.map(l=><option key={l} value={l}>{l}</option>)}
+          </select>
+        )}
+        {extraFilters.map(ef => {
+          const vals = ['all', ...new Set(records.map(r => r.data?.[ef.field]).filter(Boolean))];
+          if (vals.length <= 2) return null;
+          return (
+            <select key={ef.field} value={extraVals[ef.field]||'all'} onChange={e=>{setExtraVals(v=>({...v,[ef.field]:e.target.value}));resetPage();}} style={selStyle}>
+              <option value="all">{ef.label || ef.field}</option>
+              {vals.slice(1).map(v=><option key={v} value={v}>{v}</option>)}
+            </select>
+          );
+        })}
       </div>
       <div style={{ fontSize:12, color:tc+'80', marginBottom:12 }}>{countLabel}</div>
-      {filtered.map(r => {
+      {pageRecords.map(r => {
         const d = r.data || {};
         return (
           <div key={r.id} onClick={()=>setSelected(r)}
@@ -536,7 +615,16 @@ const JobsWidget = ({ cfg, theme, portal, api, track, defaultSlug }) => {
           </div>
         );
       })}
-      {filtered.length === 0 && <div style={{ textAlign:'center', padding:'40px 20px', color:tc+'60', fontSize:14 }}>{cfg.emptyText || 'No records found.'}</div>}
+      {fullyFiltered.length === 0 && <div style={{ textAlign:'center', padding:'40px 20px', color:tc+'60', fontSize:14 }}>{cfg.emptyText || 'No records found.'}</div>}
+      {totalPages > 1 && (
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginTop:20, paddingTop:16, borderTop:'1px solid #f0f0f0' }}>
+          <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}
+            style={{ padding:'6px 14px', borderRadius:br, border:'1px solid '+pr+'30', background:'white', color:page===1?tc+'40':pr, fontSize:13, fontWeight:600, cursor:page===1?'not-allowed':'pointer', fontFamily:ff }}>← Prev</button>
+          <span style={{ fontSize:13, color:tc+'80' }}>Page {page} of {totalPages}</span>
+          <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages}
+            style={{ padding:'6px 14px', borderRadius:br, border:'1px solid '+pr+'30', background:'white', color:page===totalPages?tc+'40':pr, fontSize:13, fontWeight:600, cursor:page===totalPages?'not-allowed':'pointer', fontFamily:ff }}>Next →</button>
+        </div>
+      )}
     </div>
   );
 };
@@ -925,17 +1013,24 @@ const FeaturedJobsWidget = ({ cfg, theme, portal, api }) => {
         {d.description && <p style={{ fontSize:14, color:tc, lineHeight:1.7, marginBottom:20 }}>{d.description}</p>}
         {d.salary_range && <div style={{ fontSize:13, fontWeight:600, color:pr, marginBottom:16 }}>{d.salary_range}</div>}
         <div style={{ marginTop:8 }}>
-          {wizardOpen && portal.wizard?.enabled && portal.wizard?.pages?.length ? (
-            <WizardRenderer wizard={portal.wizard} portal={portal} job={selectedJob} api={api}
-              onBack={() => setWizardOpen(false)}
-              onSuccess={() => { setWizardOpen(false); setSelectedJob(null); setApplied(true); }}/>
+          {wizardOpen ? (
+            portal.wizard?.enabled && portal.wizard?.pages?.length ? (
+              <WizardRenderer wizard={portal.wizard} portal={portal} job={selectedJob} api={api}
+                onBack={() => setWizardOpen(false)}
+                onSuccess={() => { setWizardOpen(false); setSelectedJob(null); setApplied(true); }}/>
+            ) : (
+              <div style={{ padding:16, background:pr+'10', borderRadius:br, border:`1px solid ${pr}30` }}>
+                <p style={{ margin:'0 0 4px', fontSize:14, fontWeight:600, color:tc }}>✓ Application submitted!</p>
+                <p style={{ margin:0, fontSize:13, color:tc+'80' }}>Thank you — we'll be in touch.</p>
+              </div>
+            )
           ) : applied ? (
             <div style={{ padding:16, background:pr+'10', borderRadius:br, border:`1px solid ${pr}30` }}>
-              <p style={{ margin:'0 0 4px', fontSize:14, fontWeight:600, color:tc }}>Application submitted!</p>
+              <p style={{ margin:'0 0 4px', fontSize:14, fontWeight:600, color:tc }}>✓ Application submitted!</p>
               <p style={{ margin:0, fontSize:13, color:tc+'80' }}>Thank you — we'll be in touch.</p>
             </div>
           ) : (
-            <button onClick={() => portal.wizard?.enabled && portal.wizard?.pages?.length ? setWizardOpen(true) : setApplied(true)}
+            <button onClick={() => setWizardOpen(true)}
               style={{ padding:'12px 28px', borderRadius:br, background:pr, color:'white', border:'none', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:ff }}>
               {portal.wizard?.trigger?.apply_label || 'Apply Now'}
             </button>
@@ -2602,6 +2697,13 @@ const PortalNav = ({ portal, theme, currentPage, onNav, pages }) => {
 
         {/* Links */}
         <div style={{ display:'flex', gap:4, alignItems:'center', marginLeft: alignment==='left' ? 24 : 0 }}>
+          {/* Candidate Hub link (when enabled) */}
+          {portal.hub?.enabled && (
+            <a href={`/hub?portal_id=${portal.id}`}
+              style={{ padding:'6px 14px', borderRadius:8, fontSize:14, fontWeight:600, color:fg, textDecoration:'none', fontFamily:theme.fontFamily }}>
+              My Applications
+            </a>
+          )}
           {navLinks.length > 0
             ? navLinks.map(lnk => (
                 <a key={lnk.id} href={lnk.href||'#'}
@@ -2631,6 +2733,138 @@ const PortalNav = ({ portal, theme, currentPage, onNav, pages }) => {
     </nav>
   )
 }
+
+// ── Portal Copilot (inline, reads portal.copilot config) ─────────────────────
+const PortalCopilot = ({ portal, api }) => {
+  const cop = portal.copilot || {};
+  if (!cop.enabled) return null;
+
+  const pr  = portal.theme?.primaryColor || portal.branding?.primary_color || '#4361EE';
+  const ff  = portal.theme?.fontFamily   || 'sans-serif';
+  const br  = portal.theme?.buttonRadius || '12px';
+  const name = cop.name || (portal.branding?.company_name ? `${portal.branding.company_name} Assistant` : 'Career Assistant');
+  const subtitle = cop.subtitle || 'Explore roles & apply';
+  const welcome = cop.welcome_message || `Hi! I'm ${name}. I can help you find the right role, answer questions about the company, and guide you through applying.`;
+  const placeholder = cop.input_placeholder || 'Ask about roles…';
+  const quickActions = cop.quick_actions?.length ? cop.quick_actions : [
+    { label: 'Show open roles', prompt: 'What roles are currently open?' },
+    { label: 'How to apply', prompt: 'How does the application process work?' },
+  ];
+  const [open, setOpen] = useState(false);
+  const [msgs, setMsgs] = useState([{ role:'assistant', content: welcome }]);
+  const [input, setInput] = useState('');
+  const [busy, setBusy]   = useState(false);
+  const bottomRef = useRef(null);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }); }, [msgs]);
+
+  const send = async (text) => {
+    const q = text || input.trim();
+    if (!q) return;
+    setInput(''); setBusy(true);
+    const newMsgs = [...msgs, { role:'user', content: q }];
+    setMsgs(newMsgs);
+    try {
+      const res = await api.post('/portal-copilot/chat', {
+        portal_id: portal.id,
+        messages: newMsgs,
+        context: cop.welcome_context || '',
+      });
+      const reply = res.reply || res.content || 'Sorry, I had trouble with that.';
+      setMsgs(m => [...m, { role:'assistant', content: reply }]);
+    } catch {
+      setMsgs(m => [...m, { role:'assistant', content: 'Sorry, something went wrong. Please try again.' }]);
+    }
+    setBusy(false);
+  };
+
+  const btnStyle = { padding:'10px 20px', borderRadius:br, background:pr, color:'white', border:'none', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:ff };
+
+  return (
+    <>
+      {/* Floating trigger button */}
+      {!open && (
+        <button onClick={() => setOpen(true)}
+          style={{ position:'fixed', bottom:24, right:24, zIndex:9000, width:56, height:56, borderRadius:'50%',
+            background:pr, color:'white', border:'none', cursor:'pointer', boxShadow:`0 4px 20px ${pr}60`,
+            display:'flex', alignItems:'center', justifyContent:'center', transition:'transform .2s' }}
+          onMouseEnter={e=>e.currentTarget.style.transform='scale(1.1)'}
+          onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
+          {cop.avatar_url
+            ? <img src={cop.avatar_url} alt="" style={{ width:56, height:56, borderRadius:'50%', objectFit:'cover' }}/>
+            : <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          }
+        </button>
+      )}
+
+      {/* Chat panel */}
+      {open && (
+        <div style={{ position:'fixed', bottom:16, right:16, zIndex:9000, width: Math.min(380, window.innerWidth - 32),
+          boxShadow:'0 8px 40px rgba(0,0,0,.2)', borderRadius:16, overflow:'hidden',
+          display:'flex', flexDirection:'column', background:'white', fontFamily:ff,
+          height: Math.min(520, window.innerHeight - 40) }}>
+          {/* Header */}
+          <div style={{ padding:'12px 16px', background:pr, display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+            <div style={{ width:36, height:36, borderRadius:10, background:'rgba(255,255,255,.18)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              {cop.avatar_url
+                ? <img src={cop.avatar_url} alt="" style={{ width:36, height:36, objectFit:'cover' }}/>
+                : <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              }
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:800, color:'white' }}>{name}</div>
+              <div style={{ fontSize:11, color:'rgba(255,255,255,.7)' }}>{subtitle}</div>
+            </div>
+            <button onClick={() => setOpen(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,.7)', padding:4, display:'flex' }}>
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div style={{ flex:1, overflowY:'auto', padding:'12px 14px', display:'flex', flexDirection:'column', gap:10 }}>
+            {msgs.map((m, i) => (
+              <div key={i} style={{ display:'flex', justifyContent: m.role==='user' ? 'flex-end' : 'flex-start' }}>
+                <div style={{ maxWidth:'82%', padding:'9px 13px', borderRadius: m.role==='user' ? '14px 14px 4px 14px' : '4px 14px 14px 14px',
+                  background: m.role==='user' ? pr : '#F3F4F6', color: m.role==='user' ? 'white' : '#111827', fontSize:13, lineHeight:1.5 }}>
+                  {m.content}
+                </div>
+              </div>
+            ))}
+            {busy && (
+              <div style={{ display:'flex', gap:4, padding:'10px 14px' }}>
+                {[0,1,2].map(i => <div key={i} style={{ width:6, height:6, borderRadius:'50%', background:pr+'80', animation:`pulse 1.2s ${i*0.2}s infinite` }}/>)}
+              </div>
+            )}
+            {/* Quick actions (shown only on first message) */}
+            {msgs.length === 1 && (
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:4 }}>
+                {quickActions.map((qa, i) => (
+                  <button key={i} onClick={() => send(qa.prompt)}
+                    style={{ padding:'6px 12px', borderRadius:99, border:`1.5px solid ${pr}`, background:'transparent', color:pr, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:ff }}>
+                    {qa.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div ref={bottomRef}/>
+          </div>
+
+          {/* Input */}
+          <div style={{ padding:'10px 12px', borderTop:'1px solid #E5E7EB', display:'flex', gap:8, flexShrink:0 }}>
+            <input value={input} onChange={e=>setInput(e.target.value)}
+              onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); } }}
+              placeholder={placeholder}
+              style={{ flex:1, padding:'9px 12px', borderRadius:10, border:'1.5px solid #E5E7EB', fontSize:13, fontFamily:ff, outline:'none' }}/>
+            <button onClick={() => send()}
+              style={{ padding:'9px 14px', borderRadius:10, background:pr, color:'white', border:'none', cursor:'pointer', flexShrink:0 }}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 19-7z"/></svg>
+            </button>
+          </div>
+          <style>{`@keyframes pulse{0%,80%,100%{opacity:.3}40%{opacity:1}}`}</style>
+        </div>
+      )}
+    </>
+  );
+};
 
 export default function PortalPageRenderer({ portal, api }) {
   const theme = portal.theme || portal.branding || {}
@@ -2793,6 +3027,7 @@ export default function PortalPageRenderer({ portal, api }) {
       {(currentPage.rows||[]).map(row => <PortalRow key={row.id} row={row} theme={theme} portal={portal} api={api} track={track}/>)}
       <PortalFooter portal={portal} theme={theme}/>
       <FeedbackWidget portal={portal} currentPageSlug={currentPage?.slug || "/"} api={api}/>
+      <PortalCopilot portal={portal} api={api}/>
 
       {/* GDPR Consent Banner */}
       {showConsent && (

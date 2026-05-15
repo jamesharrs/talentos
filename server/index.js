@@ -233,7 +233,9 @@ const AUTH_EXEMPT = [
   '/campaign-links',
     '/integrations',  
   '/feature-packs',
+  '/release-notes',  // public read — published notes shown to all logged-in users
   '/superadmin', '/bot', '/analytics',
+  '/candidate-hub/verify',  // public — candidate opens hub link, no auth
   '/sequencer/unsubscribe',
   '/attachments/file',
   '/attachments/upload',
@@ -355,6 +357,7 @@ app.use('/api/ai-interview',      require('./routes/ai_interview'));
 
 // ── Communications ────────────────────────────────────────────────────────────
 app.use('/api/comms',             require('./routes/communications'));
+app.use('/api/email-domains',     require('./routes/email_domains'));
 app.use('/api/engagement',        require('./routes/engagement'));
 app.use('/api/inbox',             require('./routes/inbox'));
 app.use('/api/feature-packs',     require('./routes/feature_packs'));
@@ -373,6 +376,7 @@ app.use('/api/interview-types',   require('./routes/interview_types'));
 app.use('/api/interview-plans',   require('./routes/interview_plans'));
 app.use('/api/interview-coordinator', require('./routes/interview_coordinator'));
 app.use('/api/offers',            require('./routes/offers'));
+app.use('/api/candidate-hub',     require('./routes/candidate_hub'));
 app.use('/api/cohorts',          require('./routes/cohorts'));
 app.use('/api/cohort-messages',  require('./routes/cohort_messages'));
 app.use('/api/cohort-auth',      require('./routes/cohort_auth'));
@@ -469,11 +473,11 @@ app.use('/api/flows', flowsRouter);
 
 // ── Admin & super admin ───────────────────────────────────────────────────────
 app.use('/api/admin',             require('./routes/admin_dashboard').router);
-app.use('/api/superadmin',        require('./routes/superadmin'));
 app.use('/api/superadmin/clients', require('./routes/superadmin_clients'));
 app.use('/api/superadmin/perf',    require('./routes/superadmin_perf'));
-app.use('/api/sequencer',         require('./routes/email_sequencer').router);
 app.use('/api/superadmin/demo',   require('./routes/demo_seed'));
+app.use('/api/sequencer',         require('./routes/email_sequencer').router);
+app.use('/api/superadmin',        require('./routes/superadmin'));
 app.use('/api/tenant-reset',      require('./routes/admin_reset'));
 app.use('/api/signup',            require('./routes/signup'));
 

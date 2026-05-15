@@ -1498,6 +1498,25 @@ const ListWidgetConfig = ({ cfg, set, setMany, inp, lbl, environmentId, cellId, 
       <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}><input type="checkbox" checked={cfg.showSearch!==false} onChange={e=>set("showSearch",e.target.checked)} style={{width:14,height:14}}/>Search bar</label>
       <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}><input type="checkbox" checked={cfg.showFilters!==false} onChange={e=>set("showFilters",e.target.checked)} style={{width:14,height:14}}/>Category / department filter</label>
       <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text2,cursor:"pointer"}}><input type="checkbox" checked={!!cfg.showLocationFilter} onChange={e=>set("showLocationFilter",e.target.checked)} style={{width:14,height:14}}/>Location filter</label>
+
+      {/* ── Additional field filters ── */}
+      <div style={{marginTop:4}}>
+        <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Additional filters (from any field)</div>
+        {(cfg.extraFilters||[]).map((ef,i)=>(
+          <div key={i} style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
+            <input value={ef.field||""} onChange={e=>{const a=[...(cfg.extraFilters||[])];a[i]={...a[i],field:e.target.value};set("extraFilters",a);}}
+              placeholder="Field key (e.g. work_type)" style={{...inp,flex:2,fontSize:11,padding:"5px 8px"}}/>
+            <input value={ef.label||""} onChange={e=>{const a=[...(cfg.extraFilters||[])];a[i]={...a[i],label:e.target.value};set("extraFilters",a);}}
+              placeholder="Label" style={{...inp,flex:1,fontSize:11,padding:"5px 8px"}}/>
+            <button onClick={()=>{const a=[...(cfg.extraFilters||[])];a.splice(i,1);set("extraFilters",a);}}
+              style={{background:"none",border:"none",cursor:"pointer",color:C.text3,padding:2,flexShrink:0}}>×</button>
+          </div>
+        ))}
+        <button onClick={()=>set("extraFilters",[...(cfg.extraFilters||[]),{field:"",label:""}])}
+          style={{fontSize:11,color:C.accent,background:"none",border:"none",cursor:"pointer",padding:"2px 0",fontFamily:F}}>+ Add filter</button>
+        <div style={{fontSize:10,color:C.text3,marginTop:3}}>Use field API key (e.g. work_type, employment_type, priority)</div>
+      </div>
+
       <div>{lbl("Empty state message")}<input value={cfg.emptyText||""} onChange={e=>set("emptyText",e.target.value)} placeholder="No records found." style={inp}/></div>
 
       {/* ── Detail View Field Configuration ── */}

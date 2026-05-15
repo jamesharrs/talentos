@@ -318,6 +318,139 @@ const PageEditor = ({ page, allPages, onUpdate, onDelete, isOnly }) => {
 };
 
 // ── Main WizardBuilder export ─────────────────────────────────────────────────
+// ── Conditional Flows by Job Filter ──────────────────────────────────────────
+// Allows defining alternative page sequences that activate when the job matches
+// a filter rule (e.g. "if department = Engineering, use these pages instead")
+const FILTER_FIELDS = [
+  {value:'department',   label:'Department'},
+  {value:'location',     label:'Location'},
+  {value:'work_type',    label:'Work type'},
+  {value:'employment_type', label:'Employment type'},
+  {value:'job_title',    label:'Job title (contains)'},
+  {value:'priority',     label:'Priority'},
+  {value:'status',       label:'Status'},
+];
+const FILTER_OPS = [
+  {value:'equals',   label:'equals'},
+  {value:'contains', label:'contains'},
+  {value:'not',      label:'does not equal'},
+];
+
+function ConditionalFlowsSection({ wizard, setWizard, pages, uid }) {
+  const variants = wizard.flow_variants || [];
+  const [open, setOpen] = useState(false);
+  const [editingIdx, setEditingIdx] = useState(null);
+
+  const setVariants = (v) => setWizard({...wizard, flow_variants: v});
+
+  const addVariant = () => {
+    const newV = {
+      id: uid(), name: 'New variant', priority: variants.length + 1,
+      filter: { field:'department', op:'equals', value:'' },
+      pages: JSON.parse(JSON.stringify(pages)).map(p=>({...p,id:uid(),blocks:(p.blocks||[]).map(b=>({...b,id:uid()}))})),
+    };
+    setVariants([...variants, newV]);
+    setEditingIdx(variants.length);
+    setOpen(true);
+  };
+
+  const updateVariant = (i, updated) => setVariants(variants.map((v,j)=>j===i?updated:v));
+  const deleteVariant = (i) => { setVariants(variants.filter((_,j)=>j!==i)); setEditingIdx(null); };
+
+  return (
+    <div style={{borderRadius:10,border:`1px solid ${C.border}`,overflow:'hidden'}}>
+      <button onClick={()=>setOpen(o=>!o)}
+        style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:C.surface2,border:'none',cursor:'pointer',fontFamily:F}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <WzIc n="arrowRight" s={13} c={C.accent}/>
+          <span style={{fontSize:11,fontWeight:700,color:C.text2,textTransform:'uppercase',letterSpacing:'0.05em'}}>Conditional flows by job</span>
+          {variants.length>0&&<span style={{fontSize:10,padding:'1px 7px',borderRadius:99,background:C.accentLight,color:C.accent,fontWeight:700}}>{variants.length}</span>}
+        </div>
+        <WzIc n={open?'chevUp':'chevDown'} s={13} c={C.text3}/>
+      </button>
+      {open&&(
+        <div style={{padding:'10px 12px',background:C.surface2,borderTop:`1px solid ${C.border}`,display:'flex',flexDirection:'column',gap:10}}>
+          <div style={{fontSize:12,color:C.text3,lineHeight:1.6}}>
+            Define alternative flows for specific job types. When a candidate clicks Apply on a matching job, the variant flow is used instead of the default.
+            Rules are evaluated top-to-bottom — the first match wins.
+          </div>
+
+          {variants.map((v,i)=>(
+            <div key={v.id} style={{borderRadius:10,border:`1.5px solid ${editingIdx===i?C.accent:C.border}`,background:'white',overflow:'hidden'}}>
+              {/* Variant header */}
+              <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:editingIdx===i?C.accentLight:'transparent',cursor:'pointer'}}
+                onClick={()=>setEditingIdx(editingIdx===i?null:i)}>
+                <div style={{width:22,height:22,borderRadius:6,background:C.accentLight,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:11,color:C.accent,flexShrink:0}}>{i+1}</div>
+                <div style={{flex:1}}>
+                  <input value={v.name} onChange={e=>{e.stopPropagation();updateVariant(i,{...v,name:e.target.value});}}
+                    onClick={e=>e.stopPropagation()}
+                    style={{border:'none',outline:'none',background:'transparent',fontSize:12,fontWeight:700,color:C.text1,fontFamily:F,width:'100%'}}/>
+                </div>
+                <div style={{fontSize:11,color:C.text3,whiteSpace:'nowrap',flexShrink:0,marginRight:6}}>
+                  if {FILTER_FIELDS.find(f=>f.value===v.filter?.field)?.label||v.filter?.field} {FILTER_OPS.find(o=>o.value===v.filter?.op)?.label||v.filter?.op} "{v.filter?.value||'…'}"
+                </div>
+                <SmBtn onClick={e=>{e.stopPropagation();deleteVariant(i);}} variant='danger' icon='✕'/>
+              </div>
+
+              {/* Expanded editor */}
+              {editingIdx===i&&(
+                <div style={{padding:'10px 12px',borderTop:`1px solid ${C.border}`,display:'flex',flexDirection:'column',gap:10}}>
+                  {/* Filter rule */}
+                  <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+                    <span style={{fontSize:11,fontWeight:700,color:C.text3}}>IF</span>
+                    <Sel label="" value={v.filter?.field||'department'} onChange={val=>updateVariant(i,{...v,filter:{...v.filter,field:val}})}
+                      options={FILTER_FIELDS}/>
+                    <Sel label="" value={v.filter?.op||'equals'} onChange={val=>updateVariant(i,{...v,filter:{...v.filter,op:val}})}
+                      options={FILTER_OPS}/>
+                    <Inp label="" value={v.filter?.value||''} onChange={val=>updateVariant(i,{...v,filter:{...v.filter,value:val}})} placeholder="value…"/>
+                  </div>
+
+                  {/* Priority */}
+                  <div style={{fontSize:11,color:C.text3,background:C.surface2,borderRadius:6,padding:'6px 10px'}}>
+                    <strong>Priority {v.priority}</strong> — evaluated in order. Drag-to-reorder by updating priority numbers.
+                    <input type="number" value={v.priority||i+1} min={1} max={20}
+                      onChange={e=>updateVariant(i,{...v,priority:parseInt(e.target.value)||i+1})}
+                      style={{width:50,marginLeft:8,padding:'2px 6px',border:`1px solid ${C.border}`,borderRadius:5,fontSize:11,fontFamily:F}}/>
+                  </div>
+
+                  {/* Pages for this variant — simplified inline list */}
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:C.text2,marginBottom:6}}>Variant pages ({(v.pages||[]).length})</div>
+                    <div style={{fontSize:11,color:C.text3,marginBottom:8}}>
+                      This variant starts with a copy of the default pages. Edit them here or reuse the default flow by clearing all pages.
+                    </div>
+                    {(v.pages||[]).map((pg,pi)=>(
+                      <div key={pg.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',borderRadius:8,border:`1px solid ${C.border}`,marginBottom:4,background:'white'}}>
+                        <span style={{fontSize:11,color:C.text3,flexShrink:0}}>{pi+1}.</span>
+                        <input value={pg.title||''} onChange={e=>{const np=[...(v.pages||[])];np[pi]={...np[pi],title:e.target.value};updateVariant(i,{...v,pages:np});}}
+                          style={{flex:1,border:'none',outline:'none',fontSize:12,fontFamily:F,color:C.text1}}/>
+                        <span style={{fontSize:10,color:C.text3}}>{(pg.blocks||[]).length} block{(pg.blocks||[]).length!==1?'s':''}</span>
+                        <button onClick={()=>{const np=[...(v.pages||[])];np.splice(pi,1);updateVariant(i,{...v,pages:np});}}
+                          style={{background:'none',border:'none',cursor:'pointer',color:C.text3,padding:2}}>×</button>
+                      </div>
+                    ))}
+                    <div style={{display:'flex',gap:6,marginTop:4}}>
+                      <SmBtn onClick={()=>{const np=[...(v.pages||[]),{id:uid(),title:`Step ${(v.pages||[]).length+1}`,subtitle:'',blocks:[],navigation:{}}];updateVariant(i,{...v,pages:np});}} icon='＋'>Add step</SmBtn>
+                      <SmBtn onClick={()=>updateVariant(i,{...v,pages:JSON.parse(JSON.stringify(pages)).map(p=>({...p,id:uid(),blocks:(p.blocks||[]).map(b=>({...b,id:uid()}))}))})}>Reset from default</SmBtn>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+
+          <SmBtn onClick={addVariant} icon='＋' variant='primary'>Add conditional flow</SmBtn>
+          {variants.length>0&&(
+            <div style={{fontSize:11,color:C.text3,padding:'6px 8px',background:'#FFFBEB',borderRadius:6,border:'1px solid #FDE68A'}}>
+              ⚡ The default flow (above) is used when no variant matches. Variants are checked in priority order.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function WizardBuilder({ portal, onChange }) {
   const wizard = portal.wizard || { enabled:false, pages:[] };
   const setWizard = (w) => onChange({ ...portal, wizard:w });
@@ -544,6 +677,9 @@ export default function WizardBuilder({ portal, onChange }) {
           </div>
         </div>
       </div>
+
+      {/* ── Conditional flows by job filter ── */}
+      <ConditionalFlowsSection wizard={wizard} setWizard={setWizard} pages={pages} uid={uid}/>
     </div>
   );
 }

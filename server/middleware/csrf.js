@@ -39,6 +39,7 @@ const CSRF_EXEMPT_PREFIXES = [
   '/api/superadmin/',                  // all SA routes use token auth
   '/api/chrome-import',
   '/api/hub/',
+  '/api/candidate-hub/',   // candidate hub — token-based, no cookie session
   '/api/reschedule',
   '/api/bot',
   '/api/linkedin-search',

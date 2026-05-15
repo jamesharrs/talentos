@@ -1,520 +1,452 @@
-/**
- * CandidateHub.jsx — client/src/CandidateHub.jsx
- * Candidate-facing hub. Accessed at /hub path.
- * Completely separate from the admin app.
- */
-import { useState, useEffect, useCallback } from 'react';
+// client/src/CandidateHub.jsx
+// Candidate Hub — self-service portal accessed via /hub/:token
+// Completely separate from the main app — no sidebar, no auth session needed.
 
-const BASE = '/api/hub';
-async function hubApi(path, opts = {}) {
-  const token = sessionStorage.getItem('hub_session');
-  const res = await fetch(`${BASE}${path}`, {
-    ...opts,
-    headers: { 'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(opts.headers || {}) },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-  });
-  if (!res.ok) throw await res.json();
-  return res.json();
-}
+import { useState, useEffect } from "react";
 
-const DEFAULT_BRAND = { primaryColor: '#4361EE', bgColor: '#EEF2FF', textColor: '#0F1729',
-  fontFamily: "'Inter', -apple-system, sans-serif", borderRadius: '12px',
-  companyName: 'Vercentic', logoUrl: '', tagline: 'Track your application journey' };
+const C = {
+  bg: "#F0F2FF", surface: "#FFFFFF", surface2: "#F8F9FE",
+  border: "#E8EAF2", accent: "#5B5BD6", accentL: "#EEF0FF",
+  text1: "#0D0D1A", text2: "#3D3D5C", text3: "#8B8BAD",
+  green: "#0CA678", greenL: "#ECFDF5", amber: "#D97706", amberL: "#FFFBEB",
+  red: "#DC2626", redL: "#FEF2F2", purple: "#7C3AED", purpleL: "#F5F3FF",
+};
+const F = "'DM Sans', -apple-system, sans-serif";
 
-function HubIcon({ name, size = 20, color = 'currentColor' }) {
-  const paths = {
-    mail:      'M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z M22 6l-10 7L2 6',
-    check:     'M20 6L9 17l-5-5',
-    clock:     'M12 2a10 10 0 1 1 0 20A10 10 0 0 1 12 2M12 6v6l4 2',
-    briefcase: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2',
-    gift:      'M20 12v10H4V12M22 7H2v5h20V7zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z',
-    file:      'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
-    video:     'M15 10l4.553-2.069A1 1 0 0 1 21 8.82v6.36a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z',
-    map:       'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z M12 10a1 1 0 1 0 2 0 1 1 0 0 0-2 0',
-    alert:     'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
-    loader:    'M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83',
-    arrow:     'M5 12h14M12 5l7 7-7 7',
-    chevron:   'M9 18l6-6-6-6',
-  };
+const ICONS = {
+  briefcase: "M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zm-8-4a2 2 0 012 2H10a2 2 0 012-2z",
+  calendar:  "M8 2v3M16 2v3M3 8h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z",
+  gift:      "M20 12v10H4V12M22 7H2v5h20V7zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z",
+  message:   "M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z",
+  file:      "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6",
+  check:     "M20 6L9 17l-5-5",
+  x:         "M18 6L6 18M6 6l12 12",
+  clock:     "M12 2a10 10 0 100 20A10 10 0 0012 2zM12 6v6l4 2",
+  map:       "M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0zM12 10a1 1 0 100-2 1 1 0 000 2z",
+  send:      "M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z",
+  video:     "M23 7l-7 5 7 5V7zM1 5h15a2 2 0 012 2v10a2 2 0 01-2 2H1V5z",
+  phone:     "M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.72a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72 12.05 12.05 0 00.7 2.81 2 2 0 01-.45 2.11L6.91 8.19a16 16 0 006.88 6.88l1.21-1.21a2 2 0 012.11-.45 12.05 12.05 0 002.81.7A2 2 0 0122 16.92z",
+  alert:     "M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01",
+  inbox:     "M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z",
+  user:      "M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z",
+};
+
+function Ic({ n, s = 18, c = "currentColor" }) {
+  const d = ICONS[n]; if (!d) return null;
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d={paths[name] || ''}/>
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {d.split('M').filter(Boolean).map((seg, i) => <path key={i} d={`M${seg}`} />)}
     </svg>
   );
 }
 
-function Badge({ children, color = '#4361EE', bg }) {
-  return <span style={{ display:'inline-flex', alignItems:'center', padding:'2px 10px',
-    borderRadius:99, fontSize:11, fontWeight:700, background: bg || `${color}18`, color }}>{children}</span>;
+function formatDate(str) {
+  if (!str) return '—';
+  try { return new Date(str).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return str; }
 }
-function Btn({ children, onClick, variant='primary', disabled, style={}, brand }) {
-  const accent = brand?.primaryColor || '#4361EE';
-  const variants = {
-    primary: { background:accent, color:'white' },
-    outline: { background:'transparent', color:accent, border:`1.5px solid ${accent}` },
-    ghost:   { background:'#F3F4F6', color:'#374151' },
-    danger:  { background:'#FEE2E2', color:'#DC2626', border:'1.5px solid #FCA5A5' },
-  };
-  return <button onClick={disabled ? undefined : onClick} style={{
-    display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6,
-    padding:'10px 22px', borderRadius:99, border:'none', cursor:disabled?'not-allowed':'pointer',
-    fontSize:14, fontWeight:700, fontFamily:'inherit', transition:'opacity .15s',
-    opacity:disabled?0.5:1, ...variants[variant], ...style }}>{children}</button>;
+function formatTime(t) {
+  if (!t) return '';
+  try { const [h, m] = t.split(':'); const hour = parseInt(h); return `${hour%12||12}:${m} ${hour>=12?'PM':'AM'}`; } catch { return t; }
+}
+function formatCurrency(amount, currency = 'USD') {
+  if (!amount) return '—';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
+}
+function relativeTime(str) {
+  if (!str) return '';
+  const d = Math.floor((Date.now() - new Date(str).getTime()) / 86400000);
+  if (d === 0) return 'Today'; if (d === 1) return 'Yesterday';
+  if (d < 7) return `${d} days ago`; return formatDate(str);
 }
 
-function RequestForm({ brand, portalId, onSent }) {
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const submit = async () => {
-    if (!email.trim()) return setError('Please enter your email address.');
-    setLoading(true); setError('');
+function Badge({ label, color = C.text3 }) {
+  return <span style={{ display:'inline-flex', alignItems:'center', padding:'3px 10px', borderRadius:99, fontSize:11, fontWeight:700, background:`${color}18`, color, border:`1px solid ${color}28`, whiteSpace:'nowrap' }}>{label}</span>;
+}
+const STATUS_COLORS = {
+  'Under Review': C.text3, 'Screening': C.amber, 'Interview': C.purple,
+  'Shortlisted': C.accent, 'Offer': C.green, 'Hired': C.green, 'Declined': C.red,
+  sent: C.accent, accepted: C.green, declined: C.red,
+  draft: C.text3, pending_approval: C.amber, scheduled: C.accent, completed: C.green, cancelled: C.red,
+};
+function statusColor(s) { return STATUS_COLORS[s] || C.accent; }
+
+function Card({ children, style = {} }) {
+  return <div style={{ background:C.surface, borderRadius:16, border:`1px solid ${C.border}`, boxShadow:'0 2px 8px rgba(0,0,0,0.04)', overflow:'hidden', ...style }}>{children}</div>;
+}
+function CardHeader({ icon, title, count }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:10, padding:'16px 20px', borderBottom:`1px solid ${C.border}`, background:C.surface2 }}>
+      <div style={{ width:32, height:32, borderRadius:10, background:C.accentL, display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <Ic n={icon} s={16} c={C.accent} />
+      </div>
+      <div style={{ flex:1 }}>
+        <div style={{ fontSize:14, fontWeight:700, color:C.text1 }}>{title}</div>
+        {count !== undefined && <div style={{ fontSize:11, color:C.text3, marginTop:1 }}>{count} {count===1?'item':'items'}</div>}
+      </div>
+    </div>
+  );
+}
+function Spinner() {
+  return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:48 }}>
+      <div style={{ width:36, height:36, borderRadius:'50%', border:`3px solid ${C.border}`, borderTopColor:C.accent, animation:'hub-spin 0.8s linear infinite' }} />
+      <style>{`@keyframes hub-spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+}
+function Empty({ icon, text }) {
+  return (
+    <div style={{ padding:'36px 24px', textAlign:'center' }}>
+      <div style={{ width:44, height:44, borderRadius:12, background:C.surface2, border:`1px solid ${C.border}`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 12px' }}>
+        <Ic n={icon} s={20} c={C.text3} />
+      </div>
+      <div style={{ fontSize:13, color:C.text3 }}>{text}</div>
+    </div>
+  );
+}
+
+function ApplicationsSection({ token }) {
+  const [apps, setApps] = useState([]); const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    fetch(`/api/candidate-hub/${token}/applications`)
+      .then(r=>r.json()).then(d=>{setApps(Array.isArray(d)?d:[]);setLoading(false);}).catch(()=>setLoading(false));
+  }, [token]);
+  return (
+    <Card>
+      <CardHeader icon="briefcase" title="My Applications" count={apps.length} />
+      {loading ? <Spinner /> : apps.length===0 ? <Empty icon="briefcase" text="No applications on record yet." /> :
+        apps.map(app => (
+          <div key={app.id} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 20px', borderBottom:`1px solid ${C.border}` }}>
+            <div style={{ width:42, height:42, borderRadius:12, background:`${C.accent}15`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <Ic n="briefcase" s={18} c={C.accent} />
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:14, fontWeight:700, color:C.text1 }}>{app.job_title}</div>
+              <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>{[app.department,app.location].filter(Boolean).join(' · ')}</div>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4 }}>
+              <Badge label={app.status} color={statusColor(app.status)} />
+              <div style={{ fontSize:11, color:C.text3 }}>Applied {relativeTime(app.applied_at)}</div>
+            </div>
+          </div>
+        ))
+      }
+    </Card>
+  );
+}
+
+function InterviewsSection({ token }) {
+  const [items, setItems] = useState([]); const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    fetch(`/api/candidate-hub/${token}/interviews`)
+      .then(r=>r.json()).then(d=>{setItems(Array.isArray(d)?d:[]);setLoading(false);}).catch(()=>setLoading(false));
+  }, [token]);
+  const upcoming = items.filter(i => new Date(`${i.date}T${i.time||'00:00'}`) >= new Date());
+  const past     = items.filter(i => new Date(`${i.date}T${i.time||'00:00'}`) < new Date());
+
+  const InterviewCard = ({ iv }) => {
+    const isPast = new Date(`${iv.date}T${iv.time||'00:00'}`) < new Date();
+    return (
+      <div style={{ padding:'16px 20px', borderBottom:`1px solid ${C.border}`, display:'flex', gap:16, alignItems:'flex-start', opacity:isPast?0.7:1 }}>
+        <div style={{ minWidth:52, textAlign:'center', background:isPast?C.surface2:C.accentL, borderRadius:12, padding:'8px 4px', border:`1px solid ${isPast?C.border:C.accent+'30'}` }}>
+          <div style={{ fontSize:20, fontWeight:800, color:isPast?C.text3:C.accent, lineHeight:1 }}>{new Date(iv.date).getDate()}</div>
+          <div style={{ fontSize:10, color:isPast?C.text3:C.accent, fontWeight:600, marginTop:2 }}>{new Date(iv.date).toLocaleDateString('en-GB',{month:'short'}).toUpperCase()}</div>
+        </div>
+        <div style={{ flex:1 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+            <span style={{ fontSize:14, fontWeight:700, color:C.text1 }}>{iv.type_name}</span>
+            <Badge label={iv.status} color={statusColor(iv.status)} />
+          </div>
+          {iv.job_name && <div style={{ fontSize:12, color:C.text2, marginBottom:6 }}>{iv.job_name}</div>}
+          <div style={{ display:'flex', flexWrap:'wrap', gap:12, fontSize:12, color:C.text3 }}>
+            <span style={{ display:'flex', alignItems:'center', gap:4 }}><Ic n="clock" s={12} c={C.text3}/>{formatTime(iv.time)} · {iv.duration} min</span>
+            <span style={{ display:'flex', alignItems:'center', gap:4 }}>
+              {iv.format==='Video Call'||iv.format==='Video'?<><Ic n="video" s={12} c={C.text3}/> Video</>
+              :iv.format==='Phone'?<><Ic n="phone" s={12} c={C.text3}/> Phone</>
+              :<><Ic n="map" s={12} c={C.text3}/> {iv.format||'Onsite'}</>}
+            </span>
+            {iv.interviewers?.length>0 && <span style={{ display:'flex', alignItems:'center', gap:4 }}><Ic n="user" s={12} c={C.text3}/>{iv.interviewers.slice(0,2).join(', ')}{iv.interviewers.length>2&&` +${iv.interviewers.length-2}`}</span>}
+          </div>
+          {iv.video_link && !isPast && (
+            <a href={iv.video_link} target="_blank" rel="noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:6, marginTop:10, padding:'6px 12px', borderRadius:8, fontSize:12, fontWeight:600, background:C.accent, color:'white', textDecoration:'none' }}>
+              <Ic n="video" s={12} c="white"/> Join Meeting
+            </a>
+          )}
+          {iv.notes_for_candidate && (
+            <div style={{ marginTop:10, padding:'8px 12px', borderRadius:8, background:C.amberL, border:`1px solid ${C.amber}30`, fontSize:12, color:C.text2 }}>
+              <strong style={{ color:C.amber }}>Note:</strong> {iv.notes_for_candidate}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <Card>
+      <CardHeader icon="calendar" title="My Interviews" count={items.length} />
+      {loading ? <Spinner /> : items.length===0 ? <Empty icon="calendar" text="No interviews scheduled yet." /> : (
+        <>
+          {upcoming.length>0 && (<><div style={{ padding:'10px 20px 6px', fontSize:11, fontWeight:700, color:C.accent, textTransform:'uppercase', letterSpacing:'0.05em' }}>Upcoming</div>{upcoming.map(iv=><InterviewCard key={iv.id} iv={iv}/>)}</>)}
+          {past.length>0 && (<><div style={{ padding:'10px 20px 6px', fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.05em' }}>Past</div>{past.map(iv=><InterviewCard key={iv.id} iv={iv}/>)}</>)}
+        </>
+      )}
+    </Card>
+  );
+}
+
+function OffersSection({ token }) {
+  const [offers, setOffers] = useState([]); const [loading, setLoading] = useState(true);
+  const [showDeclineModal, setShowDeclineModal] = useState(null);
+  const [declineReason, setDeclineReason] = useState(''); const [working, setWorking] = useState(false);
+  useEffect(() => { fetch(`/api/candidate-hub/${token}/offers`).then(r=>r.json()).then(d=>{setOffers(Array.isArray(d)?d:[]);setLoading(false);}).catch(()=>setLoading(false)); }, [token]);
+
+  const respond = async (offerId, action, reason) => {
+    setWorking(true);
     try {
-      await hubApi('/request-link', { method:'POST', body:{ email:email.trim(), portal_id:portalId } });
-      onSent(email.trim());
-    } catch(e) { setError(e.error || 'Something went wrong. Please try again.'); }
-    finally { setLoading(false); }
+      const r = await fetch(`/api/candidate-hub/${token}/offers/${offerId}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action, decline_reason:reason}) });
+      const d = await r.json();
+      if (d.ok) { setOffers(prev=>prev.map(o=>o.id===offerId?{...o,status:d.status}:o)); setShowDeclineModal(null); setDeclineReason(''); }
+    } finally { setWorking(false); }
   };
-  return (
-    <div style={{ minHeight:'100vh', background:brand.bgColor, display:'flex', alignItems:'center',
-      justifyContent:'center', padding:24, fontFamily:brand.fontFamily }}>
-      <div style={{ background:'white', borderRadius:20, padding:'48px 40px', maxWidth:440, width:'100%',
-        boxShadow:'0 8px 40px rgba(0,0,0,0.10)', textAlign:'center' }}>
-        {brand.logoUrl
-          ? <img src={brand.logoUrl} alt={brand.companyName} style={{ maxHeight:48, maxWidth:180, objectFit:'contain', marginBottom:28 }}/>
-          : <div style={{ width:52, height:52, borderRadius:14, background:brand.primaryColor, display:'flex',
-              alignItems:'center', justifyContent:'center', margin:'0 auto 28px' }}>
-              <span style={{ color:'white', fontSize:22, fontWeight:900 }}>{brand.companyName.charAt(0)}</span>
-            </div>}
-        <h1 style={{ margin:'0 0 8px', fontSize:22, fontWeight:800, color:brand.textColor }}>Your application hub</h1>
-        <p style={{ margin:'0 0 32px', color:'#6B7280', fontSize:14, lineHeight:1.6 }}>{brand.tagline}</p>
-        <div style={{ textAlign:'left', marginBottom:16 }}>
-          <label style={{ display:'block', fontSize:12, fontWeight:700, color:'#374151', marginBottom:6 }}>Email address</label>
-          <input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()}
-            placeholder="you@example.com" autoFocus
-            style={{ width:'100%', boxSizing:'border-box', padding:'12px 14px',
-              border:`1.5px solid ${error?'#FCA5A5':'#E5E7EB'}`, borderRadius:10, fontSize:14,
-              outline:'none', fontFamily:'inherit', color:'#0F1729' }}/>
-          {error && <p style={{ margin:'6px 0 0', fontSize:12, color:'#DC2626', display:'flex', gap:4, alignItems:'center' }}>
-            <HubIcon name="alert" size={12} color="#DC2626"/> {error}</p>}
-        </div>
-        <Btn onClick={submit} disabled={loading} brand={brand} style={{ width:'100%' }}>
-          {loading ? <><HubIcon name="loader" size={14}/> Sending link…</> : <><HubIcon name="mail" size={14}/> Send me a magic link</>}
-        </Btn>
-        <p style={{ margin:'20px 0 0', fontSize:12, color:'#9CA3AF', lineHeight:1.6 }}>We'll email you a secure link. No password needed.</p>
-      </div>
-    </div>
-  );
-}
 
-function LinkSentScreen({ email, brand, onRetry }) {
-  return (
-    <div style={{ minHeight:'100vh', background:brand.bgColor, display:'flex', alignItems:'center',
-      justifyContent:'center', padding:24, fontFamily:brand.fontFamily }}>
-      <div style={{ background:'white', borderRadius:20, padding:'48px 40px', maxWidth:440, width:'100%',
-        boxShadow:'0 8px 40px rgba(0,0,0,0.10)', textAlign:'center' }}>
-        <div style={{ width:64, height:64, borderRadius:18, background:`${brand.primaryColor}18`,
-          display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 24px' }}>
-          <HubIcon name="mail" size={28} color={brand.primaryColor}/>
-        </div>
-        <h2 style={{ margin:'0 0 8px', fontSize:20, fontWeight:800, color:brand.textColor }}>Check your inbox</h2>
-        <p style={{ margin:'0 0 24px', color:'#6B7280', fontSize:14, lineHeight:1.7 }}>
-          We've sent a secure link to <strong>{email}</strong>. Click it to access your hub — it expires in 15 minutes.
-        </p>
-        <Btn onClick={onRetry} variant="ghost" brand={brand} style={{ width:'100%' }}>Use a different email</Btn>
-      </div>
-    </div>
-  );
-}
+  const pkgTotal = (o) => {
+    if (o.total_package) return o.total_package;
+    let t = parseFloat(o.base_salary)||0;
+    if (o.bonus) t += o.bonus_type==='percentage' ? t*(parseFloat(o.bonus)/100) : parseFloat(o.bonus);
+    (o.package_items||[]).forEach(item => { if (!item.exclude_from_total) t += parseFloat(item.value)||0; });
+    return t;
+  };
 
-function StageTracker({ stages, currentIndex, brand }) {
-  if (!stages.length) return null;
   return (
-    <div style={{ display:'flex', alignItems:'center', overflowX:'auto', paddingBottom:4 }}>
-      {stages.map((s, i) => {
-        const done = i < currentIndex, current = i === currentIndex, accent = brand.primaryColor;
-        return (
-          <div key={s.id} style={{ display:'flex', alignItems:'center', flexShrink:0 }}>
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-              <div style={{ width:24, height:24, borderRadius:'50%', border:'2px solid',
-                borderColor:done||current?accent:'#E5E7EB', background:done?accent:current?`${accent}18`:'white',
-                display:'flex', alignItems:'center', justifyContent:'center', transition:'all .2s' }}>
-                {done ? <HubIcon name="check" size={12} color="white"/>
-                  : current ? <div style={{ width:8, height:8, borderRadius:'50%', background:accent }}/> : null}
+    <>
+      <Card>
+        <CardHeader icon="gift" title="My Offers" count={offers.length} />
+        {loading ? <Spinner /> : offers.length===0 ? <Empty icon="gift" text="No offers yet." /> :
+          offers.map(offer => (
+            <div key={offer.id} style={{ padding:'20px', borderBottom:`1px solid ${C.border}` }}>
+              <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:16 }}>
+                <div>
+                  <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>{offer.job_name||'Offer Letter'}</div>
+                  {offer.job_department && <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>{offer.job_department}</div>}
+                </div>
+                <Badge label={offer.status.replace(/_/g,' ')} color={statusColor(offer.status)} />
               </div>
-              <span style={{ fontSize:10, fontWeight:current?700:500, color:current?accent:done?'#374151':'#9CA3AF',
-                whiteSpace:'nowrap', maxWidth:72, overflow:'hidden', textOverflow:'ellipsis', textAlign:'center' }}>
-                {s.name}
-              </span>
-            </div>
-            {i < stages.length-1 && <div style={{ height:2, width:32, background:done?accent:'#E5E7EB',
-              marginBottom:18, flexShrink:0, transition:'background .2s' }}/>}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function OfferCard({ offer, brand }) {
-  const [responding, setResponding] = useState(null);
-  const [note, setNote] = useState('');
-  const [loading, setLoading] = useState(false);
-  const respond = async (offerId, action) => {
-    setLoading(true);
-    try { await hubApi(`/offers/${offerId}`, { method:'PATCH', body:{ action, notes:note } }); window.location.reload(); }
-    catch(e) { alert(e.error || 'Something went wrong'); setLoading(false); }
-  };
-  const pending  = offer.status === 'sent';
-  const accepted = offer.status === 'accepted';
-  const statusCol = accepted?'#0CAF77':offer.status==='expired'?'#9CA3AF':offer.status==='declined'?'#DC2626':brand.primaryColor;
-  const expiring = offer.expiry_date && new Date(offer.expiry_date) < new Date(Date.now()+3*86400000);
-  return (
-    <div style={{ borderRadius:14, border:`1.5px solid ${statusCol}30`, background:`${statusCol}06`, padding:'18px 20px', marginBottom:12 }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16 }}>
-        <div>
-          <div style={{ fontSize:15, fontWeight:800, color:'#0F1729' }}>
-            {offer.currency} {Number(offer.base_salary||0).toLocaleString()}
-            <span style={{ fontSize:12, fontWeight:500, color:'#6B7280' }}> / year</span>
-          </div>
-          {offer.bonus && <div style={{ fontSize:12, color:'#6B7280', marginTop:2 }}>+ {offer.currency} {Number(offer.bonus).toLocaleString()} bonus</div>}
-        </div>
-        <Badge color={statusCol}>{offer.status.charAt(0).toUpperCase()+offer.status.slice(1)}</Badge>
-      </div>
-      <div style={{ display:'flex', gap:20, flexWrap:'wrap', marginBottom:pending?16:0 }}>
-        {offer.start_date && <div>
-          <div style={{ fontSize:10, fontWeight:700, color:'#9CA3AF', marginBottom:2 }}>START DATE</div>
-          <div style={{ fontSize:13, fontWeight:600, color:'#374151' }}>{new Date(offer.start_date).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</div>
-        </div>}
-        {offer.expiry_date && <div>
-          <div style={{ fontSize:10, fontWeight:700, color:'#9CA3AF', marginBottom:2 }}>OFFER EXPIRES</div>
-          <div style={{ fontSize:13, fontWeight:600, color:expiring?'#F59F00':'#374151' }}>
-            {new Date(offer.expiry_date).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}
-            {expiring&&pending&&<span style={{ fontSize:11, color:'#F59F00', marginLeft:6 }}>Expiring soon</span>}
-          </div>
-        </div>}
-      </div>
-      {pending && !responding && (
-        <div style={{ display:'flex', gap:10 }}>
-          <Btn brand={brand} onClick={()=>setResponding(offer.id)} style={{ flex:1 }}><HubIcon name="check" size={14}/> Accept Offer</Btn>
-          <Btn brand={brand} variant="outline" onClick={()=>setResponding(`d-${offer.id}`)} style={{ flex:1 }}>Decline</Btn>
-        </div>
-      )}
-      {responding === offer.id && (
-        <div style={{ marginTop:8 }}>
-          <textarea value={note} onChange={e=>setNote(e.target.value)} rows={2} placeholder="Any notes? (optional)"
-            style={{ width:'100%', boxSizing:'border-box', padding:'10px 12px', borderRadius:8,
-              border:'1.5px solid #E5E7EB', fontSize:13, fontFamily:'inherit', resize:'none', marginBottom:8 }}/>
-          <div style={{ display:'flex', gap:8 }}>
-            <Btn brand={brand} onClick={()=>respond(offer.id,'accept')} disabled={loading} style={{ flex:2 }}>
-              {loading?'Confirming…':'Confirm Acceptance'}
-            </Btn>
-            <Btn brand={brand} variant="ghost" onClick={()=>setResponding(null)} style={{ flex:1 }}>Cancel</Btn>
-          </div>
-        </div>
-      )}
-      {responding === `d-${offer.id}` && (
-        <div style={{ marginTop:8 }}>
-          <textarea value={note} onChange={e=>setNote(e.target.value)} rows={2} placeholder="Reason? (optional)"
-            style={{ width:'100%', boxSizing:'border-box', padding:'10px 12px', borderRadius:8,
-              border:'1.5px solid #FCA5A5', fontSize:13, fontFamily:'inherit', resize:'none', marginBottom:8 }}/>
-          <div style={{ display:'flex', gap:8 }}>
-            <Btn brand={brand} variant="danger" onClick={()=>respond(offer.id,'decline')} disabled={loading} style={{ flex:2 }}>
-              {loading?'Declining…':'Confirm Decline'}
-            </Btn>
-            <Btn brand={brand} variant="ghost" onClick={()=>setResponding(null)} style={{ flex:1 }}>Cancel</Btn>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ApplicationCard({ app, interviews, offers, brand }) {
-  const [expanded, setExpanded] = useState(false);
-  const hub = app.hub_config;
-  const appInterviews = interviews.filter(i => i.job_id === app.job_id);
-  const appOffers     = offers.filter(o => o.job_id === app.job_id);
-  const statusColor = !hub?'#9CA3AF':app.stage_name==='Hired'?'#0CAF77':app.stage_name==='Rejected'?'#DC2626':brand.primaryColor;
-  return (
-    <div style={{ background:'white', borderRadius:16, border:'1px solid #F0F0F0',
-      boxShadow:'0 2px 12px rgba(0,0,0,0.06)', overflow:'hidden', marginBottom:16 }}>
-      <div style={{ padding:'18px 20px', cursor:'pointer', display:'flex', alignItems:'flex-start', gap:14 }}
-        onClick={()=>setExpanded(e=>!e)}>
-        <div style={{ width:44, height:44, borderRadius:12, background:`${brand.primaryColor}14`,
-          display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-          <HubIcon name="briefcase" size={20} color={brand.primaryColor}/>
-        </div>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:15, fontWeight:700, color:'#0F1729', marginBottom:2 }}>{app.job_title}</div>
-          <div style={{ fontSize:12, color:'#6B7280' }}>
-            Applied {new Date(app.applied_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
-          </div>
-        </div>
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6, flexShrink:0 }}>
-          <Badge color={statusColor}>{app.status}</Badge>
-          <div style={{ transform:expanded?'rotate(90deg)':'none', transition:'transform .2s' }}>
-            <HubIcon name="chevron" size={14} color="#9CA3AF"/>
-          </div>
-        </div>
-      </div>
-      {app.stages.length > 0 && (
-        <div style={{ padding:'0 20px 16px', overflowX:'auto' }}>
-          <StageTracker stages={app.stages} currentIndex={app.stage_index} brand={brand}/>
-        </div>
-      )}
-      {hub?.message && (
-        <div style={{ margin:'0 20px 16px', padding:'12px 14px', background:`${brand.primaryColor}08`,
-          borderRadius:10, fontSize:13, color:'#374151', lineHeight:1.6, borderLeft:`3px solid ${brand.primaryColor}` }}>
-          {hub.message}
-        </div>
-      )}
-      {expanded && hub && (
-        <div style={{ padding:'0 20px 20px', borderTop:'1px solid #F9FAFB' }}>
-          {hub.sections?.interviews !== false && appInterviews.length > 0 && (
-            <div style={{ marginTop:16 }}>
-              <div style={{ fontSize:12, fontWeight:700, color:'#6B7280', marginBottom:10, textTransform:'uppercase', letterSpacing:'.5px' }}>Interviews</div>
-              {appInterviews.map(iv => {
-                const dt = new Date(`${iv.date}T${iv.time||'09:00'}`);
-                const past = dt < new Date();
-                return (
-                  <div key={iv.id} style={{ display:'flex', gap:12, padding:'12px 14px', borderRadius:12, marginBottom:8,
-                    background:past?'#F9FAFB':`${brand.primaryColor}06`, border:`1px solid ${past?'#F0F0F0':`${brand.primaryColor}20`}` }}>
-                    <div style={{ width:40, height:40, borderRadius:10, background:past?'#F3F4F6':`${brand.primaryColor}14`,
-                      display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      <HubIcon name="video" size={16} color={past?'#9CA3AF':brand.primaryColor}/>
-                    </div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:'#0F1729' }}>{iv.format}</div>
-                      <div style={{ fontSize:12, color:'#6B7280', marginTop:2 }}>
-                        {dt.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})} · {iv.time} · {iv.duration_min} min
-                      </div>
-                      {iv.location && <div style={{ fontSize:12, color:brand.primaryColor, marginTop:4 }}>
-                        {iv.location.startsWith('http')
-                          ? <a href={iv.location} target="_blank" rel="noreferrer" style={{ color:brand.primaryColor, fontWeight:600 }}>Join call →</a>
-                          : iv.location}
-                      </div>}
-                    </div>
-                    <Badge color={past?'#9CA3AF':'#0CAF77'}>{past?'Completed':'Upcoming'}</Badge>
+              <div style={{ background:C.surface2, borderRadius:12, border:`1px solid ${C.border}`, overflow:'hidden', marginBottom:16 }}>
+                <div style={{ padding:'10px 16px', fontSize:11, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:'0.05em', borderBottom:`1px solid ${C.border}` }}>Compensation Package</div>
+                {[
+                  ['Base Salary', formatCurrency(offer.base_salary, offer.currency)],
+                  offer.bonus?['Bonus', offer.bonus_type==='percentage'?`${offer.bonus}% of base`:formatCurrency(offer.bonus,offer.currency)]:null,
+                  ...(offer.package_items||[]).map(item=>[item.label||item.name, formatCurrency(item.value,offer.currency)]),
+                ].filter(Boolean).map(([label,value])=>(
+                  <div key={label} style={{ display:'flex', justifyContent:'space-between', padding:'10px 16px', borderBottom:`1px solid ${C.border}`, fontSize:13 }}>
+                    <span style={{ color:C.text2 }}>{label}</span><span style={{ fontWeight:600, color:C.text1 }}>{value}</span>
                   </div>
-                );
-              })}
+                ))}
+                <div style={{ display:'flex', justifyContent:'space-between', padding:'12px 16px', background:C.accentL, fontSize:14 }}>
+                  <span style={{ fontWeight:700, color:C.accent }}>Total Package</span>
+                  <span style={{ fontWeight:800, color:C.accent }}>{formatCurrency(pkgTotal(offer),offer.currency)}</span>
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:12, marginBottom:16, flexWrap:'wrap' }}>
+                {offer.start_date && <div style={{ padding:'8px 14px', background:C.greenL, borderRadius:10, border:`1px solid ${C.green}30` }}><div style={{ fontSize:10, color:C.green, fontWeight:700, textTransform:'uppercase' }}>Start Date</div><div style={{ fontSize:13, fontWeight:700, color:C.text1, marginTop:2 }}>{formatDate(offer.start_date)}</div></div>}
+                {offer.expiry_date && offer.status==='sent' && <div style={{ padding:'8px 14px', background:C.amberL, borderRadius:10, border:`1px solid ${C.amber}30` }}><div style={{ fontSize:10, color:C.amber, fontWeight:700, textTransform:'uppercase' }}>Respond By</div><div style={{ fontSize:13, fontWeight:700, color:C.text1, marginTop:2 }}>{formatDate(offer.expiry_date)}</div></div>}
+              </div>
+              {offer.terms && <div style={{ marginBottom:16, padding:'12px 16px', background:C.surface2, borderRadius:10, border:`1px solid ${C.border}`, fontSize:13, color:C.text2, lineHeight:1.6 }}>{offer.terms}</div>}
+              {offer.status==='sent' && (
+                <div style={{ display:'flex', gap:10 }}>
+                  <button onClick={()=>respond(offer.id,'accept')} disabled={working} style={{ flex:1, padding:'12px', borderRadius:10, border:'none', background:C.green, color:'white', fontSize:14, fontWeight:700, cursor:working?'wait':'pointer', fontFamily:F, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}><Ic n="check" s={16} c="white"/> Accept Offer</button>
+                  <button onClick={()=>setShowDeclineModal(offer.id)} disabled={working} style={{ flex:1, padding:'12px', borderRadius:10, border:`1.5px solid ${C.red}`, background:'transparent', color:C.red, fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:F, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}><Ic n="x" s={16} c={C.red}/> Decline</button>
+                </div>
+              )}
+              {offer.status==='accepted' && <div style={{ padding:'12px 16px', background:C.greenL, borderRadius:10, border:`1px solid ${C.green}30`, textAlign:'center' }}><div style={{ fontSize:14, fontWeight:700, color:C.green }}>✓ Offer Accepted</div><div style={{ fontSize:12, color:C.text3, marginTop:2 }}>Congratulations! The team will be in touch with next steps.</div></div>}
+              {offer.status==='declined' && <div style={{ padding:'12px 16px', background:C.redL, borderRadius:10, border:`1px solid ${C.red}30`, textAlign:'center' }}><div style={{ fontSize:13, color:C.red, fontWeight:600 }}>Offer Declined</div></div>}
             </div>
-          )}
-          {hub.sections?.offers !== false && appOffers.length > 0 && (
-            <div style={{ marginTop:16 }}>
-              <div style={{ fontSize:12, fontWeight:700, color:'#6B7280', marginBottom:10, textTransform:'uppercase', letterSpacing:'.5px' }}>Offer</div>
-              {appOffers.map(o => <OfferCard key={o.id} offer={o} brand={brand}/>)}
+          ))
+        }
+      </Card>
+      {showDeclineModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:20 }}>
+          <div style={{ background:C.surface, borderRadius:16, padding:24, maxWidth:400, width:'100%' }}>
+            <div style={{ fontSize:16, fontWeight:700, color:C.text1, marginBottom:4 }}>Decline Offer</div>
+            <div style={{ fontSize:13, color:C.text3, marginBottom:16 }}>Would you like to share a reason? (optional)</div>
+            <textarea value={declineReason} onChange={e=>setDeclineReason(e.target.value)} rows={3} placeholder="e.g. Accepted another offer, compensation expectations..." style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:`1.5px solid ${C.border}`, fontSize:13, fontFamily:F, outline:'none', resize:'vertical', boxSizing:'border-box' }}/>
+            <div style={{ display:'flex', gap:10, marginTop:16 }}>
+              <button onClick={()=>{setShowDeclineModal(null);setDeclineReason('');}} style={{ flex:1, padding:'10px', borderRadius:10, border:`1px solid ${C.border}`, background:'transparent', color:C.text2, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:F }}>Cancel</button>
+              <button onClick={()=>respond(showDeclineModal,'decline',declineReason)} disabled={working} style={{ flex:1, padding:'10px', borderRadius:10, border:'none', background:C.red, color:'white', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F }}>{working?'Sending…':'Decline Offer'}</button>
             </div>
-          )}
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
-function Dashboard({ profile, applications, interviews, offers, brand }) {
-  const firstName = profile?.first_name || 'there';
-  const pendingOffer = offers.find(o => o.status === 'sent');
-  const upcomingInterviews = interviews.filter(i => new Date(`${i.date}T${i.time||'09:00'}`) >= new Date());
+function MessagesSection({ token }) {
+  const [msgs, setMsgs] = useState([]); const [loading, setLoading] = useState(true);
+  const [reply, setReply] = useState(''); const [sending, setSending] = useState(false); const [sent, setSent] = useState(false);
+  useEffect(() => { fetch(`/api/candidate-hub/${token}/messages`).then(r=>r.json()).then(d=>{setMsgs(Array.isArray(d)?d:[]);setLoading(false);}).catch(()=>setLoading(false)); }, [token]);
+
+  const sendReply = async () => {
+    if (!reply.trim()) return; setSending(true);
+    try {
+      await fetch(`/api/candidate-hub/${token}/messages`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({body:reply}) });
+      setSent(true); setReply(''); setTimeout(()=>setSent(false),3000);
+    } finally { setSending(false); }
+  };
 
   return (
-    <div style={{ minHeight:'100vh', background:brand.bgColor, fontFamily:brand.fontFamily }}>
-      {/* Top bar */}
-      <div style={{ background:'white', borderBottom:'1px solid #F0F0F0', padding:'0 24px', height:60,
-        display:'flex', alignItems:'center', justifyContent:'space-between',
-        position:'sticky', top:0, zIndex:100 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          {brand.logoUrl
-            ? <img src={brand.logoUrl} alt={brand.companyName} style={{ maxHeight:32, maxWidth:120, objectFit:'contain' }}/>
-            : <div style={{ width:32, height:32, borderRadius:8, background:brand.primaryColor,
-                display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <span style={{ color:'white', fontSize:14, fontWeight:900 }}>{brand.companyName.charAt(0)}</span>
-              </div>}
-          <span style={{ fontSize:13, fontWeight:700, color:'#0F1729' }}>Application Hub</span>
-        </div>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <div style={{ width:32, height:32, borderRadius:'50%', background:`${brand.primaryColor}18`,
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:13, fontWeight:700, color:brand.primaryColor }}>
-            {firstName.charAt(0).toUpperCase()}
+    <Card>
+      <CardHeader icon="message" title="Messages" count={msgs.length} />
+      {loading ? <Spinner /> : msgs.length===0 ? <Empty icon="inbox" text="No messages yet. Any communications will appear here." /> :
+        msgs.map(m => (
+          <div key={m.id} style={{ padding:'14px 20px', borderBottom:`1px solid ${C.border}`, borderLeft:`3px solid ${m.direction==='inbound'?C.green:C.accent}` }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <Badge label={{email:'Email',sms:'SMS',whatsapp:'WhatsApp'}[m.type]||m.type} color={m.direction==='inbound'?C.green:C.accent} />
+                {m.direction==='inbound' && <span style={{ fontSize:11, color:C.text3 }}>Your reply</span>}
+              </div>
+              <span style={{ fontSize:11, color:C.text3 }}>{relativeTime(m.created_at)}</span>
+            </div>
+            {m.subject && <div style={{ fontSize:13, fontWeight:700, color:C.text1, marginBottom:4 }}>{m.subject}</div>}
+            <div style={{ fontSize:13, color:C.text2, lineHeight:1.6, whiteSpace:'pre-wrap' }}>{m.body}</div>
           </div>
-          <span style={{ fontSize:13, color:'#374151', fontWeight:600 }}>{firstName} {profile?.last_name||''}</span>
+        ))
+      }
+      <div style={{ padding:'16px 20px', borderTop:`1px solid ${C.border}` }}>
+        <div style={{ fontSize:12, fontWeight:600, color:C.text2, marginBottom:8 }}>Send a message</div>
+        <textarea value={reply} onChange={e=>setReply(e.target.value)} rows={3} placeholder="Type your message here…" style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:`1.5px solid ${C.border}`, fontSize:13, fontFamily:F, outline:'none', resize:'vertical', boxSizing:'border-box', marginBottom:10 }}/>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:10 }}>
+          {sent && <span style={{ fontSize:12, color:C.green }}>✓ Message sent</span>}
+          <button onClick={sendReply} disabled={sending||!reply.trim()} style={{ padding:'9px 18px', borderRadius:10, border:'none', background:reply.trim()?C.accent:C.border, color:reply.trim()?'white':C.text3, fontSize:13, fontWeight:700, cursor:reply.trim()?'pointer':'default', fontFamily:F, display:'flex', alignItems:'center', gap:8 }}>
+            <Ic n="send" s={14} c={reply.trim()?'white':C.text3}/>{sending?'Sending…':'Send'}
+          </button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function DocumentsSection({ token }) {
+  const [docs, setDocs] = useState([]); const [loading, setLoading] = useState(true);
+  useEffect(() => { fetch(`/api/candidate-hub/${token}/documents`).then(r=>r.json()).then(d=>{setDocs(Array.isArray(d)?d:[]);setLoading(false);}).catch(()=>setLoading(false)); }, [token]);
+  return (
+    <Card>
+      <CardHeader icon="file" title="Documents" count={docs.length} />
+      {loading ? <Spinner /> : docs.length===0 ? <Empty icon="file" text="No documents uploaded yet." /> :
+        docs.map(doc => (
+          <div key={doc.id} style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 20px', borderBottom:`1px solid ${C.border}` }}>
+            <div style={{ width:36, height:36, borderRadius:10, background:C.purpleL, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <Ic n="file" s={16} c={C.purple}/>
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:C.text1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{doc.name}</div>
+              <div style={{ fontSize:11, color:C.text3 }}>{doc.file_type} · {relativeTime(doc.created_at)}</div>
+            </div>
+          </div>
+        ))
+      }
+    </Card>
+  );
+}
+
+const TABS = [
+  { id:'applications', icon:'briefcase', label:'Applications' },
+  { id:'interviews',   icon:'calendar',  label:'Interviews'   },
+  { id:'offers',       icon:'gift',      label:'Offers'       },
+  { id:'messages',     icon:'message',   label:'Messages'     },
+  { id:'documents',    icon:'file',      label:'Documents'    },
+];
+
+export default function CandidateHub() {
+  const token = window.location.pathname.match(/^\/hub\/(.+)$/)?.[1];
+  const [state, setState] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('applications');
+
+  useEffect(() => {
+    if (!token) { setError('No access token found in the URL.'); setLoading(false); return; }
+    fetch(`/api/candidate-hub/verify/${token}`)
+      .then(r=>r.json())
+      .then(d => { if (d.error) setError(d.error); else setState(d); setLoading(false); })
+      .catch(() => { setError('Unable to load your hub. Please check your link and try again.'); setLoading(false); });
+  }, [token]);
+
+  if (loading) return (
+    <div style={{ minHeight:'100vh', background:C.bg, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:F }}>
+      <div style={{ textAlign:'center' }}><Spinner/><div style={{ fontSize:14, color:C.text3, marginTop:8 }}>Loading your hub…</div></div>
+    </div>
+  );
+
+  if (error) return (
+    <div style={{ minHeight:'100vh', background:C.bg, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:F, padding:24 }}>
+      <div style={{ textAlign:'center', maxWidth:420 }}>
+        <div style={{ width:60, height:60, borderRadius:18, background:C.redL, border:`1px solid ${C.red}30`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px' }}>
+          <Ic n="alert" s={28} c={C.red}/>
+        </div>
+        <div style={{ fontSize:22, fontWeight:800, color:C.text1, marginBottom:8 }}>Access Error</div>
+        <div style={{ fontSize:14, color:C.text3, lineHeight:1.7, marginBottom:24 }}>{error}</div>
+        <div style={{ fontSize:12, color:C.text3 }}>If you need help, please contact your recruiter.</div>
+      </div>
+    </div>
+  );
+
+  const { candidate } = state;
+  const initials = [(candidate.first_name||'')[0],(candidate.last_name||'')[0]].filter(Boolean).join('').toUpperCase()||'?';
+
+  return (
+    <div style={{ minHeight:'100vh', background:C.bg, fontFamily:F }}>
+      {/* Header */}
+      <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, position:'sticky', top:0, zIndex:50, boxShadow:'0 2px 12px rgba(91,91,214,0.06)' }}>
+        <div style={{ padding:'14px 24px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <div style={{ width:34, height:34, borderRadius:10, background:`linear-gradient(135deg, ${C.accent}, #4338CA)`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <span style={{ color:'white', fontSize:14, fontWeight:900 }}>V</span>
+            </div>
+            <div>
+              <div style={{ fontSize:13, fontWeight:800, color:C.text1, lineHeight:1 }}>Candidate Hub</div>
+              <div style={{ fontSize:10, color:C.text3, letterSpacing:'0.04em' }}>POWERED BY VERCENTIC</div>
+            </div>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ textAlign:'right' }}>
+              <div style={{ fontSize:13, fontWeight:700, color:C.text1 }}>{candidate.first_name} {candidate.last_name}</div>
+              {candidate.email && <div style={{ fontSize:11, color:C.text3 }}>{candidate.email}</div>}
+            </div>
+            <div style={{ width:36, height:36, borderRadius:'50%', background:`linear-gradient(135deg, ${C.accent}, #4338CA)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:800, color:'white' }}>{initials}</div>
+          </div>
+        </div>
+        <div style={{ display:'flex', borderTop:`1px solid ${C.border}`, overflowX:'auto' }}>
+          {TABS.map(tab => (
+            <button key={tab.id} onClick={()=>setActiveTab(tab.id)} style={{ display:'flex', alignItems:'center', gap:7, padding:'11px 18px', border:'none', background:'transparent', cursor:'pointer', fontSize:13, fontWeight:activeTab===tab.id?700:500, color:activeTab===tab.id?C.accent:C.text3, borderBottom:activeTab===tab.id?`2.5px solid ${C.accent}`:'2.5px solid transparent', fontFamily:F, whiteSpace:'nowrap', transition:'color 0.15s' }}>
+              <Ic n={tab.icon} s={15} c={activeTab===tab.id?C.accent:C.text3}/>{tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Content */}
-      <div style={{ maxWidth:680, margin:'0 auto', padding:'32px 20px' }}>
-        <div style={{ marginBottom:28 }}>
-          <h1 style={{ margin:'0 0 4px', fontSize:22, fontWeight:800, color:'#0F1729' }}>Hi, {firstName} 👋</h1>
-          <p style={{ margin:0, color:'#6B7280', fontSize:14 }}>
-            {applications.length === 0 ? 'No applications found for this email.'
-              : `You have ${applications.length} active application${applications.length!==1?'s':''}.`}
-          </p>
-        </div>
-
-        {/* Pending offer alert */}
-        {pendingOffer && (
-          <div style={{ background:`${brand.primaryColor}10`, border:`1.5px solid ${brand.primaryColor}30`,
-            borderRadius:14, padding:'14px 18px', marginBottom:24,
-            display:'flex', alignItems:'center', gap:12 }}>
-            <HubIcon name="gift" size={20} color={brand.primaryColor}/>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:14, fontWeight:700, color:'#0F1729' }}>You have a pending offer for {pendingOffer.job_title}</div>
-              <div style={{ fontSize:12, color:'#6B7280', marginTop:2 }}>Review and respond below</div>
-            </div>
-            <HubIcon name="arrow" size={16} color={brand.primaryColor}/>
-          </div>
-        )}
-
-        {/* No applications */}
-        {applications.length === 0 && (
-          <div style={{ background:'white', borderRadius:16, padding:'48px 32px', textAlign:'center',
-            border:'1px solid #F0F0F0', boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
-            <div style={{ width:56, height:56, borderRadius:16, background:'#F3F4F6',
-              display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
-              <HubIcon name="briefcase" size={24} color="#9CA3AF"/>
-            </div>
-            <div style={{ fontSize:16, fontWeight:700, color:'#374151', marginBottom:6 }}>No applications yet</div>
-            <div style={{ fontSize:13, color:'#9CA3AF', lineHeight:1.6 }}>When you apply for a role, your applications will appear here.</div>
-          </div>
-        )}
-
-        {/* Application cards */}
-        {applications.map(app => (
-          <ApplicationCard key={app.id} app={app} interviews={interviews} offers={offers} brand={brand}/>
-        ))}
-
-        {/* Upcoming interviews summary */}
-        {upcomingInterviews.length > 0 && (
-          <div style={{ background:'white', borderRadius:16, border:'1px solid #F0F0F0',
-            boxShadow:'0 2px 12px rgba(0,0,0,0.06)', overflow:'hidden', marginBottom:16 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'16px 20px', borderBottom:'1px solid #F9FAFB' }}>
-              <div style={{ width:32, height:32, borderRadius:9, background:`${brand.primaryColor}14`,
-                display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <HubIcon name="video" size={15} color={brand.primaryColor}/>
-              </div>
-              <span style={{ fontSize:14, fontWeight:700, color:'#0F1729' }}>Upcoming Interviews</span>
-            </div>
-            <div style={{ padding:'16px 20px' }}>
-              {upcomingInterviews.slice(0,3).map(iv => {
-                const dt = new Date(`${iv.date}T${iv.time||'09:00'}`);
-                const daysAway = Math.ceil((dt - new Date()) / 86400000);
-                return (
-                  <div key={iv.id} style={{ display:'flex', gap:12, padding:'10px 0', borderBottom:'1px solid #F9FAFB' }}>
-                    <div style={{ background:`${brand.primaryColor}10`, borderRadius:10,
-                      padding:'8px 12px', textAlign:'center', minWidth:48, flexShrink:0 }}>
-                      <div style={{ fontSize:16, fontWeight:800, color:brand.primaryColor, lineHeight:1 }}>{dt.getDate()}</div>
-                      <div style={{ fontSize:10, color:brand.primaryColor, fontWeight:700 }}>
-                        {dt.toLocaleDateString('en-GB',{month:'short'}).toUpperCase()}
-                      </div>
-                    </div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:'#0F1729' }}>{iv.job_title}</div>
-                      <div style={{ fontSize:12, color:'#6B7280', marginTop:2 }}>{iv.format} · {iv.time} · {iv.duration_min} min</div>
-                    </div>
-                    <Badge color={daysAway<=1?'#DC2626':daysAway<=3?'#F59F00':'#0CAF77'}>
-                      {daysAway===0?'Today':daysAway===1?'Tomorrow':`In ${daysAway}d`}
-                    </Badge>
-                  </div>
-                );
-              })}
+      <div style={{ maxWidth:760, margin:'0 auto', padding:'28px 20px' }}>
+        {activeTab==='applications' && (
+          <div style={{ marginBottom:20, padding:'16px 20px', background:`linear-gradient(135deg, ${C.accentL}, #F5F3FF)`, borderRadius:16, border:`1px solid ${C.accent}20`, display:'flex', alignItems:'center', gap:14 }}>
+            <div style={{ width:44, height:44, borderRadius:14, background:`linear-gradient(135deg, ${C.accent}, #4338CA)`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:18, fontWeight:800, color:'white' }}>{initials}</div>
+            <div>
+              <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>Welcome back, {candidate.first_name}</div>
+              <div style={{ fontSize:13, color:C.text2, marginTop:2 }}>Track your applications, upcoming interviews, and offers all in one place.</div>
             </div>
           </div>
         )}
+        {activeTab==='applications' && <ApplicationsSection token={token}/>}
+        {activeTab==='interviews'   && <InterviewsSection   token={token}/>}
+        {activeTab==='offers'       && <OffersSection       token={token}/>}
+        {activeTab==='messages'     && <MessagesSection     token={token}/>}
+        {activeTab==='documents'    && <DocumentsSection    token={token}/>}
+      </div>
 
-        <div style={{ textAlign:'center', marginTop:32, color:'#C4C4CC', fontSize:12 }}>
-          Powered by {brand.companyName} · Your data is kept secure and private
-        </div>
+      <div style={{ padding:'24px', textAlign:'center', fontSize:11, color:C.text3, borderTop:`1px solid ${C.border}`, background:C.surface, marginTop:40 }}>
+        Powered by Vercentic · This is a secure, personalised link for you only. Do not share this URL.
       </div>
     </div>
   );
-}
-
-export default function CandidateHub() {
-  const [phase, setPhase]   = useState('loading');
-  const [email, setEmail]   = useState('');
-  const [brand, setBrand]   = useState(DEFAULT_BRAND);
-  const [profile, setProfile] = useState(null);
-  const [applications, setApplications] = useState([]);
-  const [interviews,   setInterviews]   = useState([]);
-  const [offers,       setOffers]       = useState([]);
-
-  const urlParams  = new URLSearchParams(window.location.search);
-  const tokenParam = urlParams.get('token');
-  const portalParam = urlParams.get('portal_id');
-
-  // Load portal branding
-  useEffect(() => {
-    const pid = portalParam || sessionStorage.getItem('hub_portal_id');
-    if (!pid) return;
-    sessionStorage.setItem('hub_portal_id', pid);
-    fetch(`/api/hub/portal-branding?portal_id=${pid}`)
-      .then(r => r.json())
-      .then(d => { if (d.branding?.primaryColor) setBrand(b => ({ ...b, ...d.branding })); })
-      .catch(() => {});
-  }, []);
-
-  const loadDashboard = useCallback(async () => {
-    setPhase('loading');
-    try {
-      const [prof, apps, ivs, offs] = await Promise.all([
-        hubApi('/profile'), hubApi('/applications'),
-        hubApi('/interviews'), hubApi('/offers'),
-      ]);
-      setProfile(prof); setApplications(apps);
-      setInterviews(ivs); setOffers(offs);
-      setPhase('dashboard');
-    } catch {
-      sessionStorage.removeItem('hub_session');
-      setPhase('request');
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!tokenParam) {
-      const existing = sessionStorage.getItem('hub_session');
-      if (existing) loadDashboard(); else setPhase('request');
-      return;
-    }
-    const url = new URL(window.location.href);
-    url.searchParams.delete('token');
-    window.history.replaceState({}, '', url.toString());
-
-    fetch(`/api/hub/verify?token=${encodeURIComponent(tokenParam)}`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.session_token) { sessionStorage.setItem('hub_session', d.session_token); loadDashboard(); }
-        else setPhase('request');
-      })
-      .catch(() => setPhase('request'));
-  }, [tokenParam, loadDashboard]);
-
-  const portalId = portalParam || sessionStorage.getItem('hub_portal_id');
-
-  if (phase === 'loading') return (
-    <div style={{ minHeight:'100vh', background:brand.bgColor, display:'flex',
-      alignItems:'center', justifyContent:'center', fontFamily:brand.fontFamily }}>
-      <div style={{ textAlign:'center', color:'#9CA3AF' }}>
-        <HubIcon name="loader" size={32} color={brand.primaryColor}/>
-        <div style={{ marginTop:12, fontSize:14 }}>Loading your hub…</div>
-      </div>
-    </div>
-  );
-
-  if (phase === 'sent') return (
-    <LinkSentScreen email={email} brand={brand}
-      onRetry={() => { setEmail(''); setPhase('request'); }}/>
-  );
-
-  if (phase === 'request') return (
-    <RequestForm brand={brand} portalId={portalId}
-      onSent={sentEmail => { setEmail(sentEmail); setPhase('sent'); }}/>
-  );
-
-  return <Dashboard profile={profile} applications={applications}
-    interviews={interviews} offers={offers} brand={brand}/>;
 }

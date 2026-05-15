@@ -1,153 +1,138 @@
 /**
- * Vercentic Messaging Service
- * Handles SMS, WhatsApp, and Email dispatch via Twilio (SMS/WA) and SendGrid (Email).
+ * Vercentic Messaging Service — updated to use MailerSend as primary email provider.
  *
- * Credentials can be set via:
- *   1. Environment variables (.env file)
- *   2. Settings → Integrations (saved to store, applied to process.env at runtime)
- *
- * The service checks process.env DYNAMICALLY on every call, so credentials
- * saved via the Integrations UI take effect immediately without a server restart.
+ * Email provider priority:
+ *   1. MailerSend (MAILERSEND_API_KEY) — primary, per-client domains + reply tracking
+ *   2. Resend      (RESEND_API_KEY)    — simple fallback
+ *   3. SendGrid    (SENDGRID_API_KEY)  — legacy fallback
+ *   4. Simulation  — if none configured
  */
 
-// ─── Dynamic credential checks (evaluated on every call, not once at startup) ─
-function isTwilioConfigured() {
-  return !!(
-    process.env.TWILIO_ACCOUNT_SID &&
-    process.env.TWILIO_AUTH_TOKEN &&
-    process.env.TWILIO_ACCOUNT_SID !== 'YOUR_ACCOUNT_SID'
-  );
-}
+const TWILIO_CONFIGURED = !!(
+  process.env.TWILIO_ACCOUNT_SID &&
+  process.env.TWILIO_AUTH_TOKEN &&
+  !process.env.TWILIO_ACCOUNT_SID.startsWith('YOUR_')
+);
 
-function isSendGridConfigured() {
-  return !!(
-    process.env.SENDGRID_API_KEY &&
-    process.env.SENDGRID_API_KEY !== 'YOUR_SENDGRID_KEY'
-  );
-}
+const MAILERSEND_CONFIGURED = !!(
+  process.env.MAILERSEND_API_KEY &&
+  !process.env.MAILERSEND_API_KEY.startsWith('YOUR_')
+);
 
-function isResendConfigured() {
-  return !!(
-    process.env.RESEND_API_KEY &&
-    process.env.RESEND_API_KEY !== 'YOUR_RESEND_KEY'
-  );
-}
+const RESEND_CONFIGURED = !!(
+  process.env.RESEND_API_KEY &&
+  !process.env.RESEND_API_KEY.startsWith('YOUR_')
+);
 
-// ─── Lazy Twilio client (created on first use, recreated if credentials change)
-let _twilioClient = null;
-let _twilioSid = null;
+const SENDGRID_CONFIGURED = !!(
+  process.env.SENDGRID_API_KEY &&
+  !process.env.SENDGRID_API_KEY.startsWith('YOUR_')
+);
 
-function getTwilioClient() {
-  if (!isTwilioConfigured()) return null;
-  if (_twilioClient && _twilioSid === process.env.TWILIO_ACCOUNT_SID) return _twilioClient;
+// ─── Twilio ───────────────────────────────────────────────────────────────────
+let twilioClient = null;
+if (TWILIO_CONFIGURED) {
   try {
-    _twilioClient = require('twilio')(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
-    _twilioSid = process.env.TWILIO_ACCOUNT_SID;
-    console.log('[messaging] Twilio client initialised (LIVE)');
-    return _twilioClient;
-  } catch (e) {
-    console.warn('[messaging] Twilio init failed:', e.message);
-    return null;
-  }
+    twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    console.log('[messaging] Twilio: LIVE');
+  } catch (e) { console.warn('[messaging] Twilio init failed:', e.message); }
+} else {
+  console.log('[messaging] Twilio: SIMULATION (no credentials)');
 }
 
-console.log(`[messaging] Twilio: ${isTwilioConfigured() ? 'LIVE' : 'SIMULATION (no credentials)'}`);
-console.log(`[messaging] Email: ${isResendConfigured() ? 'Resend LIVE' : isSendGridConfigured() ? 'SendGrid LIVE' : 'SIMULATION (no credentials)'}`);
+const emailProvider = MAILERSEND_CONFIGURED ? 'mailersend'
+  : RESEND_CONFIGURED    ? 'resend'
+  : SENDGRID_CONFIGURED  ? 'sendgrid'
+  : 'none';
+console.log(`[messaging] Email: ${emailProvider === 'none' ? 'SIMULATION' : `LIVE via ${emailProvider}`}`);
 
-// ─── SMS ─────────────────────────────────────────────────────────────────────
+// ─── SMS ──────────────────────────────────────────────────────────────────────
 async function sendSMS({ to, body }) {
-  const client = getTwilioClient();
-  if (!client) {
+  if (!twilioClient) {
+    console.log(`[sms-sim] To: ${to} | Body: ${body?.slice(0, 60)}`);
     return { simulated: true, sid: `sim_${Date.now()}`, status: 'simulated' };
   }
-  const cleanTo = to.replace(/\s+/g, ''); // strip all spaces
-  const msg = await client.messages.create({
-    body,
-    from: process.env.TWILIO_SMS_NUMBER,
-    to: cleanTo,
+  const msg = await twilioClient.messages.create({
+    body, from: process.env.TWILIO_SMS_NUMBER, to,
     statusCallback: process.env.WEBHOOK_BASE_URL
-      ? `${process.env.WEBHOOK_BASE_URL}/api/comms/webhook/sms-status`
-      : undefined,
+      ? `${process.env.WEBHOOK_BASE_URL}/api/comms/webhook/sms-status` : undefined,
   });
   return { sid: msg.sid, status: msg.status };
 }
 
 // ─── WhatsApp ─────────────────────────────────────────────────────────────────
 async function sendWhatsApp({ to, body }) {
-  const client = getTwilioClient();
-  if (!client) {
+  if (!twilioClient) {
+    console.log(`[wa-sim] To: ${to} | Body: ${body?.slice(0, 60)}`);
     return { simulated: true, sid: `sim_${Date.now()}`, status: 'simulated' };
   }
-  const cleanTo = to.replace(/\s+/g, ''); // strip all spaces
   const from = process.env.TWILIO_WA_NUMBER || `whatsapp:${process.env.TWILIO_SMS_NUMBER}`;
-  const toWA = cleanTo.startsWith('whatsapp:') ? cleanTo : `whatsapp:${cleanTo}`;
-  const msg = await client.messages.create({
-    body,
-    from,
-    to: toWA,
+  const toWA = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+  const msg  = await twilioClient.messages.create({
+    body, from, to: toWA,
     statusCallback: process.env.WEBHOOK_BASE_URL
-      ? `${process.env.WEBHOOK_BASE_URL}/api/comms/webhook/wa-status`
-      : undefined,
+      ? `${process.env.WEBHOOK_BASE_URL}/api/comms/webhook/wa-status` : undefined,
   });
   return { sid: msg.sid, status: msg.status };
 }
 
-// ─── Email (Resend or SendGrid) ───────────────────────────────────────────────
-async function sendEmail({ to, toName, subject, body, text, html, attachments }) {
+// ─── Email ────────────────────────────────────────────────────────────────────
+async function sendEmail({ to, toName, from, fromName, replyTo, subject, body, text, html, tags }) {
   const textBody = text || body || '';
   const htmlBody = html || textBody.replace(/\n/g, '<br>');
 
-  if (isResendConfigured()) {
-    const payload = {
-      from: `${process.env.SENDGRID_FROM_NAME || 'Vercentic'} <${process.env.SENDGRID_FROM_EMAIL || 'onboarding@resend.dev'}>`,
-      to: toName ? [{ email: to, name: toName }] : [to],
-      subject,
-      text: textBody,
-      html: htmlBody,
-    };
-    if (attachments?.length) {
-      payload.attachments = attachments.map(a => ({
-        filename: a.filename,
-        content:  a.content,  // base64 string
-      }));
-    }
+  // ── MailerSend (primary) ──────────────────────────────────────────────────
+  if (MAILERSEND_CONFIGURED) {
+    const ms = require('./mailersend');
+    return ms.sendEmail({ to, toName, from, fromName, replyTo, subject, text: textBody, html: htmlBody, tags });
+  }
+
+  // ── Resend (fallback) ─────────────────────────────────────────────────────
+  if (RESEND_CONFIGURED) {
+    const fromAddr  = from || process.env.SENDGRID_FROM_EMAIL || 'onboarding@resend.dev';
+    const fromLabel = fromName || process.env.SENDGRID_FROM_NAME || 'Vercentic';
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        from: `${fromLabel} <${fromAddr}>`,
+        to: toName ? [{ email: to, name: toName }] : [to],
+        subject, text: textBody, html: htmlBody,
+        reply_to: replyTo || undefined,
+      }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || 'Resend error');
     return { messageId: data.id, status: 'sent', provider: 'resend' };
   }
 
-  if (isSendGridConfigured()) {
+  // ── SendGrid (legacy) ─────────────────────────────────────────────────────
+  if (SENDGRID_CONFIGURED) {
     const sgMail = require('@sendgrid/mail');
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    const msg = {
+    const payload = {
       to: toName ? { email: to, name: toName } : to,
-      from: { email: process.env.SENDGRID_FROM_EMAIL || 'noreply@talentos.io', name: process.env.SENDGRID_FROM_NAME || 'Vercentic' },
+      from: { email: from || process.env.SENDGRID_FROM_EMAIL || 'noreply@vercentic.com',
+               name:  fromName || process.env.SENDGRID_FROM_NAME || 'Vercentic' },
       subject, text: textBody, html: htmlBody,
     };
-    if (attachments?.length) msg.attachments = attachments;
-    const [response] = await sgMail.send(msg);
+    if (replyTo) payload.replyTo = replyTo;
+    const [response] = await sgMail.send(payload);
     return { messageId: response.headers['x-message-id'], status: 'sent', provider: 'sendgrid' };
   }
 
-  console.log(`[email-sim] To: ${to} | Subject: ${subject}${attachments?.length ? ` | Attachments: ${attachments.map(a=>a.filename).join(', ')}` : ''}`);
+  // ── Simulation ─────────────────────────────────────────────────────────────
+  console.log(`[email-sim] To: ${to} | Subject: ${subject} | ReplyTo: ${replyTo || 'none'}`);
   return { simulated: true, messageId: `sim_${Date.now()}`, status: 'simulated' };
 }
 
-// ─── Status helpers ───────────────────────────────────────────────────────────
+// ─── Status ───────────────────────────────────────────────────────────────────
 function getProviderStatus() {
   return {
-    sms:       isTwilioConfigured()                            ? 'live' : 'simulation',
-    whatsapp:  isTwilioConfigured()                            ? 'live' : 'simulation',
-    email:     isResendConfigured() || isSendGridConfigured()   ? 'live' : 'simulation',
-    email_provider: isResendConfigured() ? 'resend' : isSendGridConfigured() ? 'sendgrid' : 'none',
+    sms:            TWILIO_CONFIGURED              ? 'live' : 'simulation',
+    whatsapp:       TWILIO_CONFIGURED              ? 'live' : 'simulation',
+    email:          emailProvider !== 'none'       ? 'live' : 'simulation',
+    email_provider: emailProvider,
   };
 }
 

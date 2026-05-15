@@ -55,7 +55,7 @@ const getSessionId = () => {
   return window.__fbSessionId;
 };
 
-export default function FeedbackWidget({ portal, currentPageSlug, api, visitor }) {
+export default function FeedbackWidget({ portal, currentPageSlug, api, visitor, rightOffset, forcePosition }) {
   const [open, setOpen] = useState(false);
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -114,12 +114,16 @@ export default function FeedbackWidget({ portal, currentPageSlug, api, visitor }
   };
 
   // Widget position
-  const position = config.position || 'bottom-right';
+  const position = forcePosition || config.position || 'bottom-right';
   const posStyle = {
     'bottom-right': { bottom: 20, right: 20 },
     'bottom-left':  { bottom: 20, left: 20 },
     'bottom-center': { bottom: 20, left: '50%', transform: 'translateX(-50%)' },
   }[position] || { bottom: 20, right: 20 };
+  // Legacy: allow parent to shift right offset
+  if (posStyle.right !== undefined && typeof rightOffset === 'number') {
+    posStyle.right = rightOffset;
+  }
 
   // ── Collapsed tab ──
   if (!open) {

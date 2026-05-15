@@ -1,6 +1,6 @@
 // WizardBuilder.jsx — admin UI for building configurable portal wizards
 // Embedded in the Portal Settings drawer as a "Wizard" tab
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 const F = "'Plus Jakarta Sans',-apple-system,sans-serif";
 const C = {
@@ -50,6 +50,7 @@ const WzIc = ({n,s=14,c='currentColor'}) => (
 export const BLOCK_TYPES = [
   { type:'entry_method',       icon:'doorOpen',    label:'Entry Method',       desc:'CV upload, manual entry, LinkedIn or returning applicant' },
   { type:'profile_fields',     icon:'user',        label:'Profile Fields',     desc:'Configurable person fields (name, email, phone, location…)' },
+  { type:'candidate_job_fields', icon:'briefcase',  label:'Job Fields (Candidate)', desc:'Fields from the job record the candidate can view or confirm' },
   { type:'file_upload',        icon:'paperclip',   label:'File Upload',        desc:'Upload any document — CV, right to work, portfolio' },
   { type:'screening_questions',icon:'helpCircle',  label:'Screening Questions',desc:'Pre-screen questions from the question bank with knockout support' },
   { type:'equal_opps',         icon:'scale',       label:'Equal Opportunities',desc:'Anonymous EO monitoring form (auto-detects region)' },
@@ -150,10 +151,27 @@ const JOB_FIELD_OPTIONS = [
   {value:'required_skills',label:'Required skills'},{value:'priority',label:'Priority'},
 ];
 
-const BlockConfig = ({ block, onUpdate, onRemove }) => {
+const BlockConfig = ({ block, onUpdate, onRemove, portal }) => {
   const cfg = block.config || {};
   const set = (k,v) => onUpdate({ ...block, config:{ ...cfg, [k]:v } });
   const setField = (k,v) => onUpdate({ ...block, [k]:v });
+
+  // Load job object fields for candidate_job_fields block
+  const [jobFields, setJobFields] = useState([]);
+  useEffect(() => {
+    if (block.type !== 'candidate_job_fields') return;
+    const envId = portal?.environment_id;
+    if (!envId) return;
+    import('./apiClient.js').then(({ default: apiClient }) => {
+      apiClient.get(`/objects?environment_id=${envId}`).then(objs => {
+        const jobObj = (Array.isArray(objs) ? objs : objs.data || []).find(o => o.slug === 'jobs' || o.name?.toLowerCase() === 'jobs');
+        if (!jobObj) return;
+        apiClient.get(`/fields?object_id=${jobObj.id}`).then(fields => {
+          setJobFields(Array.isArray(fields) ? fields : fields.data || []);
+        });
+      });
+    }).catch(() => {});
+  }, [block.type, portal?.environment_id]);
 
   return (
     <div style={{background:C.accentLight,borderRadius:10,border:`1.5px solid ${C.accent}30`,padding:'12px 14px',display:'flex',flexDirection:'column',gap:10}}>
@@ -191,6 +209,44 @@ const BlockConfig = ({ block, onUpdate, onRemove }) => {
           </div>
         </div>
       )}
+      {block.type==='candidate_job_fields'&&(
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          <div>
+            <div style={{fontSize:11,fontWeight:600,color:C.text3,marginBottom:4}}>Job fields to show candidates</div>
+            <div style={{fontSize:10,color:C.text3,marginBottom:8}}>Select which job fields the candidate can see or fill in during application.</div>
+            {jobFields.length===0 ? (
+              <div style={{fontSize:11,color:C.text3,padding:'8px 0'}}>Loading job fields…</div>
+            ) : (
+              <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                {jobFields.filter(f=>!['id','created_at','updated_at','object_id','environment_id'].includes(f.api_key)).map(f=>{
+                  const sel = (cfg.fields||[]).find(x=>x.key===f.api_key);
+                  const isOn = !!sel;
+                  return (
+                    <div key={f.id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:8,background:isOn?C.accentLight:'transparent',border:`1px solid ${isOn?C.accent+'40':C.border}`,cursor:'pointer'}}
+                      onClick={()=>{
+                        const cur = cfg.fields||[];
+                        if (isOn) set('fields', cur.filter(x=>x.key!==f.api_key));
+                        else set('fields', [...cur, {key:f.api_key,label:f.name,editable:false,required:false}]);
+                      }}>
+                      <div style={{width:14,height:14,borderRadius:3,border:`1.5px solid ${isOn?C.accent:C.text3}`,background:isOn?C.accent:'white',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        {isOn&&<WzIc n="check" s={9} c="white"/>}
+                      </div>
+                      <span style={{fontSize:11,fontWeight:isOn?600:400,color:isOn?C.accent:C.text2,flex:1}}>{f.name}</span>
+                      <span style={{fontSize:10,color:C.text3}}>{f.field_type}</span>
+                      {isOn&&(
+                        <button onClick={e=>{e.stopPropagation();set('fields',(cfg.fields||[]).map(x=>x.key===f.api_key?{...x,editable:!x.editable}:x));}}
+                          style={{fontSize:9,padding:'2px 6px',borderRadius:99,border:`1px solid ${sel.editable?C.amber:C.border}`,background:sel.editable?'#FFFBEB':'white',color:sel.editable?C.amber:C.text3,cursor:'pointer',fontWeight:600}}>
+                          {sel.editable?'Editable':'Read-only'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {block.type==='file_upload'&&(
         <div style={{display:'flex',flexDirection:'column',gap:8}}>
           <Inp label="Button label" value={cfg.label} onChange={v=>set('label',v)} placeholder="Upload your CV"/>
@@ -219,7 +275,7 @@ const BlockConfig = ({ block, onUpdate, onRemove }) => {
 };
 
 // ── Page editor panel ──────────────────────────────────────────────────────────
-const PageEditor = ({ page, allPages, onUpdate, onDelete, isOnly }) => {
+const PageEditor = ({ page, allPages, onUpdate, onDelete, isOnly, portal }) => {
   const [selectedBlockIdx, setSelectedBlockIdx] = useState(null);
   const [showPalette, setShowPalette] = useState(false);
 
@@ -268,7 +324,7 @@ const PageEditor = ({ page, allPages, onUpdate, onDelete, isOnly }) => {
         {(page.blocks||[]).map((block,i)=>(
           <div key={block.id}>
             {selectedBlockIdx===i ? (
-              <BlockConfig block={block} onUpdate={b=>updateBlock(i,b)} onRemove={()=>removeBlock(i)}/>
+              <BlockConfig block={block} onUpdate={b=>updateBlock(i,b)} onRemove={()=>removeBlock(i)} portal={portal}/>
             ) : (
               <div onClick={()=>setSelectedBlockIdx(i)}
                 style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:C.surface,borderRadius:10,border:`1.5px solid ${C.border}`,cursor:'pointer',transition:'all .1s'}}
@@ -657,7 +713,8 @@ export default function WizardBuilder({ portal, onChange }) {
           <PageEditor page={currentPage} allPages={pages}
             onUpdate={p=>updatePage(selectedPageIdx,p)}
             onDelete={()=>deletePage(selectedPageIdx)}
-            isOnly={pages.length<=1}/>
+            isOnly={pages.length<=1}
+            portal={portal}/>
         )}
       </div>
 

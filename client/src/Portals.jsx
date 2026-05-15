@@ -59,6 +59,7 @@ const WIDGET_TYPES = [
   { type:"image_gallery", label:"Image Gallery",  icon:"photos",    desc:"Photo grid with lightbox" },
   { type:"app_status",    label:"App Status",     icon:"search",    desc:"Candidate self-service status lookup" },
   { type:"saved_jobs",    label:"Saved Jobs",     icon:"bookmark",  desc:"Candidate's bookmarked roles" },
+  { type:"candidate_hub", label:"Candidate Hub",  icon:"inbox",     desc:"Full self-service hub — applications, interviews, offers, messages" },
   { type:"tabs",          label:"Tabs",           icon:"layout",    desc:"Tabbed content sections" },
   { type:"content",      label:"Content Block",  icon:"align",     desc:"Heading, text, cards & CTA" },
   { type:"accordion",   label:"Accordion",       icon:"list",      desc:"Collapsible FAQ-style items" },
@@ -759,9 +760,16 @@ const PortalSettingsDrawer = ({ portal, onChange, onClose, api: apiProp }) => {
             </div>
             {/* Welcome message */}
             <div>
-              {lbl("Hub tagline (shown on login screen)")}
+              {lbl("Hub tagline (shown to candidate)")}
               <input value={hub.tagline||""} onChange={e=>setHub("tagline",e.target.value)}
                 placeholder="Track your application journey" style={inp}/>
+            </div>
+            {/* Nav label */}
+            <div>
+              {lbl("Navigation link label")}
+              <input value={hub.nav_label||""} onChange={e=>setHub("nav_label",e.target.value)}
+                placeholder="My Applications" style={inp}/>
+              <div style={{fontSize:10,color:C.text3,marginTop:3}}>The label shown in the portal navigation bar</div>
             </div>
             {/* Hub URL */}
             <div>
@@ -1340,10 +1348,10 @@ const DetailFieldsConfig = ({ objectId, environmentId, detailFields, listFields,
       </div>
 
       {/* Selected fields — reorderable */}
-      {selectedList.length > 0 && (
+      {selectedList.length > 0 ? (
         <div style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 3 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: C.accent, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>
-            Active ({selectedList.length})
+            Active ({selectedList.length}) — drag to reorder
           </div>
           {selectedList.map((f, i) => (
             <div key={f.key}
@@ -1365,6 +1373,11 @@ const DetailFieldsConfig = ({ objectId, environmentId, detailFields, listFields,
               </button>
             </div>
           ))}
+        </div>
+      ) : (
+        <div style={{ marginBottom: 10, padding: "10px 12px", borderRadius: 8, border: `1.5px dashed ${C.border}`, textAlign: "center" }}>
+          <div style={{ fontSize: 11, color: C.text3 }}>No fields selected yet</div>
+          <div style={{ fontSize: 10, color: C.text3, marginTop: 2 }}>Click + on a field below to add it</div>
         </div>
       )}
 
@@ -1395,11 +1408,87 @@ const DetailFieldsConfig = ({ objectId, environmentId, detailFields, listFields,
   );
 };
 
+// ─── Searchable field picker dropdown ────────────────────────────────────────
+const FieldSelect = ({ value, onChange, fields, placeholder="— choose field —" }) => {
+  const [open, setOpen]     = useState(false);
+  const [q, setQ]           = useState("");
+  const ref                 = React.useRef(null);
+  const inputRef            = React.useRef(null);
+
+  // close on outside click
+  React.useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = fields.filter(f =>
+    !q || f.name.toLowerCase().includes(q.toLowerCase()) || f.api_key.toLowerCase().includes(q.toLowerCase())
+  );
+  const chosen = fields.find(f => f.api_key === value);
+
+  const pick = (f) => { onChange(f.api_key, f.name); setOpen(false); setQ(""); };
+
+  React.useEffect(() => { if (open && inputRef.current) inputRef.current.focus(); }, [open]);
+
+  return (
+    <div ref={ref} style={{ position:"relative", flex:2 }}>
+      {/* Trigger */}
+      <button onClick={() => setOpen(o => !o)}
+        style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"7px 10px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:13,
+          fontFamily:F, background:C.surface, color: chosen ? C.text1 : C.text3,
+          cursor:"pointer", textAlign:"left", gap:6 }}>
+        <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+          {chosen ? `${chosen.name} (${chosen.api_key})` : placeholder}
+        </span>
+        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={C.text3} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:999,
+          background:C.surface, border:`1px solid ${C.border}`, borderRadius:10,
+          boxShadow:"0 8px 24px rgba(0,0,0,.12)", maxHeight:240, display:"flex", flexDirection:"column" }}>
+          {/* Search */}
+          <div style={{ padding:"8px 8px 4px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+            <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)}
+              placeholder="Search fields…"
+              style={{ width:"100%", padding:"5px 8px", borderRadius:6, border:`1px solid ${C.border}`,
+                fontSize:12, fontFamily:F, outline:"none", boxSizing:"border-box" }}/>
+          </div>
+          {/* Options */}
+          <div style={{ overflowY:"auto", flex:1 }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding:"12px 10px", fontSize:12, color:C.text3, textAlign:"center" }}>No fields match</div>
+            ) : filtered.map(f => (
+              <div key={f.api_key} onClick={() => pick(f)}
+                style={{ padding:"7px 12px", fontSize:12, cursor:"pointer",
+                  background: f.api_key === value ? C.accentLight : "transparent",
+                  color: f.api_key === value ? C.accent : C.text1,
+                  fontWeight: f.api_key === value ? 600 : 400,
+                  display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}
+                onMouseEnter={e => { if (f.api_key !== value) e.currentTarget.style.background = C.surface2; }}
+                onMouseLeave={e => { if (f.api_key !== value) e.currentTarget.style.background = "transparent"; }}>
+                <span>{f.name}</span>
+                <span style={{ fontSize:10, color:C.text3, fontFamily:"monospace" }}>{f.api_key}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── List Widget Config (needs hooks for API calls) ───────────────────────────
 const ListWidgetConfig = ({ cfg, set, setMany, inp, lbl, environmentId, cellId, defaultSlug }) => {
   const [objects, setObjects] = useState([]);
   const [savedLists, setSavedLists] = useState([]);
   const [loadingLists, setLoadingLists] = useState(false);
+  const [objFields, setObjFields] = useState([]);
 
   useEffect(() => {
     if (!environmentId) return;
@@ -1422,6 +1511,14 @@ const ListWidgetConfig = ({ cfg, set, setMany, inp, lbl, environmentId, cellId, 
       .catch(() => setSavedLists([]))
       .finally(() => setLoadingLists(false));
   }, [cfg.objectId, environmentId]);
+
+  useEffect(() => {
+    if (!cfg.objectId) { setObjFields([]); return; }
+    const SKIP = ["id","created_at","updated_at","deleted_at","object_id","environment_id"];
+    api.get(`/fields?object_id=${cfg.objectId}`)
+      .then(d => setObjFields((Array.isArray(d) ? d : []).filter(f => !SKIP.includes(f.api_key))))
+      .catch(() => setObjFields([]));
+  }, [cfg.objectId]);
 
   const selObj = objects.find(o => o.id === cfg.objectId);
 
@@ -1504,17 +1601,24 @@ const ListWidgetConfig = ({ cfg, set, setMany, inp, lbl, environmentId, cellId, 
         <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Additional filters (from any field)</div>
         {(cfg.extraFilters||[]).map((ef,i)=>(
           <div key={i} style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
-            <input value={ef.field||""} onChange={e=>{const a=[...(cfg.extraFilters||[])];a[i]={...a[i],field:e.target.value};set("extraFilters",a);}}
-              placeholder="Field key (e.g. work_type)" style={{...inp,flex:2,fontSize:11,padding:"5px 8px"}}/>
+            <FieldSelect
+              value={ef.field||""}
+              fields={objFields}
+              onChange={(apiKey, name) => {
+                const a=[...(cfg.extraFilters||[])];
+                a[i]={...a[i],field:apiKey,label:a[i].label||name};
+                set("extraFilters",a);
+              }}
+            />
             <input value={ef.label||""} onChange={e=>{const a=[...(cfg.extraFilters||[])];a[i]={...a[i],label:e.target.value};set("extraFilters",a);}}
-              placeholder="Label" style={{...inp,flex:1,fontSize:11,padding:"5px 8px"}}/>
+              placeholder="Label" style={{...inp,flex:1,fontSize:11,padding:"7px 10px"}}/>
             <button onClick={()=>{const a=[...(cfg.extraFilters||[])];a.splice(i,1);set("extraFilters",a);}}
-              style={{background:"none",border:"none",cursor:"pointer",color:C.text3,padding:2,flexShrink:0}}>×</button>
+              style={{background:"none",border:"none",cursor:"pointer",color:C.text3,padding:2,flexShrink:0,fontSize:18,lineHeight:1}}>×</button>
           </div>
         ))}
         <button onClick={()=>set("extraFilters",[...(cfg.extraFilters||[]),{field:"",label:""}])}
           style={{fontSize:11,color:C.accent,background:"none",border:"none",cursor:"pointer",padding:"2px 0",fontFamily:F}}>+ Add filter</button>
-        <div style={{fontSize:10,color:C.text3,marginTop:3}}>Use field API key (e.g. work_type, employment_type, priority)</div>
+        {!cfg.objectId && <div style={{fontSize:10,color:C.amber,marginTop:3}}>Select an object above to see available fields</div>}
       </div>
 
       <div>{lbl("Empty state message")}<input value={cfg.emptyText||""} onChange={e=>set("emptyText",e.target.value)} placeholder="No records found." style={inp}/></div>
@@ -4705,8 +4809,8 @@ const MiniPreview = ({ portal, onClick }) => {
             }
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            {(nav.links||[]).map(lnk=>(
-              <span key={lnk.id} style={{padding:"6px 14px",borderRadius:8,fontSize:14,fontWeight:500,color:navFg,fontFamily:ff}}>{lnk.label}</span>
+            {(nav.links||[]).map((lnk,i)=>(
+              <span key={lnk.id||i} style={{padding:"6px 14px",borderRadius:8,fontSize:14,fontWeight:500,color:navFg,fontFamily:ff}}>{lnk.label}</span>
             ))}
             {(nav.links||[]).length===0 && <>
               <span key="nav-careers" style={{padding:"6px 14px",fontSize:14,color:navFg+"90",fontFamily:ff}}>Careers</span>

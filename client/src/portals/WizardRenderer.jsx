@@ -111,7 +111,7 @@ const WizardProgress = ({ pages, currentIndex, color }) => (
             background:i<=currentIndex?color:'#E8ECF8',color:i<=currentIndex?'white':'#9DA8C7',transition:'all .2s'}}>
             {i<currentIndex ? <WzIc n="check" s={12} c="white"/> : i+1}
           </div>
-          <div style={{fontSize:10,fontWeight:600,color:i===currentIndex?color:'#9DA8C7',marginTop:3,whiteSpace:'nowrap',maxWidth:80,textAlign:'center',overflow:'hidden',textOverflow:'ellipsis'}}>
+          <div style={{fontSize:10,fontWeight:600,color:i===currentIndex?color:'#9DA8C7',marginTop:3,textAlign:'center',lineHeight:1.3,maxWidth:90,wordBreak:'break-word'}}>
             {p.title||`Step ${i+1}`}
           </div>
         </div>
@@ -448,6 +448,43 @@ const JobFieldsBlock = ({ config={}, formData, set, color }) => {
   );
 };
 
+// ── Block: Candidate Job Fields — shows job data to candidate (read-only or editable) ──
+const CandidateJobFieldsBlock = ({ config={}, formData, set, job, color }) => {
+  const fieldDefs = config.fields || []; // [{key, label, editable, required}]
+  const jobData = job?.data || {};
+  if (!fieldDefs.length) return (
+    <div style={{padding:'10px 14px',background:'#F1F5F9',borderRadius:8,fontSize:13,color:'#6B7280'}}>
+      No job fields configured. Edit this block in the wizard builder to select fields.
+    </div>
+  );
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:14}}>
+      {fieldDefs.map(f => {
+        const jobVal = jobData[f.key];
+        if (f.editable) {
+          // Editable — candidate can change the value (pre-filled from job)
+          const key = `_job_field_${f.key}`;
+          const val = formData[key] !== undefined ? formData[key] : (jobVal || '');
+          return (
+            <WzInput key={f.key} label={f.label} value={val}
+              onChange={v => set(key, v)} required={!!f.required} color={color}/>
+          );
+        } else {
+          // Read-only — show the job value as a display field
+          return (
+            <div key={f.key} style={{display:'flex',flexDirection:'column',gap:4}}>
+              <label style={{fontSize:12,fontWeight:600,color:'#374151'}}>{f.label}</label>
+              <div style={{padding:'9px 12px',borderRadius:8,background:'#F9FAFB',border:'1px solid #E5E7EB',fontSize:13,color:'#111827',minHeight:38}}>
+                {Array.isArray(jobVal) ? jobVal.join(', ') : (jobVal || <span style={{color:'#9CA3AF'}}>—</span>)}
+              </div>
+            </div>
+          );
+        }
+      })}
+    </div>
+  );
+};
+
 // ── Block Renderer — dispatches to the right component ───────────────────────
 const renderBlock = (block, ctx) => {
   const { formData, set, color, emailCheck, checkingEmail, onEmailBlur,
@@ -477,6 +514,8 @@ const renderBlock = (block, ctx) => {
       return <ReviewSummaryBlock key={block.id} config={block.config} formData={formData} pages={pages} questions={questions}/>;
     case 'job_fields':
       return <JobFieldsBlock key={block.id} config={block.config} formData={formData} set={set} color={color}/>;
+    case 'candidate_job_fields':
+      return <CandidateJobFieldsBlock key={block.id} config={block.config} formData={formData} set={set} job={ctx.job} color={color}/>;
     default:
       return <div key={block.id} style={{padding:'10px 14px',background:'#F1F5F9',borderRadius:8,fontSize:12,color:'#6B7280'}}>
         Unknown block type: <code>{block.type}</code>
@@ -850,7 +889,7 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
   const blockCtx = { formData, set, color, emailCheck, checkingEmail, onEmailBlur:handleEmailBlur,
     otpState, otpCode, setOtpCode, otpError, otpSimCode, onVerifyOtp:handleVerifyOtp, onSendOtp:handleSendOtp,
     onMethodChosen:(m)=>{ setEntryMethod(m); handleNext(); }, onCvFile:handleCvFile, parsing,
-    questions, jobLocation:job?.data?.location, companyName:br.company_name, pages };
+    questions, jobLocation:job?.data?.location, companyName:br.company_name, pages, job };
 
   return (
     <div ref={wizardRef} style={{minHeight:'100vh',background:c.bg,fontFamily:c.font}}>
@@ -883,7 +922,7 @@ export default function WizardRenderer({ portal, wizard, job, api, onBack, onSuc
       </div>
 
       <Section style={{padding:'32px 24px'}}>
-        <div style={{maxWidth:620,margin:'0 auto'}}>
+        <div style={{maxWidth:860,margin:'0 auto'}}>
           {/* Progress bar */}
           {showProgress&&!isEntryPage&&(
             <WizardProgress pages={pages.filter(p=>!p.hide_from_progress&&!p.blocks?.some(b=>b.type==='entry_method'))}

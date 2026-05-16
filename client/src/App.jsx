@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense, startTransition } from "react";
+import { useTour } from "./GuidedTour.jsx";
 import api, { getTenantSlug } from "./apiClient.js";
 import ReportingErrorBoundary from "./ErrorBoundary.jsx";
 import { ThemeProvider, useTheme, SCHEMES, FONTS, DENSITIES } from "./Theme.jsx";
@@ -82,7 +83,6 @@ import { ReleaseNotesLoginModal } from "./ReleaseNotes.jsx";
 const MatchingEngine    = lazyWithRetry(() => import("./AI.jsx").then(m => ({ default: m.MatchingEngine })));
 const useInboxUnreadCount = () => 0; // lightweight stub until Inbox lazy-loads
 const useIsMobile       = () => typeof window !== 'undefined' && window.innerWidth < 768;
-const useTour           = () => ({ startTour: () => {}, TourStep: () => null });
 
 
 // ─── AccessDenied fallback ───────────────────────────────────────────────────
@@ -2047,6 +2047,24 @@ activeNavRef.current = activeNav;
     return () => window.removeEventListener('talentos:launch-setup-wizard', handler);
   }, []);
 
+  // Auto-start product tour on first login
+  useEffect(() => {
+    if (!session?.user?.id || !selectedEnv?.id) return;
+    const tourKey = `vercentic_tour_done`;
+    if (!localStorage.getItem(tourKey)) {
+      // Delay so the app shell is fully rendered before tour kicks in
+      const t = setTimeout(() => startTour(0), 1200);
+      return () => clearTimeout(t);
+    }
+  }, [session?.user?.id, selectedEnv?.id, startTour]);
+
+  // Allow Help page / other places to start the tour via event
+  useEffect(() => {
+    const handler = (e) => startTour(e.detail?.step || 0);
+    window.addEventListener('vercentic:start-tour', handler);
+    return () => window.removeEventListener('vercentic:start-tour', handler);
+  }, [startTour]);
+
   const inboxUnread = useInboxUnreadCount(selectedEnv?.id);
 
   const OBJECT_ICONS = { people: "users", jobs: "briefcase", "talent-pools": "layers" };
@@ -2819,6 +2837,7 @@ activeNavRef.current = activeNav;
         </div>
       </div>
       {canGlobal('access_copilot') && featCopilot && (
+        <div data-tour="copilot-button" style={{ position: "fixed", bottom: 24, right: 24, zIndex: 800 }}>
         <AICopilot
           environment={selectedEnv}
           activeNav={activeNav}
@@ -2831,6 +2850,7 @@ activeNavRef.current = activeNav;
             if (!obj) return;
             openRecord(record.id, obj.id);
           }} />
+        </div>
       )}
 
       {/* Getting Started — welcome modal on first login */}

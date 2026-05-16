@@ -37,6 +37,7 @@ const CSRF_EXEMPT_PREFIXES = [
   '/api/portal-feedback',  // public feedback widget
   '/api/comms/webhook',    // Twilio inbound webhooks
   '/api/campaign-links',
+  '/api/signup',                       // public self-serve signup — no cookie session yet
   '/api/superadmin/auth',
   '/api/superadmin/clients/provision', // called from super admin console
   '/api/superadmin/clients/',          // SA console — uses X-SA-Token header auth, not cookies

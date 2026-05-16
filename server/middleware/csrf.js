@@ -46,6 +46,7 @@ const CSRF_EXEMPT_PREFIXES = [
   '/api/reschedule',
   '/api/bot',
   '/api/linkedin-search',
+  '/api/test-scripts',     // document generation — admin-only, safe to exempt
 ];
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);

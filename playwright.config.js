@@ -38,6 +38,24 @@ module.exports = defineConfig({
       testDir: './e2e/core',
       use:     { ...devices['Desktop Chrome'] },
     },
+    // ── Portal API tests (no browser needed) ──────────────────────────────
+    {
+      name:    'portal-api',
+      testDir: './e2e/portals',
+      testMatch: '**/portal-api.spec.js',
+      use:     { ...devices['Desktop Chrome'] },
+    },
+    // ── Career site browser tests (needs portal renderer on :5173) ────────
+    // Run with: PORTAL_URL=http://localhost:5173 npx playwright test --project=career-site
+    {
+      name:    'career-site',
+      testDir: './e2e/portals',
+      testMatch: '**/career-site.spec.js',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: process.env.PORTAL_URL || 'http://localhost:5173',
+      },
+    },
     // ── Per-client regression suites ──────────────────────────────────────
     // Add a new project per client; each points at their live environment.
     // Example (uncomment when a client is provisioned):

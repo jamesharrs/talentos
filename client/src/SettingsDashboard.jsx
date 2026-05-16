@@ -39,6 +39,7 @@ const DASHBOARD_GROUPS = [
       { id:"forms",       icon:"clipboard",   label:"Forms",            desc:"Build forms to capture structured data",         perm:"manage_forms" },
       { id:"questions",   icon:"help-circle", label:"Question Library", desc:"Reusable questions for interviews and surveys" },
       { id:"datasets",    icon:"layers",      label:"Data Sets",        desc:"Manage shared data sets and lookup values" },
+      { id:"test_scripts",icon:"sparkles",    label:"Test Scripts",     desc:"AI-generated UAT test scripts from your live configuration" },
       { id:"enterprise",  icon:"briefcase",   label:"Enterprise",       desc:"Enterprise-specific configuration options",      perm:"manage_roles" },
     ],
   },

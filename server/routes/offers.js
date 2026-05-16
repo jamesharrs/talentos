@@ -24,6 +24,19 @@ function ensure() {
   if (!s.offers) { s.offers = []; saveStore(); }
 }
 
+function computeTotal({ base_salary, bonus, bonus_type, package_items }) {
+  let total = parseFloat(base_salary) || 0;
+  if (bonus) {
+    total += bonus_type === 'percentage'
+      ? total * (parseFloat(bonus) / 100)
+      : parseFloat(bonus);
+  }
+  (package_items || []).forEach(item => {
+    if (!item.exclude_from_total) total += parseFloat(item.value) || 0;
+  });
+  return total;
+}
+
 function _advanceApproval(offer) {
   const chain = offer.approval_chain || [];
   const nextIdx = chain.findIndex(a => a.status === 'pending');
@@ -51,6 +64,61 @@ router.get('/', (req, res) => {
   res.json(rows);
 });
 
+// ── Templates (must be before /:id routes) ────────────────────────────────
+router.get('/templates', (req, res) => {
+  const { environment_id } = req.query;
+  const store = getStore();
+  if (!store.offer_templates) return res.json([]);
+  const userId = req.currentUser?.id;
+  res.json(store.offer_templates
+    .filter(t => t.environment_id === environment_id && !t.deleted_at && (t.shared || t.created_by === userId))
+    .sort((a,b) => new Date(b.created_at)-new Date(a.created_at)));
+});
+
+router.post('/templates', (req, res) => {
+  const { environment_id, name, description, shared, base_salary, currency,
+          bonus, bonus_type, package_items, notes, terms, approval_chain } = req.body;
+  const store = getStore();
+  if (!store.offer_templates) store.offer_templates = [];
+  const now = new Date().toISOString();
+  const t = { id:uuidv4(), environment_id, name, description:description||'', shared:shared||false,
+    base_salary:base_salary||null, currency:currency||'USD', bonus:bonus||null,
+    bonus_type:bonus_type||'fixed', package_items:package_items||[], notes:notes||'',
+    terms:terms||'', approval_chain:approval_chain||[],
+    created_by:req.currentUser?.id||'system', created_at:now, updated_at:now, deleted_at:null };
+  store.offer_templates.push(t);
+  saveStore();
+  res.status(201).json(t);
+});
+
+router.delete('/templates/:id', (req, res) => {
+  const store = getStore();
+  if (!store.offer_templates) return res.status(404).json({error:'Not found'});
+  const idx = store.offer_templates.findIndex(t => t.id === req.params.id);
+  if (idx === -1) return res.status(404).json({error:'Not found'});
+  store.offer_templates[idx] = {...store.offer_templates[idx], deleted_at:new Date().toISOString()};
+  saveStore();
+  res.json({ok:true});
+});
+
+// ── Bulk Send (must be before /:id routes) ────────────────────────────────
+router.post('/bulk-send', async (req, res) => {
+  const { offer_ids } = req.body;
+  if (!Array.isArray(offer_ids)||!offer_ids.length) return res.status(400).json({error:'offer_ids required'});
+  const now = new Date().toISOString();
+  const results = [];
+  ensure();
+  for (const id of offer_ids) {
+    const offer = query('offers', o => o.id===id && !o.deleted_at)[0];
+    if (!offer||offer.status!=='approved') { results.push({id,ok:false,error:`Offer is ${offer?.status||'not found'}`}); continue; }
+    update('offers', o => o.id===id, {status:'sent',sent_at:now,updated_at:now,
+      activity_log:[...(offer.activity_log||[]),{id:uuidv4(),type:'sent',message:'Offer sent (bulk)',user:req.currentUser?.id||'system',timestamp:now}]});
+    results.push({id,ok:true});
+  }
+  saveStore();
+  res.json({results});
+});
+
 // GET /:id — Single offer
 router.get('/:id', (req, res) => {
   ensure();
@@ -70,6 +138,7 @@ router.post('/', validate(createOfferSchema), (req, res) => {
     start_date, expiry_date,
     approval_chain,
     notes, terms, custom_fields,
+    package_items, conditions, parent_offer_id,
     created_by,
   } = req.body;
 
@@ -102,6 +171,11 @@ router.post('/', validate(createOfferSchema), (req, res) => {
     bonus_type:       bonus_type      || 'fixed',
     start_date:       start_date      || null,
     expiry_date:      expiry_date     || null,
+    package_items:    package_items   || [],
+    conditions:       (conditions||[]).map(c=>({...c,cleared:false,cleared_at:null})),
+    total_package:    computeTotal({base_salary,bonus,bonus_type,package_items}),
+    parent_offer_id:  parent_offer_id || null,
+    version:          1,
     status:           chain.length ? 'pending_approval' : 'draft',
     approval_chain:   chain,
     current_approver_index: chain.length ? 0 : null,
@@ -318,6 +392,41 @@ router.delete('/:id', (req, res) => {
   ensure();
   update('offers', o => o.id === req.params.id, { deleted_at: new Date().toISOString() });
   res.json({ deleted: true });
+});
+
+// ── Revise (create new version) ────────────────────────────────────────────
+router.post('/:id/revise', (req, res) => {
+  ensure();
+  const original = query('offers', o => o.id===req.params.id && !o.deleted_at)[0];
+  if (!original) return res.status(404).json({error:'Offer not found'});
+  const now = new Date().toISOString();
+  const revised = insert('offers', {
+    ...original, id:uuidv4(), parent_offer_id:original.id,
+    version:(original.version||1)+1, status:'draft',
+    sent_at:null,accepted_at:null,declined_at:null,
+    approval_chain:(original.approval_chain||[]).map(a=>({...a,status:'pending',decided_at:null,comment:''})),
+    current_approver_index:original.approval_chain?.length?0:null,
+    activity_log:[{id:uuidv4(),type:'revised',message:`Revised from v${original.version||1}`,user:req.currentUser?.id||'system',timestamp:now}],
+    created_at:now,updated_at:now,deleted_at:null,
+  });
+  res.status(201).json(revised);
+});
+
+// ── Conditions ─────────────────────────────────────────────────────────────
+router.patch('/:id/conditions/:index', (req, res) => {
+  ensure();
+  const { cleared } = req.body;
+  const offer = query('offers', o => o.id===req.params.id && !o.deleted_at)[0];
+  if (!offer) return res.status(404).json({error:'Not found'});
+  const conditions = [...(offer.conditions||[])];
+  const idx = parseInt(req.params.index);
+  if (!conditions[idx]) return res.status(400).json({error:'Condition index out of range'});
+  conditions[idx] = {...conditions[idx], cleared:!!cleared, cleared_at:cleared?new Date().toISOString():null};
+  const allCleared = conditions.every(c=>c.cleared);
+  const updates = {conditions, updated_at:new Date().toISOString()};
+  if (allCleared && offer.status==='sent') updates.status = 'accepted';
+  update('offers', o => o.id===req.params.id, updates);
+  res.json({ok:true, all_cleared:allCleared});
 });
 
 module.exports = router;

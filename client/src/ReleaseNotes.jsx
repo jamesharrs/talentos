@@ -313,18 +313,18 @@ export function ReleaseNotesLoginModal({ userId, onDone }) {
     api.get(`/release-notes/login-modal?user_id=${userId}`)
       .then(d => {
         const arr = Array.isArray(d) ? d : [];
-        console.log('[ReleaseNotes] login-modal response:', d, '→', arr.length, 'notes');
         setNotes(arr);
         setLoading(false);
+        if (arr.length === 0) onDone?.();
       })
-      .catch(err => {
-        console.error('[ReleaseNotes] login-modal error:', err);
+      .catch(() => {
         setLoading(false);
+        onDone?.();
       });
   }, [userId]); // eslint-disable-line
 
   if (loading) return null;
-  if (notes.length === 0) { onDone?.(); return null; }
+  if (notes.length === 0) return null;
 
   const note   = notes[idx];
   const meta   = CATEGORY_META[note.category] || CATEGORY_META.feature;

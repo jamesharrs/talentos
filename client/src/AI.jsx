@@ -1330,7 +1330,38 @@ Rules:
 - "group_by" must be a snake_case field api_key
 - Filter values should be lowercase unless a proper noun
 - Choose chart_type intelligently: funnel for pipeline/stages, stacked for two-dimension breakdown, scatter for two numeric fields, bar for most other comparisons
-- For pipeline/stage/funnel requests — ALWAYS use chart_type "funnel" (it is natively supported)`;
+- For pipeline/stage/funnel requests — ALWAYS use chart_type "funnel" (it is natively supported)
+
+MOVE PIPELINE STAGE INSTRUCTIONS:
+When the user wants to move a candidate to a different stage (e.g. "move James to Interview", "advance to offer", "put in screening"):
+1. Check PIPELINE LINKS context for this person's current positions and link IDs.
+2. If ambiguous (multiple pipelines), ask which one.
+3. Output:
+<MOVE_STAGE>
+{"link_id":"UUID from PIPELINE LINKS","stage_name":"Interview","person_name":"James Harrison","from_stage":"Screening","job_name":"Senior Engineer"}
+</MOVE_STAGE>
+RULES: NEVER guess a link_id. Only use IDs from PIPELINE LINKS context. stage_name must exactly match a workflow step name. If user says "next stage" pick the next step after current.
+
+SEND COMMUNICATION INSTRUCTIONS:
+When the user wants to send an email, SMS, or WhatsApp to the current person record:
+1. Use email/phone from CURRENT RECORD DATA if available.
+2. Output:
+<SEND_COMMS>
+{"type":"email","to":"james@example.com","subject":"Interview Invitation","body":"Hi James...","person_name":"James Harrison"}
+</SEND_COMMS>
+RULES: type is email | sms | whatsapp. For SMS/WhatsApp, "to" is a phone number with country code.
+
+OFFER ACTION INSTRUCTIONS:
+When the user wants to approve/send/withdraw an existing offer:
+<OFFER_ACTION>
+{"offer_id":"UUID","action":"approve","person_name":"James Harrison","note":"Approved"}
+</OFFER_ACTION>
+action must be: approve | send | withdraw. Only use offer IDs visible in context.
+
+TODAY'S SCHEDULE:
+When asked "what interviews do I have today?", "today's schedule", "what's on today?":
+Output exactly: <TODAY_SCHEDULE/>
+The client fetches and displays the schedule automatically.`;
 
 
 // Record-specific actions shown when viewing a record — keyed by object slug
@@ -1342,6 +1373,7 @@ const RECORD_ACTIONS = {
     { id:"questions", icon:"zap",      label:"Interview Qs",   prompt:"Suggest 5 targeted interview questions based on this candidate's profile." },
     { id:"note",      icon:"edit",     label:"Add note",       prompt:"I want to add a note to this record." },
     { id:"match",     icon:"layers",   label:"Recommend jobs",  prompt:"Which open jobs would be the best fit for this candidate and why?" },
+    { id:"move",      icon:"arrowRight",label:"Move stage",      prompt:"Move this candidate to the next stage in the pipeline." },
   ],
   jobs: [
     { id:"summarise", icon:"fileText", label:"Summarise role",  prompt:"Give me a concise summary of this job role and its key requirements." },
@@ -1551,6 +1583,7 @@ function getContextActions(activeNav, settingsSection, navObjects, editorContext
     { id:"iu",   icon:"user",        label:"Invite User",         prompt:"I want to invite a new user" },
     { id:"nr",   icon:"shield",      label:"New Role",            prompt:"I want to create a new role" },
     { id:"srch", icon:"search",      label:"Search records",      prompt:"Search for " },
+    { id:"today",icon:"calendar",   label:"Today's schedule",   prompt:"What interviews do I have today?" },
   ];
 }
 
@@ -1698,6 +1731,11 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
   const [adminRoles,   setAdminRoles]   = useState([]);
   const [adminUsers,   setAdminUsers]   = useState([]);
   const [interviewTypes, setInterviewTypes] = useState([]);
+  const [pendingMoveStage,  setPendingMoveStage]   = useState(null);
+  const [pendingComms,      setPendingComms]        = useState(null);
+  const [pendingOfferAction,setPendingOfferAction]  = useState(null);
+  const [pipelineLinks,     setPipelineLinks]       = useState([]);
+  const [todaySchedule,     setTodaySchedule]       = useState(null);
   const [recordCtx,      setRecordCtx]      = useState(null); // enriched comms/pipeline/offers context
   const [lastCreatedRecord, setLastCreatedRecord] = useState(null);
   const [pendingUpdate, setPendingUpdate]   = useState(null);
@@ -2175,6 +2213,13 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     // (settings-section listener is in its own useEffect above)
   },[open, currentRecord?.id, currentObject?.slug]);
 
+  // Load pipeline links when viewing a person record
+  useEffect(() => {
+    if (!open || !currentRecord || currentObject?.slug !== 'people') { setPipelineLinks([]); return; }
+    tFetch(`/api/workflows/people-links?person_record_id=${currentRecord.id}`)
+      .then(r => r.json()).then(d => setPipelineLinks(Array.isArray(d) ? d : [])).catch(() => setPipelineLinks([]));
+  }, [open, currentRecord?.id, currentObject?.slug]);
+
   // Generate proactive nudges when the copilot opens on a list page
   useEffect(()=>{
     if(!open || !environment?.id) return;
@@ -2373,6 +2418,23 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     if (!match) return null;
     try { return JSON.parse(match[1].trim()); } catch { return null; }
   };
+
+  const parseMoveStage = (text) => {
+    const m = text.match(/<MOVE_STAGE>([\s\S]*?)<\/MOVE_STAGE>/);
+    if (!m) return null;
+    try { return JSON.parse(m[1].trim()); } catch { return null; }
+  };
+  const parseSendComms = (text) => {
+    const m = text.match(/<SEND_COMMS>([\s\S]*?)<\/SEND_COMMS>/);
+    if (!m) return null;
+    try { return JSON.parse(m[1].trim()); } catch { return null; }
+  };
+  const parseOfferAction = (text) => {
+    const m = text.match(/<OFFER_ACTION>([\s\S]*?)<\/OFFER_ACTION>/);
+    if (!m) return null;
+    try { return JSON.parse(m[1].trim()); } catch { return null; }
+  };
+  const parseTodaySchedule = (text) => /<TODAY_SCHEDULE\s*\/>/.test(text);
 
   const parseSearchQuery = (text) => {
     const match = text.match(/<SEARCH_QUERY>([\s\S]*?)<\/SEARCH_QUERY>/);
@@ -2613,6 +2675,10 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     setPendingWorkflow(null);
     setPendingUser(null);
     setPendingRole(null);
+    setPendingMoveStage(null);
+    setPendingComms(null);
+    setPendingOfferAction(null);
+    setTodaySchedule(null);
     setPendingInterview(null);
     setPendingForm(null);
     setPendingTask(null);
@@ -2648,6 +2714,7 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         adminUsers.length?`\n\nEXISTING USERS (${adminUsers.length} total):\n${adminUsers.map(u=>`- ${u.first_name} ${u.last_name} <${u.email}> role:${adminRoles.find(r=>r.id===u.role_id)?.name||u.role_id} status:${u.status}`).join("\n")}`:"",
         interviewTypes.length?`\n\nAVAILABLE INTERVIEW TYPES:\n${interviewTypes.map(t=>`- ${t.name} (id:${t.id}, duration:${t.duration}min, format:${t.format||t.interview_format||'Video Call'})`).join("\n")}`
           :"\n\nINTERVIEW TYPES: None configured yet — you can still schedule a custom interview.",
+        pipelineLinks.length?`\n\nPIPELINE LINKS (this person's current pipeline positions):\n${pipelineLinks.map(l=>`- Link ID: ${l.id} | Job/Record: ${l.target_name||l.target_record_id?.slice(0,8)} | Current stage: ${l.stage_name||'Not set'}`).join("\n")}`:"",
         // Live list context (current filters, record count, visible fields from RecordsView)
         lastCreatedRecord ? `\n\nLAST_CREATED_RECORD: ${JSON.stringify(lastCreatedRecord)} — the user may refer to this as "that person/job I just created", "them", "it" etc.` : "",
         // Comms context: inject recent communications when viewing a person record
@@ -2863,6 +2930,22 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
         } catch(e) { console.warn('Doc search failed:', e); }
       }
 
+      const moveStageData   = parseMoveStage(reply);
+      const sendCommsData   = parseSendComms(reply);
+      const offerActionData = parseOfferAction(reply);
+      const todayFlag       = parseTodaySchedule(reply);
+      if (moveStageData)   setPendingMoveStage(moveStageData);
+      if (sendCommsData)   setPendingComms(sendCommsData);
+      if (offerActionData) setPendingOfferAction(offerActionData);
+      if (todayFlag) {
+        tFetch(`/api/interviews?environment_id=${environment?.id}`)
+          .then(r => r.json()).then(data => {
+            const today = new Date().toISOString().slice(0,10);
+            const todays = (Array.isArray(data) ? data : data.interviews || [])
+              .filter(i => i.date === today).sort((a,b) => (a.time||'').localeCompare(b.time||''));
+            setTodaySchedule(todays);
+          }).catch(() => setTodaySchedule([]));
+      }
       const createData    = parseCreateRecord(reply);
       const workflowData  = parseCreateWorkflow(reply);
       const userData      = parseCreateUser(reply);
@@ -3570,6 +3653,82 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
     setCreating(false);
   };
 
+  const handleConfirmMoveStage = async () => {
+    if (!pendingMoveStage) return;
+    setCreating(true);
+    try {
+      await tFetch(`/api/workflows/people-links/${pendingMoveStage.link_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json',
+          'X-User-Id': localStorage.getItem('userId') || '',
+          'X-Tenant-Slug': localStorage.getItem('tenantSlug') || 'default' },
+        body: JSON.stringify({ stage_name: pendingMoveStage.stage_name }),
+      });
+      setMessages(m => [...m, { role:'assistant',
+        content: `✅ **${pendingMoveStage.person_name}** moved to **${pendingMoveStage.stage_name}${pendingMoveStage.job_name ? ` on ${pendingMoveStage.job_name}` : ''}**`,
+        ts: new Date() }]);
+      if (currentRecord) {
+        tFetch(`/api/workflows/people-links?person_record_id=${currentRecord.id}`)
+          .then(r => r.json()).then(d => setPipelineLinks(Array.isArray(d) ? d : []));
+      }
+      setPendingMoveStage(null);
+    } catch(err) {
+      setMessages(m => [...m, { role:'assistant', content:`Failed: ${err.message}`, ts:new Date(), error:true }]);
+    }
+    setCreating(false);
+  };
+
+  const handleConfirmComms = async () => {
+    if (!pendingComms || !currentRecord || !environment?.id) return;
+    setCreating(true);
+    try {
+      const item = await tFetch('/api/comms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json',
+          'X-User-Id': localStorage.getItem('userId') || '',
+          'X-Tenant-Slug': localStorage.getItem('tenantSlug') || 'default' },
+        body: JSON.stringify({
+          record_id: currentRecord.id, environment_id: environment.id,
+          type: pendingComms.type, direction: 'outbound',
+          to: pendingComms.to, subject: pendingComms.subject, body: pendingComms.body,
+          from_label: 'Copilot', created_by: 'Copilot',
+        }),
+      }).then(r => r.json());
+      const simulated = item.simulated || item.status === 'simulated';
+      setMessages(m => [...m, { role:'assistant',
+        content: simulated
+          ? `📨 ${pendingComms.type === 'email' ? 'Email' : pendingComms.type.toUpperCase()} saved (simulation mode — credentials not configured). Logged for **${pendingComms.person_name}**.`
+          : `✅ ${pendingComms.type === 'email' ? 'Email' : pendingComms.type.toUpperCase()} sent to **${pendingComms.person_name}**`,
+        ts: new Date() }]);
+      setPendingComms(null);
+    } catch(err) {
+      setMessages(m => [...m, { role:'assistant', content:`Failed to send: ${err.message}`, ts:new Date(), error:true }]);
+    }
+    setCreating(false);
+  };
+
+  const handleConfirmOfferAction = async () => {
+    if (!pendingOfferAction) return;
+    setCreating(true);
+    try {
+      await tFetch(`/api/offers/${pendingOfferAction.offer_id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json',
+          'X-User-Id': localStorage.getItem('userId') || '',
+          'X-Tenant-Slug': localStorage.getItem('tenantSlug') || 'default' },
+        body: JSON.stringify({ action: pendingOfferAction.action, note: pendingOfferAction.note }),
+      });
+      const label = { approve:'Approved', send:'Sent to candidate', withdraw:'Withdrawn' }[pendingOfferAction.action] || pendingOfferAction.action;
+      setMessages(m => [...m, { role:'assistant',
+        content: `✅ Offer for **${pendingOfferAction.person_name}** — **${label}**`,
+        ts: new Date() }]);
+      setPendingOfferAction(null);
+    } catch(err) {
+      setMessages(m => [...m, { role:'assistant', content:`Failed: ${err.message}`, ts:new Date(), error:true }]);
+    }
+    setCreating(false);
+  };
+
   const handleConfirmReport = () => {
     if (!pendingReport) return;
     const cfg = {
@@ -3869,6 +4028,99 @@ export const AICopilot = ({ environment, currentRecord, currentObject, onNavigat
             </div>
           )}
 
+          {/* ── Move Stage Card ── */}
+          {pendingMoveStage && (
+            <div style={{margin:"8px 16px",padding:"14px",borderRadius:12,border:"1.5px solid #7c3aed",background:"#f5f3ff"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                <div style={{width:28,height:28,borderRadius:8,background:"#7c3aed",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic n="arrowRight" s={14} c="white"/></div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#111827"}}>Move Pipeline Stage</div>
+                  <div style={{fontSize:11,color:"#7c3aed",fontWeight:600}}>
+                    {pendingMoveStage.person_name} → <strong>{pendingMoveStage.stage_name}</strong>
+                    {pendingMoveStage.job_name ? ` on ${pendingMoveStage.job_name}` : ''}
+                  </div>
+                </div>
+              </div>
+              {pendingMoveStage.from_stage && (
+                <div style={{marginBottom:10,fontSize:12,color:"#6b7280"}}>
+                  <span style={{color:"#374151",fontWeight:600}}>{pendingMoveStage.from_stage}</span>{' → '}<span style={{color:"#7c3aed",fontWeight:700}}>{pendingMoveStage.stage_name}</span>
+                </div>
+              )}
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>setPendingMoveStage(null)} style={{flex:1,padding:"8px",borderRadius:8,border:"1px solid #E5E7EB",background:"transparent",color:"#374151",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>Cancel</button>
+                <button onClick={handleConfirmMoveStage} disabled={creating} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:"#7c3aed",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  {creating?<><Ic n="loader" s={12}/> Moving…</>:<><Ic n="check" s={12}/> Confirm Move</>}
+                </button>
+              </div>
+            </div>
+          )}
+          {/* ── Send Comms Card ── */}
+          {pendingComms && (
+            <div style={{margin:"8px 16px",padding:"14px",borderRadius:12,border:"1.5px solid #0891b2",background:"#ecfeff"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                <div style={{width:28,height:28,borderRadius:8,background:"#0891b2",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic n="mail" s={14} c="white"/></div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#111827"}}>{pendingComms.type==='email'?'Send Email':pendingComms.type==='sms'?'Send SMS':'Send WhatsApp'}</div>
+                  <div style={{fontSize:11,color:"#0891b2",fontWeight:600}}>To: {pendingComms.person_name||pendingComms.to}</div>
+                </div>
+              </div>
+              {pendingComms.subject&&<div style={{marginBottom:6,fontSize:12,color:"#374151"}}><strong>Subject:</strong> {pendingComms.subject}</div>}
+              <div style={{marginBottom:10,padding:"8px 10px",background:"white",borderRadius:8,border:"1px solid #cffafe",fontSize:12,color:"#374151",lineHeight:1.5,maxHeight:80,overflow:"hidden"}}>{pendingComms.body}</div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>setPendingComms(null)} style={{flex:1,padding:"8px",borderRadius:8,border:"1px solid #E5E7EB",background:"transparent",color:"#374151",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>Cancel</button>
+                <button onClick={handleConfirmComms} disabled={creating} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:"#0891b2",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  {creating?<><Ic n="loader" s={12}/> Sending…</>:<><Ic n="mail" s={12}/> Send</>}
+                </button>
+              </div>
+            </div>
+          )}
+          {/* ── Offer Action Card ── */}
+          {pendingOfferAction && (
+            <div style={{margin:"8px 16px",padding:"14px",borderRadius:12,border:"1.5px solid #0ca678",background:"#f0fdf4"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                <div style={{width:28,height:28,borderRadius:8,background:"#0ca678",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic n="dollar" s={14} c="white"/></div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#111827"}}>{pendingOfferAction.action==='approve'?'Approve Offer':pendingOfferAction.action==='send'?'Send Offer to Candidate':'Withdraw Offer'}</div>
+                  <div style={{fontSize:11,color:"#0ca678",fontWeight:600}}>{pendingOfferAction.person_name}</div>
+                </div>
+              </div>
+              {pendingOfferAction.note&&<div style={{marginBottom:10,fontSize:12,color:"#374151"}}>{pendingOfferAction.note}</div>}
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>setPendingOfferAction(null)} style={{flex:1,padding:"8px",borderRadius:8,border:"1px solid #E5E7EB",background:"transparent",color:"#374151",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F}}>Cancel</button>
+                <button onClick={handleConfirmOfferAction} disabled={creating} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:pendingOfferAction.action==='withdraw'?"#e03131":"#0ca678",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  {creating?<><Ic n="loader" s={12}/> Processing…</>:<><Ic n="check" s={12}/> Confirm</>}
+                </button>
+              </div>
+            </div>
+          )}
+          {/* ── Today's Schedule Card ── */}
+          {todaySchedule !== null && (
+            <div style={{margin:"8px 16px",padding:"14px",borderRadius:12,border:"1.5px solid #3b5bdb",background:"#eef2ff"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                <div style={{width:28,height:28,borderRadius:8,background:"#3b5bdb",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic n="calendar" s={14} c="white"/></div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#111827"}}>Today's Interviews</div>
+                  <div style={{fontSize:11,color:"#3b5bdb",fontWeight:600}}>{todaySchedule.length===0?'None scheduled':`${todaySchedule.length} interview${todaySchedule.length!==1?'s':''}`}</div>
+                </div>
+                <button onClick={()=>setTodaySchedule(null)} style={{background:"none",border:"none",cursor:"pointer",padding:4,opacity:0.5}} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0.5}><Ic n="x" s={13} c="#374151"/></button>
+              </div>
+              {todaySchedule.length===0
+                ? <div style={{fontSize:12,color:"#6b7280",textAlign:"center",padding:"8px 0"}}>No interviews scheduled for today.</div>
+                : <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {todaySchedule.map(iv=>(
+                      <div key={iv.id} style={{padding:"8px 10px",background:"white",borderRadius:8,border:"1px solid #c5d0f8",fontSize:12}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <span style={{fontWeight:700,color:"#3b5bdb",minWidth:42}}>{iv.time||'—'}</span>
+                          <span style={{color:"#111827",fontWeight:600,flex:1}}>{iv.candidate_name||iv.candidate_id?.slice(0,8)}</span>
+                          <span style={{color:"#6b7280",fontSize:11}}>{iv.format||'Interview'}</span>
+                        </div>
+                        {iv.job_title&&<div style={{fontSize:11,color:"#6b7280",marginTop:3,paddingLeft:50}}>{iv.job_title}</div>}
+                      </div>
+                    ))}
+                  </div>
+              }
+            </div>
+          )}
           {/* Messages */}
           <div style={{flex:1,overflow:"auto",padding:"16px 16px",display:"flex",flexDirection:"column",gap:14,background:"linear-gradient(180deg,#f5f3ff 0%,#eef2ff 100%)"}}>
             {messages.map((msg,i)=>(

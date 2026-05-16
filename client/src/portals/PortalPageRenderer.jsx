@@ -335,6 +335,10 @@ const JobsWidget = ({ cfg, theme, portal, api, track, defaultSlug }) => {
   const [selected, setSelected] = useState(null);
   const [applying, setApplying] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
+  // Pagination and extra-filter state — declared here (before any early returns) to satisfy rules-of-hooks
+  const [page, setPage] = useState(1);
+  const [extraVals, setExtraVals] = useState({});
+  const extraFilters = cfg.extraFilters || [];
   const ff = theme.fontFamily || "'DM Sans', sans-serif";
   const pr = theme.primaryColor || '#4361EE';
   const tc = theme.textColor || '#1a1a2e';
@@ -478,7 +482,7 @@ const JobsWidget = ({ cfg, theme, portal, api, track, defaultSlug }) => {
         <h2 style={{ margin:'0 0 6px', fontSize:22, fontWeight:700, color:tc }}>{d.job_title || d.name || 'Untitled'}</h2>
         <div style={{ fontSize:13, color:tc+'99', marginBottom:16 }}>{[d.department, d.location, d.work_type].filter(Boolean).join(' · ')}</div>
         {renderDetailFields(d)}
-        <div style={{ marginTop:20 }}>
+        <div style={{ marginTop:20 }} id="vrc-apply-section">
           {wizardOpen ? (
             portal.wizard?.enabled && portal.wizard?.pages?.length ? (
               <WizardRenderer
@@ -504,6 +508,9 @@ const JobsWidget = ({ cfg, theme, portal, api, track, defaultSlug }) => {
             <button onClick={() => {
                 if(track) track('job_click', { job_id: selected.id, title: d.job_title });
                 setWizardOpen(true);
+                setTimeout(() => {
+                  document.getElementById('vrc-apply-section')?.scrollIntoView({ behavior:'smooth', block:'start' });
+                }, 50);
               }}
               style={{ padding:'12px 28px', borderRadius:br, background:pr, color:'white', border:'none', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:ff }}>
               {portal.wizard?.trigger?.apply_label || 'Apply Now'}
@@ -532,10 +539,7 @@ const JobsWidget = ({ cfg, theme, portal, api, track, defaultSlug }) => {
   }
 
   const PAGE_SIZE = cfg.pageSize || 25;
-  const [page, setPage] = useState(1);
-  // Extra configurable filters from widget settings
-  const extraFilters = cfg.extraFilters || []; // [{field:'work_type',label:'Work type'},{field:'employment_type',label:'Type'}]
-  const [extraVals, setExtraVals] = useState({});
+  // page, extraVals, extraFilters are declared at the top of the component (before early returns)
 
   const fullyFiltered = filtered.filter(r => {
     const d = r.data || {};
@@ -1012,7 +1016,7 @@ const FeaturedJobsWidget = ({ cfg, theme, portal, api }) => {
         <div style={{ fontSize:13, color:tc+'99', marginBottom:20 }}>{[d.department, d.location, d.work_type].filter(Boolean).join(' · ')}</div>
         {d.description && <p style={{ fontSize:14, color:tc, lineHeight:1.7, marginBottom:20 }}>{d.description}</p>}
         {d.salary_range && <div style={{ fontSize:13, fontWeight:600, color:pr, marginBottom:16 }}>{d.salary_range}</div>}
-        <div style={{ marginTop:8 }}>
+        <div style={{ marginTop:8 }} ref={el => { if (el) el.__applySection = true; }} id="vrc-apply-section">
           {wizardOpen ? (
             portal.wizard?.enabled && portal.wizard?.pages?.length ? (
               <WizardRenderer wizard={portal.wizard} portal={portal} job={selectedJob} api={api}
@@ -1030,7 +1034,12 @@ const FeaturedJobsWidget = ({ cfg, theme, portal, api }) => {
               <p style={{ margin:0, fontSize:13, color:tc+'80' }}>Thank you — we'll be in touch.</p>
             </div>
           ) : (
-            <button onClick={() => setWizardOpen(true)}
+            <button onClick={() => {
+                setWizardOpen(true);
+                setTimeout(() => {
+                  document.getElementById('vrc-apply-section')?.scrollIntoView({ behavior:'smooth', block:'start' });
+                }, 50);
+              }}
               style={{ padding:'12px 28px', borderRadius:br, background:pr, color:'white', border:'none', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:ff }}>
               {portal.wizard?.trigger?.apply_label || 'Apply Now'}
             </button>
@@ -2561,6 +2570,336 @@ const FindYourFitWidget = ({ cfg, theme, portal, api, track }) => {
   return null;
 };
 
+// ── Magic link request form — shown when candidate has no token ───────────────
+const HubMagicLinkForm = ({ pr, ff, br, portal, prefillError }) => {
+  const [email,   setEmail]   = useState('');
+  const [status,  setStatus]  = useState('idle'); // idle | sending | sent | error
+  const [devLink, setDevLink] = useState(null);
+  const [msg,     setMsg]     = useState('');
+
+  const submit = async (e) => {
+    e?.preventDefault();
+    if (!email.includes('@')) return;
+    setStatus('sending');
+    try {
+      const url = '/api/candidate-hub/request-link';
+      console.log('[hub] POSTing to:', url, 'portal.id:', portal.id);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), portal_id: portal.id }),
+      });
+      console.log('[hub] response status:', res.status);
+      const d = await res.json();
+      console.log('[hub] request-link response:', d);
+      if (d.dev_link) setDevLink(d.dev_link);  // server now sends correct origin via X-App-Origin
+      if (!res.ok || d.error) {
+        setStatus('error');
+        setMsg(d.error || 'Something went wrong. Please try again.');
+        return;
+      }
+      setMsg(d.message || 'Check your email for your access link.');
+      setStatus('sent');
+    } catch {
+      setStatus('error');
+      setMsg('Something went wrong. Please try again.');
+    }
+  };
+
+  return (
+    <div style={{ maxWidth:460, margin:'40px auto', fontFamily:ff }}>
+      <div style={{ background:'white', borderRadius:br, border:'1px solid #E5E7EB', boxShadow:'0 4px 24px rgba(0,0,0,.06)', overflow:'hidden' }}>
+        {/* Header */}
+        <div style={{ background:`linear-gradient(135deg, ${pr} 0%, ${pr}CC 100%)`, padding:'28px 32px 24px' }}>
+          <div style={{ width:44, height:44, borderRadius:12, background:'rgba(255,255,255,.2)', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:14 }}>
+            <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"/>
+            </svg>
+          </div>
+          <div style={{ fontSize:20, fontWeight:800, color:'white' }}>Track your application</div>
+          <div style={{ fontSize:13, color:'rgba(255,255,255,.8)', marginTop:4 }}>
+            {portal.hub?.tagline || 'Enter your email and we\'ll send you a secure link to view your application status.'}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding:'28px 32px' }}>
+          {prefillError && (
+            <div style={{ marginBottom:16, padding:'10px 14px', borderRadius:8, background:'#FEF2F2', border:'1px solid #FECACA', color:'#DC2626', fontSize:13 }}>
+              {prefillError}
+            </div>
+          )}
+
+          {status === 'sent' ? (
+            <div style={{ textAlign:'center', padding:'8px 0' }}>
+              <div style={{ width:52, height:52, borderRadius:'50%', background:'#ECFDF5', border:'2px solid #86EFAC', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+                <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <div style={{ fontSize:16, fontWeight:700, color:'#111827', marginBottom:6 }}>Check your email</div>
+              <div style={{ fontSize:13, color:'#6B7280', lineHeight:1.6 }}>{msg}</div>
+              {devLink && (
+                <div style={{ marginTop:20, padding:'14px 16px', background:'#FFF7ED', border:'1px solid #FED7AA', borderRadius:8, textAlign:'left' }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:'#C2410C', marginBottom:8 }}>⚡ Dev mode — click to open your hub:</div>
+                  <a href={devLink}
+                    style={{ display:'inline-block', padding:'9px 18px', borderRadius:8, background:pr, color:'white', fontSize:13, fontWeight:700, textDecoration:'none' }}>
+                    Open My Applications →
+                  </a>
+                  <div style={{ fontSize:10, color:'#C2410C', marginTop:8, wordBreak:'break-all', opacity:0.7 }}>{devLink}</div>
+                </div>
+              )}
+              <button onClick={() => { setStatus('idle'); setEmail(''); setDevLink(null); }}
+                style={{ marginTop:20, fontSize:13, color:pr, background:'none', border:'none', cursor:'pointer', fontFamily:ff, textDecoration:'underline' }}>
+                Try a different email
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={submit}>
+              <label style={{ display:'block', fontSize:13, fontWeight:600, color:'#374151', marginBottom:6 }}>
+                Email address
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoFocus
+                style={{ width:'100%', padding:'11px 14px', borderRadius:8, border:`1.5px solid ${email.includes('@') ? pr : '#E5E7EB'}`, fontSize:14, fontFamily:ff, outline:'none', boxSizing:'border-box', marginBottom:14, transition:'border-color .15s' }}
+              />
+              <button type="submit" disabled={status==='sending' || !email.includes('@')}
+                style={{ width:'100%', padding:'12px', borderRadius:br, border:'none', background: email.includes('@') ? pr : '#E5E7EB', color: email.includes('@') ? 'white' : '#9CA3AF', fontSize:14, fontWeight:700, cursor: email.includes('@') ? 'pointer' : 'default', fontFamily:ff, transition:'all .15s' }}>
+                {status === 'sending' ? 'Sending…' : 'Send me a link →'}
+              </button>
+              {status === 'error' && <div style={{ marginTop:10, fontSize:13, color:'#DC2626', textAlign:'center' }}>{msg}</div>}
+              <div style={{ marginTop:14, fontSize:12, color:'#9CA3AF', textAlign:'center', lineHeight:1.5 }}>
+                We'll send a secure link to your email. The link expires in 24 hours.
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Candidate Hub Widget — self-service hub embedded inside a portal page ─────
+const CandidateHubWidget = ({ cfg, theme, portal }) => {
+  const pr = theme?.primaryColor || portal?.branding?.primary_color || '#4361EE';
+  const ff = theme?.fontFamily   || portal?.branding?.font || 'inherit';
+  const br = theme?.borderRadius || portal?.branding?.border_radius || '10px';
+
+  // Token comes from ?token= query param
+  const token = new URLSearchParams(window.location.search).get('token');
+
+  const [state,   setState]   = useState(null);
+  const [error,   setError]   = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [tab,     setTab]     = useState('applications');
+
+  useEffect(() => {
+    if (!token) { setError('No access token in URL. Use the link sent by your recruiter.'); setLoading(false); return; }
+    fetch(`/api/candidate-hub/verify/${token}`)
+      .then(r => r.json())
+      .then(d => { if (d.error) setError(d.error); else setState(d); setLoading(false); })
+      .catch(() => { setError('Unable to load your hub. Please check your link and try again.'); setLoading(false); });
+  }, [token]);
+
+  // ── shared sub-components using portal theme ──
+  const HubCard = ({ children }) => (
+    <div style={{ background:'white', borderRadius:br, border:'1px solid #E5E7EB', boxShadow:'0 2px 8px rgba(0,0,0,.05)', overflow:'hidden', marginBottom:16 }}>
+      {children}
+    </div>
+  );
+  const HubHeader = ({ icon, title, count }) => (
+    <div style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 20px', borderBottom:'1px solid #E5E7EB', background:'#FAFAFA' }}>
+      <div style={{ width:30, height:30, borderRadius:8, background:`${pr}18`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={pr} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {HUB_ICONS[icon]?.split('M').filter(Boolean).map((seg,i)=><path key={i} d={`M${seg}`}/>)}
+        </svg>
+      </div>
+      <div style={{ flex:1 }}>
+        <div style={{ fontSize:13, fontWeight:700, color:'#111827' }}>{title}</div>
+        {count !== undefined && <div style={{ fontSize:11, color:'#9CA3AF', marginTop:1 }}>{count} {count===1?'item':'items'}</div>}
+      </div>
+    </div>
+  );
+  const HubEmpty = ({ text }) => (
+    <div style={{ padding:'32px 20px', textAlign:'center', fontSize:13, color:'#9CA3AF' }}>{text}</div>
+  );
+  const HubSpinner = () => (
+    <div style={{ padding:32, display:'flex', justifyContent:'center' }}>
+      <div style={{ width:28, height:28, borderRadius:'50%', border:`3px solid ${pr}30`, borderTopColor:pr, animation:'hub-spin .8s linear infinite' }}/>
+      <style>{`@keyframes hub-spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+  const HubBadge = ({ label, color }) => (
+    <span style={{ display:'inline-flex', alignItems:'center', padding:'2px 9px', borderRadius:99, fontSize:11, fontWeight:700, background:`${color||pr}18`, color:color||pr, border:`1px solid ${color||pr}28`, whiteSpace:'nowrap' }}>{label}</span>
+  );
+  const statusCol = (s) => ({ 'Under Review':'#6B7280', 'Screening':'#D97706', 'Interview':'#7C3AED', 'Shortlisted':pr, 'Offer':'#0CA678', 'Hired':'#0CA678', 'Declined':'#DC2626', sent:pr, accepted:'#0CA678', declined:'#DC2626', completed:'#0CA678', cancelled:'#DC2626' }[s] || pr);
+
+  const HubTabContent = ({ tabId }) => {
+    const [items, setItems] = useState([]); const [load2, setLoad2] = useState(true);
+    const url = `/api/candidate-hub/${token}/${tabId}`;
+    useEffect(() => { fetch(url).then(r=>r.json()).then(d=>{setItems(Array.isArray(d)?d:[]);setLoad2(false);}).catch(()=>setLoad2(false)); }, [url]);
+    if (load2) return <HubSpinner/>;
+
+    if (tabId === 'applications') {
+      if (!items.length) return <HubEmpty text="No applications on record yet."/>;
+      return items.map(app => (
+        <div key={app.id} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 20px', borderBottom:'1px solid #E5E7EB' }}>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:14, fontWeight:700, color:'#111827' }}>{app.job_title}</div>
+            <div style={{ fontSize:12, color:'#9CA3AF', marginTop:2 }}>{[app.department,app.location].filter(Boolean).join(' · ')}</div>
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4 }}>
+            <HubBadge label={app.status} color={statusCol(app.status)}/>
+            <div style={{ fontSize:11, color:'#9CA3AF' }}>Applied {app.applied_at ? new Date(app.applied_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—'}</div>
+          </div>
+        </div>
+      ));
+    }
+
+    if (tabId === 'interviews') {
+      if (!items.length) return <HubEmpty text="No interviews scheduled yet."/>;
+      return items.map(iv => (
+        <div key={iv.id} style={{ padding:'16px 20px', borderBottom:'1px solid #E5E7EB', display:'flex', gap:14 }}>
+          <div style={{ minWidth:48, textAlign:'center', background:`${pr}12`, borderRadius:10, padding:'8px 4px' }}>
+            <div style={{ fontSize:20, fontWeight:800, color:pr, lineHeight:1 }}>{new Date(iv.date).getDate()}</div>
+            <div style={{ fontSize:10, color:pr, fontWeight:600, marginTop:2 }}>{new Date(iv.date).toLocaleDateString('en-GB',{month:'short'}).toUpperCase()}</div>
+          </div>
+          <div style={{ flex:1 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+              <span style={{ fontSize:14, fontWeight:700, color:'#111827' }}>{iv.type_name}</span>
+              <HubBadge label={iv.status} color={statusCol(iv.status)}/>
+            </div>
+            {iv.job_name && <div style={{ fontSize:12, color:'#6B7280' }}>{iv.job_name}</div>}
+            <div style={{ fontSize:12, color:'#9CA3AF', marginTop:4 }}>{iv.time} · {iv.duration} min · {iv.format}</div>
+            {iv.video_link && new Date(`${iv.date}T${iv.time||'00:00'}`) >= new Date() && (
+              <a href={iv.video_link} target="_blank" rel="noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:6, marginTop:8, padding:'6px 12px', borderRadius:8, fontSize:12, fontWeight:600, background:pr, color:'white', textDecoration:'none' }}>Join Meeting</a>
+            )}
+          </div>
+        </div>
+      ));
+    }
+
+    if (tabId === 'offers') {
+      if (!items.length) return <HubEmpty text="No offers yet."/>;
+      return items.map(offer => (
+        <div key={offer.id} style={{ padding:'20px', borderBottom:'1px solid #E5E7EB' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:12 }}>
+            <div style={{ fontSize:15, fontWeight:800, color:'#111827' }}>{offer.job_name||'Offer Letter'}</div>
+            <HubBadge label={offer.status.replace(/_/g,' ')} color={statusCol(offer.status)}/>
+          </div>
+          {offer.base_salary && <div style={{ padding:'10px 14px', background:'#F9FAFB', borderRadius:8, border:'1px solid #E5E7EB', fontSize:14, fontWeight:700, color:'#111827', marginBottom:12 }}>
+            Base: {new Intl.NumberFormat('en-US',{style:'currency',currency:offer.currency||'USD',maximumFractionDigits:0}).format(offer.base_salary)}
+          </div>}
+          {offer.start_date && <div style={{ fontSize:12, color:'#6B7280', marginBottom:12 }}>Start date: {new Date(offer.start_date).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</div>}
+          {offer.status==='sent' && (
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={async()=>{await fetch(`/api/candidate-hub/${token}/offers/${offer.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'accept'})});setItems(prev=>prev.map(o=>o.id===offer.id?{...o,status:'accepted'}:o));}}
+                style={{ flex:1, padding:'10px', borderRadius:br, border:'none', background:pr, color:'white', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:ff }}>Accept Offer</button>
+              <button onClick={async()=>{await fetch(`/api/candidate-hub/${token}/offers/${offer.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'decline'})});setItems(prev=>prev.map(o=>o.id===offer.id?{...o,status:'declined'}:o));}}
+                style={{ flex:1, padding:'10px', borderRadius:br, border:'1.5px solid #DC2626', background:'transparent', color:'#DC2626', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:ff }}>Decline</button>
+            </div>
+          )}
+          {offer.status==='accepted' && <div style={{ padding:'10px', background:'#ECFDF5', borderRadius:8, textAlign:'center', fontSize:13, fontWeight:700, color:'#0CA678' }}>✓ Offer Accepted — congratulations!</div>}
+        </div>
+      ));
+    }
+
+    if (tabId === 'messages') {
+      const [reply, setReply] = useState(''); const [sending, setSending] = useState(false);
+      return (
+        <>
+          {!items.length ? <HubEmpty text="No messages yet."/> : items.map(m => (
+            <div key={m.id} style={{ padding:'14px 20px', borderBottom:'1px solid #E5E7EB', borderLeft:`3px solid ${m.direction==='inbound'?'#0CA678':pr}` }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
+                <HubBadge label={m.type} color={m.direction==='inbound'?'#0CA678':pr}/>
+                <span style={{ fontSize:11, color:'#9CA3AF' }}>{m.created_at ? new Date(m.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : ''}</span>
+              </div>
+              {m.subject && <div style={{ fontSize:13, fontWeight:700, color:'#111827', marginBottom:4 }}>{m.subject}</div>}
+              <div style={{ fontSize:13, color:'#4B5563', lineHeight:1.6 }}>{m.body}</div>
+            </div>
+          ))}
+          <div style={{ padding:'16px 20px' }}>
+            <textarea value={reply} onChange={e=>setReply(e.target.value)} rows={3} placeholder="Reply to your recruiter…" style={{ width:'100%', padding:'10px 12px', borderRadius:8, border:'1.5px solid #E5E7EB', fontSize:13, fontFamily:ff, outline:'none', resize:'vertical', boxSizing:'border-box', marginBottom:10 }}/>
+            <button onClick={async()=>{if(!reply.trim())return;setSending(true);await fetch(`/api/candidate-hub/${token}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:reply})});setReply('');setSending(false);}} disabled={sending||!reply.trim()}
+              style={{ padding:'9px 18px', borderRadius:8, border:'none', background:reply.trim()?pr:'#E5E7EB', color:reply.trim()?'white':'#9CA3AF', fontSize:13, fontWeight:700, cursor:reply.trim()?'pointer':'default', fontFamily:ff }}>
+              {sending?'Sending…':'Send'}
+            </button>
+          </div>
+        </>
+      );
+    }
+
+    if (tabId === 'documents') {
+      if (!items.length) return <HubEmpty text="No documents uploaded yet."/>;
+      return items.map(doc => (
+        <div key={doc.id} style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 20px', borderBottom:'1px solid #E5E7EB' }}>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:'#111827' }}>{doc.name}</div>
+            <div style={{ fontSize:11, color:'#9CA3AF' }}>{doc.file_type}</div>
+          </div>
+        </div>
+      ));
+    }
+    return null;
+  };
+
+  const HUB_TABS = [
+    { id:'applications', label:'Applications' },
+    { id:'interviews',   label:'Interviews'   },
+    { id:'offers',       label:'Offers'       },
+    { id:'messages',     label:'Messages'     },
+    { id:'documents',    label:'Documents'    },
+  ].filter(t => !cfg?.hideTabs?.includes(t.id));
+
+  if (loading) return <div style={{ padding:48, textAlign:'center' }}><div style={{ width:32, height:32, borderRadius:'50%', border:`3px solid ${pr}30`, borderTopColor:pr, animation:'hub-spin .8s linear infinite', margin:'0 auto' }}/><style>{`@keyframes hub-spin{to{transform:rotate(360deg)}}`}</style></div>;
+
+  // No token — show magic link request form
+  if (!token || error) return (
+    <HubMagicLinkForm pr={pr} ff={ff} br={br} portal={portal}
+      prefillError={token ? error : null}/>
+  );
+
+  if (!state) return null;
+
+  const { candidate } = state;
+  const d = candidate?.data || {};
+
+  return (
+    <div style={{ maxWidth:760, margin:'0 auto', fontFamily:ff }}>
+      {/* Candidate greeting */}
+      <div style={{ marginBottom:24, padding:'20px 24px', borderRadius:br, background:`${pr}08`, border:`1px solid ${pr}20` }}>
+        <div style={{ fontSize:20, fontWeight:800, color:'#111827' }}>Welcome back{d.first_name ? `, ${d.first_name}` : ''}! 👋</div>
+        <div style={{ fontSize:13, color:'#6B7280', marginTop:4 }}>Here's everything about your application journey.</div>
+      </div>
+
+      {/* Tab bar */}
+      <div style={{ display:'flex', gap:4, marginBottom:20, overflowX:'auto', paddingBottom:2 }}>
+        {HUB_TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            style={{ padding:'8px 16px', borderRadius:99, fontSize:13, fontWeight:tab===t.id?700:500, border:`1.5px solid ${tab===t.id?pr:'#E5E7EB'}`, background:tab===t.id?pr:'white', color:tab===t.id?'white':'#6B7280', cursor:'pointer', fontFamily:ff, whiteSpace:'nowrap', flexShrink:0, transition:'all .15s' }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content card */}
+      <HubCard>
+        <HubHeader icon="briefcase" title={HUB_TABS.find(t=>t.id===tab)?.label||tab} />
+        <HubTabContent tabId={tab}/>
+      </HubCard>
+    </div>
+  );
+};
+
+const HUB_ICONS = {
+  briefcase: "M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zm-8-4a2 2 0 012 2H10a2 2 0 012-2z",
+  calendar:  "M8 2v3M16 2v3M3 8h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z",
+};
+
 const Widget = ({ cell, theme, portal, api, track }) => {
   const cfg = cell.widgetConfig||{}
   switch (cell.widgetType) {
@@ -2599,6 +2938,7 @@ const Widget = ({ cell, theme, portal, api, track }) => {
     case 'content':       return <ContentWidget       cfg={cfg} theme={theme}/>
     case 'accordion':     return <AccordionWidget     cfg={cfg} theme={theme}/>
     case 'cta':           return <CtaWidget           cfg={cfg} theme={theme}/>
+    case 'candidate_hub': return <CandidateHubWidget cfg={cfg} theme={theme} portal={portal} api={api}/>
     case 'hm_widget':     return <HMPortalWidget       cfg={cfg} theme={theme} portal={portal} api={api}/>
     case 'report_widget': return <ReportWidget          cfg={cfg} theme={theme} portal={portal} api={api}/>
     case 'ai_summary':    return <AISummaryWidget       cfg={cfg} theme={theme} portal={portal} api={api}/>
@@ -2697,37 +3037,47 @@ const PortalNav = ({ portal, theme, currentPage, onNav, pages }) => {
 
         {/* Links */}
         <div style={{ display:'flex', gap:4, alignItems:'center', marginLeft: alignment==='left' ? 24 : 0 }}>
-          {/* Candidate Hub link (when enabled) */}
-          {portal.hub?.enabled && (
-            <a href={`/hub?portal_id=${portal.id}`}
-              style={{ padding:'6px 14px', borderRadius:8, fontSize:14, fontWeight:600, color:fg, textDecoration:'none', fontFamily:theme.fontFamily }}>
-              My Applications
-            </a>
-          )}
-          {navLinks.length > 0
-            ? navLinks.map(lnk => (
-                <a key={lnk.id} href={lnk.href||'#'}
-                  style={ (lnk.isCta || lnk.isButton) ? {
-                    padding:'7px 18px', borderRadius: theme.buttonRadius||'8px', fontSize:14, fontWeight:700,
-                    color:'white', textDecoration:'none', fontFamily:theme.fontFamily,
-                    background: activeCol, boxShadow:`0 2px 8px ${activeCol}40`
-                  } : {
-                    padding:'6px 12px', borderRadius:8, fontSize:14, fontWeight:500,
-                    color:fg, textDecoration:'none', fontFamily:theme.fontFamily
-                  }}>
-                  {lnk.label}
-                </a>
-              ))
-            : pages.length > 1 && pages.map(pg => (
-                <button key={pg.id} onClick={()=>onNav(pg)}
-                  style={{ background:'none', border:'none', cursor:'pointer', padding:'6px 14px', borderRadius:8,
-                    fontSize:14, fontWeight:currentPage?.id===pg.id?700:500,
-                    color:currentPage?.id===pg.id?activeCol:fg,
-                    fontFamily:theme.fontFamily }}>
-                  {pg.name}
-                </button>
-              ))
-          }
+          {[
+            /* Nav links or page tabs — pages already includes the hub page when enabled */
+            ...(navLinks.length > 0
+              ? navLinks.map((lnk, i) => (
+                  <a key={lnk.id || `nav-${i}`} href={lnk.href||'#'}
+                    style={ (lnk.isCta || lnk.isButton) ? {
+                      padding:'7px 18px', borderRadius: theme.buttonRadius||'8px', fontSize:14, fontWeight:700,
+                      color:'white', textDecoration:'none', fontFamily:theme.fontFamily,
+                      background: activeCol, boxShadow:`0 2px 8px ${activeCol}40`
+                    } : {
+                      padding:'6px 12px', borderRadius:8, fontSize:14, fontWeight:500,
+                      color:fg, textDecoration:'none', fontFamily:theme.fontFamily
+                    }}>
+                    {lnk.label}
+                  </a>
+                ))
+              : pages.filter(pg => !pg._isHub).length > 1
+                ? pages.filter(pg => !pg._isHub).map(pg => (
+                    <button key={pg.id} onClick={()=>onNav(pg)}
+                      style={{ background:'none', border:'none', cursor:'pointer', padding:'6px 14px', borderRadius:8,
+                        fontSize:14, fontWeight:currentPage?.id===pg.id?700:500,
+                        color:currentPage?.id===pg.id?activeCol:fg,
+                        fontFamily:theme.fontFamily }}>
+                      {pg.name}
+                    </button>
+                  ))
+                : []
+            ),
+            /* Hub page button — always shown when enabled, regardless of nav link mode */
+            portal.hub?.enabled && (
+              <button key="__hub__" onClick={() => onNav(pages.find(pg => pg._isHub))}
+                style={{ background: currentPage?._isHub ? activeCol : 'none',
+                  border: currentPage?._isHub ? 'none' : `1.5px solid ${activeCol}40`,
+                  cursor:'pointer', padding:'6px 16px', borderRadius:8,
+                  fontSize:14, fontWeight:600,
+                  color: currentPage?._isHub ? 'white' : activeCol,
+                  fontFamily:theme.fontFamily, transition:'all .15s' }}>
+                {portal.hub?.nav_label || 'My Applications'}
+              </button>
+            ),
+          ].filter(Boolean)}
         </div>
       </div>
     </nav>
@@ -2735,7 +3085,7 @@ const PortalNav = ({ portal, theme, currentPage, onNav, pages }) => {
 }
 
 // ── Portal Copilot (inline, reads portal.copilot config) ─────────────────────
-const PortalCopilot = ({ portal, api }) => {
+const PortalCopilot = ({ portal, api, onOpenChange }) => {
   const cop = portal.copilot || {};
   if (!cop.enabled) return null;
 
@@ -2751,11 +3101,25 @@ const PortalCopilot = ({ portal, api }) => {
     { label: 'How to apply', prompt: 'How does the application process work?' },
   ];
   const [open, setOpen] = useState(false);
+  const setOpenAndNotify = (v) => { setOpen(v); onOpenChange?.(v); };
   const [msgs, setMsgs] = useState([{ role:'assistant', content: welcome }]);
   const [input, setInput] = useState('');
   const [busy, setBusy]   = useState(false);
   const bottomRef = useRef(null);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }); }, [msgs]);
+
+  // Parse <JOB_CARDS>[...]</JOB_CARDS> out of assistant replies
+  const parseReply = (raw) => {
+    const tagRe = /<JOB_CARDS>([\s\S]*?)<\/JOB_CARDS>/gi;
+    const cards = [];
+    let clean = raw;
+    let m;
+    while ((m = tagRe.exec(raw)) !== null) {
+      try { const parsed = JSON.parse(m[1]); if (Array.isArray(parsed)) cards.push(...parsed); } catch {}
+      clean = clean.replace(m[0], '').trim();
+    }
+    return { text: clean, cards };
+  };
 
   const send = async (text) => {
     const q = text || input.trim();
@@ -2769,8 +3133,9 @@ const PortalCopilot = ({ portal, api }) => {
         messages: newMsgs,
         context: cop.welcome_context || '',
       });
-      const reply = res.reply || res.content || 'Sorry, I had trouble with that.';
-      setMsgs(m => [...m, { role:'assistant', content: reply }]);
+      const raw = res.reply || res.content || 'Sorry, I had trouble with that.';
+      const { text, cards } = parseReply(raw);
+      setMsgs(m => [...m, { role:'assistant', content: text || raw, cards: cards.length ? cards : undefined }]);
     } catch {
       setMsgs(m => [...m, { role:'assistant', content: 'Sorry, something went wrong. Please try again.' }]);
     }
@@ -2783,7 +3148,7 @@ const PortalCopilot = ({ portal, api }) => {
     <>
       {/* Floating trigger button */}
       {!open && (
-        <button onClick={() => setOpen(true)}
+        <button onClick={() => setOpenAndNotify(true)}
           style={{ position:'fixed', bottom:24, right:24, zIndex:9000, width:56, height:56, borderRadius:'50%',
             background:pr, color:'white', border:'none', cursor:'pointer', boxShadow:`0 4px 20px ${pr}60`,
             display:'flex', alignItems:'center', justifyContent:'center', transition:'transform .2s' }}
@@ -2814,7 +3179,7 @@ const PortalCopilot = ({ portal, api }) => {
               <div style={{ fontSize:14, fontWeight:800, color:'white' }}>{name}</div>
               <div style={{ fontSize:11, color:'rgba(255,255,255,.7)' }}>{subtitle}</div>
             </div>
-            <button onClick={() => setOpen(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,.7)', padding:4, display:'flex' }}>
+            <button onClick={() => setOpenAndNotify(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,.7)', padding:4, display:'flex' }}>
               <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>
           </div>
@@ -2822,11 +3187,40 @@ const PortalCopilot = ({ portal, api }) => {
           {/* Messages */}
           <div style={{ flex:1, overflowY:'auto', padding:'12px 14px', display:'flex', flexDirection:'column', gap:10 }}>
             {msgs.map((m, i) => (
-              <div key={i} style={{ display:'flex', justifyContent: m.role==='user' ? 'flex-end' : 'flex-start' }}>
-                <div style={{ maxWidth:'82%', padding:'9px 13px', borderRadius: m.role==='user' ? '14px 14px 4px 14px' : '4px 14px 14px 14px',
-                  background: m.role==='user' ? pr : '#F3F4F6', color: m.role==='user' ? 'white' : '#111827', fontSize:13, lineHeight:1.5 }}>
-                  {m.content}
-                </div>
+              <div key={i} style={{ display:'flex', justifyContent: m.role==='user' ? 'flex-end' : 'flex-start', flexDirection:'column', alignItems: m.role==='user' ? 'flex-end' : 'flex-start', gap:8 }}>
+                {/* Text bubble — only if there's text */}
+                {m.content && (
+                  <div style={{ maxWidth:'82%', padding:'9px 13px', borderRadius: m.role==='user' ? '14px 14px 4px 14px' : '4px 14px 14px 14px',
+                    background: m.role==='user' ? pr : '#F3F4F6', color: m.role==='user' ? 'white' : '#111827', fontSize:13, lineHeight:1.6,
+                    whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
+                    {m.content}
+                  </div>
+                )}
+                {/* Job cards */}
+                {m.cards?.length > 0 && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:8, width:'100%' }}>
+                    {m.cards.map((job, ji) => (
+                      <div key={ji} style={{ background:'white', border:`1.5px solid ${pr}22`, borderRadius:12, padding:'12px 14px',
+                        boxShadow:'0 1px 4px rgba(0,0,0,.06)', cursor:'pointer', transition:'box-shadow .15s' }}
+                        onMouseEnter={e=>e.currentTarget.style.boxShadow=`0 3px 12px ${pr}22`}
+                        onMouseLeave={e=>e.currentTarget.style.boxShadow='0 1px 4px rgba(0,0,0,.06)'}>
+                        <div style={{ fontSize:13, fontWeight:700, color:'#111827', marginBottom:2 }}>{job.title}</div>
+                        {(job.department || job.location) && (
+                          <div style={{ fontSize:11, color:'#6B7280', marginBottom:6 }}>
+                            {[job.department, job.location].filter(Boolean).join(' · ')}
+                          </div>
+                        )}
+                        {(job.work_type || job.employment_type) && (
+                          <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                            {[job.work_type, job.employment_type].filter(Boolean).map((tag,ti) => (
+                              <span key={ti} style={{ fontSize:10, padding:'2px 7px', borderRadius:99, background:`${pr}15`, color:pr, fontWeight:600 }}>{tag}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
             {busy && (
@@ -2868,12 +3262,25 @@ const PortalCopilot = ({ portal, api }) => {
 
 export default function PortalPageRenderer({ portal, api }) {
   const theme = portal.theme || portal.branding || {}
-  const pages = portal.pages || []
-  const [currentPage,   setCurrentPage]   = useState(pages[0]||null)
+  const rawPages = portal.pages || []
+
+  // ── Inject the hub as a virtual page when enabled ───────────────────────
+  const HUB_PAGE = { id:'__hub__', name: portal.hub?.nav_label || 'My Applications', slug:'/hub', _isHub:true, rows:[] }
+  const pages = portal.hub?.enabled ? [...rawPages, HUB_PAGE] : rawPages
+
+  // ── Determine initial page — check ?page= or ?token= in URL ─────────────
+  const _initPage = (() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('token') || params.get('page') === 'hub') return HUB_PAGE
+    return pages[0] || null
+  })()
+
+  const [currentPage,   setCurrentPage]   = useState(_initPage)
   const [consentGiven,  setConsentGiven]  = useState(()=>!!localStorage.getItem('vc_consent_'+portal.id))
   const [showConsent,   setShowConsent]   = useState(false)
   const [appStatus,     setAppStatus]     = useState(null)  // application status page state
   const [appLoading,    setAppLoading]    = useState(false)
+  const [copilotOpen,   setCopilotOpen]   = useState(false)
 
   // ── A/B variant: session-sticky assignment ──────────────────────────────
   const _activeVariant = (() => {
@@ -3009,7 +3416,7 @@ export default function PortalPageRenderer({ portal, api }) {
         </p>
       </div>
       <PortalFooter portal={portal} theme={theme}/>
-      <FeedbackWidget portal={portal} currentPageSlug={currentPage?.slug || "/"} api={api}/>
+      <FeedbackWidget portal={portal} currentPageSlug={currentPage?.slug || "/"} api={api} rightOffset={20}/>
     </div>
   );
 
@@ -3024,10 +3431,19 @@ export default function PortalPageRenderer({ portal, api }) {
   return (
     <div style={{ background:bg, minHeight:'100vh', color:tc, fontFamily:ff }}>
       <PortalNav portal={portal} theme={theme} currentPage={currentPage} onNav={setCurrentPage} pages={pages}/>
-      {(currentPage.rows||[]).map(row => <PortalRow key={row.id} row={row} theme={theme} portal={portal} api={api} track={track}/>)}
+
+      {/* Hub page — renders CandidateHubWidget inside the portal layout */}
+      {currentPage?._isHub ? (
+        <div style={{ maxWidth:1100, margin:'0 auto', padding:'48px 24px' }}>
+          <CandidateHubWidget cfg={portal.hub||{}} theme={theme} portal={portal} api={api}/>
+        </div>
+      ) : (
+        (currentPage?.rows||[]).map(row => <PortalRow key={row.id} row={row} theme={theme} portal={portal} api={api} track={track}/>)
+      )}
+
       <PortalFooter portal={portal} theme={theme}/>
-      <FeedbackWidget portal={portal} currentPageSlug={currentPage?.slug || "/"} api={api}/>
-      <PortalCopilot portal={portal} api={api}/>
+      <FeedbackWidget portal={portal} currentPageSlug={currentPage?.slug || "/"} api={api} forcePosition={portal.copilot?.enabled ? 'bottom-left' : undefined}/>
+      <PortalCopilot portal={portal} api={api} onOpenChange={setCopilotOpen}/>
 
       {/* GDPR Consent Banner */}
       {showConsent && (

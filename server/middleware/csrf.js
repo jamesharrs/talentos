@@ -32,6 +32,7 @@ const CSRF_EXEMPT_PREFIXES = [
   '/api/portal-auth',
   '/api/portal-public',
   '/api/portal-copilot',   // candidate-facing copilot — public, no cookie session
+  '/api/cv-parse',         // CV parsing — called from portal wizard, no cookie session
   '/api/portal-analytics', // public analytics tracking
   '/api/portal-feedback',  // public feedback widget
   '/api/comms/webhook',    // Twilio inbound webhooks

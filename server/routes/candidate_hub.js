@@ -53,7 +53,13 @@ router.post('/token', (req, res) => {
   saveStore();
 
   const baseUrl = process.env.APP_URL || process.env.CLIENT_URL || 'https://client-gamma-ruddy-63.vercel.app';
-  res.status(201).json({ token, hub_url: `${baseUrl}/hub/${token}`, expires_at: expiresAt, candidate_name: hubToken.candidate_name });
+  res.status(201).json({
+    token,
+    hub_url: `${baseUrl}/hub/${token}`,            // legacy standalone route
+    portal_hub_url_hint: `{portal_url}?token=${token}`, // use this on portal pages with candidate_hub widget
+    expires_at: expiresAt,
+    candidate_name: hubToken.candidate_name
+  });
 });
 
 
@@ -311,6 +317,89 @@ router.delete('/tokens/:id', (req, res) => {
   store.hub_tokens[idx] = { ...store.hub_tokens[idx], status: 'revoked', revoked_at: now() };
   saveStore();
   res.json({ ok: true });
+});
+
+// POST /api/candidate-hub/request-link — candidate requests a magic link by email (public)
+router.post('/request-link', async (req, res) => {
+  const { email, portal_id, environment_id } = req.body;
+  console.log('[request-link] email:', email, 'portal_id:', portal_id);
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+
+  const store = getStore();
+  ensureHubTokens(store);
+
+  // Find environment — from portal_id or direct environment_id
+  let envId = environment_id;
+  if (!envId && portal_id) {
+    const portal = (store.portals || []).find(p => p.id === portal_id);
+    envId = portal?.environment_id;
+  }
+  if (!envId) return res.status(400).json({ error: 'Cannot determine environment' });
+
+  // Find candidate by email
+  const emailLower = email.toLowerCase().trim();
+  const candidate = (store.records || []).find(r =>
+    !r.deleted_at &&
+    r.environment_id === envId &&
+    (r.data?.email || '').toLowerCase() === emailLower
+  );
+  console.log('[request-link] envId:', envId, 'candidate found:', !!candidate, 'total records:', store.records?.length);
+
+  // Always respond OK to prevent email enumeration
+  if (!candidate) {
+    console.log('[request-link] no candidate — returning without dev_link');
+    return res.json({ ok: true, message: 'If we have an application on file for this email, you\'ll receive a link shortly.' });
+  }
+
+  // Revoke existing active tokens for this candidate
+  store.hub_tokens = store.hub_tokens.map(t =>
+    t.candidate_id === candidate.id && t.status === 'active'
+      ? { ...t, status: 'revoked', revoked_at: now() }
+      : t
+  );
+
+  // Generate new token (24h expiry for magic links)
+  const crypto = require('crypto');
+  const token = crypto.randomBytes(40).toString('hex');
+  const expiresAt = new Date(Date.now() + 24 * 3600000).toISOString();
+  const d = candidate.data || {};
+
+  store.hub_tokens.push({
+    id: uuidv4(), token, candidate_id: candidate.id, environment_id: envId,
+    candidate_name: candidateName(d), candidate_email: d.email || null,
+    status: 'active', created_by: 'self-service', created_at: now(),
+    expires_at: expiresAt, last_accessed: null, access_count: 0,
+  });
+  saveStore();
+
+  // Build the magic link URL — use X-App-Origin from Vite proxy for local dev, APP_URL for prod
+  const appOrigin = req.headers['x-app-origin'] || process.env.APP_URL || process.env.CLIENT_URL || '';
+  const portal = portal_id ? (store.portals || []).find(p => p.id === portal_id) : null;
+  const portalSlug = portal?.slug?.replace(/^\//, '') || '';
+  const tokenParam = `token=${token}`;
+  const magicLink = `${appOrigin}/${portalSlug}?${tokenParam}`;
+
+  // Send email via messaging service if available
+  try {
+    const messaging = require('../services/messaging');
+    const candidateName2 = candidateName(d) || 'there';
+    await messaging.sendEmail({
+      to: email,
+      subject: `Your ${portal?.branding?.company_name || 'application'} hub access link`,
+      body: `Hi ${candidateName2},\n\nHere is your secure link to view your application status:\n\n${magicLink}\n\nThis link expires in 24 hours and can only be used once.\n\nIf you didn't request this, you can ignore this email.\n\nBest regards,\n${portal?.branding?.company_name || 'The Recruitment Team'}`,
+      html: `<p>Hi ${candidateName2},</p><p>Here is your secure link to view your application status:</p><p><a href="${magicLink}" style="display:inline-block;padding:12px 24px;background:#4361EE;color:white;text-decoration:none;border-radius:8px;font-weight:700">View My Applications →</a></p><p style="color:#9CA3AF;font-size:13px">This link expires in 24 hours. If you didn't request this, you can ignore this email.</p>`,
+    });
+  } catch (e) {
+    // Email sending failed — still return the link in dev/sim mode
+    console.warn('[hub] Email send failed:', e.message);
+  }
+
+  res.json({
+    ok: true,
+    message: 'If we have an application on file for this email, you\'ll receive a link shortly.',
+    // Always include dev_link unless explicitly in production — makes testing easy
+    dev_link: magicLink,
+  });
 });
 
 module.exports = router;

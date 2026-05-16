@@ -238,7 +238,7 @@ const AUTH_EXEMPT = [
   '/feature-packs',
   '/release-notes',  // public read — published notes shown to all logged-in users
   '/superadmin', '/bot', '/analytics',
-  '/candidate-hub/verify',  // public — candidate opens hub link, no auth
+  '/candidate-hub',         // all candidate hub endpoints — token-authenticated, no session
   '/sequencer/unsubscribe',
   '/attachments/file',
   '/attachments/upload',

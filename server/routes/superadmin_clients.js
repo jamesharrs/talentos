@@ -799,3 +799,4 @@ router.post('/:id/impersonate', async (req, res) => {
 
 
 module.exports = router;
+module.exports.buildTemplate = buildTemplate;

@@ -27,6 +27,7 @@ const StageCategoriesSection = lazy(() => import("./settings/StageCategoriesSect
 const FeatureFlagsSettings = lazy(() => import("./settings/FeatureFlagsSettings.jsx"));
 const AiMatchingSettings = lazy(() => import("./settings/AiMatchingSettings.jsx"));
 const DatasetsSection = lazy(() => import("./settings/DatasetsSection.jsx"));
+const TestScriptGenerator = lazy(() => import("./settings/TestScriptGenerator.jsx"));
 const SandboxManager = lazy(() => import("./SandboxManager.jsx"));
 const SettingsDashboard = lazy(() => import("./SettingsDashboard.jsx"));
 const FieldModal = lazy(() => import("./FieldModal.jsx"));
@@ -2848,6 +2849,7 @@ export default function SettingsPage({ currentUser, environment, initialSection,
         {activeSection==="email_templates" && <LazyTab><EmailTemplateBuilder environment={environment}/></LazyTab>}
         {activeSection==="config"      && <ImportExportTabs environment={environment}/>}
         {activeSection==="datasets"    && <LazyTab><DatasetsSection environment={environment}/></LazyTab>}
+        {activeSection==="test_scripts" && <LazyTab><TestScriptGenerator environment={environment}/></LazyTab>}
         {activeSection==="enterprise"  && <LazyTab><EnterpriseSettings environment={environment}/></LazyTab>}
         {activeSection==="integration_hub" && <LazyTab><IntegrationHub environment={environment}/></LazyTab>}
         {activeSection==="company_profile" && (

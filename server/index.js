@@ -93,7 +93,10 @@ app.use(helmet({
 
 // ── Request timeout (25s — Railway hard limit is 30s) ──────────────────────
 app.use((req, res, next) => {
-  res.setTimeout(25000, () => {
+  // Long-running AI routes get extended timeout
+  const longRoutes = ['/api/test-scripts/generate', '/api/ai/', '/api/cv-parse', '/api/translate'];
+  const isLong = longRoutes.some(p => req.path.startsWith(p.replace('/api', '')));
+  res.setTimeout(isLong ? 120000 : 25000, () => {
     if (!res.headersSent) res.status(408).json({ error: 'Request timeout', code: 'TIMEOUT' });
   });
   next();
@@ -347,6 +350,7 @@ app.use('/api/translate',         require('./routes/translate'));
 app.use('/api/cv-parse',          require('./routes/cv_parse'));
 app.use('/api/bias-scan',         require('./routes/bias_scan'));
 app.use('/api/doc-extract',       require('./routes/doc_extract'));
+app.use('/api/test-scripts',      require('./routes/test_scripts'));
 app.use('/api/linkedin-search',   require('./routes/linkedin_search'));
 app.use('/api/company-research',  require('./routes/company_research'));
 app.use('/api/skills-intel',      require('./routes/skills_intelligence'));

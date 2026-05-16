@@ -48,3 +48,6 @@ data/*.bak2
 # All local data files (never commit live data)
 data/*.json
 !data/talentos.sample.json
+server/test_script_outputs/
+e2e/.auth/
+e2e/report/

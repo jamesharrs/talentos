@@ -983,7 +983,8 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
         )}
       </div>
 
-      {/* Search — capped width */}
+      {/* Search + Create — wrapped together for tour spotlight */}
+      <div data-tour="search-and-create" style={{ display:"flex", alignItems:"center", gap:8, flex:1, maxWidth:480 }}>
       <div data-tour="global-search" style={{ position: "relative", flex: 1, maxWidth: 400 }}>
         {/* Input */}
         <input
@@ -1129,6 +1130,7 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
           </div>
         )}
       </div>
+      </div>{/* end search-and-create wrapper */}
 
       {/* ── Right group: Calendar + Bell + History ── */}
       <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:"auto", flexShrink:0, borderLeft:"1px solid var(--t-border)", paddingLeft:10 }}>
@@ -2495,6 +2497,7 @@ activeNavRef.current = activeNav;
           {/* Logo icon — always visible, click to expand when collapsed */}
           <div
             onClick={navCollapsed ? toggleNav : () => switchNav("dashboard")}
+            data-tour="nav-logo"
             title={navCollapsed ? "Expand sidebar" : "Go to Dashboard"}
             style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, overflow: "hidden", cursor: "pointer" }}>
             <svg width="22" height="22" viewBox="0 0 80 80" fill="none" style={{ flexShrink: 0 }}>
@@ -2620,7 +2623,7 @@ activeNavRef.current = activeNav;
       )}
 
       {/* Main content */}
-      <div style={{ marginLeft: NAV_W, flex: 1, height: "100vh", display: "flex", flexDirection: "column", background: "var(--t-bg)", paddingRight: copilotDocked ? 420 : historyOpen ? 300 : 0, paddingTop: selectedEnv?.is_sandbox ? 22 : 0, transition: "margin-left 0.2s cubic-bezier(0.4,0,0.2,1), padding-right 0.25s cubic-bezier(0.4,0,0.2,1)", overflow: "hidden", position: "relative", isolation: "isolate" }}>
+      <div data-tour="main-content" style={{ marginLeft: NAV_W, flex: 1, height: "100vh", display: "flex", flexDirection: "column", background: "var(--t-bg)", paddingRight: copilotDocked ? 420 : historyOpen ? 300 : 0, paddingTop: selectedEnv?.is_sandbox ? 22 : 0, transition: "margin-left 0.2s cubic-bezier(0.4,0,0.2,1), padding-right 0.25s cubic-bezier(0.4,0,0.2,1)", overflow: "hidden", position: "relative", isolation: "isolate" }}>
         {/* Top bar */}
         <GlobalSearch selectedEnv={selectedEnv} navObjects={navObjects}
              activeDashTab={activeNav === "dashboard" ? "overview" : activeNav.startsWith("dashboard_") ? activeNav.replace("dashboard_","") : null}
@@ -2844,10 +2847,7 @@ activeNavRef.current = activeNav;
         </div>
       </div>
       {canGlobal('access_copilot') && featCopilot && (
-        <>
-          {/* Tour target sentinel — zero-size, marks copilot button position */}
-          <div data-tour="copilot-button" style={{ position: "fixed", bottom: 24, right: 24, width: 56, height: 56, pointerEvents: "none", zIndex: 799 }} />
-          <AICopilot
+        <AICopilot
           environment={selectedEnv}
           activeNav={activeNav}
           navObjects={navObjects}
@@ -2859,7 +2859,6 @@ activeNavRef.current = activeNav;
             if (!obj) return;
             openRecord(record.id, obj.id);
           }} />
-        </>
       )}
 
       {/* Getting Started — welcome modal on first login */}

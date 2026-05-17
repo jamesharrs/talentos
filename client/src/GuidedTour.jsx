@@ -2,15 +2,16 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 
 const STEPS = [
-  { id:"welcome", target:null, title:"Welcome to Vercentic", body:"This quick tour covers the key areas of the platform. It takes about 2 minutes — you can skip at any time.", icon:"✦", placement:"center", ctaLabel:"Start the tour" },
-  { id:"sidebar", target:"[data-tour='sidebar-nav']", title:"Navigation", body:"The left sidebar is your main navigation. Recruit holds your People, Jobs and Talent Pools. Tools gives you Interviews, Calendar, Offers and Reports.", placement:"right" },
-  { id:"topbar", target:"[data-tour='global-search']", title:"Search & Create", body:"Search everything from anywhere in the platform. The + Create button adds a new person, job or any record in one click.", placement:"bottom" },
-  { id:"dashboard", target:"[data-tour='dashboard-stats']", title:"Your Dashboard", body:"Live snapshot of your pipeline — stat cards, hiring activity chart, pipeline breakdown and a real-time activity feed. Click any card to jump to matching records.", placement:"bottom" },
-  { id:"records", target:"[data-tour='records-toolbar']", title:"Smart Lists", body:"Use Columns to choose what you see, Filters to narrow results, and Lists to save and share your favourite views with your team.", placement:"bottom" },
-  { id:"pipeline", target:"[data-tour='pipeline-widget']", title:"Candidate Pipeline", body:"On Job records, this bar shows every linked candidate by stage. Click a count to expand and use arrows to advance candidates — without leaving the page.", placement:"bottom" },
-  { id:"interviews", target:"[data-tour='nav-interviews']", title:"Interviews", body:"Create interview types with availability grids, schedule candidates, and collect structured scorecard feedback from interviewers.", placement:"right" },
-  { id:"copilot", target:"[data-tour='copilot-button']", title:"AI Copilot", body:"Your intelligent assistant. Ask it to find candidates, draft emails, create records, schedule interviews or run reports — all in plain language. It knows your live data.", placement:"top-left" },
-  { id:"done", target:null, title:"You're all set!", body:"That's the essentials covered. Find detailed guides in the Help section, and remember the Copilot is always there if you get stuck — just ask.", icon:"✓", placement:"center", ctaLabel:"Start exploring", isDone:true },
+  { id:"welcome",    target:null,                             title:"Welcome to Vercentic",    body:"This quick tour covers the key areas of the platform. It takes about 2 minutes — you can skip at any time.", icon:"✦", placement:"center", ctaLabel:"Start the tour" },
+  { id:"sidebar",    target:"[data-tour='sidebar-nav']",      title:"Navigation",              body:"The left sidebar is your main navigation. Recruit holds your People, Jobs and Talent Pools. Tools gives you Interviews, Calendar, Offers and Reports.", placement:"right" },
+  { id:"topbar",     target:"[data-tour='global-search']",    title:"Search & Create",         body:"Search everything from anywhere in the platform. The + Create button adds a new person, job or any record in one click.", placement:"bottom" },
+  { id:"dashboard",  target:"[data-tour='nav-dashboard']",    title:"Your Dashboard",          body:"Live snapshot of your pipeline — stat cards, hiring activity chart, pipeline breakdown and a real-time activity feed. Click any card to jump to matching records.", placement:"right" },
+  { id:"people",     target:"[data-tour='nav-people']",       title:"People",                  body:"Your candidate and employee database. Use filters, saved lists, and the AI matching tab to surface the right people fast.", placement:"right" },
+  { id:"jobs",       target:"[data-tour='nav-jobs']",         title:"Jobs",                    body:"Manage open roles and track candidates through each stage. The linked people widget at the top shows everyone in your pipeline for that role.", placement:"right" },
+  { id:"interviews", target:"[data-tour='nav-interviews']",   title:"Interviews",              body:"Create interview types with availability grids, schedule candidates, and collect structured scorecard feedback from interviewers.", placement:"right" },
+  { id:"offers",     target:"[data-tour='nav-offers']",       title:"Offers",                  body:"Build and send offers, manage the approval chain, and track accepted or declined responses — all in one place.", placement:"right" },
+  { id:"copilot",    target:"[data-tour='copilot-button']",   title:"AI Copilot",              body:"Your intelligent assistant. Ask it to find candidates, draft emails, create records, schedule interviews or run reports — all in plain language. It knows your live data.", placement:"top-left" },
+  { id:"done",       target:null,                             title:"You're all set!",          body:"That's the essentials covered. Find detailed guides in the Help section, and remember the Copilot is always there if you get stuck — just ask.", icon:"✓", placement:"center", ctaLabel:"Start exploring", isDone:true },
 ];
 
 const PAD = 10;

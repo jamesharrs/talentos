@@ -933,7 +933,7 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
   const OBJECT_COLORS = { people: "#3b5bdb", jobs: "#0ca678", "talent-pools": "#7c3aed" };
 
   return (
-    <div ref={ref} style={{ position: "relative", zIndex: 1000, flexShrink: 0, background: "var(--t-surface)", borderBottom: "1px solid var(--t-border)", padding: "8px 20px", display: "flex", alignItems: "center", gap: 10 }}>
+    <div ref={ref} data-tour="global-search" style={{ position: "relative", zIndex: 1000, flexShrink: 0, background: "var(--t-surface)", borderBottom: "1px solid var(--t-border)", padding: "8px 20px", display: "flex", alignItems: "center", gap: 10 }}>
 
       {/* Dashboard dropdown */}
       <div ref={dashRef} style={{ position: "relative", flexShrink: 0 }}>
@@ -2544,6 +2544,13 @@ activeNavRef.current = activeNav;
                     <button
                       onClick={() => switchNav(item.id)}
                       {...(item.id==="interviews" ? {"data-tour":"nav-interviews"} : {})}
+                      {...(item.id==="dashboard"  ? {"data-tour":"nav-dashboard"}  : {})}
+                      {...(item.id==="offers"      ? {"data-tour":"nav-offers"}     : {})}
+                      {...(item.id==="reports"     ? {"data-tour":"nav-reports"}    : {})}
+                      {...(item.id==="getting-started" ? {"data-tour":"nav-getting-started"} : {})}
+                      {...(item.object?.slug==="people"       ? {"data-tour":"nav-people"}  : {})}
+                      {...(item.object?.slug==="jobs"         ? {"data-tour":"nav-jobs"}    : {})}
+                      {...(item.object?.slug==="talent-pools" ? {"data-tour":"nav-pools"}   : {})}
                       title={!navExpanded ? item.label : undefined}
                       style={{
                         width: "100%", display: "flex", alignItems: "center", gap: navExpanded ? 9 : 0,
@@ -2837,8 +2844,10 @@ activeNavRef.current = activeNav;
         </div>
       </div>
       {canGlobal('access_copilot') && featCopilot && (
-        <div data-tour="copilot-button" style={{ position: "fixed", bottom: 24, right: 24, zIndex: 800 }}>
-        <AICopilot
+        <>
+          {/* Tour target sentinel — zero-size, marks copilot button position */}
+          <div data-tour="copilot-button" style={{ position: "fixed", bottom: 24, right: 24, width: 56, height: 56, pointerEvents: "none", zIndex: 799 }} />
+          <AICopilot
           environment={selectedEnv}
           activeNav={activeNav}
           navObjects={navObjects}
@@ -2850,7 +2859,7 @@ activeNavRef.current = activeNav;
             if (!obj) return;
             openRecord(record.id, obj.id);
           }} />
-        </div>
+        </>
       )}
 
       {/* Getting Started — welcome modal on first login */}

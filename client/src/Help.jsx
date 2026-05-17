@@ -25,6 +25,8 @@ const IP = {
   chevron:"M9 18l6-6-6-6",
   arrow:"M19 12H5M12 5l-7 7 7 7",
   "help-circle":"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01",
+  map:"M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6z M9 3v15 M15 6v15",
+  play:"M5 3l14 9-14 9V3z",
 };
 
 const Ic = ({ n, s=16, c="currentColor", style={} }) => (
@@ -235,6 +237,20 @@ export default function Help({ onOpenCopilot }) {
             </div>
             <button onClick={()=>onOpenCopilot?.("I need help with Vercentic. ")} style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 18px", background:"#7950F2", border:"none", borderRadius:9, color:"white", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, whiteSpace:"nowrap" }}>
               <Ic n="zap" s={14} c="white"/>Open Copilot
+            </button>
+          </div>
+
+          {/* Take the tour */}
+          <div style={{ display:"flex", alignItems:"center", gap:14, padding:"14px 18px", background:"var(--t-surface)", border:"1px solid var(--t-border)", borderRadius:12, marginBottom:24 }}>
+            <div style={{ width:40, height:40, borderRadius:10, background:"rgba(67,97,238,0.1)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <Ic n="map" s={20} c="#4361EE"/>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:800, color:"var(--t-text1)", fontFamily:F, marginBottom:2 }}>Platform tour</div>
+              <div style={{ fontSize:13, color:"var(--t-text3)", lineHeight:1.5 }}>A 2-minute guided walkthrough of every key area. Restart it any time.</div>
+            </div>
+            <button onClick={()=>{ window.dispatchEvent(new CustomEvent('vercentic:start-tour',{detail:{step:0}})); }} style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 18px", background:"#4361EE", border:"none", borderRadius:9, color:"white", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, whiteSpace:"nowrap" }}>
+              <Ic n="play" s={14} c="white"/>Start tour
             </button>
           </div>
 

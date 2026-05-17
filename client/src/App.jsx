@@ -933,7 +933,7 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
   const OBJECT_COLORS = { people: "#3b5bdb", jobs: "#0ca678", "talent-pools": "#7c3aed" };
 
   return (
-    <div ref={ref} data-tour="global-search" style={{ position: "relative", zIndex: 1000, flexShrink: 0, background: "var(--t-surface)", borderBottom: "1px solid var(--t-border)", padding: "8px 20px", display: "flex", alignItems: "center", gap: 10 }}>
+    <div ref={ref} style={{ position: "relative", zIndex: 1000, flexShrink: 0, background: "var(--t-surface)", borderBottom: "1px solid var(--t-border)", padding: "8px 20px", display: "flex", alignItems: "center", gap: 10 }}>
 
       {/* Dashboard dropdown */}
       <div ref={dashRef} style={{ position: "relative", flexShrink: 0 }}>
@@ -984,7 +984,7 @@ const GlobalSearch = ({ selectedEnv, navObjects, onNavigateToSearch, onNavigateT
       </div>
 
       {/* Search — capped width */}
-      <div style={{ position: "relative", flex: 1, maxWidth: 400 }}>
+      <div data-tour="global-search" style={{ position: "relative", flex: 1, maxWidth: 400 }}>
         {/* Input */}
         <input
           value={query}
@@ -2622,7 +2622,7 @@ activeNavRef.current = activeNav;
       {/* Main content */}
       <div style={{ marginLeft: NAV_W, flex: 1, height: "100vh", display: "flex", flexDirection: "column", background: "var(--t-bg)", paddingRight: copilotDocked ? 420 : historyOpen ? 300 : 0, paddingTop: selectedEnv?.is_sandbox ? 22 : 0, transition: "margin-left 0.2s cubic-bezier(0.4,0,0.2,1), padding-right 0.25s cubic-bezier(0.4,0,0.2,1)", overflow: "hidden", position: "relative", isolation: "isolate" }}>
         {/* Top bar */}
-        <GlobalSearch data-tour="global-search" selectedEnv={selectedEnv} navObjects={navObjects}
+        <GlobalSearch selectedEnv={selectedEnv} navObjects={navObjects}
              activeDashTab={activeNav === "dashboard" ? "overview" : activeNav.startsWith("dashboard_") ? activeNav.replace("dashboard_","") : null}
              onDashboardNav={(tab) => {
                if (tab === "campaigns") { switchNav("campaigns"); return; }
